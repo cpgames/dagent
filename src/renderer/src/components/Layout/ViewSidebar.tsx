@@ -66,7 +66,7 @@ export function ViewSidebar(): JSX.Element {
   const { activeView, requestViewChange } = useViewStore()
 
   return (
-    <aside className="w-12 bg-gray-800 border-l border-gray-700 flex flex-col items-center py-2 gap-1">
+    <aside className="w-12 bg-gray-800 border-r border-gray-700 flex flex-col items-center py-2 gap-1">
       {views.map(({ id, label, Icon }) => {
         const isActive = activeView === id
         return (
@@ -81,9 +81,9 @@ export function ViewSidebar(): JSX.Element {
                 : 'text-gray-400 hover:bg-gray-700 hover:text-white'}
             `}
           >
-            {/* Active indicator - left border */}
+            {/* Active indicator - right border */}
             {isActive && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-500 rounded-r" />
+              <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-500 rounded-l" />
             )}
             <Icon className="w-5 h-5" />
           </button>

@@ -60,12 +60,12 @@ function App(): React.JSX.Element {
 
         {/* Main content area with sidebar */}
         <div className="flex-1 flex overflow-hidden">
+          <ViewSidebar />
           <main className="flex-1 overflow-auto">
             {activeView === 'kanban' && <KanbanView />}
             {activeView === 'dag' && <DAGView />}
             {activeView === 'context' && <ContextView />}
           </main>
-          <ViewSidebar />
         </div>
 
         {/* Status bar at bottom */}
