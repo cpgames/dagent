@@ -1,25 +1,30 @@
-import type { Feature, FeatureStatus } from '@shared/types';
+import type { JSX } from 'react'
+import type { Feature, FeatureStatus } from '@shared/types'
 
 interface FeatureTabsProps {
-  features: Feature[];
-  activeFeatureId: string | null;
-  onSelectFeature: (featureId: string) => void;
+  features: Feature[]
+  activeFeatureId: string | null
+  onSelectFeature: (featureId: string) => void
 }
 
 const statusBorderColors: Record<FeatureStatus, string> = {
   not_started: 'border-l-gray-500',
   in_progress: 'border-l-blue-500',
   needs_attention: 'border-l-yellow-500',
-  completed: 'border-l-green-500',
-};
+  completed: 'border-l-green-500'
+}
 
-export function FeatureTabs({ features, activeFeatureId, onSelectFeature }: FeatureTabsProps) {
+export function FeatureTabs({
+  features,
+  activeFeatureId,
+  onSelectFeature
+}: FeatureTabsProps): JSX.Element {
   if (features.length === 0) {
     return (
       <div className="px-4 py-2 text-sm text-gray-400">
         No features yet. Create one to get started.
       </div>
-    );
+    )
   }
 
   return (
@@ -43,5 +48,5 @@ export function FeatureTabs({ features, activeFeatureId, onSelectFeature }: Feat
         </button>
       ))}
     </div>
-  );
+  )
 }

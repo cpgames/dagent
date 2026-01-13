@@ -1,11 +1,11 @@
-import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { Task, TaskStatus } from '@shared/types';
+import { memo, type JSX } from 'react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
+import type { Task, TaskStatus } from '@shared/types'
 
 export interface TaskNodeData extends Record<string, unknown> {
-  task: Task;
-  onEdit: (taskId: string) => void;
-  onDelete: (taskId: string) => void;
+  task: Task
+  onEdit: (taskId: string) => void
+  onDelete: (taskId: string) => void
 }
 
 const statusBorderColors: Record<TaskStatus, string> = {
@@ -14,8 +14,8 @@ const statusBorderColors: Record<TaskStatus, string> = {
   running: 'border-yellow-500',
   merging: 'border-yellow-500',
   completed: 'border-green-500',
-  failed: 'border-red-500',
-};
+  failed: 'border-red-500'
+}
 
 const statusBgColors: Record<TaskStatus, string> = {
   blocked: 'bg-blue-500/10',
@@ -23,14 +23,14 @@ const statusBgColors: Record<TaskStatus, string> = {
   running: 'bg-yellow-500/10',
   merging: 'bg-yellow-500/10',
   completed: 'bg-green-500/10',
-  failed: 'bg-red-500/10',
-};
+  failed: 'bg-red-500/10'
+}
 
-function TaskNodeComponent({ data, selected }: NodeProps) {
-  const nodeData = data as TaskNodeData;
-  const { task, onEdit, onDelete } = nodeData;
-  const borderColor = statusBorderColors[task.status];
-  const bgColor = statusBgColors[task.status];
+function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
+  const nodeData = data as TaskNodeData
+  const { task, onEdit, onDelete } = nodeData
+  const borderColor = statusBorderColors[task.status]
+  const bgColor = statusBgColors[task.status]
 
   return (
     <div
@@ -73,8 +73,8 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
         <div className="flex items-center gap-1">
           <button
             onClick={(e) => {
-              e.stopPropagation();
-              onEdit(task.id);
+              e.stopPropagation()
+              onEdit(task.id)
             }}
             className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
             title="Edit task"
@@ -90,8 +90,8 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
           </button>
           <button
             onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id);
+              e.stopPropagation()
+              onDelete(task.id)
             }}
             className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-red-400"
             title="Delete task"
@@ -120,7 +120,7 @@ function TaskNodeComponent({ data, selected }: NodeProps) {
         className="!w-3 !h-3 !bg-gray-400 !border-2 !border-gray-600"
       />
     </div>
-  );
+  )
 }
 
-export const TaskNode = memo(TaskNodeComponent);
+export const TaskNode = memo(TaskNodeComponent)

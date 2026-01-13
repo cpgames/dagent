@@ -2,7 +2,7 @@
  * DAGView - Displays features and their dependencies as a directed acyclic graph.
  * Shows task dependencies and execution flow using React Flow.
  */
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, type JSX } from 'react'
 import {
   ReactFlow,
   Background,
@@ -16,19 +16,19 @@ import {
   type Connection,
   type OnConnect,
   type NodeChange,
-  BackgroundVariant,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+  BackgroundVariant
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 
-import { useFeatureStore } from '../stores/feature-store';
-import { useDAGStore } from '../stores/dag-store';
-import { TaskNode, FeatureTabs, type TaskNodeData } from '../components/DAG';
-import type { DAGGraph } from '@shared/types';
+import { useFeatureStore } from '../stores/feature-store'
+import { useDAGStore } from '../stores/dag-store'
+import { TaskNode, FeatureTabs, type TaskNodeData } from '../components/DAG'
+import type { DAGGraph } from '@shared/types'
 
 // Register custom node types
 const nodeTypes = {
-  taskNode: TaskNode,
-};
+  taskNode: TaskNode
+}
 
 // Convert DAG nodes to React Flow format
 function dagToNodes(
@@ -36,7 +36,7 @@ function dagToNodes(
   onEdit: (taskId: string) => void,
   onDelete: (taskId: string) => void
 ): Node[] {
-  if (!dag) return [];
+  if (!dag) return []
 
   return dag.nodes.map((task) => ({
     id: task.id,
@@ -45,112 +45,112 @@ function dagToNodes(
     data: {
       task,
       onEdit,
-      onDelete,
-    } as TaskNodeData,
-  }));
+      onDelete
+    } as TaskNodeData
+  }))
 }
 
 // Convert DAG connections to React Flow edges
 function dagToEdges(dag: DAGGraph | null): Edge[] {
-  if (!dag) return [];
+  if (!dag) return []
 
   return dag.connections.map((conn) => ({
     id: `${conn.from}-${conn.to}`,
     source: conn.from,
     target: conn.to,
     animated: false,
-    style: { stroke: '#6B7280', strokeWidth: 2 },
-  }));
+    style: { stroke: '#6B7280', strokeWidth: 2 }
+  }))
 }
 
-export default function DAGView() {
-  const { features, activeFeatureId, setActiveFeature } = useFeatureStore();
-  const { dag, loadDag, updateNode, addConnection, removeNode, removeConnection } = useDAGStore();
+export default function DAGView(): JSX.Element {
+  const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
+  const { dag, loadDag, updateNode, addConnection, removeNode, removeConnection } = useDAGStore()
 
   // Handlers for task node actions
   const handleEditTask = useCallback((taskId: string) => {
     // TODO: Implement task edit modal in future phase
-    console.log('Edit task:', taskId);
-  }, []);
+    console.log('Edit task:', taskId)
+  }, [])
 
   const handleDeleteTask = useCallback(
     (taskId: string) => {
-      removeNode(taskId);
+      removeNode(taskId)
     },
     [removeNode]
-  );
+  )
 
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
     () => dagToNodes(dag, handleEditTask, handleDeleteTask),
     [dag, handleEditTask, handleDeleteTask]
-  );
-  const initialEdges = useMemo(() => dagToEdges(dag), [dag]);
+  )
+  const initialEdges = useMemo(() => dagToEdges(dag), [dag])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
   // Update nodes/edges when DAG changes
   useEffect(() => {
-    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask));
-    setEdges(dagToEdges(dag));
-  }, [dag, handleEditTask, handleDeleteTask, setNodes, setEdges]);
+    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask))
+    setEdges(dagToEdges(dag))
+  }, [dag, handleEditTask, handleDeleteTask, setNodes, setEdges])
 
   // Load DAG when active feature changes
   useEffect(() => {
     if (activeFeatureId) {
-      loadDag(activeFeatureId);
+      loadDag(activeFeatureId)
     }
-  }, [activeFeatureId, loadDag]);
+  }, [activeFeatureId, loadDag])
 
   // Handle node position changes
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      onNodesChange(changes);
+      onNodesChange(changes)
 
       // Update positions in DAG store
       changes.forEach((change) => {
         if (change.type === 'position' && change.position && change.id) {
           updateNode(change.id, {
-            position: { x: change.position.x, y: change.position.y },
-          });
+            position: { x: change.position.x, y: change.position.y }
+          })
         }
-      });
+      })
     },
     [onNodesChange, updateNode]
-  );
+  )
 
   // Handle new connections
   const handleConnect: OnConnect = useCallback(
     (connection: Connection) => {
       if (connection.source && connection.target) {
         // Add to React Flow state
-        setEdges((eds) => addEdge(connection, eds));
+        setEdges((eds) => addEdge(connection, eds))
         // Add to DAG store
-        addConnection({ from: connection.source, to: connection.target });
+        addConnection({ from: connection.source, to: connection.target })
       }
     },
     [setEdges, addConnection]
-  );
+  )
 
   // Handle edge changes including deletion
   const handleEdgesChange = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (changes: any[]) => {
-      onEdgesChange(changes);
+      onEdgesChange(changes)
 
       // Handle edge removal
       changes.forEach((change) => {
         if (change.type === 'remove' && change.id) {
-          const [from, to] = change.id.split('-');
+          const [from, to] = change.id.split('-')
           if (from && to) {
-            removeConnection(from, to);
+            removeConnection(from, to)
           }
         }
-      });
+      })
     },
     [onEdgesChange, removeConnection]
-  );
+  )
 
   return (
     <div className="flex flex-col h-full">
@@ -291,5 +291,5 @@ export default function DAGView() {
         </div>
       </div>
     </div>
-  );
+  )
 }
