@@ -783,6 +783,21 @@ export interface ProjectAPI {
    * Used when creating a new project.
    */
   selectParentDialog: () => Promise<string | null>
+
+  /**
+   * Get list of recently opened projects.
+   */
+  getRecent: () => Promise<Array<{ path: string; name: string; lastOpened: string }>>
+
+  /**
+   * Remove a project from the recent projects list.
+   */
+  removeRecent: (path: string) => Promise<void>
+
+  /**
+   * Clear all recent projects.
+   */
+  clearRecent: () => Promise<void>
 }
 
 /**

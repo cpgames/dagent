@@ -1,8 +1,15 @@
 import { create } from 'zustand'
 import { useFeatureStore } from './feature-store'
 
+export interface RecentProject {
+  path: string
+  name: string
+  lastOpened: string
+}
+
 interface ProjectStoreState {
   projectPath: string | null
+  recentProjects: RecentProject[]
   isLoading: boolean
   error: string | null
 
@@ -11,10 +18,13 @@ interface ProjectStoreState {
   openProject: (path: string) => Promise<boolean>
   openFolderDialog: () => Promise<boolean>
   createProject: (parentPath: string, projectName: string) => Promise<string | null>
+  loadRecentProjects: () => Promise<void>
+  removeFromRecent: (path: string) => Promise<void>
 }
 
-export const useProjectStore = create<ProjectStoreState>((set) => ({
+export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   projectPath: null,
+  recentProjects: [],
   isLoading: false,
   error: null,
 
@@ -39,6 +49,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         useFeatureStore.getState().setFeatures([])
         useFeatureStore.getState().setActiveFeature(null)
         await useFeatureStore.getState().loadFeatures()
+        // Reload recent projects list (main process updated it)
+        await get().loadRecentProjects()
         return true
       } else {
         set({ error: result.error || 'Failed to open project', isLoading: false })
@@ -64,6 +76,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
           useFeatureStore.getState().setFeatures([])
           useFeatureStore.getState().setActiveFeature(null)
           await useFeatureStore.getState().loadFeatures()
+          // Reload recent projects list (main process updated it)
+          await get().loadRecentProjects()
           return true
         } else {
           set({ error: result.error || 'Failed to open project', isLoading: false })
@@ -91,6 +105,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         useFeatureStore.getState().setFeatures([])
         useFeatureStore.getState().setActiveFeature(null)
         await useFeatureStore.getState().loadFeatures()
+        // Reload recent projects list (main process updated it)
+        await get().loadRecentProjects()
         return result.projectPath
       } else {
         set({ error: result.error || 'Failed to create project', isLoading: false })
@@ -100,6 +116,30 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       const message = error instanceof Error ? error.message : 'Failed to create project'
       set({ error: message, isLoading: false })
       return null
+    }
+  },
+
+  loadRecentProjects: async () => {
+    try {
+      const recent = await window.electronAPI.project.getRecent()
+      set({ recentProjects: recent })
+    } catch (error) {
+      console.error('[DAGent] Failed to load recent projects:', error)
+      // Don't set error state - this is a non-critical operation
+    }
+  },
+
+  removeFromRecent: async (path: string) => {
+    try {
+      await window.electronAPI.project.removeRecent(path)
+      // Update local state
+      set((state) => ({
+        recentProjects: state.recentProjects.filter(
+          (p) => p.path.toLowerCase() !== path.toLowerCase()
+        )
+      }))
+    } catch (error) {
+      console.error('[DAGent] Failed to remove from recent:', error)
     }
   }
 }))

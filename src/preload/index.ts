@@ -410,7 +410,12 @@ const electronAPI = {
     ): Promise<{ success: boolean; projectPath?: string; error?: string }> =>
       ipcRenderer.invoke('project:create', { parentPath, projectName }),
     selectParentDialog: (): Promise<string | null> =>
-      ipcRenderer.invoke('project:select-parent-dialog')
+      ipcRenderer.invoke('project:select-parent-dialog'),
+    getRecent: (): Promise<Array<{ path: string; name: string; lastOpened: string }>> =>
+      ipcRenderer.invoke('project:get-recent'),
+    removeRecent: (path: string): Promise<void> =>
+      ipcRenderer.invoke('project:remove-recent', path),
+    clearRecent: (): Promise<void> => ipcRenderer.invoke('project:clear-recent')
   },
 
   // History API (undo/redo)
