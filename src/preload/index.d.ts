@@ -3,7 +3,15 @@
  * This enables type-safe IPC calls from the renderer process.
  */
 
-import type { Feature, DAGGraph, ChatHistory, AgentLog, Task, AuthState } from '@shared/types'
+import type {
+  Feature,
+  DAGGraph,
+  ChatHistory,
+  AgentLog,
+  Task,
+  AuthState,
+  HistoryState
+} from '@shared/types'
 import type {
   TopologicalResult,
   DAGAnalysisSerialized,
@@ -739,6 +747,40 @@ export interface AuthAPI {
   isAuthenticated: () => Promise<boolean>
 }
 
+/**
+ * History API for undo/redo graph versioning.
+ * Implements DAGENT_SPEC 5.5 with 20-version history.
+ */
+export interface HistoryAPI {
+  /**
+   * Push a new version after a graph modification
+   */
+  pushVersion: (
+    featureId: string,
+    graph: DAGGraph,
+    description?: string
+  ) => Promise<{ success: boolean; state?: HistoryState; error?: string }>
+
+  /**
+   * Undo - restore previous graph version
+   */
+  undo: (
+    featureId: string
+  ) => Promise<{ success: boolean; graph?: DAGGraph; state?: HistoryState; error?: string }>
+
+  /**
+   * Redo - restore forward graph version
+   */
+  redo: (
+    featureId: string
+  ) => Promise<{ success: boolean; graph?: DAGGraph; state?: HistoryState; error?: string }>
+
+  /**
+   * Get current history state
+   */
+  getState: (featureId: string) => Promise<HistoryState>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -809,6 +851,11 @@ export interface ElectronAPI {
    * Auth API for credential management
    */
   auth: AuthAPI
+
+  /**
+   * History API for undo/redo graph versioning
+   */
+  history: HistoryAPI
 }
 
 declare global {
