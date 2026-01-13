@@ -64,9 +64,9 @@ export function StatusBar({ children }: StatusBarProps): JSX.Element {
   }, [loadBranch, refreshStatus])
 
   return (
-    <footer className="h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-between px-3 text-xs">
+    <footer className="h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-between px-3 text-xs overflow-hidden">
       {/* Left section: Project path */}
-      <div className="flex items-center overflow-hidden">
+      <div className="flex items-center overflow-hidden min-w-0 flex-shrink">
         {projectPath && (
           <span
             className="text-gray-400 truncate max-w-64"
@@ -77,7 +77,7 @@ export function StatusBar({ children }: StatusBarProps): JSX.Element {
         )}
       </div>
       {/* Right section: Auth and git status */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 overflow-hidden flex-shrink-0">
         {children}
         <GitStatus />
       </div>

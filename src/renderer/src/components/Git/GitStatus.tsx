@@ -155,9 +155,9 @@ export function GitStatus(): JSX.Element {
         title={`Current branch: ${currentBranch}. Click to switch branches.`}
         onClick={toggleDropdown}
       >
-        <BranchIcon className="w-3.5 h-3.5" />
-        <span>{currentBranch}</span>
-        <ChevronIcon className="w-3 h-3" isOpen={isDropdownOpen} />
+        <BranchIcon className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="truncate max-w-32">{currentBranch}</span>
+        <ChevronIcon className="w-3 h-3 flex-shrink-0" isOpen={isDropdownOpen} />
         <DirtyIndicator isDirty={isDirty} />
         <AheadBehindIndicator ahead={ahead} behind={behind} />
         <ChangeCounts staged={staged} modified={modified} untracked={untracked} />
