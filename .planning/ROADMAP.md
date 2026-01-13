@@ -15,7 +15,7 @@ None
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Foundation** - Electron + React + TypeScript project setup
-- [ ] **Phase 2: Data Model & Storage** - Core types, JSON persistence, .dagent structure
+- [x] **Phase 2: Data Model & Storage** - Core types, JSON persistence, .dagent structure
 - [ ] **Phase 3: DAG Engine** - Dependency resolution, topological ordering, state machine
 - [ ] **Phase 4: Git Integration** - Worktree management, branch operations, merge handling
 - [ ] **Phase 5: Agent System** - Harness/task/merge agents, intention-approval workflow
@@ -118,7 +118,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-01-13 |
-| 2. Data Model & Storage | 0/3 | Not started | - |
+| 2. Data Model & Storage | 3/3 | Complete | 2026-01-13 |
 | 3. DAG Engine | 0/3 | Not started | - |
 | 4. Git Integration | 0/3 | Not started | - |
 | 5. Agent System | 0/4 | Not started | - |
