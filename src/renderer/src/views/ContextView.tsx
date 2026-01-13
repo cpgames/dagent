@@ -83,12 +83,12 @@ export default function ContextView(): JSX.Element {
     [originalContent]
   );
 
+  // TODO: Implement actual save via IPC to write CLAUDE.md file
   const handleSave = async (): Promise<void> => {
     setError(null);
     setIsSaving(true);
     try {
-      // TODO: Implement actual IPC call to save CLAUDE.md
-      // await window.electronAPI.storage.saveClaudeMd(content);
+      // Placeholder - logs to console until IPC save is implemented
       console.log('Save CLAUDE.md:', content.substring(0, 100) + '...');
       setLastSynced(new Date().toISOString());
       // Reset dirty state after successful save
