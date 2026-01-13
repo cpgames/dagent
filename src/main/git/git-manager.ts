@@ -80,6 +80,31 @@ export class GitManager {
   }
 
   /**
+   * Check if a directory is a git repository (without initializing).
+   */
+  async isGitRepo(projectRoot: string): Promise<boolean> {
+    try {
+      const git = simpleGit({ baseDir: projectRoot })
+      return await git.checkIsRepo()
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Initialize a new git repository in the project directory.
+   */
+  async initRepo(projectRoot: string): Promise<GitOperationResult> {
+    try {
+      const git = simpleGit({ baseDir: projectRoot })
+      await git.init()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
    * Get current configuration.
    */
   getConfig(): GitManagerConfig {

@@ -5,7 +5,12 @@ import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
 import { NewFeatureDialog } from './components/Feature'
-import { ProjectSelectionDialog, NewProjectDialog, ProjectSelector } from './components/Project'
+import {
+  ProjectSelectionDialog,
+  NewProjectDialog,
+  ProjectSelector,
+  GitInitDialog
+} from './components/Project'
 import { ViewSidebar, StatusBar } from './components/Layout'
 
 /**
@@ -16,12 +21,13 @@ function App(): React.JSX.Element {
   const { loadFeatures, createFeature } = useFeatureStore()
   const { activeView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
-  const { loadCurrentProject, projectPath } = useProjectStore()
+  const { loadCurrentProject, projectPath, initGitRepo } = useProjectStore()
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
   const [projectSelectionDialogOpen, setProjectSelectionDialogOpen] = useState(false)
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false)
+  const [gitInitDialogOpen, setGitInitDialogOpen] = useState(false)
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
@@ -84,6 +90,23 @@ function App(): React.JSX.Element {
     }
   }
 
+  const handleProjectOpened = (projectHasGit: boolean): void => {
+    if (!projectHasGit) {
+      setGitInitDialogOpen(true)
+    }
+  }
+
+  const handleInitGit = async (): Promise<void> => {
+    const success = await initGitRepo()
+    if (success) {
+      setGitInitDialogOpen(false)
+    }
+  }
+
+  const handleSkipGitInit = (): void => {
+    setGitInitDialogOpen(false)
+  }
+
   return (
     <ErrorBoundary>
       <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
@@ -124,11 +147,18 @@ function App(): React.JSX.Element {
         isOpen={projectSelectionDialogOpen}
         onClose={() => setProjectSelectionDialogOpen(false)}
         onCreateNew={handleCreateNewProject}
+        onProjectOpened={handleProjectOpened}
       />
       <NewProjectDialog
         isOpen={newProjectDialogOpen}
         onClose={handleNewProjectClose}
         onSuccess={handleNewProjectSuccess}
+      />
+      <GitInitDialog
+        isOpen={gitInitDialogOpen}
+        projectPath={projectPath || ''}
+        onInitGit={handleInitGit}
+        onSkip={handleSkipGitInit}
       />
     </ErrorBoundary>
   )

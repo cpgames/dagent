@@ -20,6 +20,20 @@ export function registerGitHandlers(): void {
     return result
   })
 
+  /**
+   * Initialize a new git repository in the given directory.
+   * Used when opening a non-git folder and user chooses to init.
+   */
+  ipcMain.handle('git:init-repo', async (_event, projectRoot: string) => {
+    const manager = getGitManager()
+    const initResult = await manager.initRepo(projectRoot)
+    if (initResult.success) {
+      // After init, initialize the git manager for this project
+      await manager.initialize(projectRoot)
+    }
+    return initResult
+  })
+
   ipcMain.handle('git:is-initialized', async () => {
     const manager = getGitManager()
     return manager.isInitialized()

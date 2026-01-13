@@ -58,18 +58,27 @@ export function registerProjectHandlers(): void {
   /**
    * Set the current project and reinitialize all managers.
    * This switches DAGent to work with a different project folder.
+   * Returns hasGit: false if the directory is not a git repository.
    */
   ipcMain.handle(
     'project:set-project',
-    async (_event, projectRoot: string): Promise<{ success: boolean; error?: string }> => {
+    async (
+      _event,
+      projectRoot: string
+    ): Promise<{ success: boolean; hasGit?: boolean; error?: string }> => {
       try {
-        // Initialize git manager for the new project
+        // Check if this is a git repository
         const gitManager = getGitManager()
-        const gitResult = await gitManager.initialize(projectRoot)
+        const isGitRepo = await gitManager.isGitRepo(projectRoot)
 
-        if (!gitResult.success) {
-          console.log('[DAGent] Git initialization skipped for project:', gitResult.error)
-          // Continue anyway - project may not be a git repo
+        // Initialize git manager if it's a git repo
+        if (isGitRepo) {
+          const gitResult = await gitManager.initialize(projectRoot)
+          if (!gitResult.success) {
+            console.log('[DAGent] Git initialization failed:', gitResult.error)
+          }
+        } else {
+          console.log('[DAGent] Project is not a git repository')
         }
 
         // Initialize storage and history for the new project
@@ -85,7 +94,7 @@ export function registerProjectHandlers(): void {
 
         console.log('[DAGent] Project switched to:', projectRoot)
 
-        return { success: true }
+        return { success: true, hasGit: isGitRepo }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
         console.error('[DAGent] Failed to set project:', message)

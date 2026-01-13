@@ -6,6 +6,7 @@ interface ProjectSelectionDialogProps {
   isOpen: boolean
   onClose: () => void
   onCreateNew?: () => void
+  onProjectOpened?: (hasGit: boolean) => void
 }
 
 /**
@@ -84,7 +85,8 @@ function truncatePath(path: string, maxLength: number = 40): string {
 export function ProjectSelectionDialog({
   isOpen,
   onClose,
-  onCreateNew
+  onCreateNew,
+  onProjectOpened
 }: ProjectSelectionDialogProps): JSX.Element | null {
   const {
     openFolderDialog,
@@ -106,9 +108,10 @@ export function ProjectSelectionDialog({
   if (!isOpen) return null
 
   const handleOpenFolder = async (): Promise<void> => {
-    const success = await openFolderDialog()
-    if (success) {
+    const result = await openFolderDialog()
+    if (result.success) {
       onClose()
+      onProjectOpened?.(result.hasGit ?? false)
     }
   }
 
@@ -119,9 +122,10 @@ export function ProjectSelectionDialog({
   }
 
   const handleOpenRecent = async (path: string): Promise<void> => {
-    const success = await openProject(path)
-    if (success) {
+    const result = await openProject(path)
+    if (result.success) {
       onClose()
+      onProjectOpened?.(result.hasGit ?? false)
     }
   }
 

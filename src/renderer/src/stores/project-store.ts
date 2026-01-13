@@ -7,23 +7,31 @@ export interface RecentProject {
   lastOpened: string
 }
 
+interface OpenProjectResult {
+  success: boolean
+  hasGit?: boolean
+}
+
 interface ProjectStoreState {
   projectPath: string | null
+  hasGit: boolean
   recentProjects: RecentProject[]
   isLoading: boolean
   error: string | null
 
   // Actions
   loadCurrentProject: () => Promise<void>
-  openProject: (path: string) => Promise<boolean>
-  openFolderDialog: () => Promise<boolean>
+  openProject: (path: string) => Promise<OpenProjectResult>
+  openFolderDialog: () => Promise<OpenProjectResult>
   createProject: (parentPath: string, projectName: string) => Promise<string | null>
   loadRecentProjects: () => Promise<void>
   removeFromRecent: (path: string) => Promise<void>
+  initGitRepo: () => Promise<boolean>
 }
 
 export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   projectPath: null,
+  hasGit: false,
   recentProjects: [],
   isLoading: false,
   error: null,
@@ -45,22 +53,22 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     try {
       const result = await window.electronAPI.project.setProject(path)
       if (result.success) {
-        set({ projectPath: path, isLoading: false, error: null })
+        set({ projectPath: path, hasGit: result.hasGit ?? false, isLoading: false, error: null })
         // Clear and reload features for the new project
         useFeatureStore.getState().setFeatures([])
         useFeatureStore.getState().setActiveFeature(null)
         await useFeatureStore.getState().loadFeatures()
         // Reload recent projects list (main process updated it)
         await get().loadRecentProjects()
-        return true
+        return { success: true, hasGit: result.hasGit }
       } else {
         set({ error: result.error || 'Failed to open project', isLoading: false })
-        return false
+        return { success: false }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to open project'
       set({ error: message, isLoading: false })
-      return false
+      return { success: false }
     }
   },
 
@@ -72,27 +80,27 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         // User selected a folder, now open it as a project
         const result = await window.electronAPI.project.setProject(selectedPath)
         if (result.success) {
-          set({ projectPath: selectedPath, isLoading: false, error: null })
+          set({ projectPath: selectedPath, hasGit: result.hasGit ?? false, isLoading: false, error: null })
           // Clear and reload features for the new project
           useFeatureStore.getState().setFeatures([])
           useFeatureStore.getState().setActiveFeature(null)
           await useFeatureStore.getState().loadFeatures()
           // Reload recent projects list (main process updated it)
           await get().loadRecentProjects()
-          return true
+          return { success: true, hasGit: result.hasGit }
         } else {
           set({ error: result.error || 'Failed to open project', isLoading: false })
-          return false
+          return { success: false }
         }
       } else {
         // User cancelled the dialog
         set({ isLoading: false })
-        return false
+        return { success: false }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to open folder dialog'
       set({ error: message, isLoading: false })
-      return false
+      return { success: false }
     }
   },
 
@@ -141,6 +149,24 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       }))
     } catch (error) {
       console.error('[DAGent] Failed to remove from recent:', error)
+    }
+  },
+
+  initGitRepo: async () => {
+    const { projectPath } = get()
+    if (!projectPath) {
+      return false
+    }
+    try {
+      const result = await window.electronAPI.git.initRepo(projectPath)
+      if (result.success) {
+        set({ hasGit: true })
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('[DAGent] Failed to initialize git repository:', error)
+      return false
     }
   }
 }))

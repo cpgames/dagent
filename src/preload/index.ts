@@ -210,6 +210,8 @@ const electronAPI = {
     deleteBranch: (branchName: string, force?: boolean): Promise<GitOperationResult> =>
       ipcRenderer.invoke('git:delete-branch', branchName, force),
     getStatus: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:get-status'),
+    initRepo: (projectRoot: string): Promise<GitOperationResult> =>
+      ipcRenderer.invoke('git:init-repo', projectRoot),
 
     // Worktree operations
     listWorktrees: (): Promise<WorktreeInfo[]> => ipcRenderer.invoke('git:list-worktrees'),
@@ -402,7 +404,7 @@ const electronAPI = {
   // Project API
   project: {
     openDialog: (): Promise<string | null> => ipcRenderer.invoke('project:open-dialog'),
-    setProject: (path: string): Promise<{ success: boolean; error?: string }> =>
+    setProject: (path: string): Promise<{ success: boolean; hasGit?: boolean; error?: string }> =>
       ipcRenderer.invoke('project:set-project', path),
     getCurrent: (): Promise<string> => ipcRenderer.invoke('project:get-current'),
     create: (

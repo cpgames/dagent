@@ -310,6 +310,11 @@ export interface GitAPI {
    */
   getStatus: () => Promise<GitOperationResult>
 
+  /**
+   * Initialize a new git repository
+   */
+  initRepo: (projectRoot: string) => Promise<GitOperationResult>
+
   // Worktree operations
 
   /**
@@ -762,8 +767,9 @@ export interface ProjectAPI {
   /**
    * Set the current project and reinitialize managers.
    * Switches DAGent to work with a different project folder.
+   * Returns hasGit: false if the folder is not a git repository.
    */
-  setProject: (path: string) => Promise<{ success: boolean; error?: string }>
+  setProject: (path: string) => Promise<{ success: boolean; hasGit?: boolean; error?: string }>
 
   /**
    * Get the current project root path.
