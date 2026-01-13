@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useFeatureStore, useViewStore, type ViewType } from './stores'
+import { useFeatureStore, useViewStore, useAuthStore, type ViewType } from './stores'
 import { KanbanView, DAGView, ContextView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -20,11 +20,14 @@ const tabs: { id: ViewType; label: string }[] = [
 function App(): React.JSX.Element {
   const { loadFeatures } = useFeatureStore()
   const { activeView, setView } = useViewStore()
+  const { initialize: initAuth } = useAuthStore()
 
   useEffect(() => {
     // Load features from storage on mount
     loadFeatures()
-  }, [loadFeatures])
+    // Initialize auth state from main process
+    initAuth()
+  }, [loadFeatures, initAuth])
 
   return (
     <ErrorBoundary>
