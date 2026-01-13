@@ -102,7 +102,6 @@ Plans:
 **Depends on**: Phase 5, Phase 6
 **Research**: Likely (Claude CLI credential detection)
 **Research topics**: Claude CLI config file locations, OAuth token handling
-**Plans**: TBD
 
 Plans:
 - [ ] 07-01: Authentication priority chain
@@ -123,4 +122,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Git Integration | 3/3 | Complete | 2026-01-13 |
 | 5. Agent System | 4/4 | Complete | 2026-01-13 |
 | 6. UI Views | 5/5 | Complete | 2026-01-13 |
-| 7. Polish & Integration | 0/4 | Not started | - |
+| 7. Polish & Integration | 0/4 | Planned | - |
