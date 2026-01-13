@@ -41,6 +41,16 @@ function App(): React.JSX.Element {
     }
   }, [authLoading, authState.authenticated, authState.error])
 
+  // Update window title when project changes
+  useEffect(() => {
+    if (projectPath) {
+      const projectName = projectPath.split(/[/\\]/).pop() || 'Project'
+      document.title = `DAGent - ${projectName}`
+    } else {
+      document.title = 'DAGent'
+    }
+  }, [projectPath])
+
   const handleCreateFeature = async (name: string): Promise<void> => {
     const feature = await createFeature(name)
     if (feature) {
