@@ -194,7 +194,7 @@ export default function ContextView(): JSX.Element {
       )}
 
       {/* Main textarea */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
         <textarea
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
@@ -213,7 +213,7 @@ Coding standards, naming conventions, etc...
 
 ## Dependencies
 Important dependencies and their purposes...`}
-          className="flex-1 w-full min-h-0 px-4 py-3 font-mono text-sm bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          className="flex-1 w-full px-4 py-3 font-mono text-sm bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
         />
       </div>
 
