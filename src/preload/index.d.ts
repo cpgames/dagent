@@ -3,7 +3,7 @@
  * This enables type-safe IPC calls from the renderer process.
  */
 
-import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
+import type { Feature, DAGGraph, ChatHistory, AgentLog, Task, AuthState } from '@shared/types'
 import type {
   TopologicalResult,
   DAGAnalysisSerialized,
@@ -708,6 +708,37 @@ export interface MergeAgentAPI {
   clearAll: () => Promise<boolean>
 }
 
+/**
+ * Auth API for credential management.
+ * Implements priority chain per DAGENT_SPEC 10.1-10.3.
+ */
+export interface AuthAPI {
+  /**
+   * Initialize and check credentials in priority order
+   */
+  initialize: () => Promise<AuthState>
+
+  /**
+   * Get current auth state
+   */
+  getState: () => Promise<AuthState>
+
+  /**
+   * Set manual credentials (stored in ~/.dagent/credentials.json)
+   */
+  setCredentials: (type: 'oauth' | 'api_key', value: string) => Promise<AuthState>
+
+  /**
+   * Clear stored credentials
+   */
+  clearCredentials: () => Promise<AuthState>
+
+  /**
+   * Check if authenticated
+   */
+  isAuthenticated: () => Promise<boolean>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -774,7 +805,10 @@ export interface ElectronAPI {
    */
   mergeAgent: MergeAgentAPI
 
-  // TODO: Add auth method types
+  /**
+   * Auth API for credential management
+   */
+  auth: AuthAPI
 }
 
 declare global {
