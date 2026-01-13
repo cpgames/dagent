@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { registerStorageHandlers } from './storage-handlers'
+import { registerDagHandlers } from './dag-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -8,6 +9,8 @@ import { registerStorageHandlers } from './storage-handlers'
 export function registerIpcHandlers(): void {
   // Register storage handlers (feature, DAG, chat, log operations)
   registerStorageHandlers()
+  // Register DAG engine handlers (topological sort, analysis, ready tasks)
+  registerDagHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

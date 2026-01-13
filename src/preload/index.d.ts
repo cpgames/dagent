@@ -3,7 +3,8 @@
  * This enables type-safe IPC calls from the renderer process.
  */
 
-import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types'
+import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
+import type { TopologicalResult, DAGAnalysisSerialized, TaskDependencies } from '../main/dag-engine/types'
 
 export interface AppInfo {
   version: string
@@ -46,6 +47,37 @@ export interface StorageAPI {
   deleteNode: (featureId: string, nodeId: string) => Promise<boolean>
 }
 
+/**
+ * DAG Engine API for topological sort and dependency analysis.
+ * Enables correct execution ordering of tasks.
+ */
+export interface DagAPI {
+  /**
+   * Perform topological sort on DAG graph
+   */
+  topologicalSort: (graph: DAGGraph) => Promise<TopologicalResult>
+
+  /**
+   * Analyze DAG to get dependency information for all tasks
+   */
+  analyze: (graph: DAGGraph) => Promise<DAGAnalysisSerialized>
+
+  /**
+   * Get tasks that are ready to execute (all dependencies completed)
+   */
+  getReadyTasks: (graph: DAGGraph) => Promise<Task[]>
+
+  /**
+   * Check if a specific task is ready to execute
+   */
+  isTaskReady: (taskId: string, graph: DAGGraph) => Promise<boolean>
+
+  /**
+   * Update task statuses based on dependency completion
+   */
+  updateStatuses: (graph: DAGGraph) => Promise<string[]>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -76,6 +108,11 @@ export interface ElectronAPI {
    * Storage API for persistent data operations
    */
   storage: StorageAPI
+
+  /**
+   * DAG Engine API for topological sort and dependency analysis
+   */
+  dag: DagAPI
 
   // TODO: Add auth method types
   // TODO: Add git method types

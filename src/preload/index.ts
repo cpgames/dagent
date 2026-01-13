@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types'
+import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
+import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 
 /**
  * Preload script for DAGent.
@@ -66,6 +67,20 @@ const electronAPI = {
     // Node deletion
     deleteNode: (featureId: string, nodeId: string): Promise<boolean> =>
       ipcRenderer.invoke('storage:deleteNode', featureId, nodeId)
+  },
+
+  // DAG Engine API
+  dag: {
+    topologicalSort: (graph: DAGGraph): Promise<TopologicalResult> =>
+      ipcRenderer.invoke('dag:topological-sort', graph),
+    analyze: (graph: DAGGraph): Promise<DAGAnalysisSerialized> =>
+      ipcRenderer.invoke('dag:analyze', graph),
+    getReadyTasks: (graph: DAGGraph): Promise<Task[]> =>
+      ipcRenderer.invoke('dag:get-ready-tasks', graph),
+    isTaskReady: (taskId: string, graph: DAGGraph): Promise<boolean> =>
+      ipcRenderer.invoke('dag:is-task-ready', taskId, graph),
+    updateStatuses: (graph: DAGGraph): Promise<string[]> =>
+      ipcRenderer.invoke('dag:update-statuses', graph)
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)
