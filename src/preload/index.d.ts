@@ -388,6 +388,11 @@ export interface GitAPI {
    * Get diff summary between two refs
    */
   getDiffSummary: (from: string, to: string) => Promise<DiffSummary>
+
+  /**
+   * Checkout a branch
+   */
+  checkout: (branchName: string) => Promise<GitOperationResult>
 }
 
 /**

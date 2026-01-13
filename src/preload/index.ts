@@ -241,7 +241,9 @@ const electronAPI = {
     getLog: (maxCount?: number, branch?: string): Promise<CommitInfo[]> =>
       ipcRenderer.invoke('git:get-log', maxCount, branch),
     getDiffSummary: (from: string, to: string): Promise<DiffSummary> =>
-      ipcRenderer.invoke('git:get-diff-summary', from, to)
+      ipcRenderer.invoke('git:get-diff-summary', from, to),
+    checkout: (branchName: string): Promise<GitOperationResult> =>
+      ipcRenderer.invoke('git:checkout', branchName)
   },
 
   // Agent Pool API

@@ -154,4 +154,15 @@ export function registerGitHandlers(): void {
     const manager = getGitManager()
     return manager.getDiffSummary(from, to)
   })
+
+  ipcMain.handle('git:checkout', async (_event, branchName: string) => {
+    const manager = getGitManager()
+    try {
+      await manager.getGit().checkout(branchName)
+      return { success: true }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Checkout failed'
+      return { success: false, error: message }
+    }
+  })
 }
