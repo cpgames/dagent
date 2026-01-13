@@ -5,11 +5,19 @@
 
 import { ipcMain } from 'electron'
 import { getGitManager } from '../git'
+import { initializeStorage } from './storage-handlers'
+import { setHistoryProjectRoot } from './history-handlers'
 
 export function registerGitHandlers(): void {
   ipcMain.handle('git:initialize', async (_event, projectRoot: string) => {
     const manager = getGitManager()
-    return manager.initialize(projectRoot)
+    const result = await manager.initialize(projectRoot)
+    // Also initialize storage and history with same project root
+    if (result.success) {
+      initializeStorage(projectRoot)
+      setHistoryProjectRoot(projectRoot)
+    }
+    return result
   })
 
   ipcMain.handle('git:is-initialized', async () => {
