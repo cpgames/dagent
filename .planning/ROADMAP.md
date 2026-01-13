@@ -19,7 +19,7 @@ None
 - [x] **Phase 3: DAG Engine** - Dependency resolution, topological ordering, state machine
 - [x] **Phase 4: Git Integration** - Worktree management, branch operations, merge handling
 - [x] **Phase 5: Agent System** - Harness/task/merge agents, intention-approval workflow
-- [ ] **Phase 6: UI Views** - Kanban, DAG graph, Context views, node dialogs
+- [x] **Phase 6: UI Views** - Kanban, DAG graph, Context views, node dialogs
 - [ ] **Phase 7: Polish & Integration** - Auth, chat, undo/redo, error handling
 
 ## Phase Details
@@ -122,5 +122,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. DAG Engine | 3/3 | Complete | 2026-01-13 |
 | 4. Git Integration | 3/3 | Complete | 2026-01-13 |
 | 5. Agent System | 4/4 | Complete | 2026-01-13 |
-| 6. UI Views | 0/5 | Not started | - |
+| 6. UI Views | 5/5 | Complete | 2026-01-13 |
 | 7. Polish & Integration | 0/4 | Not started | - |

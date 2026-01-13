@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Phase 6 - UI Views
+**Current focus:** Phase 7 - Polish & Integration
 
 ## Current Position
 
-Phase: 6 of 7 (UI Views)
-Plan: Phase 5 complete
-Status: Ready for Phase 6
-Last activity: 2026-01-13 - Phase 5 complete
+Phase: 7 of 7 (Polish & Integration)
+Plan: Phase 6 complete
+Status: Ready for Phase 7
+Last activity: 2026-01-13 - Phase 6 complete
 
-Progress: ███████░░░ 71%
+Progress: ████████░░ 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 21
 - Average duration: ~5 min/plan
-- Total execution time: ~80 min
+- Total execution time: ~105 min
 
 **By Phase:**
 
@@ -32,9 +32,10 @@ Progress: ███████░░░ 71%
 | 03-dag-engine | 3 | ~15 min | ~5 min |
 | 04-git-integration | 3 | ~15 min | ~5 min |
 | 05-agent-system | 4 | ~20 min | ~5 min |
+| 06-ui-views | 5 | ~25 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03, 05-01, 05-02, 05-03, 05-04
+- Last 5 plans: 06-01, 06-02, 06-03, 06-04, 06-05
 - Trend: Smooth execution, no blockers
 
 ## Accumulated Context
@@ -97,4 +98,12 @@ Resume file: None
 - **05-03**: Task agent with context assembly and worktree isolation
 - **05-04**: Merge agent for branch integration per DAGENT_SPEC 8.4
 
-All verification items passed. Ready for Phase 6.
+### Phase 6: UI Views ✓
+
+- **06-01**: App layout with tabs (Kanban, DAG, Context) and view switching
+- **06-02**: Kanban view with feature cards and status columns
+- **06-03**: DAG view with React Flow graph, custom task nodes
+- **06-04**: Node dialog for task editing and Context view for CLAUDE.md
+- **06-05**: Feature chat sidebar with message history and input
+
+All verification items passed. Ready for Phase 7.
