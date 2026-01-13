@@ -51,4 +51,41 @@ export function registerGitHandlers(): void {
     const manager = getGitManager()
     return manager.getStatus()
   })
+
+  // Worktree operations
+  ipcMain.handle('git:list-worktrees', async () => {
+    const manager = getGitManager()
+    return manager.listWorktrees()
+  })
+
+  ipcMain.handle('git:get-worktree', async (_event, worktreePath: string) => {
+    const manager = getGitManager()
+    return manager.getWorktree(worktreePath)
+  })
+
+  ipcMain.handle('git:worktree-exists', async (_event, worktreePath: string) => {
+    const manager = getGitManager()
+    return manager.worktreeExists(worktreePath)
+  })
+
+  ipcMain.handle('git:create-feature-worktree', async (_event, featureId: string) => {
+    const manager = getGitManager()
+    return manager.createFeatureWorktree(featureId)
+  })
+
+  ipcMain.handle(
+    'git:create-task-worktree',
+    async (_event, featureId: string, taskId: string) => {
+      const manager = getGitManager()
+      return manager.createTaskWorktree(featureId, taskId)
+    }
+  )
+
+  ipcMain.handle(
+    'git:remove-worktree',
+    async (_event, worktreePath: string, deleteBranch: boolean = false) => {
+      const manager = getGitManager()
+      return manager.removeWorktree(worktreePath, deleteBranch)
+    }
+  )
 }

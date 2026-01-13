@@ -9,7 +9,14 @@ import type {
   ExecutionSnapshot,
   NextTasksResult
 } from '../main/dag-engine/orchestrator-types'
-import type { GitManagerConfig, BranchInfo, GitOperationResult } from '../main/git/types'
+import type {
+  GitManagerConfig,
+  BranchInfo,
+  GitOperationResult,
+  WorktreeInfo,
+  FeatureWorktreeResult,
+  TaskWorktreeResult
+} from '../main/git/types'
 
 /**
  * Preload script for DAGent.
@@ -165,7 +172,20 @@ const electronAPI = {
       ipcRenderer.invoke('git:create-branch', branchName, checkout),
     deleteBranch: (branchName: string, force?: boolean): Promise<GitOperationResult> =>
       ipcRenderer.invoke('git:delete-branch', branchName, force),
-    getStatus: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:get-status')
+    getStatus: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:get-status'),
+
+    // Worktree operations
+    listWorktrees: (): Promise<WorktreeInfo[]> => ipcRenderer.invoke('git:list-worktrees'),
+    getWorktree: (worktreePath: string): Promise<WorktreeInfo | null> =>
+      ipcRenderer.invoke('git:get-worktree', worktreePath),
+    worktreeExists: (worktreePath: string): Promise<boolean> =>
+      ipcRenderer.invoke('git:worktree-exists', worktreePath),
+    createFeatureWorktree: (featureId: string): Promise<FeatureWorktreeResult> =>
+      ipcRenderer.invoke('git:create-feature-worktree', featureId),
+    createTaskWorktree: (featureId: string, taskId: string): Promise<TaskWorktreeResult> =>
+      ipcRenderer.invoke('git:create-task-worktree', featureId, taskId),
+    removeWorktree: (worktreePath: string, deleteBranch?: boolean): Promise<GitOperationResult> =>
+      ipcRenderer.invoke('git:remove-worktree', worktreePath, deleteBranch)
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)

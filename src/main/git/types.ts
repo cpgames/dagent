@@ -3,6 +3,8 @@
  * Follows DAGENT_SPEC section 8 for Git Integration.
  */
 
+import * as path from 'path'
+
 export interface GitManagerConfig {
   baseDir: string // Project root directory
   worktreesDir: string // .dagent-worktrees directory path
@@ -13,6 +15,26 @@ export interface WorktreeInfo {
   branch: string // Branch name
   head: string // Current commit hash
   isDetached: boolean // Whether HEAD is detached
+  isLocked: boolean // Whether worktree is locked
+  prunable: boolean // Whether worktree can be pruned
+}
+
+export interface CreateWorktreeOptions {
+  branch?: string // Branch to checkout (creates if doesn't exist)
+  newBranch?: boolean // Create new branch
+  detach?: boolean // Detached HEAD
+  force?: boolean // Force creation even if branch exists elsewhere
+}
+
+export interface FeatureWorktreeResult extends GitOperationResult {
+  worktreePath?: string // Path to created worktree
+  branchName?: string // Name of feature branch
+  dagentPath?: string // Path to .dagent directory
+}
+
+export interface TaskWorktreeResult extends GitOperationResult {
+  worktreePath?: string // Path to created worktree
+  branchName?: string // Name of task branch
 }
 
 export interface BranchInfo {
@@ -50,4 +72,13 @@ export function getFeatureWorktreeName(featureId: string): string {
 export function getTaskWorktreeName(featureId: string, taskId: string): string {
   // feature-car--task-2145
   return `${featureId}--task-${taskId}`
+}
+
+// Path helper functions
+export function getWorktreePath(worktreesDir: string, worktreeName: string): string {
+  return path.join(worktreesDir, worktreeName)
+}
+
+export function getDagentDirInWorktree(worktreePath: string): string {
+  return path.join(worktreePath, '.dagent')
 }

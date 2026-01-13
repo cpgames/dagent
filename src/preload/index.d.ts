@@ -17,7 +17,14 @@ import type {
   ExecutionSnapshot,
   NextTasksResult
 } from '../main/dag-engine/orchestrator-types'
-import type { GitManagerConfig, BranchInfo, GitOperationResult } from '../main/git/types'
+import type {
+  GitManagerConfig,
+  BranchInfo,
+  GitOperationResult,
+  WorktreeInfo,
+  FeatureWorktreeResult,
+  TaskWorktreeResult
+} from '../main/git/types'
 
 export interface AppInfo {
   version: string
@@ -258,6 +265,38 @@ export interface GitAPI {
    * Get repository status
    */
   getStatus: () => Promise<GitOperationResult>
+
+  // Worktree operations
+
+  /**
+   * List all worktrees
+   */
+  listWorktrees: () => Promise<WorktreeInfo[]>
+
+  /**
+   * Get a worktree by its path
+   */
+  getWorktree: (worktreePath: string) => Promise<WorktreeInfo | null>
+
+  /**
+   * Check if a worktree exists at the given path
+   */
+  worktreeExists: (worktreePath: string) => Promise<boolean>
+
+  /**
+   * Create a feature worktree with .dagent directory
+   */
+  createFeatureWorktree: (featureId: string) => Promise<FeatureWorktreeResult>
+
+  /**
+   * Create a task worktree branching from feature branch
+   */
+  createTaskWorktree: (featureId: string, taskId: string) => Promise<TaskWorktreeResult>
+
+  /**
+   * Remove a worktree (and optionally its branch)
+   */
+  removeWorktree: (worktreePath: string, deleteBranch?: boolean) => Promise<GitOperationResult>
 }
 
 export interface ElectronAPI {
