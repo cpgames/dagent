@@ -111,22 +111,6 @@ export default function ContextView(): JSX.Element {
   };
 
   /**
-   * Attempt an action that may require confirmation if there are unsaved changes.
-   * If dirty, show confirmation dialog. Otherwise, execute immediately.
-   */
-  const confirmDiscardIfDirty = useCallback(
-    (action: () => void): void => {
-      if (isDirty) {
-        setPendingAction(() => action);
-        setShowDiscardDialog(true);
-      } else {
-        action();
-      }
-    },
-    [isDirty]
-  );
-
-  /**
    * Handle confirming discard of unsaved changes.
    * Resolves any pending promise (for view switching) and executes pending action.
    */
