@@ -49,12 +49,7 @@ export default function FeatureCard({ feature, onSelect, onArchive }: FeatureCar
         {feature.name}
       </h3>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-400">
-          {/* Task count placeholder - actual count comes in Phase 7 */}
-          0 tasks
-        </span>
-
+      <div className="flex items-center justify-end">
         {feature.status === 'completed' && onArchive && (
           <button
             className="text-sm text-gray-400 hover:text-white transition-colors"
