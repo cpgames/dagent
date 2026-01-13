@@ -15,8 +15,9 @@ import {
 /**
  * Current project root path.
  * Updated when project is changed via setProject.
+ * Empty string means no project is currently open.
  */
-let currentProjectPath: string = process.cwd()
+let currentProjectPath: string = ''
 
 /**
  * Get the current project root path.

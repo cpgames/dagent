@@ -32,7 +32,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const path = await window.electronAPI.project.getCurrent()
-      set({ projectPath: path, isLoading: false })
+      // Convert empty string to null (no project open)
+      set({ projectPath: path || null, isLoading: false })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load project'
       set({ error: message, isLoading: false })
