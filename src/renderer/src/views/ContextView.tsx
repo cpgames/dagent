@@ -14,7 +14,6 @@ export default function ContextView(): JSX.Element {
   const [isDirty, setIsDirtyLocal] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -106,18 +105,6 @@ export default function ContextView(): JSX.Element {
     }
   };
 
-  const handleGenerate = async (): Promise<void> => {
-    setIsGenerating(true);
-    try {
-      // TODO: Implement AI generation in Phase 7
-      console.log('Generate with AI placeholder');
-      // Simulate delay for placeholder
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const formatTimestamp = (isoString: string): string => {
     const date = new Date(isoString);
     return date.toLocaleString();
@@ -189,17 +176,11 @@ export default function ContextView(): JSX.Element {
           )}
         </div>
         <button
-          onClick={handleGenerate}
-          disabled={isGenerating}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-500"
-          title="Generate with AI (coming in Phase 7)"
+          disabled
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-400 bg-gray-700 border border-gray-600 rounded-md cursor-not-allowed opacity-60 focus:outline-none"
+          title="Coming soon: AI will generate context from your codebase"
         >
-          <svg
-            className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -207,7 +188,10 @@ export default function ContextView(): JSX.Element {
               d="M13 10V3L4 14h7v7l9-11h-7z"
             />
           </svg>
-          {isGenerating ? 'Generating...' : 'Generate with AI'}
+          <span className="flex items-center gap-1">
+            Generate with AI
+            <span className="text-xs">(Soon)</span>
+          </span>
         </button>
       </div>
 
