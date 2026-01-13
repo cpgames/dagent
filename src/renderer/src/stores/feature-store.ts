@@ -86,8 +86,8 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
       try {
         await window.electronAPI.git.createFeatureWorktree(feature.id);
       } catch (worktreeError) {
-        // Log but don't fail - worktree can be created later
-        console.warn('Failed to create worktree (can be created later):', worktreeError);
+        console.warn('Failed to create worktree:', worktreeError);
+        toast.warning('Feature created but git worktree setup failed');
       }
 
       // Add to local state
