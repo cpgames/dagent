@@ -65,6 +65,6 @@ None
 |-------|-----------|----------------|--------|-----------|
 | 11. Layout Restructure | v1.2 | 3/3 | Complete | 2026-01-13 |
 | 12. Project Selection | v1.2 | 3/3 | Complete | 2026-01-13 |
-| 13. Feature Chat | v1.2 | 1/3 | In Progress | - |
+| 13. Feature Chat | v1.2 | 2/3 | In Progress | - |
 | 14. Git Branch Management | v1.2 | 0/2 | Pending | - |
 | 15. Alignment & Polish | v1.2 | 0/2 | Pending | - |
