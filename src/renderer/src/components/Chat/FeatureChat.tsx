@@ -7,7 +7,7 @@ interface FeatureChatProps {
 }
 
 export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
-  const { messages, loadChat, addMessage, isLoading } = useChatStore()
+  const { messages, loadChat, addMessage, sendToAI, isLoading, isResponding } = useChatStore()
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -21,16 +21,19 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmedValue = inputValue.trim()
-    if (!trimmedValue) return
+    if (!trimmedValue || isResponding) return
 
     addMessage({
       role: 'user',
       content: trimmedValue
     })
     setInputValue('')
-  }, [inputValue, addMessage])
+
+    // Trigger AI response
+    await sendToAI()
+  }, [inputValue, addMessage, sendToAI, isResponding])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -61,6 +64,11 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
         ) : (
           messages.map((m) => <ChatMessage key={m.id} message={m} />)
         )}
+        {isResponding && (
+          <div className="text-gray-400 text-sm flex items-center gap-2">
+            <span className="animate-pulse">AI is thinking...</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -82,15 +90,16 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 bg-gray-800 text-white rounded px-3 py-2 resize-none border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+            disabled={isResponding}
+            className="flex-1 bg-gray-800 text-white rounded px-3 py-2 resize-none border border-gray-600 focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             rows={2}
           />
           <button
             onClick={handleSend}
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isResponding}
             className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
           >
-            Send
+            {isResponding ? 'Thinking...' : 'Send'}
           </button>
         </div>
       </div>

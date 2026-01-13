@@ -421,6 +421,11 @@ const electronAPI = {
     clearRecent: (): Promise<void> => ipcRenderer.invoke('project:clear-recent')
   },
 
+  // Chat API (AI chat integration)
+  chat: {
+    send: (request) => ipcRenderer.invoke('chat:send', request)
+  },
+
   // History API (undo/redo)
   history: {
     pushVersion: (

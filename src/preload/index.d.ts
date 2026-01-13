@@ -807,6 +807,20 @@ export interface ProjectAPI {
 }
 
 /**
+ * Chat API for AI chat integration.
+ * Sends messages to Claude API and returns responses.
+ */
+export interface ChatAPI {
+  /**
+   * Send messages to Claude API and get a response.
+   */
+  send: (request: {
+    messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
+    systemPrompt?: string
+  }) => Promise<{ content: string; error?: string }>
+}
+
+/**
  * History API for undo/redo graph versioning.
  * Implements DAGENT_SPEC 5.5 with 20-version history.
  */
@@ -925,6 +939,11 @@ export interface ElectronAPI {
    * History API for undo/redo graph versioning
    */
   history: HistoryAPI
+
+  /**
+   * Chat API for AI chat integration
+   */
+  chat: ChatAPI
 }
 
 declare global {

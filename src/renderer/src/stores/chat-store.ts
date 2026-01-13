@@ -12,17 +12,20 @@ export interface ChatMessage {
 interface ChatState {
   messages: ChatMessage[]
   isLoading: boolean
+  isResponding: boolean
   currentFeatureId: string | null
 
   // Actions
   loadChat: (featureId: string) => Promise<void>
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void
+  sendToAI: () => Promise<void>
   clearChat: () => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
+  isResponding: false,
   currentFeatureId: null,
 
   loadChat: async (featureId: string) => {
@@ -83,5 +86,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  clearChat: () => set({ messages: [], currentFeatureId: null })
+  sendToAI: async () => {
+    const { messages, currentFeatureId } = get()
+    if (!currentFeatureId || messages.length === 0) return
+
+    set({ isResponding: true })
+
+    try {
+      const response = await window.electronAPI.chat.send({
+        messages: messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp
+        }))
+      })
+
+      if (response.error) {
+        toast.error(response.error)
+      } else if (response.content) {
+        // Add assistant message
+        const assistantMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response.content,
+          timestamp: new Date().toISOString()
+        }
+        set((state) => ({
+          messages: [...state.messages, assistantMessage]
+        }))
+
+        // Persist updated messages
+        const { messages: updatedMessages } = get()
+        if (window.electronAPI?.storage?.saveChat) {
+          await window.electronAPI.storage.saveChat(currentFeatureId, {
+            entries: updatedMessages.map((m) => ({
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp
+            }))
+          })
+        }
+      }
+    } catch (error) {
+      console.error('AI response error:', error)
+      toast.error('Failed to get AI response')
+    } finally {
+      set({ isResponding: false })
+    }
+  },
+
+  clearChat: () => set({ messages: [], currentFeatureId: null, isResponding: false })
 }))
