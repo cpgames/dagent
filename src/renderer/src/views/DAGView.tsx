@@ -69,6 +69,7 @@ export default function DAGView(): JSX.Element {
   const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
   const {
     dag,
+    isMutating,
     loadDag,
     updateNode,
     addConnection,
@@ -198,27 +199,36 @@ export default function DAGView(): JSX.Element {
       <div className="flex-1 flex overflow-hidden">
         {/* React Flow canvas */}
         <div className="flex-1 flex flex-col bg-gray-900">
-          <div className="flex-1">
+          <div className="flex-1 relative">
             {activeFeatureId ? (
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={handleNodesChange}
-                onEdgesChange={handleEdgesChange}
-                onConnect={handleConnect}
-                nodeTypes={nodeTypes}
-                fitView
-                className="bg-gray-900"
-                proOptions={{ hideAttribution: true }}
-              >
-                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
-                <Controls className="!bg-gray-800 !border-gray-700 [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600" />
-                <MiniMap
-                  className="!bg-gray-800 !border-gray-700"
-                  nodeColor="#4B5563"
-                  maskColor="rgba(0, 0, 0, 0.5)"
-                />
-              </ReactFlow>
+              <>
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={handleNodesChange}
+                  onEdgesChange={handleEdgesChange}
+                  onConnect={handleConnect}
+                  nodeTypes={nodeTypes}
+                  fitView
+                  className="bg-gray-900"
+                  proOptions={{ hideAttribution: true }}
+                >
+                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
+                  <Controls className="!bg-gray-800 !border-gray-700 [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600" />
+                  <MiniMap
+                    className="!bg-gray-800 !border-gray-700"
+                    nodeColor="#4B5563"
+                    maskColor="rgba(0, 0, 0, 0.5)"
+                  />
+                </ReactFlow>
+                {/* Mutation loading indicator */}
+                {isMutating && (
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-md">
+                    <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                    <span className="text-sm text-gray-300">Saving...</span>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400">
                 Select a feature to view its task graph
