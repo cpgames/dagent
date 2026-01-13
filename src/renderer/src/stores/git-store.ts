@@ -5,6 +5,13 @@
 
 import { create } from 'zustand'
 
+interface BranchInfo {
+  name: string
+  current: boolean
+  commit: string
+  label: string
+}
+
 interface GitState {
   currentBranch: string | null
   isLoading: boolean
@@ -16,6 +23,10 @@ interface GitState {
   untracked: number
   ahead: number
   behind: number
+  // Branch list (Phase 14-02)
+  branches: BranchInfo[]
+  isLoadingBranches: boolean
+  isCheckingOut: boolean
 }
 
 interface GitActions {
@@ -24,6 +35,9 @@ interface GitActions {
   refreshStatus: () => Promise<void>
   setBranch: (branch: string | null) => void
   setError: (error: string | null) => void
+  // Branch actions (Phase 14-02)
+  loadBranches: () => Promise<void>
+  checkoutBranch: (name: string) => Promise<boolean>
 }
 
 type GitStore = GitState & GitActions
@@ -40,6 +54,10 @@ export const useGitStore = create<GitStore>((set, get) => ({
   untracked: 0,
   ahead: 0,
   behind: 0,
+  // Branch list (Phase 14-02)
+  branches: [],
+  isLoadingBranches: false,
+  isCheckingOut: false,
 
   // Actions
   loadBranch: async () => {
@@ -113,5 +131,44 @@ export const useGitStore = create<GitStore>((set, get) => ({
   },
 
   setBranch: (branch) => set({ currentBranch: branch }),
-  setError: (error) => set({ error })
+  setError: (error) => set({ error }),
+
+  // Branch actions (Phase 14-02)
+  loadBranches: async () => {
+    set({ isLoadingBranches: true })
+    try {
+      const isInitialized = await window.electronAPI.git.isInitialized()
+      if (!isInitialized) {
+        set({ branches: [], isLoadingBranches: false })
+        return
+      }
+
+      const branches = await window.electronAPI.git.listBranches()
+      set({ branches, isLoadingBranches: false })
+    } catch (err) {
+      console.error('Failed to load branches:', err)
+      set({ branches: [], isLoadingBranches: false })
+    }
+  },
+
+  checkoutBranch: async (name: string) => {
+    set({ isCheckingOut: true })
+    try {
+      const result = await window.electronAPI.git.checkout(name)
+      if (result.success) {
+        // Reload branch and status after successful checkout
+        await get().loadBranch()
+        await get().loadBranches()
+        set({ isCheckingOut: false })
+        return true
+      } else {
+        set({ isCheckingOut: false, error: result.error || 'Checkout failed' })
+        return false
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Checkout failed'
+      set({ isCheckingOut: false, error: message })
+      return false
+    }
+  }
 }))
