@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { JSX } from 'react'
 import { useGitStore } from '../../stores'
+import { BranchSwitcher } from './BranchSwitcher'
 
 /**
  * Git branch icon
@@ -13,6 +15,22 @@ function BranchIcon({ className }: { className?: string }): JSX.Element {
         strokeWidth={2}
         d="M8 7a2 2 0 100-4 2 2 0 000 4zM8 7v10M16 17a2 2 0 100-4 2 2 0 000 4zM16 13V7a2 2 0 10-4 0v2a2 2 0 004 0z"
       />
+    </svg>
+  )
+}
+
+/**
+ * Chevron icon for dropdown indicator
+ */
+function ChevronIcon({ className, isOpen }: { className?: string; isOpen: boolean }): JSX.Element {
+  return (
+    <svg
+      className={`${className} transition-transform ${isOpen ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   )
 }
@@ -42,8 +60,8 @@ function AheadBehindIndicator({
   }
 
   const parts: string[] = []
-  if (ahead > 0) parts.push(`↑${ahead}`)
-  if (behind > 0) parts.push(`↓${behind}`)
+  if (ahead > 0) parts.push(`${ahead}`)
+  if (behind > 0) parts.push(`${behind}`)
 
   const title =
     (ahead > 0 ? `${ahead} commit${ahead > 1 ? 's' : ''} ahead of remote. ` : '') +
@@ -93,11 +111,20 @@ function ChangeCounts({
 /**
  * GitStatus component displays current git branch and status in status bar.
  * Shows branch name, dirty indicator, ahead/behind counts, and change counts.
- * Click handler reserved for future branch switching (Phase 14-02).
+ * Click to open branch switcher dropdown for switching branches.
  */
 export function GitStatus(): JSX.Element {
   const { currentBranch, isLoading, error, isDirty, staged, modified, untracked, ahead, behind } =
     useGitStore()
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+
+  const toggleDropdown = (): void => {
+    setIsDropdownOpen((prev) => !prev)
+  }
+
+  const closeDropdown = (): void => {
+    setIsDropdownOpen(false)
+  }
 
   // Loading state
   if (isLoading) {
@@ -119,22 +146,23 @@ export function GitStatus(): JSX.Element {
     )
   }
 
-  // Normal state - show branch name with status indicators
-  // Layout: [branch-icon] main [dirty-dot] [ahead/behind] [change-counts]
+  // Normal state - show branch name with status indicators and dropdown
+  // Layout: [branch-icon] main [chevron] [dirty-dot] [ahead/behind] [change-counts]
   return (
-    <button
-      className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
-      title={`Current branch: ${currentBranch}`}
-      onClick={() => {
-        // Placeholder for branch switching in Phase 14-02
-        console.log('Branch switching not yet implemented')
-      }}
-    >
-      <BranchIcon className="w-3.5 h-3.5" />
-      <span>{currentBranch}</span>
-      <DirtyIndicator isDirty={isDirty} />
-      <AheadBehindIndicator ahead={ahead} behind={behind} />
-      <ChangeCounts staged={staged} modified={modified} untracked={untracked} />
-    </button>
+    <div className="relative">
+      <button
+        className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
+        title={`Current branch: ${currentBranch}. Click to switch branches.`}
+        onClick={toggleDropdown}
+      >
+        <BranchIcon className="w-3.5 h-3.5" />
+        <span>{currentBranch}</span>
+        <ChevronIcon className="w-3 h-3" isOpen={isDropdownOpen} />
+        <DirtyIndicator isDirty={isDirty} />
+        <AheadBehindIndicator ahead={ahead} behind={behind} />
+        <ChangeCounts staged={staged} modified={modified} untracked={untracked} />
+      </button>
+      <BranchSwitcher isOpen={isDropdownOpen} onClose={closeDropdown} />
+    </div>
   )
 }
