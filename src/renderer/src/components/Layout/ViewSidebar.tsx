@@ -18,17 +18,17 @@ function KanbanIcon({ className }: { className?: string }): JSX.Element {
 }
 
 /**
- * Icon for DAG view - graph/network
+ * Icon for DAG view - nodes connected by edges
  */
 function DAGIcon({ className }: { className?: string }): JSX.Element {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M13 10V3L4 14h7v7l9-11h-7z"
-      />
+      {/* Three nodes connected: top-left -> top-right, top-left -> bottom */}
+      <circle cx="6" cy="6" r="2.5" strokeWidth={2} />
+      <circle cx="18" cy="6" r="2.5" strokeWidth={2} />
+      <circle cx="12" cy="18" r="2.5" strokeWidth={2} />
+      {/* Edges */}
+      <path strokeLinecap="round" strokeWidth={2} d="M8.5 6h7M7.5 8l3.5 8M16.5 8l-3.5 8" />
     </svg>
   )
 }
