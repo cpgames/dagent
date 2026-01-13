@@ -5,6 +5,12 @@ import { getGitManager } from '../git'
 import { initializeStorage } from './storage-handlers'
 import { setHistoryProjectRoot } from './history-handlers'
 import { ensureDagentStructure } from '../storage/paths'
+import {
+  getRecentProjects,
+  addRecentProject,
+  removeRecentProject,
+  clearRecentProjects
+} from '../storage/recent-projects'
 
 /**
  * Current project root path.
@@ -71,6 +77,10 @@ export function registerProjectHandlers(): void {
 
         // Update current project path
         currentProjectPath = projectRoot
+
+        // Add to recent projects
+        const projectName = path.basename(projectRoot)
+        await addRecentProject(projectRoot, projectName)
 
         console.log('[DAGent] Project switched to:', projectRoot)
 
@@ -157,6 +167,9 @@ export function registerProjectHandlers(): void {
         // Update current project path
         currentProjectPath = projectPath
 
+        // Add to recent projects
+        await addRecentProject(projectPath, projectName)
+
         console.log('[DAGent] New project created at:', projectPath)
 
         return { success: true, projectPath }
@@ -167,4 +180,32 @@ export function registerProjectHandlers(): void {
       }
     }
   )
+
+  /**
+   * Get recent projects list.
+   */
+  ipcMain.handle('project:get-recent', async () => {
+    return getRecentProjects()
+  })
+
+  /**
+   * Add a project to recent projects list.
+   */
+  ipcMain.handle('project:add-recent', async (_event, projectPath: string, name: string) => {
+    await addRecentProject(projectPath, name)
+  })
+
+  /**
+   * Remove a project from recent projects list.
+   */
+  ipcMain.handle('project:remove-recent', async (_event, projectPath: string) => {
+    await removeRecentProject(projectPath)
+  })
+
+  /**
+   * Clear all recent projects.
+   */
+  ipcMain.handle('project:clear-recent', async () => {
+    await clearRecentProjects()
+  })
 }
