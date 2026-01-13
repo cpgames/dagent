@@ -6,6 +6,7 @@ interface DAGStoreState {
   // Current DAG (for active feature)
   dag: DAGGraph | null
   isLoading: boolean
+  isMutating: boolean
   error: string | null
 
   // Current feature ID for history operations
@@ -45,6 +46,7 @@ interface DAGStoreState {
 export const useDAGStore = create<DAGStoreState>((set, get) => ({
   dag: null,
   isLoading: false,
+  isMutating: false,
   error: null,
   currentFeatureId: null,
   selectedNodeId: null,
@@ -64,24 +66,29 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { dag, currentFeatureId } = get()
     if (!dag) return
 
-    const newDag: DAGGraph = {
-      ...dag,
-      nodes: [...dag.nodes, node]
-    }
-    set({ dag: newDag })
-
-    // Push version after change
-    if (currentFeatureId) {
-      try {
-        await window.electronAPI.history.pushVersion(
-          currentFeatureId,
-          newDag,
-          `Added node ${node.title || node.id}`
-        )
-        await get().loadHistoryState(currentFeatureId)
-      } catch (error) {
-        console.error('Failed to push version:', error)
+    set({ isMutating: true })
+    try {
+      const newDag: DAGGraph = {
+        ...dag,
+        nodes: [...dag.nodes, node]
       }
+      set({ dag: newDag })
+
+      // Push version after change
+      if (currentFeatureId) {
+        try {
+          await window.electronAPI.history.pushVersion(
+            currentFeatureId,
+            newDag,
+            `Added node ${node.title || node.id}`
+          )
+          await get().loadHistoryState(currentFeatureId)
+        } catch (error) {
+          console.error('Failed to push version:', error)
+        }
+      }
+    } finally {
+      set({ isMutating: false })
     }
   },
 
@@ -89,24 +96,29 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { dag, currentFeatureId } = get()
     if (!dag) return
 
-    const newDag: DAGGraph = {
-      ...dag,
-      nodes: dag.nodes.map((n) => (n.id === nodeId ? { ...n, ...updates } : n))
-    }
-    set({ dag: newDag })
-
-    // Push version after change
-    if (currentFeatureId) {
-      try {
-        await window.electronAPI.history.pushVersion(
-          currentFeatureId,
-          newDag,
-          `Updated node ${nodeId}`
-        )
-        await get().loadHistoryState(currentFeatureId)
-      } catch (error) {
-        console.error('Failed to push version:', error)
+    set({ isMutating: true })
+    try {
+      const newDag: DAGGraph = {
+        ...dag,
+        nodes: dag.nodes.map((n) => (n.id === nodeId ? { ...n, ...updates } : n))
       }
+      set({ dag: newDag })
+
+      // Push version after change
+      if (currentFeatureId) {
+        try {
+          await window.electronAPI.history.pushVersion(
+            currentFeatureId,
+            newDag,
+            `Updated node ${nodeId}`
+          )
+          await get().loadHistoryState(currentFeatureId)
+        } catch (error) {
+          console.error('Failed to push version:', error)
+        }
+      }
+    } finally {
+      set({ isMutating: false })
     }
   },
 
@@ -114,23 +126,28 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { dag, currentFeatureId, selectedNodeId } = get()
     if (!dag) return
 
-    const newDag: DAGGraph = {
-      nodes: dag.nodes.filter((n) => n.id !== nodeId),
-      connections: dag.connections.filter((c) => c.from !== nodeId && c.to !== nodeId)
-    }
-    set({
-      dag: newDag,
-      selectedNodeId: selectedNodeId === nodeId ? null : selectedNodeId
-    })
-
-    // Push version after change
-    if (currentFeatureId) {
-      try {
-        await window.electronAPI.history.pushVersion(currentFeatureId, newDag, `Removed node ${nodeId}`)
-        await get().loadHistoryState(currentFeatureId)
-      } catch (error) {
-        console.error('Failed to push version:', error)
+    set({ isMutating: true })
+    try {
+      const newDag: DAGGraph = {
+        nodes: dag.nodes.filter((n) => n.id !== nodeId),
+        connections: dag.connections.filter((c) => c.from !== nodeId && c.to !== nodeId)
       }
+      set({
+        dag: newDag,
+        selectedNodeId: selectedNodeId === nodeId ? null : selectedNodeId
+      })
+
+      // Push version after change
+      if (currentFeatureId) {
+        try {
+          await window.electronAPI.history.pushVersion(currentFeatureId, newDag, `Removed node ${nodeId}`)
+          await get().loadHistoryState(currentFeatureId)
+        } catch (error) {
+          console.error('Failed to push version:', error)
+        }
+      }
+    } finally {
+      set({ isMutating: false })
     }
   },
 
@@ -144,24 +161,29 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     )
     if (exists) return
 
-    const newDag: DAGGraph = {
-      ...dag,
-      connections: [...dag.connections, connection]
-    }
-    set({ dag: newDag })
-
-    // Push version after change
-    if (currentFeatureId) {
-      try {
-        await window.electronAPI.history.pushVersion(
-          currentFeatureId,
-          newDag,
-          `Added connection ${connection.from} -> ${connection.to}`
-        )
-        await get().loadHistoryState(currentFeatureId)
-      } catch (error) {
-        console.error('Failed to push version:', error)
+    set({ isMutating: true })
+    try {
+      const newDag: DAGGraph = {
+        ...dag,
+        connections: [...dag.connections, connection]
       }
+      set({ dag: newDag })
+
+      // Push version after change
+      if (currentFeatureId) {
+        try {
+          await window.electronAPI.history.pushVersion(
+            currentFeatureId,
+            newDag,
+            `Added connection ${connection.from} -> ${connection.to}`
+          )
+          await get().loadHistoryState(currentFeatureId)
+        } catch (error) {
+          console.error('Failed to push version:', error)
+        }
+      }
+    } finally {
+      set({ isMutating: false })
     }
   },
 
@@ -169,24 +191,29 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { dag, currentFeatureId } = get()
     if (!dag) return
 
-    const newDag: DAGGraph = {
-      ...dag,
-      connections: dag.connections.filter((c) => !(c.from === from && c.to === to))
-    }
-    set({ dag: newDag })
-
-    // Push version after change
-    if (currentFeatureId) {
-      try {
-        await window.electronAPI.history.pushVersion(
-          currentFeatureId,
-          newDag,
-          `Removed connection ${from} -> ${to}`
-        )
-        await get().loadHistoryState(currentFeatureId)
-      } catch (error) {
-        console.error('Failed to push version:', error)
+    set({ isMutating: true })
+    try {
+      const newDag: DAGGraph = {
+        ...dag,
+        connections: dag.connections.filter((c) => !(c.from === from && c.to === to))
       }
+      set({ dag: newDag })
+
+      // Push version after change
+      if (currentFeatureId) {
+        try {
+          await window.electronAPI.history.pushVersion(
+            currentFeatureId,
+            newDag,
+            `Removed connection ${from} -> ${to}`
+          )
+          await get().loadHistoryState(currentFeatureId)
+        } catch (error) {
+          console.error('Failed to push version:', error)
+        }
+      }
+    } finally {
+      set({ isMutating: false })
     }
   },
 
