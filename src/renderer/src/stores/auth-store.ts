@@ -42,12 +42,31 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
       const state = await window.electronAPI.auth.setCredentials(type, value);
       set({ state, isLoading: false });
     } catch (error) {
-      set({ isLoading: false });
+      set({
+        state: {
+          authenticated: false,
+          credentials: null,
+          error: String(error)
+        },
+        isLoading: false
+      });
     }
   },
 
   clearCredentials: async () => {
-    const state = await window.electronAPI.auth.clearCredentials();
-    set({ state });
+    set({ isLoading: true });
+    try {
+      const state = await window.electronAPI.auth.clearCredentials();
+      set({ state, isLoading: false });
+    } catch (error) {
+      set({
+        state: {
+          authenticated: false,
+          credentials: null,
+          error: String(error)
+        },
+        isLoading: false
+      });
+    }
   }
 }));
