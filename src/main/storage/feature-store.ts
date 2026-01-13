@@ -1,0 +1,174 @@
+import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types';
+import { readJson, writeJson, exists } from './json-store';
+import * as paths from './paths';
+import { promises as fs } from 'fs';
+
+/**
+ * Storage service for feature data.
+ * Manages reading/writing to .dagent directory structure.
+ */
+export class FeatureStore {
+  constructor(private projectRoot: string) {}
+
+  /**
+   * Save feature metadata to feature.json.
+   */
+  async saveFeature(feature: Feature): Promise<void> {
+    const filePath = paths.getFeaturePath(this.projectRoot, feature.id);
+    await writeJson(filePath, feature);
+  }
+
+  /**
+   * Load feature metadata from feature.json.
+   * @returns Feature data, or null if not found.
+   */
+  async loadFeature(featureId: string): Promise<Feature | null> {
+    const filePath = paths.getFeaturePath(this.projectRoot, featureId);
+    return readJson<Feature>(filePath);
+  }
+
+  /**
+   * Delete a feature and all its data.
+   * @returns true if deleted, false if feature didn't exist.
+   */
+  async deleteFeature(featureId: string): Promise<boolean> {
+    const featureDir = paths.getFeatureDir(this.projectRoot, featureId);
+    try {
+      await fs.rm(featureDir, { recursive: true });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Save DAG graph to dag.json.
+   */
+  async saveDag(featureId: string, dag: DAGGraph): Promise<void> {
+    const filePath = paths.getDagPath(this.projectRoot, featureId);
+    await writeJson(filePath, dag);
+  }
+
+  /**
+   * Load DAG graph from dag.json.
+   * @returns DAG graph, or null if not found.
+   */
+  async loadDag(featureId: string): Promise<DAGGraph | null> {
+    const filePath = paths.getDagPath(this.projectRoot, featureId);
+    return readJson<DAGGraph>(filePath);
+  }
+
+  /**
+   * Save feature-level chat history.
+   */
+  async saveChat(featureId: string, chat: ChatHistory): Promise<void> {
+    const filePath = paths.getChatPath(this.projectRoot, featureId);
+    await writeJson(filePath, chat);
+  }
+
+  /**
+   * Load feature-level chat history.
+   * @returns Chat history, or null if not found.
+   */
+  async loadChat(featureId: string): Promise<ChatHistory | null> {
+    const filePath = paths.getChatPath(this.projectRoot, featureId);
+    return readJson<ChatHistory>(filePath);
+  }
+
+  /**
+   * Save harness log for a feature.
+   */
+  async saveHarnessLog(featureId: string, log: AgentLog): Promise<void> {
+    const filePath = paths.getHarnessLogPath(this.projectRoot, featureId);
+    await writeJson(filePath, log);
+  }
+
+  /**
+   * Load harness log for a feature.
+   * @returns Agent log, or null if not found.
+   */
+  async loadHarnessLog(featureId: string): Promise<AgentLog | null> {
+    const filePath = paths.getHarnessLogPath(this.projectRoot, featureId);
+    return readJson<AgentLog>(filePath);
+  }
+
+  /**
+   * Save node-specific chat history.
+   */
+  async saveNodeChat(featureId: string, nodeId: string, chat: ChatHistory): Promise<void> {
+    const filePath = paths.getNodeChatPath(this.projectRoot, featureId, nodeId);
+    await writeJson(filePath, chat);
+  }
+
+  /**
+   * Load node-specific chat history.
+   * @returns Chat history, or null if not found.
+   */
+  async loadNodeChat(featureId: string, nodeId: string): Promise<ChatHistory | null> {
+    const filePath = paths.getNodeChatPath(this.projectRoot, featureId, nodeId);
+    return readJson<ChatHistory>(filePath);
+  }
+
+  /**
+   * Save node-specific agent logs.
+   */
+  async saveNodeLogs(featureId: string, nodeId: string, log: AgentLog): Promise<void> {
+    const filePath = paths.getNodeLogsPath(this.projectRoot, featureId, nodeId);
+    await writeJson(filePath, log);
+  }
+
+  /**
+   * Load node-specific agent logs.
+   * @returns Agent log, or null if not found.
+   */
+  async loadNodeLogs(featureId: string, nodeId: string): Promise<AgentLog | null> {
+    const filePath = paths.getNodeLogsPath(this.projectRoot, featureId, nodeId);
+    return readJson<AgentLog>(filePath);
+  }
+
+  /**
+   * Delete a node directory and all its data.
+   * @returns true if deleted, false if node didn't exist.
+   */
+  async deleteNode(featureId: string, nodeId: string): Promise<boolean> {
+    const nodeDir = paths.getNodeDir(this.projectRoot, featureId, nodeId);
+    try {
+      await fs.rm(nodeDir, { recursive: true });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * List all feature IDs in the worktrees directory.
+   * Only includes directories that have a valid feature.json.
+   */
+  async listFeatures(): Promise<string[]> {
+    const worktreesDir = paths.getWorktreesDir(this.projectRoot);
+    try {
+      const entries = await fs.readdir(worktreesDir, { withFileTypes: true });
+      const featureIds: string[] = [];
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const featurePath = paths.getFeaturePath(this.projectRoot, entry.name);
+          if (await exists(featurePath)) {
+            featureIds.push(entry.name);
+          }
+        }
+      }
+      return featureIds;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+  }
+}
