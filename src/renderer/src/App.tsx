@@ -5,7 +5,7 @@ import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
 import { NewFeatureDialog } from './components/Feature'
-import { ViewSidebar } from './components/Layout'
+import { ViewSidebar, StatusBar } from './components/Layout'
 
 /**
  * Main App component for DAGent.
@@ -68,6 +68,9 @@ function App(): React.JSX.Element {
           </main>
           <ViewSidebar />
         </div>
+
+        {/* Status bar at bottom */}
+        <StatusBar />
       </div>
       <ToastContainer />
       <AuthDialog isOpen={authDialogOpen} onClose={() => setAuthDialogOpen(false)} />
