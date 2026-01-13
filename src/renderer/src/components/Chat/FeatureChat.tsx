@@ -1,47 +1,47 @@
-import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react';
-import { useChatStore } from '../../stores/chat-store';
-import { ChatMessage } from './ChatMessage';
+import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react'
+import { useChatStore } from '../../stores/chat-store'
+import { ChatMessage } from './ChatMessage'
 
 interface FeatureChatProps {
-  featureId: string;
+  featureId: string
 }
 
 export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
-  const { messages, loadChat, addMessage, isLoading } = useChatStore();
-  const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { messages, loadChat, addMessage, isLoading } = useChatStore()
+  const [inputValue, setInputValue] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Load chat when featureId changes
   useEffect(() => {
-    loadChat(featureId);
-  }, [featureId, loadChat]);
+    loadChat(featureId)
+  }, [featureId, loadChat])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const handleSend = useCallback(() => {
-    const trimmedValue = inputValue.trim();
-    if (!trimmedValue) return;
+    const trimmedValue = inputValue.trim()
+    if (!trimmedValue) return
 
     addMessage({
       role: 'user',
-      content: trimmedValue,
-    });
-    setInputValue('');
-  }, [inputValue, addMessage]);
+      content: trimmedValue
+    })
+    setInputValue('')
+  }, [inputValue, addMessage])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       // Enter sends, Shift+Enter for newline
       if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
+        e.preventDefault()
+        handleSend()
       }
     },
     [handleSend]
-  );
+  )
 
   return (
     <div className="w-80 flex flex-col border-l border-gray-700 bg-gray-900">
@@ -92,5 +92,5 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
         </div>
       </div>
     </div>
-  );
+  )
 }

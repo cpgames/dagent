@@ -1,12 +1,12 @@
-import type { JSX } from 'react';
-import type { ChatMessage as ChatMessageType } from '../../stores/chat-store';
+import type { JSX } from 'react'
+import type { ChatMessage as ChatMessageType } from '../../stores/chat-store'
 
 interface ChatMessageProps {
-  message: ChatMessageType;
+  message: ChatMessageType
 }
 
 export function ChatMessage({ message }: ChatMessageProps): JSX.Element {
-  const isUser = message.role === 'user';
+  const isUser = message.role === 'user'
 
   return (
     <div
@@ -17,5 +17,5 @@ export function ChatMessage({ message }: ChatMessageProps): JSX.Element {
       <div className="text-sm text-gray-400 mb-1">{isUser ? 'You' : 'AI'}</div>
       <div className="whitespace-pre-wrap text-white">{message.content}</div>
     </div>
-  );
+  )
 }
