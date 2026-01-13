@@ -67,7 +67,17 @@ function dagToEdges(dag: DAGGraph | null): Edge[] {
 
 export default function DAGView(): JSX.Element {
   const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
-  const { dag, loadDag, updateNode, addConnection, removeNode, removeConnection } = useDAGStore()
+  const {
+    dag,
+    loadDag,
+    updateNode,
+    addConnection,
+    removeNode,
+    removeConnection,
+    historyState,
+    undo,
+    redo
+  } = useDAGStore()
   const { nodeDialogOpen, nodeDialogTaskId, openNodeDialog, closeNodeDialog } = useDialogStore()
 
   // Find the task for the open dialog
@@ -220,10 +230,10 @@ export default function DAGView(): JSX.Element {
           <div className="border-t border-gray-700 bg-gray-800 px-4 py-2">
             <ExecutionControls
               featureId={activeFeatureId}
-              onUndo={() => {}} // TODO: 07-03
-              onRedo={() => {}} // TODO: 07-03
-              canUndo={false} // TODO: 07-03
-              canRedo={false} // TODO: 07-03
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={historyState.canUndo}
+              canRedo={historyState.canRedo}
             />
           </div>
         </div>
