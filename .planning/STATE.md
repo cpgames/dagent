@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 12 of 15 (v1.2) - In Progress
-Plan: 1 of 3 in Phase 12
+Plan: 2 of 3 in Phase 12
 Status: In progress
-Last activity: 2026-01-13 - Completed 12-01-PLAN.md
+Last activity: 2026-01-13 - Completed 12-02-PLAN.md
 
-Progress (v1.2): ████░░░░░░ 31%
+Progress (v1.2): █████░░░░░ 38%
 
 ## Performance Metrics
 
@@ -146,3 +146,4 @@ All verification items passed. Milestone v1.1 Complete.
 ### Phase 12: Project Selection (In Progress)
 
 - **12-01**: Project IPC handlers, project-store, ProjectSelectionDialog ✓
+- **12-02**: NewProjectDialog with location picker and name validation ✓
