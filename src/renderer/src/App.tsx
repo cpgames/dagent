@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useFeatureStore, useViewStore, useAuthStore } from './stores'
+import { useFeatureStore, useViewStore, useAuthStore, useProjectStore } from './stores'
 import { KanbanView, DAGView, ContextView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
 import { NewFeatureDialog } from './components/Feature'
+import { ProjectSelectionDialog, NewProjectDialog } from './components/Project'
 import { ViewSidebar, StatusBar } from './components/Layout'
 
 /**
@@ -15,15 +16,23 @@ function App(): React.JSX.Element {
   const { loadFeatures, createFeature } = useFeatureStore()
   const { activeView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
+  const { loadCurrentProject, projectPath } = useProjectStore()
+
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
+  const [projectSelectionDialogOpen, setProjectSelectionDialogOpen] = useState(false)
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false)
 
   useEffect(() => {
-    // Load features from storage on mount
-    loadFeatures()
+    // Load current project and features on mount
+    const initialize = async (): Promise<void> => {
+      await loadCurrentProject()
+      await loadFeatures()
+    }
+    initialize()
     // Initialize auth state from main process
     initAuth()
-  }, [loadFeatures, initAuth])
+  }, [loadFeatures, initAuth, loadCurrentProject])
 
   // Auto-open auth dialog when auth fails and loading completes
   useEffect(() => {
@@ -40,6 +49,24 @@ function App(): React.JSX.Element {
     // Error case is handled in store (toast displayed)
   }
 
+  const handleCreateNewProject = (): void => {
+    // Close project selection dialog, open new project dialog
+    setProjectSelectionDialogOpen(false)
+    setNewProjectDialogOpen(true)
+  }
+
+  const handleNewProjectSuccess = (_projectPath: string): void => {
+    setNewProjectDialogOpen(false)
+  }
+
+  const handleNewProjectClose = (): void => {
+    setNewProjectDialogOpen(false)
+    // Reopen project selection dialog if no project is loaded
+    if (!projectPath) {
+      setProjectSelectionDialogOpen(true)
+    }
+  }
+
   return (
     <ErrorBoundary>
       <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
@@ -48,7 +75,14 @@ function App(): React.JSX.Element {
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold">DAGent</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setProjectSelectionDialogOpen(true)}
+              className="px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors"
+              title="Open or switch project"
+            >
+              Open Project...
+            </button>
             <button
               onClick={() => setNewFeatureDialogOpen(true)}
               className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
@@ -79,6 +113,16 @@ function App(): React.JSX.Element {
         isOpen={newFeatureDialogOpen}
         onClose={() => setNewFeatureDialogOpen(false)}
         onSubmit={handleCreateFeature}
+      />
+      <ProjectSelectionDialog
+        isOpen={projectSelectionDialogOpen}
+        onClose={() => setProjectSelectionDialogOpen(false)}
+        onCreateNew={handleCreateNewProject}
+      />
+      <NewProjectDialog
+        isOpen={newProjectDialogOpen}
+        onClose={handleNewProjectClose}
+        onSuccess={handleNewProjectSuccess}
       />
     </ErrorBoundary>
   )

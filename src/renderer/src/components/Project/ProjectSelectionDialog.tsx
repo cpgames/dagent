@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { useEffect } from 'react'
 import { useProjectStore } from '../../stores'
 
 interface ProjectSelectionDialogProps {
@@ -35,6 +36,17 @@ function PlusIcon({ className }: { className?: string }): JSX.Element {
 }
 
 /**
+ * X icon for remove from recent
+ */
+function XIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+/**
  * Loading spinner
  */
 function Spinner({ className }: { className?: string }): JSX.Element {
@@ -58,15 +70,38 @@ function Spinner({ className }: { className?: string }): JSX.Element {
 }
 
 /**
+ * Truncate a path for display, keeping the end visible
+ */
+function truncatePath(path: string, maxLength: number = 40): string {
+  if (path.length <= maxLength) return path
+  return '...' + path.slice(-maxLength + 3)
+}
+
+/**
  * Project selection dialog for opening existing projects or creating new ones.
- * Shows two main options: Open Folder and Create New Project.
+ * Shows recent projects list, Open Folder and Create New Project options.
  */
 export function ProjectSelectionDialog({
   isOpen,
   onClose,
   onCreateNew
 }: ProjectSelectionDialogProps): JSX.Element | null {
-  const { openFolderDialog, isLoading, error } = useProjectStore()
+  const {
+    openFolderDialog,
+    openProject,
+    loadRecentProjects,
+    removeFromRecent,
+    recentProjects,
+    isLoading,
+    error
+  } = useProjectStore()
+
+  // Load recent projects when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      loadRecentProjects()
+    }
+  }, [isOpen, loadRecentProjects])
 
   if (!isOpen) return null
 
@@ -83,6 +118,21 @@ export function ProjectSelectionDialog({
     }
   }
 
+  const handleOpenRecent = async (path: string): Promise<void> => {
+    const success = await openProject(path)
+    if (success) {
+      onClose()
+    }
+  }
+
+  const handleRemoveFromRecent = async (
+    e: React.MouseEvent,
+    path: string
+  ): Promise<void> => {
+    e.stopPropagation()
+    await removeFromRecent(path)
+  }
+
   const handleClose = (): void => {
     if (!isLoading) {
       onClose()
@@ -96,11 +146,11 @@ export function ProjectSelectionDialog({
 
       {/* Dialog */}
       <div
-        className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+        className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6 max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Open Project</h2>
           <button
             type="button"
@@ -137,8 +187,47 @@ export function ProjectSelectionDialog({
           </div>
         )}
 
+        {/* Recent projects section */}
+        {recentProjects.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Recent Projects</h3>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {recentProjects.map((project) => (
+                <button
+                  key={project.path}
+                  onClick={() => handleOpenRecent(project.path)}
+                  disabled={isLoading}
+                  className="w-full flex items-center gap-3 px-3 py-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+                >
+                  <FolderIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <div className="flex-1 text-left min-w-0">
+                    <div className="text-white text-sm font-medium truncate">{project.name}</div>
+                    <div className="text-xs text-gray-500 truncate" title={project.path}>
+                      {truncatePath(project.path)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => handleRemoveFromRecent(e, project.path)}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded transition-opacity"
+                    title="Remove from recent"
+                  >
+                    <XIcon className="w-4 h-4 text-gray-400" />
+                  </button>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No recent projects message */}
+        {recentProjects.length === 0 && (
+          <div className="mb-4 text-center py-4 text-gray-500 text-sm">
+            No recent projects
+          </div>
+        )}
+
         {/* Action buttons */}
-        <div className="space-y-3">
+        <div className="space-y-3 mt-auto">
           <button
             onClick={handleOpenFolder}
             disabled={isLoading}
