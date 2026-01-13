@@ -1,5 +1,6 @@
-import { useState, useCallback, type JSX } from 'react';
+import { useState, useCallback, useEffect, useRef, type JSX } from 'react';
 import { toast } from '../stores/toast-store';
+import { useViewStore } from '../stores';
 
 /**
  * ContextView - Displays context documents and CLAUDE.md content.
@@ -7,15 +8,50 @@ import { toast } from '../stores/toast-store';
  * Per DAGENT_SPEC 3.5.
  */
 export default function ContextView(): JSX.Element {
+  const { setContextViewDirty, setConfirmDiscardCallback } = useViewStore();
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
-  const [isDirty, setIsDirty] = useState(false);
+  const [isDirty, setIsDirtyLocal] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  // Ref to resolve/reject the confirmation promise for view switching
+  const confirmResolveRef = useRef<((value: boolean) => void) | null>(null);
+
+  /**
+   * Wrapper to sync local dirty state with store.
+   */
+  const setIsDirty = useCallback(
+    (dirty: boolean): void => {
+      setIsDirtyLocal(dirty);
+      setContextViewDirty(dirty);
+    },
+    [setContextViewDirty]
+  );
+
+  /**
+   * Register confirmation callback with view store on mount.
+   * This allows App.tsx to trigger the discard dialog when switching views.
+   */
+  useEffect(() => {
+    const confirmCallback = (): Promise<boolean> => {
+      return new Promise((resolve) => {
+        confirmResolveRef.current = resolve;
+        setShowDiscardDialog(true);
+      });
+    };
+
+    setConfirmDiscardCallback(confirmCallback);
+
+    return () => {
+      setConfirmDiscardCallback(null);
+      setContextViewDirty(false);
+    };
+  }, [setConfirmDiscardCallback, setContextViewDirty]);
 
   /**
    * Handle content changes and track dirty state.
@@ -85,11 +121,20 @@ export default function ContextView(): JSX.Element {
 
   /**
    * Handle confirming discard of unsaved changes.
+   * Resolves any pending promise (for view switching) and executes pending action.
    */
   const handleConfirmDiscard = (): void => {
     setShowDiscardDialog(false);
     setIsDirty(false);
     setContent(originalContent);
+
+    // Resolve view-switch confirmation promise
+    if (confirmResolveRef.current) {
+      confirmResolveRef.current(true);
+      confirmResolveRef.current = null;
+    }
+
+    // Execute any pending local action
     if (pendingAction) {
       pendingAction();
       setPendingAction(null);
@@ -98,10 +143,17 @@ export default function ContextView(): JSX.Element {
 
   /**
    * Handle canceling the discard dialog.
+   * Rejects view-switch and clears pending action.
    */
   const handleCancelDiscard = (): void => {
     setShowDiscardDialog(false);
     setPendingAction(null);
+
+    // Resolve view-switch confirmation promise with false (cancelled)
+    if (confirmResolveRef.current) {
+      confirmResolveRef.current(false);
+      confirmResolveRef.current = null;
+    }
   };
 
   return (

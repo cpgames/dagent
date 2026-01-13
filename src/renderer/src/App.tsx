@@ -21,7 +21,7 @@ const tabs: { id: ViewType; label: string }[] = [
  */
 function App(): React.JSX.Element {
   const { loadFeatures, createFeature } = useFeatureStore()
-  const { activeView, setView } = useViewStore()
+  const { activeView, requestViewChange } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
@@ -56,7 +56,7 @@ function App(): React.JSX.Element {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setView(tab.id)}
+                onClick={() => requestViewChange(tab.id)}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   activeView === tab.id
                     ? 'bg-gray-700 border-b-2 border-blue-500 text-white'
