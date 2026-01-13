@@ -4,7 +4,13 @@
  */
 
 import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
-import type { TopologicalResult, DAGAnalysisSerialized, TaskDependencies } from '../main/dag-engine/types'
+import type {
+  TopologicalResult,
+  DAGAnalysisSerialized,
+  TaskDependencies
+} from '../main/dag-engine/types'
+import type { TransitionResult } from '../main/dag-engine/state-machine'
+import type { CascadeResult } from '../main/dag-engine/cascade'
 
 export interface AppInfo {
   version: string
@@ -76,6 +82,48 @@ export interface DagAPI {
    * Update task statuses based on dependency completion
    */
   updateStatuses: (graph: DAGGraph) => Promise<string[]>
+
+  // State machine methods
+
+  /**
+   * Check if a state transition is valid
+   */
+  isValidTransition: (from: string, to: string, event: string) => Promise<boolean>
+
+  /**
+   * Get the next status for a given event from current status
+   */
+  getNextStatus: (currentStatus: string, event: string) => Promise<string | null>
+
+  /**
+   * Get all valid events for a given status
+   */
+  getValidEvents: (currentStatus: string) => Promise<string[]>
+
+  /**
+   * Transition a task to a new status via an event
+   */
+  transitionTask: (task: Task, event: string, graph?: DAGGraph) => Promise<TransitionResult>
+
+  /**
+   * Initialize all task statuses based on dependencies
+   */
+  initializeStatuses: (graph: DAGGraph) => Promise<DAGGraph>
+
+  /**
+   * Cascade completion status to dependent tasks
+   */
+  cascadeCompletion: (completedTaskId: string, graph: DAGGraph) => Promise<CascadeResult>
+
+  /**
+   * Reset a task and all its dependents to blocked
+   */
+  resetTask: (taskId: string, graph: DAGGraph) => Promise<CascadeResult>
+
+  /**
+   * Recalculate all task statuses based on dependencies
+   */
+  recalculateStatuses: (graph: DAGGraph) => Promise<CascadeResult>
 }
 
 export interface ElectronAPI {

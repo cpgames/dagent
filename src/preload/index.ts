@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
-import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
+import type {
+  TopologicalResult,
+  DAGAnalysisSerialized
+} from '../main/dag-engine/types'
+import type { TransitionResult } from '../main/dag-engine/state-machine'
+import type { CascadeResult } from '../main/dag-engine/cascade'
 
 /**
  * Preload script for DAGent.
@@ -80,7 +85,25 @@ const electronAPI = {
     isTaskReady: (taskId: string, graph: DAGGraph): Promise<boolean> =>
       ipcRenderer.invoke('dag:is-task-ready', taskId, graph),
     updateStatuses: (graph: DAGGraph): Promise<string[]> =>
-      ipcRenderer.invoke('dag:update-statuses', graph)
+      ipcRenderer.invoke('dag:update-statuses', graph),
+
+    // State machine methods
+    isValidTransition: (from: string, to: string, event: string): Promise<boolean> =>
+      ipcRenderer.invoke('dag:is-valid-transition', from, to, event),
+    getNextStatus: (currentStatus: string, event: string): Promise<string | null> =>
+      ipcRenderer.invoke('dag:get-next-status', currentStatus, event),
+    getValidEvents: (currentStatus: string): Promise<string[]> =>
+      ipcRenderer.invoke('dag:get-valid-events', currentStatus),
+    transitionTask: (task: Task, event: string, graph?: DAGGraph): Promise<TransitionResult> =>
+      ipcRenderer.invoke('dag:transition-task', task, event, graph),
+    initializeStatuses: (graph: DAGGraph): Promise<DAGGraph> =>
+      ipcRenderer.invoke('dag:initialize-statuses', graph),
+    cascadeCompletion: (completedTaskId: string, graph: DAGGraph): Promise<CascadeResult> =>
+      ipcRenderer.invoke('dag:cascade-completion', completedTaskId, graph),
+    resetTask: (taskId: string, graph: DAGGraph): Promise<CascadeResult> =>
+      ipcRenderer.invoke('dag:reset-task', taskId, graph),
+    recalculateStatuses: (graph: DAGGraph): Promise<CascadeResult> =>
+      ipcRenderer.invoke('dag:recalculate-statuses', graph)
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)
