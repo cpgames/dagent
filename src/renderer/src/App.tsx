@@ -22,17 +22,26 @@ function App(): React.JSX.Element {
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
   const [projectSelectionDialogOpen, setProjectSelectionDialogOpen] = useState(false)
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
     // Load current project and features on mount
     const initialize = async (): Promise<void> => {
       await loadCurrentProject()
       await loadFeatures()
+      setInitialized(true)
     }
     initialize()
     // Initialize auth state from main process
     initAuth()
   }, [loadFeatures, initAuth, loadCurrentProject])
+
+  // Open project selection dialog on startup if no project is loaded
+  useEffect(() => {
+    if (initialized && !projectPath) {
+      setProjectSelectionDialogOpen(true)
+    }
+  }, [initialized, projectPath])
 
   // Auto-open auth dialog when auth fails and loading completes
   useEffect(() => {
