@@ -398,6 +398,14 @@ const electronAPI = {
     isAuthenticated: (): Promise<boolean> => ipcRenderer.invoke('auth:isAuthenticated')
   },
 
+  // Project API
+  project: {
+    openDialog: (): Promise<string | null> => ipcRenderer.invoke('project:open-dialog'),
+    setProject: (path: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('project:set-project', path),
+    getCurrent: (): Promise<string> => ipcRenderer.invoke('project:get-current')
+  },
+
   // History API (undo/redo)
   history: {
     pushVersion: (
