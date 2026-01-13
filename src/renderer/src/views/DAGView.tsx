@@ -22,8 +22,9 @@ import '@xyflow/react/dist/style.css'
 
 import { useFeatureStore } from '../stores/feature-store'
 import { useDAGStore } from '../stores/dag-store'
-import { TaskNode, FeatureTabs, type TaskNodeData } from '../components/DAG'
-import type { DAGGraph } from '@shared/types'
+import { useDialogStore } from '../stores/dialog-store'
+import { TaskNode, FeatureTabs, NodeDialog, type TaskNodeData } from '../components/DAG'
+import type { DAGGraph, Task } from '@shared/types'
 
 // Register custom node types
 const nodeTypes = {
@@ -66,12 +67,31 @@ function dagToEdges(dag: DAGGraph | null): Edge[] {
 export default function DAGView(): JSX.Element {
   const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
   const { dag, loadDag, updateNode, addConnection, removeNode, removeConnection } = useDAGStore()
+  const { nodeDialogOpen, nodeDialogTaskId, openNodeDialog, closeNodeDialog } = useDialogStore()
+
+  // Find the task for the open dialog
+  const dialogTask = useMemo(() => {
+    if (!nodeDialogOpen || !nodeDialogTaskId || !dag) return null
+    return dag.nodes.find((n) => n.id === nodeDialogTaskId) || null
+  }, [nodeDialogOpen, nodeDialogTaskId, dag])
 
   // Handlers for task node actions
-  const handleEditTask = useCallback((taskId: string) => {
-    // TODO: Implement task edit modal in future phase
-    console.log('Edit task:', taskId)
-  }, [])
+  const handleEditTask = useCallback(
+    (taskId: string) => {
+      openNodeDialog(taskId)
+    },
+    [openNodeDialog]
+  )
+
+  // Handle save from dialog
+  const handleDialogSave = useCallback(
+    (updates: Partial<Task>) => {
+      if (nodeDialogTaskId) {
+        updateNode(nodeDialogTaskId, updates)
+      }
+    },
+    [nodeDialogTaskId, updateNode]
+  )
 
   const handleDeleteTask = useCallback(
     (taskId: string) => {
@@ -290,6 +310,11 @@ export default function DAGView(): JSX.Element {
           </button>
         </div>
       </div>
+
+      {/* Node Dialog */}
+      {dialogTask && (
+        <NodeDialog task={dialogTask} onSave={handleDialogSave} onClose={closeNodeDialog} />
+      )}
     </div>
   )
 }
