@@ -7,6 +7,7 @@ import { registerAgentHandlers } from './agent-handlers'
 import { registerHarnessHandlers } from './harness-handlers'
 import { registerTaskAgentHandlers } from './task-agent-handlers'
 import { registerMergeAgentHandlers } from './merge-agent-handlers'
+import { registerAuthHandlers } from './auth-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -29,6 +30,8 @@ export function registerIpcHandlers(): void {
   registerTaskAgentHandlers()
   // Register merge agent handlers (branch integration)
   registerMergeAgentHandlers()
+  // Register auth handlers (credential management)
+  registerAuthHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'
