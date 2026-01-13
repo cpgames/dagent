@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { DAGGraph, Task, Connection, HistoryState } from '@shared/types'
+import { toast } from './toast-store'
 
 interface DAGStoreState {
   // Current DAG (for active feature)
@@ -71,12 +72,16 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
     // Push version after change
     if (currentFeatureId) {
-      await window.electronAPI.history.pushVersion(
-        currentFeatureId,
-        newDag,
-        `Added node ${node.title || node.id}`
-      )
-      await get().loadHistoryState(currentFeatureId)
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Added node ${node.title || node.id}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+      }
     }
   },
 
@@ -92,12 +97,16 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
     // Push version after change
     if (currentFeatureId) {
-      await window.electronAPI.history.pushVersion(
-        currentFeatureId,
-        newDag,
-        `Updated node ${nodeId}`
-      )
-      await get().loadHistoryState(currentFeatureId)
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Updated node ${nodeId}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+      }
     }
   },
 
@@ -116,8 +125,12 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
     // Push version after change
     if (currentFeatureId) {
-      await window.electronAPI.history.pushVersion(currentFeatureId, newDag, `Removed node ${nodeId}`)
-      await get().loadHistoryState(currentFeatureId)
+      try {
+        await window.electronAPI.history.pushVersion(currentFeatureId, newDag, `Removed node ${nodeId}`)
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+      }
     }
   },
 
@@ -139,12 +152,16 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
     // Push version after change
     if (currentFeatureId) {
-      await window.electronAPI.history.pushVersion(
-        currentFeatureId,
-        newDag,
-        `Added connection ${connection.from} -> ${connection.to}`
-      )
-      await get().loadHistoryState(currentFeatureId)
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Added connection ${connection.from} -> ${connection.to}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+      }
     }
   },
 
@@ -160,12 +177,16 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
     // Push version after change
     if (currentFeatureId) {
-      await window.electronAPI.history.pushVersion(
-        currentFeatureId,
-        newDag,
-        `Removed connection ${from} -> ${to}`
-      )
-      await get().loadHistoryState(currentFeatureId)
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Removed connection ${from} -> ${to}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+      }
     }
   },
 
@@ -177,7 +198,10 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       // Load history state after DAG is loaded
       await get().loadHistoryState(featureId)
     } catch (error) {
-      set({ error: (error as Error).message, isLoading: false })
+      const message = (error as Error).message
+      set({ error: message, isLoading: false })
+      toast.error(`Failed to load DAG: ${message}`)
+      console.error('Failed to load DAG:', error)
     }
   },
 
@@ -187,7 +211,10 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     try {
       await window.electronAPI.storage.saveDag(featureId, dag)
     } catch (error) {
-      set({ error: (error as Error).message })
+      const message = (error as Error).message
+      set({ error: message })
+      toast.error(`Failed to save DAG: ${message}`)
+      console.error('Failed to save DAG:', error)
     }
   },
 
@@ -204,9 +231,17 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { currentFeatureId } = get()
     if (!currentFeatureId) return
 
-    const result = await window.electronAPI.history.undo(currentFeatureId)
-    if (result.success && result.graph && result.state) {
-      set({ dag: result.graph, historyState: result.state })
+    try {
+      const result = await window.electronAPI.history.undo(currentFeatureId)
+      if (result.success && result.graph && result.state) {
+        set({ dag: result.graph, historyState: result.state })
+      } else if (!result.success) {
+        toast.warning('Nothing to undo')
+      }
+    } catch (error) {
+      const message = (error as Error).message
+      toast.error(`Undo failed: ${message}`)
+      console.error('Undo failed:', error)
     }
   },
 
@@ -214,9 +249,17 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { currentFeatureId } = get()
     if (!currentFeatureId) return
 
-    const result = await window.electronAPI.history.redo(currentFeatureId)
-    if (result.success && result.graph && result.state) {
-      set({ dag: result.graph, historyState: result.state })
+    try {
+      const result = await window.electronAPI.history.redo(currentFeatureId)
+      if (result.success && result.graph && result.state) {
+        set({ dag: result.graph, historyState: result.state })
+      } else if (!result.success) {
+        toast.warning('Nothing to redo')
+      }
+    } catch (error) {
+      const message = (error as Error).message
+      toast.error(`Redo failed: ${message}`)
+      console.error('Redo failed:', error)
     }
   }
 }))

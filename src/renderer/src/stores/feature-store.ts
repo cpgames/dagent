@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Feature } from '@shared/types';
+import { toast } from './toast-store';
 
 interface FeatureState {
   features: Feature[];
@@ -55,7 +56,10 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
       }
       set({ features, isLoading: false });
     } catch (error) {
-      set({ error: (error as Error).message, isLoading: false });
+      const message = (error as Error).message;
+      set({ error: message, isLoading: false });
+      toast.error(`Failed to load features: ${message}`);
+      console.error('Failed to load features:', error);
     }
   },
 
@@ -64,7 +68,10 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
       await window.electronAPI.storage.saveFeature(feature);
       get().updateFeature(feature.id, feature);
     } catch (error) {
-      set({ error: (error as Error).message });
+      const message = (error as Error).message;
+      set({ error: message });
+      toast.error(`Failed to save feature: ${message}`);
+      console.error('Failed to save feature:', error);
     }
   },
 }));

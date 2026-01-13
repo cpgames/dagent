@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from './toast-store'
 
 type ExecutionStatus = 'idle' | 'running' | 'paused' | 'completed' | 'failed'
 
@@ -37,6 +38,7 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       const dag = await window.electronAPI.storage.loadDag(featureId)
       if (!dag) {
         set({ isLoading: false })
+        toast.error('Failed to load DAG for feature')
         return { success: false, error: 'Failed to load DAG for feature' }
       }
 
@@ -56,13 +58,18 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           },
           isLoading: false
         })
+        toast.success('Execution started')
       } else {
         set({ isLoading: false })
+        toast.error(result.error || 'Failed to start execution')
       }
       return result
     } catch (error) {
       set({ isLoading: false })
-      return { success: false, error: String(error) }
+      const message = String(error)
+      toast.error(`Execution error: ${message}`)
+      console.error('Execution start error:', error)
+      return { success: false, error: message }
     }
   },
 
@@ -81,13 +88,18 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           },
           isLoading: false
         })
+        toast.info('Execution paused')
       } else {
         set({ isLoading: false })
+        toast.error(result.error || 'Failed to pause execution')
       }
       return result
     } catch (error) {
       set({ isLoading: false })
-      return { success: false, error: String(error) }
+      const message = String(error)
+      toast.error(`Pause failed: ${message}`)
+      console.error('Execution pause error:', error)
+      return { success: false, error: message }
     }
   },
 
@@ -106,13 +118,18 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           },
           isLoading: false
         })
+        toast.success('Execution resumed')
       } else {
         set({ isLoading: false })
+        toast.error(result.error || 'Failed to resume execution')
       }
       return result
     } catch (error) {
       set({ isLoading: false })
-      return { success: false, error: String(error) }
+      const message = String(error)
+      toast.error(`Resume failed: ${message}`)
+      console.error('Execution resume error:', error)
+      return { success: false, error: message }
     }
   },
 
@@ -130,13 +147,18 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           },
           isLoading: false
         })
+        toast.info('Execution stopped')
       } else {
         set({ isLoading: false })
+        toast.error(result.error || 'Failed to stop execution')
       }
       return result
     } catch (error) {
       set({ isLoading: false })
-      return { success: false, error: String(error) }
+      const message = String(error)
+      toast.error(`Stop failed: ${message}`)
+      console.error('Execution stop error:', error)
+      return { success: false, error: message }
     }
   },
 
