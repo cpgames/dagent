@@ -3,6 +3,17 @@ import type { DAGGraph } from '@shared/types'
 import type { ExecutionConfig } from '../dag-engine/orchestrator-types'
 import { getOrchestrator, resetOrchestrator } from '../dag-engine/orchestrator'
 
+/**
+ * Execution IPC Handlers
+ *
+ * Flow for feature-based execution:
+ * 1. Renderer calls execution:initialize(featureId, graph) to set up orchestrator
+ * 2. Renderer calls execution:start() to begin execution
+ * 3. Renderer calls execution:get-state to poll current state
+ * 4. Use execution:pause/resume/stop to control execution
+ *
+ * The orchestrator manages task assignments and state transitions.
+ */
 export function registerExecutionHandlers(): void {
   ipcMain.handle(
     'execution:initialize',
