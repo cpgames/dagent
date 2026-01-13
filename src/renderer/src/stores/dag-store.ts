@@ -89,6 +89,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
           await get().loadHistoryState(currentFeatureId)
         } catch (error) {
           console.error('Failed to push version:', error)
+          toast.warning('Changes saved but history snapshot failed')
         }
       }
     } finally {
@@ -119,6 +120,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
           await get().loadHistoryState(currentFeatureId)
         } catch (error) {
           console.error('Failed to push version:', error)
+          toast.warning('Changes saved but history snapshot failed')
         }
       }
     } finally {
@@ -148,6 +150,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
           await get().loadHistoryState(currentFeatureId)
         } catch (error) {
           console.error('Failed to push version:', error)
+          toast.warning('Changes saved but history snapshot failed')
         }
       }
     } finally {
@@ -184,6 +187,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
           await get().loadHistoryState(currentFeatureId)
         } catch (error) {
           console.error('Failed to push version:', error)
+          toast.warning('Changes saved but history snapshot failed')
         }
       }
     } finally {
@@ -214,6 +218,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
           await get().loadHistoryState(currentFeatureId)
         } catch (error) {
           console.error('Failed to push version:', error)
+          toast.warning('Changes saved but history snapshot failed')
         }
       }
     } finally {
