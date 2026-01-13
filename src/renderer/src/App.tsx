@@ -5,7 +5,7 @@ import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
 import { NewFeatureDialog } from './components/Feature'
-import { ProjectSelectionDialog, NewProjectDialog } from './components/Project'
+import { ProjectSelectionDialog, NewProjectDialog, ProjectSelector } from './components/Project'
 import { ViewSidebar, StatusBar } from './components/Layout'
 
 /**
@@ -78,26 +78,15 @@ function App(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
-        {/* Header - simplified without tabs */}
+        {/* Header */}
         <header className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold">DAGent</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setProjectSelectionDialogOpen(true)}
-              className="px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors"
-              title="Open or switch project"
-            >
-              Open Project...
-            </button>
-            <button
-              onClick={() => setNewFeatureDialogOpen(true)}
-              className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
-            >
-              + New Feature
-            </button>
-          </div>
+          <ProjectSelector onOpenFullDialog={() => setProjectSelectionDialogOpen(true)} />
+          <button
+            onClick={() => setNewFeatureDialogOpen(true)}
+            className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
+          >
+            + New Feature
+          </button>
         </header>
 
         {/* Main content area with sidebar */}
