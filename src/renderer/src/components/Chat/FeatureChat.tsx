@@ -68,10 +68,13 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
       <div className="p-3 border-t border-gray-700">
         <button
           disabled
-          className="text-sm text-gray-500 mb-2 w-full text-left hover:text-gray-400 cursor-not-allowed"
-          title="AI will analyze the graph and suggest dependency changes (coming soon)"
+          className="px-2 py-1 text-xs rounded bg-neutral-700 text-neutral-400 cursor-not-allowed opacity-60 mb-2"
+          title="Coming soon: AI will analyze your graph and suggest dependency changes"
         >
-          Re-evaluate deps
+          <span className="flex items-center gap-1">
+            Re-evaluate deps
+            <span className="text-[10px]">(Soon)</span>
+          </span>
         </button>
         <div className="flex gap-2">
           <textarea
