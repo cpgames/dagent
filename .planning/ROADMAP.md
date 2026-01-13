@@ -10,6 +10,7 @@ None
 
 ## Milestones
 
+- [v1.1 Critical Fixes](milestones/v1.1-ROADMAP.md) (Phases 8-10) - **PLANNING**
 - [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-7) - SHIPPED 2026-01-13
 
 ## Completed Milestones
@@ -42,3 +43,11 @@ None
 | 7. Polish & Integration | v1.0 | 4/4 | Complete | 2026-01-13 |
 
 **Milestone 1 (v1.0 MVP): Complete** - All 7 phases executed successfully.
+
+## v1.1 Critical Fixes (Active)
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 8. Authentication Fixes | v1.1 | 0/3 | Planning | - |
+| 9. Feature Creation | v1.1 | 0/3 | Pending | - |
+| 10. UI Polish | v1.1 | 0/4 | Pending | - |
