@@ -1,7 +1,10 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { mkdir, stat } from 'fs/promises'
+import path from 'path'
 import { getGitManager } from '../git'
 import { initializeStorage } from './storage-handlers'
 import { setHistoryProjectRoot } from './history-handlers'
+import { ensureDagentStructure } from '../storage/paths'
 
 /**
  * Current project root path.
@@ -86,4 +89,82 @@ export function registerProjectHandlers(): void {
   ipcMain.handle('project:get-current', async () => {
     return currentProjectPath
   })
+
+  /**
+   * Open native folder picker for selecting parent directory.
+   * Used when creating a new project.
+   */
+  ipcMain.handle('project:select-parent-dialog', async (event) => {
+    const parentWindow = BrowserWindow.fromWebContents(event.sender)
+
+    const dialogOptions: Electron.OpenDialogOptions = {
+      properties: ['openDirectory'],
+      title: 'Select Parent Folder',
+      buttonLabel: 'Select'
+    }
+
+    const result = parentWindow
+      ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions)
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    return result.filePaths[0]
+  })
+
+  /**
+   * Create a new project with .dagent-worktrees structure.
+   * Creates the project folder and initializes all managers.
+   */
+  ipcMain.handle(
+    'project:create',
+    async (
+      _event,
+      { parentPath, projectName }: { parentPath: string; projectName: string }
+    ): Promise<{ success: boolean; projectPath?: string; error?: string }> => {
+      try {
+        const projectPath = path.join(parentPath, projectName)
+
+        // Check if directory already exists
+        try {
+          await stat(projectPath)
+          return { success: false, error: `Directory "${projectName}" already exists` }
+        } catch {
+          // Directory doesn't exist - good, we can create it
+        }
+
+        // Create project directory
+        await mkdir(projectPath, { recursive: true })
+
+        // Create .dagent-worktrees structure
+        await ensureDagentStructure(projectPath)
+
+        // Initialize git manager for the new project
+        const gitManager = getGitManager()
+        const gitResult = await gitManager.initialize(projectPath)
+
+        if (!gitResult.success) {
+          console.log('[DAGent] Git initialization skipped for new project:', gitResult.error)
+          // Continue anyway - project may not be a git repo yet
+        }
+
+        // Initialize storage and history for the new project
+        initializeStorage(projectPath)
+        setHistoryProjectRoot(projectPath)
+
+        // Update current project path
+        currentProjectPath = projectPath
+
+        console.log('[DAGent] New project created at:', projectPath)
+
+        return { success: true, projectPath }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        console.error('[DAGent] Failed to create project:', message)
+        return { success: false, error: message }
+      }
+    }
+  )
 }

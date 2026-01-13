@@ -84,3 +84,21 @@ export function getNodeLogsPath(projectRoot: string, featureId: string, nodeId: 
 export function getArchivedDir(projectRoot: string): string {
   return path.join(projectRoot, '.dagent-archived');
 }
+
+/**
+ * Get the .dagent-worktrees directory for a project.
+ * This is where all feature worktrees are stored.
+ */
+export function getDagentRoot(projectRoot: string): string {
+  return getWorktreesDir(projectRoot);
+}
+
+/**
+ * Ensure the .dagent-worktrees directory structure exists.
+ * Creates the worktrees directory if it doesn't exist.
+ */
+export async function ensureDagentStructure(projectRoot: string): Promise<void> {
+  const { mkdir } = await import('fs/promises');
+  const worktreesDir = getWorktreesDir(projectRoot);
+  await mkdir(worktreesDir, { recursive: true });
+}
