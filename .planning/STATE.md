@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 12 of 15 (v1.2) - In Progress
-Plan: 2 of 3 in Phase 12
-Status: In progress
-Last activity: 2026-01-13 - Completed 12-02-PLAN.md
+Plan: 3 of 3 in Phase 12
+Status: Phase 12 complete
+Last activity: 2026-01-13 - Completed 12-03-PLAN.md
 
-Progress (v1.2): █████░░░░░ 38%
+Progress (v1.2): ██████░░░░ 46%
 
 ## Performance Metrics
 
@@ -143,7 +143,8 @@ All verification items passed. Milestone v1.1 Complete.
 - **11-02**: Feature panel with project/feature info, status bar with project path
 - **11-03**: Chat sidebar with FeatureChat, message history, input area
 
-### Phase 12: Project Selection (In Progress)
+### Phase 12: Project Selection ✓
 
 - **12-01**: Project IPC handlers, project-store, ProjectSelectionDialog ✓
 - **12-02**: NewProjectDialog with location picker and name validation ✓
+- **12-03**: Recent projects list, header integration, startup flow ✓
