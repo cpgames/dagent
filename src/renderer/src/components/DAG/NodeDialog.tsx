@@ -153,8 +153,8 @@ export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): 
               <button
                 type="button"
                 disabled
-                className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-500 cursor-not-allowed"
-                title="Chat (coming in Phase 7)"
+                className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-400 cursor-not-allowed opacity-60"
+                title="Coming soon: Chat with AI about this task"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -164,7 +164,10 @@ export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): 
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <span>Chat</span>
+                <span className="flex items-center gap-1">
+                  Chat
+                  <span className="text-xs">(Soon)</span>
+                </span>
               </button>
             </div>
           </div>
