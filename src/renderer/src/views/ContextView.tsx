@@ -69,7 +69,14 @@ export default function ContextView(): JSX.Element {
     <div className="flex flex-col h-full p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">Project Context</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-white">Project Context</h2>
+          {isDirty && (
+            <span className="text-xs bg-yellow-600 text-yellow-100 px-2 py-0.5 rounded">
+              Unsaved
+            </span>
+          )}
+        </div>
         <button
           onClick={handleGenerate}
           disabled={isGenerating}
@@ -142,8 +149,12 @@ Important dependencies and their purposes...`}
         </div>
         <button
           onClick={handleSave}
-          disabled={isSaving}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={isSaving || !isDirty}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+            isDirty
+              ? 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500'
+              : 'bg-gray-700 text-gray-300 focus:ring-gray-500'
+          }`}
         >
           <svg
             className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`}
