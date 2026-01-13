@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { useExecutionStore } from '../../stores/execution-store'
+import { useDAGStore } from '../../stores/dag-store'
 
 interface ExecutionControlsProps {
   featureId: string | null
@@ -58,8 +59,13 @@ const StopIcon = (): JSX.Element => (
 )
 
 // Undo icon SVG
-const UndoIcon = (): JSX.Element => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+const UndoIcon = ({ spinning = false }: { spinning?: boolean }): JSX.Element => (
+  <svg
+    className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -70,8 +76,13 @@ const UndoIcon = (): JSX.Element => (
 )
 
 // Redo icon SVG
-const RedoIcon = (): JSX.Element => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+const RedoIcon = ({ spinning = false }: { spinning?: boolean }): JSX.Element => (
+  <svg
+    className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -89,6 +100,7 @@ export default function ExecutionControls({
   canRedo = false
 }: ExecutionControlsProps): JSX.Element {
   const { execution, isLoading, start, pause, resume, stop } = useExecutionStore()
+  const { isUndoing, isRedoing } = useDAGStore()
   const { status } = execution
 
   const isRunning = status === 'running'
@@ -142,22 +154,22 @@ export default function ExecutionControls({
       {/* Undo button */}
       <button
         onClick={onUndo}
-        disabled={!canUndo}
-        className={`${buttonBase} ${canUndo ? activeButton : disabledButton}`}
+        disabled={!canUndo || isUndoing}
+        className={`${buttonBase} ${canUndo && !isUndoing ? activeButton : disabledButton}`}
         title="Undo"
       >
-        <UndoIcon />
+        <UndoIcon spinning={isUndoing} />
         Undo
       </button>
 
       {/* Redo button */}
       <button
         onClick={onRedo}
-        disabled={!canRedo}
-        className={`${buttonBase} ${canRedo ? activeButton : disabledButton}`}
+        disabled={!canRedo || isRedoing}
+        className={`${buttonBase} ${canRedo && !isRedoing ? activeButton : disabledButton}`}
         title="Redo"
       >
-        <RedoIcon />
+        <RedoIcon spinning={isRedoing} />
         Redo
       </button>
 
