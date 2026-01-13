@@ -43,7 +43,16 @@ Shipped 2026-01-13. Critical issues from v1.0 testing fixed:
 - [x] Dirty state tracking with unsaved changes warning - v1.1
 - [x] Proper flex layout for ContextView textarea - v1.1
 
-### Active
+### Active (v1.2)
+
+- [ ] Vertical right sidebar for views (Kanban, DAG, Context)
+- [ ] Bottom status bar with auth and git info
+- [ ] Project selection on startup (open/create)
+- [ ] Feature chat with AI responses and persistence
+- [ ] Git branch display and switching in status bar
+- [ ] Fix ContextView textarea alignment
+
+### Backlog
 
 - [ ] Node-level chat (scoped AI for individual tasks)
 - [ ] Locking behavior for nodes and connections

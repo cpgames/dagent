@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Planning next milestone
+**Current focus:** v1.2 UX Overhaul - Layout, project selection, chat, git status
 
 ## Current Position
 
-Phase: All complete (v1.0 + v1.1)
-Plan: Ready for next milestone
-Status: v1.1 shipped, planning v1.2
-Last activity: 2026-01-13 - Milestone v1.1 archived
+Phase: 11 of 15 (v1.2) - Not started
+Plan: 0 of 3 in Phase 11
+Status: Ready to plan Phase 11
+Last activity: 2026-01-13 - Created v1.2 milestone
 
-Progress: ██████████ 100% (both milestones shipped)
+Progress (v1.2): ░░░░░░░░░░ 0%
 
 ## Performance Metrics
 

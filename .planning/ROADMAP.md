@@ -10,6 +10,7 @@ None
 
 ## Milestones
 
+- [v1.2 UX Overhaul](milestones/v1.2-ROADMAP.md) (Phases 11-15) - **IN PROGRESS**
 - [v1.1 Critical Fixes](milestones/v1.1-ROADMAP.md) (Phases 8-10) - SHIPPED 2026-01-13
 - [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-7) - SHIPPED 2026-01-13
 
@@ -56,4 +57,14 @@ None
 | 9. Feature Creation | v1.1 | 3/3 | Complete | 2026-01-13 |
 | 10. UI Polish | v1.1 | 4/4 | Complete | 2026-01-13 |
 
-**All milestones complete.** 10 phases, 35 plans shipped.
+**v1.0 + v1.1 complete.** 10 phases, 35 plans shipped.
+
+## v1.2 UX Overhaul (Active)
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 11. Layout Restructure | v1.2 | 0/3 | Pending | - |
+| 12. Project Selection | v1.2 | 0/3 | Pending | - |
+| 13. Feature Chat | v1.2 | 0/3 | Pending | - |
+| 14. Git Branch Management | v1.2 | 0/2 | Pending | - |
+| 15. Alignment & Polish | v1.2 | 0/2 | Pending | - |
