@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 import type { AuthCredentials, AuthState, StoredCredentials } from './types';
-import { getClaudeCliConfigPath, getDagentCredentialsPath } from './paths';
+import { getClaudeCredentialPaths, getDagentCredentialsPath } from './paths';
 
 export class AuthManager {
   private state: AuthState = {
@@ -43,12 +43,52 @@ export class AuthManager {
 
   // Priority 1: Claude CLI auto-detect
   private async checkClaudeCli(): Promise<AuthCredentials | null> {
-    // Claude CLI stores credentials in ~/.config/claude/
-    // Look for session files or config
-    const configPath = getClaudeCliConfigPath();
-    // Implementation: check for session.json or similar
-    // For now return null - Claude CLI detection is complex
-    void configPath; // Acknowledge the variable is intentionally unused for now
+    const paths = getClaudeCredentialPaths();
+
+    for (const credPath of paths) {
+      try {
+        if (!existsSync(credPath)) continue;
+
+        const content = readFileSync(credPath, 'utf-8');
+        const data = JSON.parse(content);
+
+        // Check for OAuth token in various formats Claude Code uses
+        const token =
+          data.oauth_token ||
+          data.oauthToken ||
+          data.token ||
+          data.credentials?.oauth_token ||
+          data.credentials?.token;
+
+        if (token && typeof token === 'string') {
+          return {
+            type: 'claude_cli',
+            value: token,
+            source: `Claude Code credentials (${credPath})`
+          };
+        }
+
+        // Check for API key format
+        const apiKey =
+          data.api_key ||
+          data.apiKey ||
+          data.key ||
+          data.credentials?.api_key ||
+          data.credentials?.apiKey;
+
+        if (apiKey && typeof apiKey === 'string' && apiKey.startsWith('sk-')) {
+          return {
+            type: 'claude_cli',
+            value: apiKey,
+            source: `Claude Code credentials (${credPath})`
+          };
+        }
+      } catch {
+        // File doesn't exist or isn't valid JSON - try next
+        continue;
+      }
+    }
+
     return null;
   }
 
