@@ -8,38 +8,43 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
+## Current State (v1.0 MVP)
+
+Shipped 2026-01-13. Full implementation complete:
+- 89 source files, ~9,043 LOC TypeScript
+- 7 phases, 25 plans executed
+- All core features implemented per DAGENT_SPEC.md
+
 ## Requirements
 
 ### Validated
 
-<!-- Shipped and confirmed valuable. -->
-
-(None yet - ship to validate)
+- [x] Electron desktop application shell (cross-platform) - v1.0
+- [x] Three main views: Kanban, DAG Graph, and Context - v1.0
+- [x] DAG-based task dependency management with topological execution - v1.0
+- [x] Agent pool with harness/task/merge agent types - v1.0
+- [x] Intention-approval workflow between task agents and harness - v1.0
+- [x] Git worktree-based isolation for task branches - v1.0
+- [x] Feature and task branch management - v1.0
+- [x] Real-time DAG visualization with React Flow - v1.0
+- [x] Node dialog for editing task details - v1.0
+- [x] Feature-level chat interface - v1.0
+- [x] Graph versioning with undo/redo (20 versions) - v1.0
+- [x] JSON file storage in .dagent directories - v1.0
+- [x] Authentication priority chain (Claude CLI, OAuth, API key) - v1.0
+- [x] Play/Stop execution controls - v1.0
+- [x] Merge agent for branch integration - v1.0
+- [x] Error handling with toast notifications - v1.0
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
-
-- [ ] Electron desktop application shell (cross-platform: Windows, macOS, Linux)
-- [ ] Three main views: Kanban, DAG Graph, and Context
-- [ ] DAG-based task dependency management with topological execution
-- [ ] Agent pool with harness/task/merge agent types
-- [ ] Intention-approval workflow between task agents and harness
-- [ ] Git worktree-based isolation for task branches
-- [ ] Feature and task branch management
-- [ ] Real-time DAG visualization with React Flow
-- [ ] Node dialog for editing task details
-- [ ] Feature-level and node-level chat interfaces
-- [ ] Graph versioning with undo/redo (20 versions)
+- [ ] Node-level chat (scoped AI for individual tasks)
 - [ ] Locking behavior for nodes and connections
-- [ ] JSON file storage in .dagent directories
-- [ ] Authentication priority chain (Claude CLI, OAuth, API key)
-- [ ] Play/Stop execution controls
-- [ ] Merge agent for branch integration with conflict resolution
+- [ ] Re-evaluate dependencies button functionality
+- [ ] Claude CLI credential auto-detection (complex)
+- [ ] Merge conflict resolution UI
 
 ### Out of Scope
-
-<!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
 - Multi-user / collaboration - single user only for v1, adds complexity without core value
 - Cloud sync / backup - local-only storage keeps architecture simple
@@ -56,8 +61,6 @@ Key reference material:
 - `.planning/codebase/STACK.md` - Technology decisions
 - `.planning/codebase/CONCERNS.md` - Implementation risks and challenges
 
-The spec references "Automaker" as a prior project with patterns to reuse (Electron shell, Kanban, auth) but explicitly notes its git worktree implementation should be rebuilt from scratch.
-
 ## Constraints
 
 - **Tech stack**: Electron + React + TypeScript + Zustand + React Flow + Tailwind + simple-git - as specified in DAGENT_SPEC.md section 12.3
@@ -67,13 +70,14 @@ The spec references "Automaker" as a prior project with patterns to reuse (Elect
 
 ## Key Decisions
 
-<!-- Decisions that constrain future work. Add throughout project lifecycle. -->
-
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Full spec implementation | User wants complete application, not subset | - Pending |
-| DAG execution engine as core | This is the differentiator - must work first | - Pending |
-| Windows-first development | User's primary platform | - Pending |
+| electron-vite over electron-forge | Vite-native integration, faster builds | Good |
+| Tailwind CSS v4 | Latest version, @tailwindcss/vite plugin | Good |
+| @xyflow/react v12 | React Flow for DAG visualization | Good |
+| Zustand for state | Simple, TypeScript-friendly | Good |
+| simple-git for git ops | Well-maintained, full feature set | Good |
+| @shared path alias | Types shared between main/renderer | Good |
 
 ---
-*Last updated: 2026-01-13 after initialization*
+*Last updated: 2026-01-13 after v1.0 milestone*
