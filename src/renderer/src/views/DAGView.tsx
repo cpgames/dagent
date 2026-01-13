@@ -24,6 +24,7 @@ import { useFeatureStore } from '../stores/feature-store'
 import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
 import { TaskNode, FeatureTabs, NodeDialog, type TaskNodeData } from '../components/DAG'
+import { FeatureChat } from '../components/Chat'
 import type { DAGGraph, Task } from '@shared/types'
 
 // Register custom node types
@@ -183,132 +184,140 @@ export default function DAGView(): JSX.Element {
         />
       </div>
 
-      {/* React Flow canvas */}
-      <div className="flex-1 bg-gray-900">
-        {activeFeatureId ? (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={handleConnect}
-            nodeTypes={nodeTypes}
-            fitView
-            className="bg-gray-900"
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
-            <Controls className="!bg-gray-800 !border-gray-700 [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600" />
-            <MiniMap
-              className="!bg-gray-800 !border-gray-700"
-              nodeColor="#4B5563"
-              maskColor="rgba(0, 0, 0, 0.5)"
-            />
-          </ReactFlow>
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            Select a feature to view its task graph
+      {/* Main content area: React Flow canvas + Chat sidebar */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* React Flow canvas */}
+        <div className="flex-1 flex flex-col bg-gray-900">
+          <div className="flex-1">
+            {activeFeatureId ? (
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={handleConnect}
+                nodeTypes={nodeTypes}
+                fitView
+                className="bg-gray-900"
+                proOptions={{ hideAttribution: true }}
+              >
+                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
+                <Controls className="!bg-gray-800 !border-gray-700 [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600" />
+                <MiniMap
+                  className="!bg-gray-800 !border-gray-700"
+                  nodeColor="#4B5563"
+                  maskColor="rgba(0, 0, 0, 0.5)"
+                />
+              </ReactFlow>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                Select a feature to view its task graph
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Control bar at bottom */}
-      <div className="border-t border-gray-700 bg-gray-800 px-4 py-2">
-        <div className="flex items-center gap-2">
-          <button
-            disabled
-            className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
-            title="Execute tasks (coming soon)"
-          >
-            <svg
-              className="w-4 h-4 inline-block mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            Play
-          </button>
-          <button
-            disabled
-            className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
-            title="Stop execution (coming soon)"
-          >
-            <svg
-              className="w-4 h-4 inline-block mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-              />
-            </svg>
-            Stop
-          </button>
-          <div className="border-l border-gray-600 mx-2 h-6" />
-          <button
-            disabled
-            className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
-            title="Undo (coming soon)"
-          >
-            <svg
-              className="w-4 h-4 inline-block mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-              />
-            </svg>
-            Undo
-          </button>
-          <button
-            disabled
-            className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
-            title="Redo (coming soon)"
-          >
-            <svg
-              className="w-4 h-4 inline-block mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
-              />
-            </svg>
-            Redo
-          </button>
+          {/* Control bar at bottom */}
+          <div className="border-t border-gray-700 bg-gray-800 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <button
+                disabled
+                className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
+                title="Execute tasks (coming soon)"
+              >
+                <svg
+                  className="w-4 h-4 inline-block mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Play
+              </button>
+              <button
+                disabled
+                className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
+                title="Stop execution (coming soon)"
+              >
+                <svg
+                  className="w-4 h-4 inline-block mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                  />
+                </svg>
+                Stop
+              </button>
+              <div className="border-l border-gray-600 mx-2 h-6" />
+              <button
+                disabled
+                className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
+                title="Undo (coming soon)"
+              >
+                <svg
+                  className="w-4 h-4 inline-block mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                  />
+                </svg>
+                Undo
+              </button>
+              <button
+                disabled
+                className="px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-400 cursor-not-allowed"
+                title="Redo (coming soon)"
+              >
+                <svg
+                  className="w-4 h-4 inline-block mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
+                  />
+                </svg>
+                Redo
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Feature Chat sidebar */}
+        {activeFeatureId && <FeatureChat featureId={activeFeatureId} />}
       </div>
 
       {/* Node Dialog */}
