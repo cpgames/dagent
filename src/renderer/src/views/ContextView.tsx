@@ -14,6 +14,8 @@ export default function ContextView(): JSX.Element {
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   /**
    * Handle content changes and track dirty state.
@@ -63,6 +65,43 @@ export default function ContextView(): JSX.Element {
   const formatTimestamp = (isoString: string): string => {
     const date = new Date(isoString);
     return date.toLocaleString();
+  };
+
+  /**
+   * Attempt an action that may require confirmation if there are unsaved changes.
+   * If dirty, show confirmation dialog. Otherwise, execute immediately.
+   */
+  const confirmDiscardIfDirty = useCallback(
+    (action: () => void): void => {
+      if (isDirty) {
+        setPendingAction(() => action);
+        setShowDiscardDialog(true);
+      } else {
+        action();
+      }
+    },
+    [isDirty]
+  );
+
+  /**
+   * Handle confirming discard of unsaved changes.
+   */
+  const handleConfirmDiscard = (): void => {
+    setShowDiscardDialog(false);
+    setIsDirty(false);
+    setContent(originalContent);
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  };
+
+  /**
+   * Handle canceling the discard dialog.
+   */
+  const handleCancelDiscard = (): void => {
+    setShowDiscardDialog(false);
+    setPendingAction(null);
   };
 
   return (
@@ -172,6 +211,32 @@ Important dependencies and their purposes...`}
           {isSaving ? 'Saving...' : 'Save to CLAUDE.md'}
         </button>
       </div>
+
+      {/* Discard Changes Confirmation Dialog */}
+      {showDiscardDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md shadow-xl border border-gray-700">
+            <h3 className="text-lg font-semibold mb-2 text-white">Unsaved Changes</h3>
+            <p className="text-gray-300 mb-4">
+              You have unsaved changes. Do you want to discard them?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white"
+                onClick={handleCancelDiscard}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleConfirmDiscard}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
