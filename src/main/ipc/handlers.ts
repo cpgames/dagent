@@ -74,6 +74,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('window:setTitle', async (event, title: string) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    win?.setTitle(title)
+    if (win) {
+      win.setTitle(title)
+      console.log('[DAGent] Window title set to:', title)
+    } else {
+      console.error('[DAGent] Could not find window to set title')
+    }
   })
 }
