@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useState, useCallback, type JSX } from 'react';
 import { toast } from '../stores/toast-store';
 
 /**
@@ -8,10 +8,23 @@ import { toast } from '../stores/toast-store';
  */
 export default function ContextView(): JSX.Element {
   const [content, setContent] = useState('');
+  const [originalContent, setOriginalContent] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Handle content changes and track dirty state.
+   */
+  const handleContentChange = useCallback(
+    (newContent: string): void => {
+      setContent(newContent);
+      setIsDirty(newContent !== originalContent);
+    },
+    [originalContent]
+  );
 
   const handleSave = async (): Promise<void> => {
     setError(null);
@@ -21,6 +34,9 @@ export default function ContextView(): JSX.Element {
       // await window.electronAPI.storage.saveClaudeMd(content);
       console.log('Save CLAUDE.md:', content.substring(0, 100) + '...');
       setLastSynced(new Date().toISOString());
+      // Reset dirty state after successful save
+      setOriginalContent(content);
+      setIsDirty(false);
       toast.success('Context saved');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -95,7 +111,7 @@ export default function ContextView(): JSX.Element {
       <div className="flex-1 min-h-0">
         <textarea
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => handleContentChange(e.target.value)}
           placeholder={`# Project Context
 
 Describe your project context here. This content will be used as CLAUDE.md for AI agents.
