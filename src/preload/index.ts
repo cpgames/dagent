@@ -35,6 +35,12 @@ import type {
   HarnessMessage,
   IntentionDecision
 } from '../main/agents/harness-types'
+import type {
+  TaskAgentState,
+  TaskAgentStatus,
+  TaskAgentConfig,
+  TaskExecutionResult
+} from '../main/agents/task-types'
 
 /**
  * Preload script for DAGent.
@@ -306,6 +312,43 @@ const electronAPI = {
     getMessageHistory: (): Promise<HarnessMessage[]> =>
       ipcRenderer.invoke('harness:get-message-history'),
     reset: (): Promise<boolean> => ipcRenderer.invoke('harness:reset')
+  },
+
+  // Task Agent API
+  taskAgent: {
+    create: (
+      featureId: string,
+      taskId: string,
+      task: Task,
+      graph: DAGGraph,
+      claudeMd?: string,
+      featureGoal?: string,
+      config?: Partial<TaskAgentConfig>
+    ): Promise<{ success: boolean; state: TaskAgentState }> =>
+      ipcRenderer.invoke(
+        'task-agent:create',
+        featureId,
+        taskId,
+        task,
+        graph,
+        claudeMd,
+        featureGoal,
+        config
+      ),
+    getState: (taskId: string): Promise<TaskAgentState | null> =>
+      ipcRenderer.invoke('task-agent:get-state', taskId),
+    getStatus: (taskId: string): Promise<TaskAgentStatus | null> =>
+      ipcRenderer.invoke('task-agent:get-status', taskId),
+    getAll: (): Promise<TaskAgentState[]> => ipcRenderer.invoke('task-agent:get-all'),
+    proposeIntention: (taskId: string, intention?: string): Promise<boolean> =>
+      ipcRenderer.invoke('task-agent:propose-intention', taskId, intention),
+    receiveApproval: (taskId: string, decision: IntentionDecision): Promise<boolean> =>
+      ipcRenderer.invoke('task-agent:receive-approval', taskId, decision),
+    execute: (taskId: string): Promise<TaskExecutionResult> =>
+      ipcRenderer.invoke('task-agent:execute', taskId),
+    cleanup: (taskId: string, removeWorktree?: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('task-agent:cleanup', taskId, removeWorktree),
+    clearAll: (): Promise<boolean> => ipcRenderer.invoke('task-agent:clear-all')
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)

@@ -5,6 +5,7 @@ import { registerExecutionHandlers } from './execution-handlers'
 import { registerGitHandlers } from './git-handlers'
 import { registerAgentHandlers } from './agent-handlers'
 import { registerHarnessHandlers } from './harness-handlers'
+import { registerTaskAgentHandlers } from './task-agent-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -23,6 +24,8 @@ export function registerIpcHandlers(): void {
   registerAgentHandlers()
   // Register harness agent handlers (intention-approval workflow)
   registerHarnessHandlers()
+  // Register task agent handlers (task execution lifecycle)
+  registerTaskAgentHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

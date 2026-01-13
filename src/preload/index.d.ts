@@ -45,6 +45,14 @@ import type {
   HarnessMessage,
   IntentionDecision
 } from '../main/agents/harness-types'
+import type {
+  TaskAgentState,
+  TaskAgentStatus,
+  TaskAgentConfig,
+  TaskContext,
+  DependencyContextEntry,
+  TaskExecutionResult
+} from '../main/agents/task-types'
 
 export interface AppInfo {
   version: string
@@ -562,6 +570,73 @@ export interface HarnessAPI {
   reset: () => Promise<boolean>
 }
 
+/**
+ * Task agent creation result.
+ */
+export interface TaskAgentCreateResult {
+  success: boolean
+  state: TaskAgentState
+}
+
+/**
+ * Task Agent API for executing individual tasks.
+ * Implements intention-approval workflow with harness oversight.
+ */
+export interface TaskAgentAPI {
+  /**
+   * Create and initialize a task agent
+   */
+  create: (
+    featureId: string,
+    taskId: string,
+    task: Task,
+    graph: DAGGraph,
+    claudeMd?: string,
+    featureGoal?: string,
+    config?: Partial<TaskAgentConfig>
+  ) => Promise<TaskAgentCreateResult>
+
+  /**
+   * Get task agent state by task ID
+   */
+  getState: (taskId: string) => Promise<TaskAgentState | null>
+
+  /**
+   * Get task agent status by task ID
+   */
+  getStatus: (taskId: string) => Promise<TaskAgentStatus | null>
+
+  /**
+   * Get all active task agents
+   */
+  getAll: () => Promise<TaskAgentState[]>
+
+  /**
+   * Propose an intention to the harness
+   */
+  proposeIntention: (taskId: string, intention?: string) => Promise<boolean>
+
+  /**
+   * Receive approval decision from harness
+   */
+  receiveApproval: (taskId: string, decision: IntentionDecision) => Promise<boolean>
+
+  /**
+   * Execute the approved task
+   */
+  execute: (taskId: string) => Promise<TaskExecutionResult>
+
+  /**
+   * Clean up task agent resources
+   */
+  cleanup: (taskId: string, removeWorktree?: boolean) => Promise<boolean>
+
+  /**
+   * Clear all task agents
+   */
+  clearAll: () => Promise<boolean>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -617,6 +692,11 @@ export interface ElectronAPI {
    * Harness Agent API for orchestrating task agents
    */
   harness: HarnessAPI
+
+  /**
+   * Task Agent API for executing individual tasks
+   */
+  taskAgent: TaskAgentAPI
 
   // TODO: Add auth method types
 }
