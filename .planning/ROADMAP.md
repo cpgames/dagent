@@ -14,7 +14,7 @@ None
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation** - Electron + React + TypeScript project setup
+- [x] **Phase 1: Foundation** - Electron + React + TypeScript project setup
 - [ ] **Phase 2: Data Model & Storage** - Core types, JSON persistence, .dagent structure
 - [ ] **Phase 3: DAG Engine** - Dependency resolution, topological ordering, state machine
 - [ ] **Phase 4: Git Integration** - Worktree management, branch operations, merge handling
@@ -117,7 +117,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 3/3 | Complete | 2026-01-13 |
 | 2. Data Model & Storage | 0/3 | Not started | - |
 | 3. DAG Engine | 0/3 | Not started | - |
 | 4. Git Integration | 0/3 | Not started | - |
