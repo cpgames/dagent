@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { registerStorageHandlers } from './storage-handlers'
 import { registerDagHandlers } from './dag-handlers'
 import { registerExecutionHandlers } from './execution-handlers'
+import { registerGitHandlers } from './git-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -14,6 +15,8 @@ export function registerIpcHandlers(): void {
   registerDagHandlers()
   // Register execution orchestrator handlers
   registerExecutionHandlers()
+  // Register git handlers (branch operations, worktree management)
+  registerGitHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

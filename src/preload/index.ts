@@ -9,6 +9,7 @@ import type {
   ExecutionSnapshot,
   NextTasksResult
 } from '../main/dag-engine/orchestrator-types'
+import type { GitManagerConfig, BranchInfo, GitOperationResult } from '../main/git/types'
 
 /**
  * Preload script for DAGent.
@@ -148,10 +149,26 @@ const electronAPI = {
     updateConfig: (config: Partial<ExecutionConfig>): Promise<ExecutionConfig> =>
       ipcRenderer.invoke('execution:update-config', config),
     reset: (): Promise<{ success: boolean }> => ipcRenderer.invoke('execution:reset')
+  },
+
+  // Git API
+  git: {
+    initialize: (projectRoot: string): Promise<GitOperationResult> =>
+      ipcRenderer.invoke('git:initialize', projectRoot),
+    isInitialized: (): Promise<boolean> => ipcRenderer.invoke('git:is-initialized'),
+    getConfig: (): Promise<GitManagerConfig> => ipcRenderer.invoke('git:get-config'),
+    getCurrentBranch: (): Promise<string> => ipcRenderer.invoke('git:get-current-branch'),
+    listBranches: (): Promise<BranchInfo[]> => ipcRenderer.invoke('git:list-branches'),
+    branchExists: (branchName: string): Promise<boolean> =>
+      ipcRenderer.invoke('git:branch-exists', branchName),
+    createBranch: (branchName: string, checkout?: boolean): Promise<GitOperationResult> =>
+      ipcRenderer.invoke('git:create-branch', branchName, checkout),
+    deleteBranch: (branchName: string, force?: boolean): Promise<GitOperationResult> =>
+      ipcRenderer.invoke('git:delete-branch', branchName, force),
+    getStatus: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:get-status')
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)
-  // TODO: Add git methods (getStatus, getBranches, etc.)
   // TODO: Add agent methods (spawnAgent, terminateAgent, etc.)
 }
 

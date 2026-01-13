@@ -17,6 +17,7 @@ import type {
   ExecutionSnapshot,
   NextTasksResult
 } from '../main/dag-engine/orchestrator-types'
+import type { GitManagerConfig, BranchInfo, GitOperationResult } from '../main/git/types'
 
 export interface AppInfo {
   version: string
@@ -208,6 +209,57 @@ export interface ExecutionAPI {
   reset: () => Promise<{ success: boolean }>
 }
 
+/**
+ * Git API for repository operations.
+ * Provides branch management, status, and worktree operations.
+ */
+export interface GitAPI {
+  /**
+   * Initialize GitManager with a project root directory
+   */
+  initialize: (projectRoot: string) => Promise<GitOperationResult>
+
+  /**
+   * Check if GitManager is initialized
+   */
+  isInitialized: () => Promise<boolean>
+
+  /**
+   * Get current git configuration
+   */
+  getConfig: () => Promise<GitManagerConfig>
+
+  /**
+   * Get current branch name
+   */
+  getCurrentBranch: () => Promise<string>
+
+  /**
+   * List all local branches
+   */
+  listBranches: () => Promise<BranchInfo[]>
+
+  /**
+   * Check if a branch exists
+   */
+  branchExists: (branchName: string) => Promise<boolean>
+
+  /**
+   * Create a new branch
+   */
+  createBranch: (branchName: string, checkout?: boolean) => Promise<GitOperationResult>
+
+  /**
+   * Delete a branch
+   */
+  deleteBranch: (branchName: string, force?: boolean) => Promise<GitOperationResult>
+
+  /**
+   * Get repository status
+   */
+  getStatus: () => Promise<GitOperationResult>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -249,8 +301,12 @@ export interface ElectronAPI {
    */
   execution: ExecutionAPI
 
+  /**
+   * Git API for git operations (branches, status, worktrees)
+   */
+  git: GitAPI
+
   // TODO: Add auth method types
-  // TODO: Add git method types
   // TODO: Add agent method types
 }
 
