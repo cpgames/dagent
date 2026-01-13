@@ -1,4 +1,5 @@
 import { useState, type JSX } from 'react';
+import { toast } from '../stores/toast-store';
 
 /**
  * ContextView - Displays context documents and CLAUDE.md content.
@@ -10,16 +11,22 @@ export default function ContextView(): JSX.Element {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async (): Promise<void> => {
+    setError(null);
     setIsSaving(true);
     try {
       // TODO: Implement actual IPC call to save CLAUDE.md
       // await window.electronAPI.storage.saveClaudeMd(content);
       console.log('Save CLAUDE.md:', content.substring(0, 100) + '...');
       setLastSynced(new Date().toISOString());
-    } catch (error) {
-      console.error('Failed to save CLAUDE.md:', error);
+      toast.success('Context saved');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to save: ${message}`);
+      toast.error('Failed to save context');
+      console.error('Failed to save CLAUDE.md:', err);
     } finally {
       setIsSaving(false);
     }
@@ -69,6 +76,20 @@ export default function ContextView(): JSX.Element {
           {isGenerating ? 'Generating...' : 'Generate with AI'}
         </button>
       </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="mb-2 bg-red-900/90 text-red-100 px-3 py-2 rounded-lg text-sm flex justify-between items-center">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 hover:text-white text-red-200"
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Main textarea */}
       <div className="flex-1 min-h-0">
