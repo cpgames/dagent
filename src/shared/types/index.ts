@@ -5,3 +5,4 @@ export * from './dag';
 export * from './chat';
 export * from './log';
 export * from './auth';
+export * from './history';
