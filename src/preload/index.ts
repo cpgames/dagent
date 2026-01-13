@@ -71,6 +71,7 @@ const electronAPI = {
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: (): Promise<void> => ipcRenderer.invoke('window:maximize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close'),
+  setWindowTitle: (title: string): Promise<void> => ipcRenderer.invoke('window:setTitle', title),
 
   // Storage API
   storage: {

@@ -43,12 +43,10 @@ function App(): React.JSX.Element {
 
   // Update window title when project changes
   useEffect(() => {
-    if (projectPath) {
-      const projectName = projectPath.split(/[/\\]/).pop() || 'Project'
-      document.title = `DAGent - ${projectName}`
-    } else {
-      document.title = 'DAGent'
-    }
+    const title = projectPath
+      ? `DAGent - ${projectPath.split(/[/\\]/).pop() || 'Project'}`
+      : 'DAGent'
+    window.electronAPI.setWindowTitle(title)
   }, [projectPath])
 
   const handleCreateFeature = async (name: string): Promise<void> => {

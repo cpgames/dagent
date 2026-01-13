@@ -861,6 +861,11 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>
 
   /**
+   * Set the window title
+   */
+  setWindowTitle: (title: string) => Promise<void>
+
+  /**
    * Storage API for persistent data operations
    */
   storage: StorageAPI

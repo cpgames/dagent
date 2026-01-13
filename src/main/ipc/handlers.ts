@@ -71,4 +71,9 @@ export function registerIpcHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     win?.close()
   })
+
+  ipcMain.handle('window:setTitle', async (event, title: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    win?.setTitle(title)
+  })
 }
