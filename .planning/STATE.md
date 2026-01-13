@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 11 of 15 (v1.2) - Complete
-Plan: 3 of 3 in Phase 11
-Status: Phase 11 complete
-Last activity: 2026-01-13 - Completed 11-03-PLAN.md
+Phase: 12 of 15 (v1.2) - In Progress
+Plan: 1 of 3 in Phase 12
+Status: In progress
+Last activity: 2026-01-13 - Completed 12-01-PLAN.md
 
-Progress (v1.2): ███░░░░░░░ 23%
+Progress (v1.2): ████░░░░░░ 31%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35 (v1.0: 25, v1.1: 10)
+- Total plans completed: 39 (v1.0: 25, v1.1: 10, v1.2: 4)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~175 min
+- Total execution time: ~195 min
 
 **By Phase:**
 
@@ -63,7 +63,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: v1.1 milestone archived
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
 
 ## Completed Phases
@@ -136,3 +136,13 @@ All verification items passed. Milestone 1 Complete.
 - **10-04**: Layout fixes, disabled button affordance, placeholder cleanup
 
 All verification items passed. Milestone v1.1 Complete.
+
+### Phase 11: Layout Restructure ✓
+
+- **11-01**: Three-column layout with status bar (feature panel, main, chat sidebar)
+- **11-02**: Feature panel with project/feature info, status bar with project path
+- **11-03**: Chat sidebar with FeatureChat, message history, input area
+
+### Phase 12: Project Selection (In Progress)
+
+- **12-01**: Project IPC handlers, project-store, ProjectSelectionDialog ✓
