@@ -749,6 +749,29 @@ export interface AuthAPI {
 }
 
 /**
+ * Project API for project selection and switching.
+ * Enables opening different project folders from the UI.
+ */
+export interface ProjectAPI {
+  /**
+   * Open native folder picker dialog.
+   * Returns selected path or null if cancelled.
+   */
+  openDialog: () => Promise<string | null>
+
+  /**
+   * Set the current project and reinitialize managers.
+   * Switches DAGent to work with a different project folder.
+   */
+  setProject: (path: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Get the current project root path.
+   */
+  getCurrent: () => Promise<string>
+}
+
+/**
  * History API for undo/redo graph versioning.
  * Implements DAGENT_SPEC 5.5 with 20-version history.
  */
@@ -852,6 +875,11 @@ export interface ElectronAPI {
    * Auth API for credential management
    */
   auth: AuthAPI
+
+  /**
+   * Project API for project selection and switching
+   */
+  project: ProjectAPI
 
   /**
    * History API for undo/redo graph versioning

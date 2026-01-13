@@ -6,3 +6,4 @@ export { useChatStore, type ChatMessage } from './chat-store';
 export { useAuthStore } from './auth-store';
 export { useExecutionStore } from './execution-store';
 export { useGitStore } from './git-store';
+export { useProjectStore } from './project-store';
