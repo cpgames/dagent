@@ -54,6 +54,26 @@ export default function ContextView(): JSX.Element {
   }, [setConfirmDiscardCallback, setContextViewDirty]);
 
   /**
+   * Add beforeunload handler to warn user when closing browser/Electron with unsaved changes.
+   * This shows the browser's native "Leave site?" dialog.
+   */
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent): string | undefined => {
+      if (isDirty) {
+        e.preventDefault();
+        // Required for Chrome - setting returnValue triggers the dialog
+        e.returnValue = '';
+        // Required for other browsers
+        return '';
+      }
+      return undefined;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  /**
    * Handle content changes and track dirty state.
    */
   const handleContentChange = useCallback(
