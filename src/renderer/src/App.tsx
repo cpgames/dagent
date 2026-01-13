@@ -49,7 +49,6 @@ function App(): React.JSX.Element {
             <span className="text-lg font-semibold">DAGent</span>
           </div>
           <div className="flex items-center gap-2">
-            <AuthStatusIndicator onConfigureClick={() => setAuthDialogOpen(true)} />
             <button
               onClick={() => setNewFeatureDialogOpen(true)}
               className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
@@ -70,7 +69,9 @@ function App(): React.JSX.Element {
         </div>
 
         {/* Status bar at bottom */}
-        <StatusBar />
+        <StatusBar>
+          <AuthStatusIndicator onConfigureClick={() => setAuthDialogOpen(true)} />
+        </StatusBar>
       </div>
       <ToastContainer />
       <AuthDialog isOpen={authDialogOpen} onClose={() => setAuthDialogOpen(false)} />
