@@ -8,12 +8,12 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v1.0 MVP)
+## Current State (v1.1 Critical Fixes)
 
-Shipped 2026-01-13. Full implementation complete:
-- 89 source files, ~9,043 LOC TypeScript
-- 7 phases, 25 plans executed
-- All core features implemented per DAGENT_SPEC.md
+Shipped 2026-01-13. Critical issues from v1.0 testing fixed:
+- 94 source files, ~9,893 LOC TypeScript
+- 10 phases, 35 plans executed (v1.0: 25, v1.1: 10)
+- Auth initialization, feature creation, and UI polish complete
 
 ## Requirements
 
@@ -35,6 +35,13 @@ Shipped 2026-01-13. Full implementation complete:
 - [x] Play/Stop execution controls - v1.0
 - [x] Merge agent for branch integration - v1.0
 - [x] Error handling with toast notifications - v1.0
+- [x] Auth initialization on app startup - v1.1
+- [x] Auth status indicator and credential dialog - v1.1
+- [x] Feature creation from UI with dialog - v1.1
+- [x] Loading states for all async operations - v1.1
+- [x] Inline error display (DAGView, ContextView) - v1.1
+- [x] Dirty state tracking with unsaved changes warning - v1.1
+- [x] Proper flex layout for ContextView textarea - v1.1
 
 ### Active
 
@@ -79,5 +86,8 @@ Key reference material:
 | simple-git for git ops | Well-maintained, full feature set | Good |
 | @shared path alias | Types shared between main/renderer | Good |
 
+| view-store for dirty state | Cross-component communication | Good |
+| beforeunload for close protection | Browser native unsaved warning | Good |
+
 ---
-*Last updated: 2026-01-13 after v1.0 milestone*
+*Last updated: 2026-01-13 after v1.1 milestone*
