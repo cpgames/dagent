@@ -423,7 +423,8 @@ const electronAPI = {
 
   // Chat API (AI chat integration)
   chat: {
-    send: (request) => ipcRenderer.invoke('chat:send', request)
+    send: (request) => ipcRenderer.invoke('chat:send', request),
+    getContext: (featureId: string) => ipcRenderer.invoke('chat:getContext', featureId)
   },
 
   // History API (undo/redo)

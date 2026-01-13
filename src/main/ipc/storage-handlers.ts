@@ -14,6 +14,14 @@ export function initializeStorage(projectRoot: string): void {
 
 /**
  * Get the current feature store instance.
+ * Returns null if storage not initialized (for optional use).
+ */
+export function getFeatureStore(): FeatureStore | null {
+  return featureStore;
+}
+
+/**
+ * Get the current feature store instance.
  * @throws Error if storage not initialized.
  */
 function getStore(): FeatureStore {

@@ -7,7 +7,16 @@ interface FeatureChatProps {
 }
 
 export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
-  const { messages, loadChat, addMessage, sendToAI, isLoading, isResponding } = useChatStore()
+  const {
+    messages,
+    loadChat,
+    addMessage,
+    sendToAI,
+    refreshContext,
+    isLoading,
+    isResponding,
+    contextLoaded
+  } = useChatStore()
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -49,8 +58,24 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
   return (
     <div className="w-80 flex flex-col border-l border-gray-700 bg-gray-900">
       {/* Header */}
-      <div className="p-3 border-b border-gray-700">
+      <div className="p-3 border-b border-gray-700 flex items-center justify-between">
         <h3 className="font-semibold text-white">Feature Chat</h3>
+        <div className="flex items-center gap-2">
+          {contextLoaded ? (
+            <span className="text-xs text-green-400" title="AI has feature context">
+              Context loaded
+            </span>
+          ) : (
+            <span className="text-xs text-yellow-400">No context</span>
+          )}
+          <button
+            onClick={refreshContext}
+            className="text-xs text-gray-400 hover:text-white"
+            title="Refresh feature context"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Messages area */}

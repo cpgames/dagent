@@ -807,6 +807,17 @@ export interface ProjectAPI {
 }
 
 /**
+ * Feature context for AI chat.
+ */
+export interface FeatureContext {
+  featureId: string
+  featureName: string
+  goal: string
+  tasks: Array<{ id: string; title: string; status: string; description?: string }>
+  dagSummary: string
+}
+
+/**
  * Chat API for AI chat integration.
  * Sends messages to Claude API and returns responses.
  */
@@ -818,6 +829,13 @@ export interface ChatAPI {
     messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
     systemPrompt?: string
   }) => Promise<{ content: string; error?: string }>
+
+  /**
+   * Get feature context for AI prompts.
+   */
+  getContext: (
+    featureId: string
+  ) => Promise<{ context: FeatureContext; systemPrompt: string } | null>
 }
 
 /**

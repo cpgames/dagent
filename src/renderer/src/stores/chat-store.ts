@@ -14,11 +14,14 @@ interface ChatState {
   isLoading: boolean
   isResponding: boolean
   currentFeatureId: string | null
+  systemPrompt: string | null
+  contextLoaded: boolean
 
   // Actions
   loadChat: (featureId: string) => Promise<void>
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void
   sendToAI: () => Promise<void>
+  refreshContext: () => Promise<void>
   clearChat: () => void
 }
 
@@ -27,12 +30,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isResponding: false,
   currentFeatureId: null,
+  systemPrompt: null,
+  contextLoaded: false,
 
   loadChat: async (featureId: string) => {
     // Clear previous messages before loading new feature's chat
-    set({ isLoading: true, messages: [], currentFeatureId: featureId })
+    set({
+      isLoading: true,
+      messages: [],
+      currentFeatureId: featureId,
+      systemPrompt: null,
+      contextLoaded: false
+    })
     try {
-      // Try to load chat via IPC, fall back to empty array if not implemented
+      // Load chat messages
       if (window.electronAPI?.storage?.loadChat) {
         const chat = await window.electronAPI.storage.loadChat(featureId)
         if (chat && chat.entries) {
@@ -43,12 +54,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
             content: entry.content,
             timestamp: entry.timestamp
           }))
-          set({ messages, isLoading: false })
-          return
+          set({ messages })
         }
       }
-      // Fall back to empty array (new feature with no chat yet)
-      set({ messages: [], isLoading: false })
+
+      // Load feature context for AI prompts
+      if (window.electronAPI?.chat?.getContext) {
+        const contextResult = await window.electronAPI.chat.getContext(featureId)
+        if (contextResult) {
+          set({ systemPrompt: contextResult.systemPrompt, contextLoaded: true })
+        }
+      }
+
+      set({ isLoading: false })
     } catch (error) {
       console.error('Failed to load chat:', error)
       toast.error('Failed to load chat history')
@@ -87,7 +105,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendToAI: async () => {
-    const { messages, currentFeatureId } = get()
+    const { messages, currentFeatureId, systemPrompt } = get()
     if (!currentFeatureId || messages.length === 0) return
 
     set({ isResponding: true })
@@ -98,7 +116,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           role: m.role,
           content: m.content,
           timestamp: m.timestamp
-        }))
+        })),
+        systemPrompt: systemPrompt || undefined
       })
 
       if (response.error) {
@@ -135,5 +154,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  clearChat: () => set({ messages: [], currentFeatureId: null, isResponding: false })
+  refreshContext: async () => {
+    const { currentFeatureId } = get()
+    if (!currentFeatureId) return
+
+    if (window.electronAPI?.chat?.getContext) {
+      const contextResult = await window.electronAPI.chat.getContext(currentFeatureId)
+      if (contextResult) {
+        set({ systemPrompt: contextResult.systemPrompt, contextLoaded: true })
+        toast.success('Context refreshed')
+      }
+    }
+  },
+
+  clearChat: () =>
+    set({
+      messages: [],
+      currentFeatureId: null,
+      isResponding: false,
+      systemPrompt: null,
+      contextLoaded: false
+    })
 }))
