@@ -82,6 +82,8 @@ const electronAPI = {
     deleteFeature: (featureId: string): Promise<boolean> =>
       ipcRenderer.invoke('storage:deleteFeature', featureId),
     listFeatures: (): Promise<string[]> => ipcRenderer.invoke('storage:listFeatures'),
+    createFeature: (name: string): Promise<Feature> =>
+      ipcRenderer.invoke('storage:createFeature', name),
 
     // DAG operations
     saveDag: (featureId: string, dag: DAGGraph): Promise<boolean> =>
