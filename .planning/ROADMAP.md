@@ -10,7 +10,7 @@ None
 
 ## Milestones
 
-- [v1.1 Critical Fixes](milestones/v1.1-ROADMAP.md) (Phases 8-10) - **PLANNING**
+- [v1.1 Critical Fixes](milestones/v1.1-ROADMAP.md) (Phases 8-10) - **IN PROGRESS**
 - [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-7) - SHIPPED 2026-01-13
 
 ## Completed Milestones
@@ -48,6 +48,6 @@ None
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 8. Authentication Fixes | v1.1 | 0/3 | Planning | - |
+| 8. Authentication Fixes | v1.1 | 3/3 | Complete | 2026-01-13 |
 | 9. Feature Creation | v1.1 | 0/3 | Pending | - |
 | 10. UI Polish | v1.1 | 0/4 | Pending | - |

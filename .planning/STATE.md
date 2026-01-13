@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 8 of 10 (v1.1)
-Plan: Planning phase 8
-Status: v1.1 milestone started
-Last activity: 2026-01-13 - Planning v1.1 critical fixes
+Phase: 8 of 10 (v1.1) - Complete
+Plan: 3 of 3 in Phase 8
+Status: Phase 8 complete, ready for Phase 9
+Last activity: 2026-01-13 - Completed 08-03-PLAN.md
 
-Progress (v1.1): ░░░░░░░░░░ 0%
+Progress (v1.1): ███░░░░░░░ 30%
 
 ## Performance Metrics
 
@@ -36,7 +36,7 @@ Progress (v1.1): ░░░░░░░░░░ 0%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 07-01, 07-02, 07-03, 07-04
+- Last 5 plans: 07-04, 08-01, 08-02, 08-03
 - Trend: Smooth execution, no blockers
 
 ## Accumulated Context
@@ -63,7 +63,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Milestone 1 Complete
+Stopped at: Phase 8 Complete
 Resume file: None
 
 ## Completed Phases
@@ -115,3 +115,9 @@ Resume file: None
 - **07-04**: Error handling with toasts, ErrorBoundary, StatusBadge
 
 All verification items passed. Milestone 1 Complete.
+
+### Phase 8: Authentication Fixes ✓
+
+- **08-01**: Auth initialization on app startup (main + renderer)
+- **08-02**: Fix credential detection (Windows paths, Claude CLI reading)
+- **08-03**: Auth status UI (indicator + authentication dialog)
