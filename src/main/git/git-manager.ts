@@ -10,7 +10,12 @@ import type {
   GitOperationResult,
   WorktreeInfo,
   FeatureWorktreeResult,
-  TaskWorktreeResult
+  TaskWorktreeResult,
+  MergeResult,
+  MergeConflict,
+  TaskMergeResult,
+  CommitInfo,
+  DiffSummary
 } from './types'
 import {
   getFeatureBranchName,
@@ -369,6 +374,259 @@ export class GitManager {
     }
 
     return worktrees
+  }
+
+  // ============================================
+  // Merge Operations (Phase 4 - 04-03)
+  // ============================================
+
+  /**
+   * Merge a branch into current branch.
+   */
+  async mergeBranch(branchName: string, message?: string): Promise<MergeResult> {
+    this.ensureInitialized()
+    try {
+      const mergeOptions = message ? ['--no-ff', '-m', message] : ['--no-ff']
+      await this.git.merge([branchName, ...mergeOptions])
+
+      // Get the commit hash after successful merge
+      const log = await this.git.log({ maxCount: 1 })
+      const commitHash = log.latest?.hash
+
+      return {
+        success: true,
+        merged: true,
+        commitHash
+      }
+    } catch (error) {
+      const errorMsg = (error as Error).message
+
+      // Check for merge conflicts
+      if (errorMsg.includes('CONFLICT') || errorMsg.includes('Automatic merge failed')) {
+        const conflicts = await this.getConflicts()
+        return {
+          success: false,
+          merged: false,
+          conflicts,
+          error: 'Merge conflicts detected'
+        }
+      }
+
+      return { success: false, merged: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Get current merge conflicts.
+   */
+  async getConflicts(): Promise<MergeConflict[]> {
+    this.ensureInitialized()
+    try {
+      const status = await this.git.status()
+      const conflicts: MergeConflict[] = []
+
+      for (const file of status.conflicted) {
+        conflicts.push({
+          file,
+          type: 'both_modified' // Simplified - actual type requires more parsing
+        })
+      }
+
+      return conflicts
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Abort an in-progress merge.
+   */
+  async abortMerge(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+    try {
+      await this.git.merge(['--abort'])
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Check if there's a merge in progress.
+   */
+  async isMergeInProgress(): Promise<boolean> {
+    this.ensureInitialized()
+    try {
+      const gitDir = path.join(this.config.baseDir, '.git')
+      const mergeHead = path.join(gitDir, 'MERGE_HEAD')
+      await fs.access(mergeHead)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Merge a task branch into its feature branch.
+   * This is the main operation for completing a task.
+   */
+  async mergeTaskIntoFeature(
+    featureId: string,
+    taskId: string,
+    removeWorktreeOnSuccess: boolean = true
+  ): Promise<TaskMergeResult> {
+    this.ensureInitialized()
+    try {
+      const taskBranchName = getTaskBranchName(featureId, taskId)
+      const featureWorktreeName = getFeatureWorktreeName(featureId)
+      const taskWorktreeName = getTaskWorktreeName(featureId, taskId)
+      const featureWorktreePath = path.join(this.config.worktreesDir, featureWorktreeName)
+      const taskWorktreePath = path.join(this.config.worktreesDir, taskWorktreeName)
+
+      // Verify both worktrees exist
+      const featureWorktree = await this.getWorktree(featureWorktreePath)
+      const taskWorktree = await this.getWorktree(taskWorktreePath)
+
+      if (!featureWorktree) {
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: `Feature worktree not found at ${featureWorktreePath}`
+        }
+      }
+
+      if (!taskWorktree) {
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: `Task worktree not found at ${taskWorktreePath}`
+        }
+      }
+
+      // Create a git instance for the feature worktree
+      const featureGit = simpleGit({ baseDir: featureWorktreePath })
+
+      // Perform merge in the feature worktree
+      const mergeMessage = `Merge task ${taskId} into feature ${featureId}`
+      let mergeResult: MergeResult
+
+      try {
+        await featureGit.merge([taskBranchName, '--no-ff', '-m', mergeMessage])
+        // Get the commit hash after successful merge
+        const log = await featureGit.log({ maxCount: 1 })
+        mergeResult = {
+          success: true,
+          merged: true,
+          commitHash: log.latest?.hash
+        }
+      } catch (error) {
+        const errorMsg = (error as Error).message
+
+        if (errorMsg.includes('CONFLICT') || errorMsg.includes('Automatic merge failed')) {
+          // Get conflicts from feature worktree
+          const status = await featureGit.status()
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            worktreeRemoved: false,
+            branchDeleted: false,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: errorMsg
+        }
+      }
+
+      // On successful merge, optionally remove task worktree and branch
+      let worktreeRemoved = false
+      let branchDeleted = false
+
+      if (removeWorktreeOnSuccess && mergeResult.merged) {
+        const removeResult = await this.removeWorktree(taskWorktreePath, true)
+        worktreeRemoved = removeResult.success
+        branchDeleted = removeResult.success
+      }
+
+      return {
+        success: true,
+        merged: true,
+        commitHash: mergeResult.commitHash,
+        worktreeRemoved,
+        branchDeleted
+      }
+    } catch (error) {
+      return {
+        success: false,
+        merged: false,
+        worktreeRemoved: false,
+        branchDeleted: false,
+        error: (error as Error).message
+      }
+    }
+  }
+
+  /**
+   * Get commit log for a branch or worktree.
+   */
+  async getLog(maxCount: number = 10, branch?: string): Promise<CommitInfo[]> {
+    this.ensureInitialized()
+    try {
+      const options: Record<string, string | number | undefined> = {
+        maxCount,
+        format: {
+          hash: '%H',
+          date: '%aI',
+          message: '%s',
+          author_name: '%an',
+          author_email: '%ae'
+        } as unknown as string
+      }
+
+      const result = await this.git.log(branch ? { ...options, from: branch } : options)
+      return result.all.map((entry) => ({
+        hash: entry.hash,
+        date: entry.date,
+        message: entry.message,
+        author: entry.author_name,
+        email: entry.author_email
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get diff summary between two refs.
+   */
+  async getDiffSummary(from: string, to: string): Promise<DiffSummary> {
+    this.ensureInitialized()
+    try {
+      const summary = await this.git.diffSummary([from, to])
+      return {
+        files: summary.files.length,
+        insertions: summary.insertions,
+        deletions: summary.deletions,
+        changed: summary.files.map((f) => f.file)
+      }
+    } catch {
+      return { files: 0, insertions: 0, deletions: 0, changed: [] }
+    }
   }
 
   /**

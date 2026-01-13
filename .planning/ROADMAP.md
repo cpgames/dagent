@@ -17,7 +17,7 @@ None
 - [x] **Phase 1: Foundation** - Electron + React + TypeScript project setup
 - [x] **Phase 2: Data Model & Storage** - Core types, JSON persistence, .dagent structure
 - [x] **Phase 3: DAG Engine** - Dependency resolution, topological ordering, state machine
-- [ ] **Phase 4: Git Integration** - Worktree management, branch operations, merge handling
+- [x] **Phase 4: Git Integration** - Worktree management, branch operations, merge handling
 - [ ] **Phase 5: Agent System** - Harness/task/merge agents, intention-approval workflow
 - [ ] **Phase 6: UI Views** - Kanban, DAG graph, Context views, node dialogs
 - [ ] **Phase 7: Polish & Integration** - Auth, chat, undo/redo, error handling
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 3/3 | Complete | 2026-01-13 |
 | 2. Data Model & Storage | 3/3 | Complete | 2026-01-13 |
 | 3. DAG Engine | 3/3 | Complete | 2026-01-13 |
-| 4. Git Integration | 0/3 | Not started | - |
+| 4. Git Integration | 3/3 | Complete | 2026-01-13 |
 | 5. Agent System | 0/4 | Not started | - |
 | 6. UI Views | 0/5 | Not started | - |
 | 7. Polish & Integration | 0/4 | Not started | - |

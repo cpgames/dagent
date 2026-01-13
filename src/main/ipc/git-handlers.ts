@@ -88,4 +88,48 @@ export function registerGitHandlers(): void {
       return manager.removeWorktree(worktreePath, deleteBranch)
     }
   )
+
+  // Merge operations
+  ipcMain.handle('git:merge-branch', async (_event, branchName: string, message?: string) => {
+    const manager = getGitManager()
+    return manager.mergeBranch(branchName, message)
+  })
+
+  ipcMain.handle('git:get-conflicts', async () => {
+    const manager = getGitManager()
+    return manager.getConflicts()
+  })
+
+  ipcMain.handle('git:abort-merge', async () => {
+    const manager = getGitManager()
+    return manager.abortMerge()
+  })
+
+  ipcMain.handle('git:is-merge-in-progress', async () => {
+    const manager = getGitManager()
+    return manager.isMergeInProgress()
+  })
+
+  ipcMain.handle(
+    'git:merge-task-into-feature',
+    async (
+      _event,
+      featureId: string,
+      taskId: string,
+      removeWorktreeOnSuccess: boolean = true
+    ) => {
+      const manager = getGitManager()
+      return manager.mergeTaskIntoFeature(featureId, taskId, removeWorktreeOnSuccess)
+    }
+  )
+
+  ipcMain.handle('git:get-log', async (_event, maxCount: number = 10, branch?: string) => {
+    const manager = getGitManager()
+    return manager.getLog(maxCount, branch)
+  })
+
+  ipcMain.handle('git:get-diff-summary', async (_event, from: string, to: string) => {
+    const manager = getGitManager()
+    return manager.getDiffSummary(from, to)
+  })
 }

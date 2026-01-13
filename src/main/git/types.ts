@@ -82,3 +82,41 @@ export function getWorktreePath(worktreesDir: string, worktreeName: string): str
 export function getDagentDirInWorktree(worktreePath: string): string {
   return path.join(worktreePath, '.dagent')
 }
+
+// ============================================
+// Merge Types (Phase 4 - 04-03)
+// ============================================
+
+export interface MergeConflict {
+  file: string
+  type: 'both_modified' | 'deleted_by_us' | 'deleted_by_them' | 'both_added'
+}
+
+export interface MergeResult extends GitOperationResult {
+  merged: boolean
+  conflicts?: MergeConflict[]
+  commitHash?: string
+}
+
+export interface CommitInfo {
+  hash: string
+  date: string
+  message: string
+  author: string
+  email: string
+}
+
+export interface DiffSummary {
+  files: number
+  insertions: number
+  deletions: number
+  changed: string[]
+}
+
+export interface TaskMergeResult extends GitOperationResult {
+  merged: boolean
+  conflicts?: MergeConflict[]
+  commitHash?: string
+  worktreeRemoved: boolean
+  branchDeleted: boolean
+}

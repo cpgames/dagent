@@ -23,7 +23,12 @@ import type {
   GitOperationResult,
   WorktreeInfo,
   FeatureWorktreeResult,
-  TaskWorktreeResult
+  TaskWorktreeResult,
+  MergeResult,
+  MergeConflict,
+  TaskMergeResult,
+  CommitInfo,
+  DiffSummary
 } from '../main/git/types'
 
 export interface AppInfo {
@@ -297,6 +302,48 @@ export interface GitAPI {
    * Remove a worktree (and optionally its branch)
    */
   removeWorktree: (worktreePath: string, deleteBranch?: boolean) => Promise<GitOperationResult>
+
+  // Merge operations
+
+  /**
+   * Merge a branch into current branch
+   */
+  mergeBranch: (branchName: string, message?: string) => Promise<MergeResult>
+
+  /**
+   * Get current merge conflicts
+   */
+  getConflicts: () => Promise<MergeConflict[]>
+
+  /**
+   * Abort an in-progress merge
+   */
+  abortMerge: () => Promise<GitOperationResult>
+
+  /**
+   * Check if there's a merge in progress
+   */
+  isMergeInProgress: () => Promise<boolean>
+
+  /**
+   * Merge a task branch into its feature branch
+   * This is the main operation for completing a task per DAGENT_SPEC 8.4
+   */
+  mergeTaskIntoFeature: (
+    featureId: string,
+    taskId: string,
+    removeWorktreeOnSuccess?: boolean
+  ) => Promise<TaskMergeResult>
+
+  /**
+   * Get commit log for a branch or worktree
+   */
+  getLog: (maxCount?: number, branch?: string) => Promise<CommitInfo[]>
+
+  /**
+   * Get diff summary between two refs
+   */
+  getDiffSummary: (from: string, to: string) => Promise<DiffSummary>
 }
 
 export interface ElectronAPI {

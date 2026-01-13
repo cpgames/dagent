@@ -15,7 +15,12 @@ import type {
   GitOperationResult,
   WorktreeInfo,
   FeatureWorktreeResult,
-  TaskWorktreeResult
+  TaskWorktreeResult,
+  MergeResult,
+  MergeConflict,
+  TaskMergeResult,
+  CommitInfo,
+  DiffSummary
 } from '../main/git/types'
 
 /**
@@ -185,7 +190,24 @@ const electronAPI = {
     createTaskWorktree: (featureId: string, taskId: string): Promise<TaskWorktreeResult> =>
       ipcRenderer.invoke('git:create-task-worktree', featureId, taskId),
     removeWorktree: (worktreePath: string, deleteBranch?: boolean): Promise<GitOperationResult> =>
-      ipcRenderer.invoke('git:remove-worktree', worktreePath, deleteBranch)
+      ipcRenderer.invoke('git:remove-worktree', worktreePath, deleteBranch),
+
+    // Merge operations
+    mergeBranch: (branchName: string, message?: string): Promise<MergeResult> =>
+      ipcRenderer.invoke('git:merge-branch', branchName, message),
+    getConflicts: (): Promise<MergeConflict[]> => ipcRenderer.invoke('git:get-conflicts'),
+    abortMerge: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:abort-merge'),
+    isMergeInProgress: (): Promise<boolean> => ipcRenderer.invoke('git:is-merge-in-progress'),
+    mergeTaskIntoFeature: (
+      featureId: string,
+      taskId: string,
+      removeWorktreeOnSuccess?: boolean
+    ): Promise<TaskMergeResult> =>
+      ipcRenderer.invoke('git:merge-task-into-feature', featureId, taskId, removeWorktreeOnSuccess),
+    getLog: (maxCount?: number, branch?: string): Promise<CommitInfo[]> =>
+      ipcRenderer.invoke('git:get-log', maxCount, branch),
+    getDiffSummary: (from: string, to: string): Promise<DiffSummary> =>
+      ipcRenderer.invoke('git:get-diff-summary', from, to)
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)
