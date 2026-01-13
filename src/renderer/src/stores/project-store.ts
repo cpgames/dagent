@@ -10,6 +10,7 @@ interface ProjectStoreState {
   loadCurrentProject: () => Promise<void>
   openProject: (path: string) => Promise<boolean>
   openFolderDialog: () => Promise<boolean>
+  createProject: (parentPath: string, projectName: string) => Promise<string | null>
 }
 
 export const useProjectStore = create<ProjectStoreState>((set) => ({
@@ -77,6 +78,28 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       const message = error instanceof Error ? error.message : 'Failed to open folder dialog'
       set({ error: message, isLoading: false })
       return false
+    }
+  },
+
+  createProject: async (parentPath: string, projectName: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const result = await window.electronAPI.project.create(parentPath, projectName)
+      if (result.success && result.projectPath) {
+        set({ projectPath: result.projectPath, isLoading: false, error: null })
+        // Clear and reload features for the new project
+        useFeatureStore.getState().setFeatures([])
+        useFeatureStore.getState().setActiveFeature(null)
+        await useFeatureStore.getState().loadFeatures()
+        return result.projectPath
+      } else {
+        set({ error: result.error || 'Failed to create project', isLoading: false })
+        return null
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create project'
+      set({ error: message, isLoading: false })
+      return null
     }
   }
 }))
