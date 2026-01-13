@@ -1,27 +1,19 @@
 import { useEffect, useState } from 'react'
-import { useFeatureStore, useViewStore, useAuthStore, type ViewType } from './stores'
+import { useFeatureStore, useViewStore, useAuthStore } from './stores'
 import { KanbanView, DAGView, ContextView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
 import { NewFeatureDialog } from './components/Feature'
-
-/**
- * Tab configuration for main navigation.
- */
-const tabs: { id: ViewType; label: string }[] = [
-  { id: 'kanban', label: 'Kanban' },
-  { id: 'dag', label: 'DAG' },
-  { id: 'context', label: 'Context' },
-]
+import { ViewSidebar } from './components/Layout'
 
 /**
  * Main App component for DAGent.
- * Provides the application shell with tab navigation and view switching.
+ * Provides the application shell with vertical sidebar navigation and view switching.
  */
 function App(): React.JSX.Element {
   const { loadFeatures, createFeature } = useFeatureStore()
-  const { activeView, requestViewChange } = useViewStore()
+  const { activeView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
@@ -51,21 +43,10 @@ function App(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+        {/* Header - simplified without tabs */}
         <header className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
-          <div className="flex items-center gap-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => requestViewChange(tab.id)}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  activeView === tab.id
-                    ? 'bg-gray-700 border-b-2 border-blue-500 text-white'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold">DAGent</span>
           </div>
           <div className="flex items-center gap-2">
             <AuthStatusIndicator onConfigureClick={() => setAuthDialogOpen(true)} />
@@ -77,11 +58,16 @@ function App(): React.JSX.Element {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto">
-          {activeView === 'kanban' && <KanbanView />}
-          {activeView === 'dag' && <DAGView />}
-          {activeView === 'context' && <ContextView />}
-        </main>
+
+        {/* Main content area with sidebar */}
+        <div className="flex-1 flex overflow-hidden">
+          <main className="flex-1 overflow-auto">
+            {activeView === 'kanban' && <KanbanView />}
+            {activeView === 'dag' && <DAGView />}
+            {activeView === 'context' && <ContextView />}
+          </main>
+          <ViewSidebar />
+        </div>
       </div>
       <ToastContainer />
       <AuthDialog isOpen={authDialogOpen} onClose={() => setAuthDialogOpen(false)} />
