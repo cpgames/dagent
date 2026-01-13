@@ -78,10 +78,10 @@ export function ProjectSelector({ onOpenFullDialog }: ProjectSelectorProps): JSX
       {/* Dropdown trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-1.5 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+        className="px-2 py-1 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded border border-gray-600 transition-colors"
         title="Switch project"
       >
-        <span className="text-lg font-bold">...</span>
+        ...
       </button>
 
       {/* Dropdown menu */}

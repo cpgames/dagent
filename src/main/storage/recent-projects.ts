@@ -11,7 +11,7 @@ export interface RecentProject {
   lastOpened: string
 }
 
-const MAX_RECENT_PROJECTS = 10
+const MAX_RECENT_PROJECTS = 3
 
 /**
  * Get the path to recent-projects.json in user data directory.
