@@ -22,6 +22,12 @@ import type {
   CommitInfo,
   DiffSummary
 } from '../main/git/types'
+import type {
+  AgentType,
+  AgentInfo,
+  AgentPoolConfig,
+  AgentSpawnOptions
+} from '../main/agents/types'
 
 /**
  * Preload script for DAGent.
@@ -208,10 +214,45 @@ const electronAPI = {
       ipcRenderer.invoke('git:get-log', maxCount, branch),
     getDiffSummary: (from: string, to: string): Promise<DiffSummary> =>
       ipcRenderer.invoke('git:get-diff-summary', from, to)
+  },
+
+  // Agent Pool API
+  agent: {
+    getConfig: (): Promise<AgentPoolConfig> => ipcRenderer.invoke('agent:get-config'),
+    updateConfig: (config: Partial<AgentPoolConfig>): Promise<AgentPoolConfig> =>
+      ipcRenderer.invoke('agent:update-config', config),
+    getAll: (): Promise<AgentInfo[]> => ipcRenderer.invoke('agent:get-all'),
+    getById: (id: string): Promise<AgentInfo | undefined> =>
+      ipcRenderer.invoke('agent:get-by-id', id),
+    getByType: (type: AgentType): Promise<AgentInfo[]> =>
+      ipcRenderer.invoke('agent:get-by-type', type),
+    getHarness: (): Promise<AgentInfo | undefined> => ipcRenderer.invoke('agent:get-harness'),
+    canSpawn: (type: AgentType): Promise<boolean> => ipcRenderer.invoke('agent:can-spawn', type),
+    getAvailableSlots: (type: AgentType): Promise<number> =>
+      ipcRenderer.invoke('agent:get-available-slots', type),
+    register: (options: AgentSpawnOptions): Promise<AgentInfo> =>
+      ipcRenderer.invoke('agent:register', options),
+    updateStatus: (
+      id: string,
+      status: 'idle' | 'busy' | 'terminated',
+      taskId?: string
+    ): Promise<boolean> => ipcRenderer.invoke('agent:update-status', id, status, taskId),
+    terminate: (id: string): Promise<boolean> => ipcRenderer.invoke('agent:terminate', id),
+    terminateAll: (): Promise<boolean> => ipcRenderer.invoke('agent:terminate-all'),
+    cleanup: (): Promise<number> => ipcRenderer.invoke('agent:cleanup'),
+    getStatus: (): Promise<{
+      total: number
+      active: number
+      idle: number
+      busy: number
+      terminated: number
+      hasHarness: boolean
+      taskAgents: number
+      mergeAgents: number
+    }> => ipcRenderer.invoke('agent:get-status')
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)
-  // TODO: Add agent methods (spawnAgent, terminateAgent, etc.)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

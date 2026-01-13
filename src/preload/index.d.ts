@@ -30,6 +30,14 @@ import type {
   CommitInfo,
   DiffSummary
 } from '../main/git/types'
+import type {
+  AgentType,
+  AgentStatus,
+  AgentInfo,
+  AgentPoolConfig,
+  AgentSpawnOptions,
+  AgentContext
+} from '../main/agents/types'
 
 export interface AppInfo {
   version: string
@@ -346,6 +354,96 @@ export interface GitAPI {
   getDiffSummary: (from: string, to: string) => Promise<DiffSummary>
 }
 
+/**
+ * Agent pool status summary.
+ */
+export interface AgentPoolStatus {
+  total: number
+  active: number
+  idle: number
+  busy: number
+  terminated: number
+  hasHarness: boolean
+  taskAgents: number
+  mergeAgents: number
+}
+
+/**
+ * Agent Pool API for managing AI agents.
+ * Handles agent registration, status tracking, and lifecycle management.
+ */
+export interface AgentAPI {
+  /**
+   * Get current pool configuration
+   */
+  getConfig: () => Promise<AgentPoolConfig>
+
+  /**
+   * Update pool configuration
+   */
+  updateConfig: (config: Partial<AgentPoolConfig>) => Promise<AgentPoolConfig>
+
+  /**
+   * Get all agents in the pool
+   */
+  getAll: () => Promise<AgentInfo[]>
+
+  /**
+   * Get agent by ID
+   */
+  getById: (id: string) => Promise<AgentInfo | undefined>
+
+  /**
+   * Get agents by type
+   */
+  getByType: (type: AgentType) => Promise<AgentInfo[]>
+
+  /**
+   * Get harness agent (if active)
+   */
+  getHarness: () => Promise<AgentInfo | undefined>
+
+  /**
+   * Check if we can spawn a new agent of given type
+   */
+  canSpawn: (type: AgentType) => Promise<boolean>
+
+  /**
+   * Get available slots for a given agent type
+   */
+  getAvailableSlots: (type: AgentType) => Promise<number>
+
+  /**
+   * Register an agent in the pool
+   */
+  register: (options: AgentSpawnOptions) => Promise<AgentInfo>
+
+  /**
+   * Update agent status
+   */
+  updateStatus: (id: string, status: AgentStatus, taskId?: string) => Promise<boolean>
+
+  /**
+   * Terminate an agent
+   */
+  terminate: (id: string) => Promise<boolean>
+
+  /**
+   * Terminate all agents
+   */
+  terminateAll: () => Promise<boolean>
+
+  /**
+   * Remove terminated agents from pool
+   */
+  cleanup: () => Promise<number>
+
+  /**
+   * Get pool status summary
+   */
+  getStatus: () => Promise<AgentPoolStatus>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -392,8 +490,12 @@ export interface ElectronAPI {
    */
   git: GitAPI
 
+  /**
+   * Agent Pool API for managing AI agents
+   */
+  agent: AgentAPI
+
   // TODO: Add auth method types
-  // TODO: Add agent method types
 }
 
 declare global {

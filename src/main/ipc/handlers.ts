@@ -3,6 +3,7 @@ import { registerStorageHandlers } from './storage-handlers'
 import { registerDagHandlers } from './dag-handlers'
 import { registerExecutionHandlers } from './execution-handlers'
 import { registerGitHandlers } from './git-handlers'
+import { registerAgentHandlers } from './agent-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -17,6 +18,8 @@ export function registerIpcHandlers(): void {
   registerExecutionHandlers()
   // Register git handlers (branch operations, worktree management)
   registerGitHandlers()
+  // Register agent pool handlers (agent lifecycle, status management)
+  registerAgentHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'
