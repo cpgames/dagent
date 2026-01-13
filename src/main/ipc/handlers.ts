@@ -6,6 +6,7 @@ import { registerGitHandlers } from './git-handlers'
 import { registerAgentHandlers } from './agent-handlers'
 import { registerHarnessHandlers } from './harness-handlers'
 import { registerTaskAgentHandlers } from './task-agent-handlers'
+import { registerMergeAgentHandlers } from './merge-agent-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -26,6 +27,8 @@ export function registerIpcHandlers(): void {
   registerHarnessHandlers()
   // Register task agent handlers (task execution lifecycle)
   registerTaskAgentHandlers()
+  // Register merge agent handlers (branch integration)
+  registerMergeAgentHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

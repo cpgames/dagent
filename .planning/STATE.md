@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Phase 5 - Agent System
+**Current focus:** Phase 6 - UI Views
 
 ## Current Position
 
-Phase: 5 of 7 (Agent System)
-Plan: Phase 4 complete
-Status: Ready for Phase 5
-Last activity: 2026-01-13 - Phase 4 complete
+Phase: 6 of 7 (UI Views)
+Plan: Phase 5 complete
+Status: Ready for Phase 6
+Last activity: 2026-01-13 - Phase 5 complete
 
-Progress: █████░░░░░ 57%
+Progress: ███████░░░ 71%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 16
 - Average duration: ~5 min/plan
-- Total execution time: ~60 min
+- Total execution time: ~80 min
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: █████░░░░░ 57%
 | 02-data-model | 3 | ~15 min | ~5 min |
 | 03-dag-engine | 3 | ~15 min | ~5 min |
 | 04-git-integration | 3 | ~15 min | ~5 min |
+| 05-agent-system | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02, 03-03, 04-01, 04-02, 04-03
+- Last 5 plans: 04-03, 05-01, 05-02, 05-03, 05-04
 - Trend: Smooth execution, no blockers
 
 ## Accumulated Context
@@ -89,4 +90,11 @@ Resume file: None
 - **04-02**: Worktree lifecycle (create, delete, list) per DAGENT_SPEC 8.2-8.3
 - **04-03**: Merge operations and task integration per DAGENT_SPEC 8.4
 
-All verification items passed. Ready for Phase 5.
+### Phase 5: Agent System ✓
+
+- **05-01**: Agent pool infrastructure with type definitions and slot management
+- **05-02**: Harness agent with intention-approval workflow per DAGENT_SPEC section 7
+- **05-03**: Task agent with context assembly and worktree isolation
+- **05-04**: Merge agent for branch integration per DAGENT_SPEC 8.4
+
+All verification items passed. Ready for Phase 6.

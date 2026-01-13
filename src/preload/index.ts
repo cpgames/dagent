@@ -41,6 +41,7 @@ import type {
   TaskAgentConfig,
   TaskExecutionResult
 } from '../main/agents/task-types'
+import type { MergeAgentState, MergeAgentStatus } from '../main/agents/merge-types'
 
 /**
  * Preload script for DAGent.
@@ -349,6 +350,31 @@ const electronAPI = {
     cleanup: (taskId: string, removeWorktree?: boolean): Promise<boolean> =>
       ipcRenderer.invoke('task-agent:cleanup', taskId, removeWorktree),
     clearAll: (): Promise<boolean> => ipcRenderer.invoke('task-agent:clear-all')
+  },
+
+  // Merge Agent API
+  mergeAgent: {
+    create: (
+      featureId: string,
+      taskId: string,
+      taskTitle: string
+    ): Promise<{ success: boolean; state: MergeAgentState }> =>
+      ipcRenderer.invoke('merge-agent:create', featureId, taskId, taskTitle),
+    getState: (taskId: string): Promise<MergeAgentState | null> =>
+      ipcRenderer.invoke('merge-agent:get-state', taskId),
+    getStatus: (taskId: string): Promise<MergeAgentStatus | null> =>
+      ipcRenderer.invoke('merge-agent:get-status', taskId),
+    getAll: (): Promise<MergeAgentState[]> => ipcRenderer.invoke('merge-agent:get-all'),
+    proposeIntention: (taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('merge-agent:propose-intention', taskId),
+    receiveApproval: (taskId: string, decision: IntentionDecision): Promise<boolean> =>
+      ipcRenderer.invoke('merge-agent:receive-approval', taskId, decision),
+    execute: (taskId: string): Promise<TaskMergeResult> =>
+      ipcRenderer.invoke('merge-agent:execute', taskId),
+    abort: (taskId: string): Promise<boolean> => ipcRenderer.invoke('merge-agent:abort', taskId),
+    cleanup: (taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('merge-agent:cleanup', taskId),
+    clearAll: (): Promise<boolean> => ipcRenderer.invoke('merge-agent:clear-all')
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)

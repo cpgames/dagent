@@ -53,6 +53,13 @@ import type {
   DependencyContextEntry,
   TaskExecutionResult
 } from '../main/agents/task-types'
+import type {
+  MergeAgentState,
+  MergeAgentStatus,
+  MergeContext,
+  ConflictResolution,
+  MergeIntention
+} from '../main/agents/merge-types'
 
 export interface AppInfo {
   version: string
@@ -579,6 +586,14 @@ export interface TaskAgentCreateResult {
 }
 
 /**
+ * Merge agent creation result.
+ */
+export interface MergeAgentCreateResult {
+  success: boolean
+  state: MergeAgentState
+}
+
+/**
  * Task Agent API for executing individual tasks.
  * Implements intention-approval workflow with harness oversight.
  */
@@ -633,6 +648,62 @@ export interface TaskAgentAPI {
 
   /**
    * Clear all task agents
+   */
+  clearAll: () => Promise<boolean>
+}
+
+/**
+ * Merge Agent API for branch integration.
+ * Handles merging completed task branches into feature branches per DAGENT_SPEC 8.4.
+ */
+export interface MergeAgentAPI {
+  /**
+   * Create and initialize a merge agent for a task
+   */
+  create: (featureId: string, taskId: string, taskTitle: string) => Promise<MergeAgentCreateResult>
+
+  /**
+   * Get merge agent state by task ID
+   */
+  getState: (taskId: string) => Promise<MergeAgentState | null>
+
+  /**
+   * Get merge agent status by task ID
+   */
+  getStatus: (taskId: string) => Promise<MergeAgentStatus | null>
+
+  /**
+   * Get all active merge agents
+   */
+  getAll: () => Promise<MergeAgentState[]>
+
+  /**
+   * Propose merge intention to the harness
+   */
+  proposeIntention: (taskId: string) => Promise<boolean>
+
+  /**
+   * Receive approval decision from harness
+   */
+  receiveApproval: (taskId: string, decision: IntentionDecision) => Promise<boolean>
+
+  /**
+   * Execute the approved merge
+   */
+  execute: (taskId: string) => Promise<TaskMergeResult>
+
+  /**
+   * Abort an in-progress merge
+   */
+  abort: (taskId: string) => Promise<boolean>
+
+  /**
+   * Clean up merge agent resources
+   */
+  cleanup: (taskId: string) => Promise<boolean>
+
+  /**
+   * Clear all merge agents
    */
   clearAll: () => Promise<boolean>
 }
@@ -697,6 +768,11 @@ export interface ElectronAPI {
    * Task Agent API for executing individual tasks
    */
   taskAgent: TaskAgentAPI
+
+  /**
+   * Merge Agent API for branch integration
+   */
+  mergeAgent: MergeAgentAPI
 
   // TODO: Add auth method types
 }
