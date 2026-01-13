@@ -2,6 +2,7 @@ import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types';
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
+import { getFeatureBranchName } from '../git/types';
 
 /**
  * Storage service for feature data.
@@ -9,6 +10,43 @@ import { promises as fs } from 'fs';
  */
 export class FeatureStore {
   constructor(private projectRoot: string) {}
+
+  /**
+   * Create a new feature with generated ID and branch name.
+   * @param name - Human-readable feature name (e.g., "My Feature")
+   * @returns Created Feature object
+   */
+  async createFeature(name: string): Promise<Feature> {
+    // Generate kebab-case slug from name: "My Feature" -> "my-feature"
+    const slug = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Collapse multiple hyphens
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+    // Generate feature ID: "feature-my-feature"
+    const id = `feature-${slug}`;
+
+    // Get current ISO timestamp
+    const now = new Date().toISOString();
+
+    // Create Feature object
+    const feature: Feature = {
+      id,
+      name,
+      status: 'not_started',
+      branchName: getFeatureBranchName(id),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    // Persist to storage
+    await this.saveFeature(feature);
+
+    return feature;
+  }
 
   /**
    * Save feature metadata to feature.json.
