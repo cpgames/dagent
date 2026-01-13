@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Feature, DAGGraph, ChatHistory, AgentLog, Task, AuthState } from '@shared/types'
+import type {
+  Feature,
+  DAGGraph,
+  ChatHistory,
+  AgentLog,
+  Task,
+  AuthState,
+  HistoryState
+} from '@shared/types'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
 import type { CascadeResult } from '../main/dag-engine/cascade'
@@ -386,6 +394,26 @@ const electronAPI = {
       ipcRenderer.invoke('auth:setCredentials', type, value),
     clearCredentials: (): Promise<AuthState> => ipcRenderer.invoke('auth:clearCredentials'),
     isAuthenticated: (): Promise<boolean> => ipcRenderer.invoke('auth:isAuthenticated')
+  },
+
+  // History API (undo/redo)
+  history: {
+    pushVersion: (
+      featureId: string,
+      graph: DAGGraph,
+      description?: string
+    ): Promise<{ success: boolean; state?: HistoryState; error?: string }> =>
+      ipcRenderer.invoke('history:pushVersion', featureId, graph, description),
+    undo: (
+      featureId: string
+    ): Promise<{ success: boolean; graph?: DAGGraph; state?: HistoryState; error?: string }> =>
+      ipcRenderer.invoke('history:undo', featureId),
+    redo: (
+      featureId: string
+    ): Promise<{ success: boolean; graph?: DAGGraph; state?: HistoryState; error?: string }> =>
+      ipcRenderer.invoke('history:redo', featureId),
+    getState: (featureId: string): Promise<HistoryState> =>
+      ipcRenderer.invoke('history:getState', featureId)
   }
 }
 
