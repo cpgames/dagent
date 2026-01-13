@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from './toast-store'
 
 export interface ChatMessage {
   id: string
@@ -41,8 +42,9 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       // Fall back to empty array
       set({ messages: [], isLoading: false })
-    } catch {
-      // IPC not implemented yet, use empty array
+    } catch (error) {
+      console.error('Failed to load chat:', error)
+      toast.error('Failed to load chat history')
       set({ messages: [], isLoading: false })
     }
   },
