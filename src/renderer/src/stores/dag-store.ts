@@ -7,6 +7,8 @@ interface DAGStoreState {
   dag: DAGGraph | null
   isLoading: boolean
   isMutating: boolean
+  isUndoing: boolean
+  isRedoing: boolean
   error: string | null
 
   // Current feature ID for history operations
@@ -47,6 +49,8 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
   dag: null,
   isLoading: false,
   isMutating: false,
+  isUndoing: false,
+  isRedoing: false,
   error: null,
   currentFeatureId: null,
   selectedNodeId: null,
@@ -258,6 +262,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { currentFeatureId } = get()
     if (!currentFeatureId) return
 
+    set({ isUndoing: true })
     try {
       const result = await window.electronAPI.history.undo(currentFeatureId)
       if (result.success && result.graph && result.state) {
@@ -269,6 +274,8 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       const message = (error as Error).message
       toast.error(`Undo failed: ${message}`)
       console.error('Undo failed:', error)
+    } finally {
+      set({ isUndoing: false })
     }
   },
 
@@ -276,6 +283,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     const { currentFeatureId } = get()
     if (!currentFeatureId) return
 
+    set({ isRedoing: true })
     try {
       const result = await window.electronAPI.history.redo(currentFeatureId)
       if (result.success && result.graph && result.state) {
@@ -287,6 +295,8 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       const message = (error as Error).message
       toast.error(`Redo failed: ${message}`)
       console.error('Redo failed:', error)
+    } finally {
+      set({ isRedoing: false })
     }
   }
 }))
