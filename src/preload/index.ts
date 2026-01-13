@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
-import type {
-  TopologicalResult,
-  DAGAnalysisSerialized
-} from '../main/dag-engine/types'
+import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
 import type { CascadeResult } from '../main/dag-engine/cascade'
+import type {
+  ExecutionConfig,
+  ExecutionState,
+  ExecutionSnapshot,
+  NextTasksResult
+} from '../main/dag-engine/orchestrator-types'
 
 /**
  * Preload script for DAGent.
@@ -104,6 +107,47 @@ const electronAPI = {
       ipcRenderer.invoke('dag:reset-task', taskId, graph),
     recalculateStatuses: (graph: DAGGraph): Promise<CascadeResult> =>
       ipcRenderer.invoke('dag:recalculate-statuses', graph)
+  },
+
+  // Execution Orchestrator API
+  execution: {
+    initialize: (
+      featureId: string,
+      graph: DAGGraph
+    ): Promise<ExecutionSnapshot> =>
+      ipcRenderer.invoke('execution:initialize', featureId, graph),
+    start: (): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:start'),
+    pause: (): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:pause'),
+    resume: (): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:resume'),
+    stop: (): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:stop'),
+    getState: (): Promise<ExecutionState> => ipcRenderer.invoke('execution:get-state'),
+    getNextTasks: (): Promise<NextTasksResult> =>
+      ipcRenderer.invoke('execution:get-next-tasks'),
+    assignTask: (
+      taskId: string,
+      agentId?: string
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:assign-task', taskId, agentId),
+    completeTaskCode: (taskId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:complete-task-code', taskId),
+    completeMerge: (
+      taskId: string
+    ): Promise<{ success: boolean; unblocked: string[]; error?: string }> =>
+      ipcRenderer.invoke('execution:complete-merge', taskId),
+    failTask: (
+      taskId: string,
+      error?: string
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:fail-task', taskId, error),
+    getSnapshot: (): Promise<ExecutionSnapshot> =>
+      ipcRenderer.invoke('execution:get-snapshot'),
+    updateConfig: (config: Partial<ExecutionConfig>): Promise<ExecutionConfig> =>
+      ipcRenderer.invoke('execution:update-config', config),
+    reset: (): Promise<{ success: boolean }> => ipcRenderer.invoke('execution:reset')
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)

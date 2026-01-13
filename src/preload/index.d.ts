@@ -11,6 +11,12 @@ import type {
 } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
 import type { CascadeResult } from '../main/dag-engine/cascade'
+import type {
+  ExecutionState,
+  ExecutionConfig,
+  ExecutionSnapshot,
+  NextTasksResult
+} from '../main/dag-engine/orchestrator-types'
 
 export interface AppInfo {
   version: string
@@ -126,6 +132,82 @@ export interface DagAPI {
   recalculateStatuses: (graph: DAGGraph) => Promise<CascadeResult>
 }
 
+/**
+ * Execution Orchestrator API for managing DAG execution lifecycle.
+ * Handles play/pause/stop, task assignment, and completion tracking.
+ */
+export interface ExecutionAPI {
+  /**
+   * Initialize orchestrator with a feature's DAG graph
+   */
+  initialize: (featureId: string, graph: DAGGraph) => Promise<ExecutionSnapshot>
+
+  /**
+   * Start execution (Play button)
+   */
+  start: () => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Pause execution (Stop button - running tasks finish current operation)
+   */
+  pause: () => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Resume execution after pause
+   */
+  resume: () => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Stop execution and reset state
+   */
+  stop: () => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Get current execution state
+   */
+  getState: () => Promise<ExecutionState>
+
+  /**
+   * Get tasks ready for execution and available for assignment
+   */
+  getNextTasks: () => Promise<NextTasksResult>
+
+  /**
+   * Assign a task to an agent (marks as running)
+   */
+  assignTask: (taskId: string, agentId?: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Mark task code as complete (transitions to merging)
+   */
+  completeTaskCode: (taskId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Mark task merge as successful (cascades to unblock dependents)
+   */
+  completeMerge: (taskId: string) => Promise<{ success: boolean; unblocked: string[]; error?: string }>
+
+  /**
+   * Mark a task as failed
+   */
+  failTask: (taskId: string, error?: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Get full execution snapshot (state, assignments, history, events)
+   */
+  getSnapshot: () => Promise<ExecutionSnapshot>
+
+  /**
+   * Update execution configuration
+   */
+  updateConfig: (config: Partial<ExecutionConfig>) => Promise<ExecutionConfig>
+
+  /**
+   * Reset orchestrator to initial state
+   */
+  reset: () => Promise<{ success: boolean }>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -161,6 +243,11 @@ export interface ElectronAPI {
    * DAG Engine API for topological sort and dependency analysis
    */
   dag: DagAPI
+
+  /**
+   * Execution Orchestrator API for managing DAG execution lifecycle
+   */
+  execution: ExecutionAPI
 
   // TODO: Add auth method types
   // TODO: Add git method types
