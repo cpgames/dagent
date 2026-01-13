@@ -143,6 +143,7 @@ const electronAPI = {
   },
 
   // Execution Orchestrator API
+  // Flow: initialize(featureId, graph) -> start() -> pause/resume/stop
   execution: {
     initialize: (
       featureId: string,
