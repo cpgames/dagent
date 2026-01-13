@@ -81,6 +81,7 @@ export interface AppInfo {
  */
 export interface StorageAPI {
   // Feature operations
+  createFeature: (name: string) => Promise<Feature>
   saveFeature: (feature: Feature) => Promise<boolean>
   loadFeature: (featureId: string) => Promise<Feature | null>
   deleteFeature: (featureId: string) => Promise<boolean>
