@@ -5,7 +5,8 @@ interface GitInitDialogProps {
   isOpen: boolean
   projectPath: string
   onInitGit: () => Promise<void>
-  onSkip: () => void
+  onOpenAnother: () => void
+  onRefresh: () => Promise<void>
 }
 
 /**
@@ -48,21 +49,40 @@ function Spinner({ className }: { className?: string }): JSX.Element {
 }
 
 /**
+ * Refresh icon
+ */
+function RefreshIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  )
+}
+
+/**
  * Dialog shown when opening a project that is not a git repository.
- * Offers to initialize git or continue without it.
+ * Offers to initialize git, open another project, or refresh to re-scan.
  */
 export function GitInitDialog({
   isOpen,
   projectPath,
   onInitGit,
-  onSkip
+  onOpenAnother,
+  onRefresh
 }: GitInitDialogProps): JSX.Element | null {
   const [isInitializing, setIsInitializing] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!isOpen) return null
 
   const projectName = projectPath.split(/[/\\]/).pop() || 'Project'
+  const isLoading = isInitializing || isRefreshing
 
   const handleInitGit = async (): Promise<void> => {
     setIsInitializing(true)
@@ -72,6 +92,18 @@ export function GitInitDialog({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize git repository')
       setIsInitializing(false)
+    }
+  }
+
+  const handleRefresh = async (): Promise<void> => {
+    setIsRefreshing(true)
+    setError(null)
+    try {
+      await onRefresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to check for git repository')
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -98,8 +130,8 @@ export function GitInitDialog({
 
         {/* Description */}
         <p className="text-sm text-gray-300 mb-6">
-          DAGent works best with git for version control and worktree-based task isolation. Would
-          you like to initialize a git repository?
+          DAGent requires git for version control and worktree-based task isolation. Please
+          initialize a git repository or select a different project.
         </p>
 
         {/* Error display */}
@@ -110,18 +142,12 @@ export function GitInitDialog({
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={onSkip}
-            disabled={isInitializing}
-            className="flex-1 px-4 py-2 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Continue Without Git
-          </button>
+        <div className="flex flex-col gap-3">
+          {/* Primary action - Initialize Git */}
           <button
             onClick={handleInitGit}
-            disabled={isInitializing}
-            className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isInitializing ? (
               <>
@@ -132,6 +158,30 @@ export function GitInitDialog({
               'Initialize Git'
             )}
           </button>
+
+          {/* Secondary actions row */}
+          <div className="flex gap-3">
+            <button
+              onClick={onOpenAnother}
+              disabled={isLoading}
+              className="flex-1 px-4 py-2 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Open Another Project
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              title="Re-scan for git repository"
+            >
+              {isRefreshing ? (
+                <Spinner className="w-4 h-4" />
+              ) : (
+                <RefreshIcon className="w-4 h-4" />
+              )}
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
     </div>

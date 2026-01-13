@@ -21,7 +21,7 @@ function App(): React.JSX.Element {
   const { loadFeatures, createFeature } = useFeatureStore()
   const { activeView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
-  const { loadCurrentProject, projectPath, initGitRepo } = useProjectStore()
+  const { loadCurrentProject, projectPath, initGitRepo, checkGitStatus } = useProjectStore()
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
@@ -103,8 +103,16 @@ function App(): React.JSX.Element {
     }
   }
 
-  const handleSkipGitInit = (): void => {
+  const handleOpenAnotherProject = (): void => {
     setGitInitDialogOpen(false)
+    setProjectSelectionDialogOpen(true)
+  }
+
+  const handleRefreshGitStatus = async (): Promise<void> => {
+    const hasGit = await checkGitStatus()
+    if (hasGit) {
+      setGitInitDialogOpen(false)
+    }
   }
 
   return (
@@ -158,7 +166,8 @@ function App(): React.JSX.Element {
         isOpen={gitInitDialogOpen}
         projectPath={projectPath || ''}
         onInitGit={handleInitGit}
-        onSkip={handleSkipGitInit}
+        onOpenAnother={handleOpenAnotherProject}
+        onRefresh={handleRefreshGitStatus}
       />
     </ErrorBoundary>
   )

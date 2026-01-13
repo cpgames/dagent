@@ -27,6 +27,7 @@ interface ProjectStoreState {
   loadRecentProjects: () => Promise<void>
   removeFromRecent: (path: string) => Promise<void>
   initGitRepo: () => Promise<boolean>
+  checkGitStatus: () => Promise<boolean>
 }
 
 export const useProjectStore = create<ProjectStoreState>((set, get) => ({
@@ -166,6 +167,25 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       return false
     } catch (error) {
       console.error('[DAGent] Failed to initialize git repository:', error)
+      return false
+    }
+  },
+
+  checkGitStatus: async () => {
+    const { projectPath } = get()
+    if (!projectPath) {
+      return false
+    }
+    try {
+      // Re-open the project to check git status
+      const result = await window.electronAPI.project.setProject(projectPath)
+      if (result.success && result.hasGit) {
+        set({ hasGit: true })
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('[DAGent] Failed to check git status:', error)
       return false
     }
   }
