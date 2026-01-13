@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 13 of 15 (v1.2) - In Progress
-Plan: 2 of 3 in Phase 13
-Status: Completed 13-02-PLAN.md
-Last activity: 2026-01-13 - Completed 13-02-PLAN.md (AI chat integration)
+Phase: 15 of 15 (v1.2) - Pending
+Plan: 0 of 2 in Phase 15
+Status: Phase 14 complete, ready for Phase 15
+Last activity: 2026-01-13 - Completed 14-01, 14-02
 
-Progress (v1.2): ████████░░ 62%
+Progress (v1.2): █████████░ 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 40 (v1.0: 25, v1.1: 10, v1.2: 5)
+- Total plans completed: 43 (v1.0: 25, v1.1: 10, v1.2: 8)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~200 min
+- Total execution time: ~210 min
 
 **By Phase:**
 
@@ -36,7 +36,7 @@ Progress (v1.2): ████████░░ 62%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 10-01, 10-02, 10-03, 10-04
+- Last 5 plans: 13-02, 13-03, 14-01, 14-02
 - Trend: Smooth execution, no blockers
 
 ## Accumulated Context
@@ -63,7 +63,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 13-02-PLAN.md
+Stopped at: Completed Phase 14
 Resume file: None
 
 ## Completed Phases
@@ -148,3 +148,14 @@ All verification items passed. Milestone v1.1 Complete.
 - **12-01**: Project IPC handlers, project-store, ProjectSelectionDialog ✓
 - **12-02**: NewProjectDialog with location picker and name validation ✓
 - **12-03**: Recent projects list, header integration, startup flow ✓
+
+### Phase 13: Feature Chat ✓
+
+- **13-01**: Chat persistence (storage, IPC, preload, store, UI)
+- **13-02**: AI chat integration (ChatService, Claude API, loading states)
+- **13-03**: Chat context assembly (feature/DAG context in prompts)
+
+### Phase 14: Git Branch Management ✓
+
+- **14-01**: Git status monitoring (dirty indicator, change counts, ahead/behind, periodic refresh)
+- **14-02**: Branch switcher UI (dropdown, checkout IPC, git-store integration)
