@@ -4,3 +4,4 @@ export * from './connection';
 export * from './dag';
 export * from './chat';
 export * from './log';
+export * from './auth';

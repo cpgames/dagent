@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Feature, DAGGraph, ChatHistory, AgentLog, Task } from '@shared/types'
+import type { Feature, DAGGraph, ChatHistory, AgentLog, Task, AuthState } from '@shared/types'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
 import type { CascadeResult } from '../main/dag-engine/cascade'
@@ -375,9 +375,17 @@ const electronAPI = {
     cleanup: (taskId: string): Promise<boolean> =>
       ipcRenderer.invoke('merge-agent:cleanup', taskId),
     clearAll: (): Promise<boolean> => ipcRenderer.invoke('merge-agent:clear-all')
-  }
+  },
 
-  // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)
+  // Auth API
+  auth: {
+    initialize: (): Promise<AuthState> => ipcRenderer.invoke('auth:initialize'),
+    getState: (): Promise<AuthState> => ipcRenderer.invoke('auth:getState'),
+    setCredentials: (type: 'oauth' | 'api_key', value: string): Promise<AuthState> =>
+      ipcRenderer.invoke('auth:setCredentials', type, value),
+    clearCredentials: (): Promise<AuthState> => ipcRenderer.invoke('auth:clearCredentials'),
+    isAuthenticated: (): Promise<boolean> => ipcRenderer.invoke('auth:isAuthenticated')
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
