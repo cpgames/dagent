@@ -20,15 +20,11 @@ export function StatusBar({ children }: StatusBarProps): JSX.Element {
   }, [loadBranch])
 
   return (
-    <footer className="h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-between px-3 text-xs">
-      {/* Left section: Git branch info */}
-      <div className="flex items-center gap-3 text-gray-400">
-        <GitStatus />
-      </div>
-
-      {/* Right section: Auth and status indicators */}
-      <div className="flex items-center gap-2">
+    <footer className="h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-end px-3 text-xs">
+      {/* Right section: Auth and git status */}
+      <div className="flex items-center gap-3">
         {children}
+        <GitStatus />
       </div>
     </footer>
   )
