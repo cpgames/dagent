@@ -403,7 +403,14 @@ const electronAPI = {
     openDialog: (): Promise<string | null> => ipcRenderer.invoke('project:open-dialog'),
     setProject: (path: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('project:set-project', path),
-    getCurrent: (): Promise<string> => ipcRenderer.invoke('project:get-current')
+    getCurrent: (): Promise<string> => ipcRenderer.invoke('project:get-current'),
+    create: (
+      parentPath: string,
+      projectName: string
+    ): Promise<{ success: boolean; projectPath?: string; error?: string }> =>
+      ipcRenderer.invoke('project:create', { parentPath, projectName }),
+    selectParentDialog: (): Promise<string | null> =>
+      ipcRenderer.invoke('project:select-parent-dialog')
   },
 
   // History API (undo/redo)

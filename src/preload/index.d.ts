@@ -769,6 +769,20 @@ export interface ProjectAPI {
    * Get the current project root path.
    */
   getCurrent: () => Promise<string>
+
+  /**
+   * Create a new project with folder and .dagent-worktrees structure.
+   */
+  create: (
+    parentPath: string,
+    projectName: string
+  ) => Promise<{ success: boolean; projectPath?: string; error?: string }>
+
+  /**
+   * Open native folder picker for selecting parent directory.
+   * Used when creating a new project.
+   */
+  selectParentDialog: () => Promise<string | null>
 }
 
 /**
