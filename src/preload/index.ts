@@ -28,6 +28,13 @@ import type {
   AgentPoolConfig,
   AgentSpawnOptions
 } from '../main/agents/types'
+import type {
+  HarnessStatus,
+  TaskExecutionState,
+  PendingIntention,
+  HarnessMessage,
+  IntentionDecision
+} from '../main/agents/harness-types'
 
 /**
  * Preload script for DAGent.
@@ -250,6 +257,55 @@ const electronAPI = {
       taskAgents: number
       mergeAgents: number
     }> => ipcRenderer.invoke('agent:get-status')
+  },
+
+  // Harness Agent API
+  harness: {
+    initialize: (
+      featureId: string,
+      featureGoal: string,
+      graph: DAGGraph,
+      claudeMd?: string
+    ): Promise<boolean> =>
+      ipcRenderer.invoke('harness:initialize', featureId, featureGoal, graph, claudeMd),
+    start: (): Promise<boolean> => ipcRenderer.invoke('harness:start'),
+    pause: (): Promise<boolean> => ipcRenderer.invoke('harness:pause'),
+    resume: (): Promise<boolean> => ipcRenderer.invoke('harness:resume'),
+    stop: (): Promise<boolean> => ipcRenderer.invoke('harness:stop'),
+    getState: (): Promise<{
+      status: HarnessStatus
+      featureId: string | null
+      featureGoal: string | null
+      claudeMd: string | null
+      activeTasks: TaskExecutionState[]
+      pendingIntentions: PendingIntention[]
+      messageHistory: HarnessMessage[]
+      startedAt: string | null
+      stoppedAt: string | null
+    }> => ipcRenderer.invoke('harness:get-state'),
+    getStatus: (): Promise<HarnessStatus> => ipcRenderer.invoke('harness:get-status'),
+    registerTaskAssignment: (taskId: string, agentId: string): Promise<boolean> =>
+      ipcRenderer.invoke('harness:register-task-assignment', taskId, agentId),
+    receiveIntention: (
+      agentId: string,
+      taskId: string,
+      intention: string,
+      files?: string[]
+    ): Promise<boolean> =>
+      ipcRenderer.invoke('harness:receive-intention', agentId, taskId, intention, files),
+    processIntention: (taskId: string): Promise<IntentionDecision | null> =>
+      ipcRenderer.invoke('harness:process-intention', taskId),
+    markTaskWorking: (taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('harness:mark-task-working', taskId),
+    markTaskMerging: (taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('harness:mark-task-merging', taskId),
+    completeTask: (taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('harness:complete-task', taskId),
+    failTask: (taskId: string, error: string): Promise<boolean> =>
+      ipcRenderer.invoke('harness:fail-task', taskId, error),
+    getMessageHistory: (): Promise<HarnessMessage[]> =>
+      ipcRenderer.invoke('harness:get-message-history'),
+    reset: (): Promise<boolean> => ipcRenderer.invoke('harness:reset')
   }
 
   // TODO: Add auth methods (validateApiKey, getStoredKey, etc.)

@@ -38,6 +38,13 @@ import type {
   AgentSpawnOptions,
   AgentContext
 } from '../main/agents/types'
+import type {
+  HarnessStatus,
+  TaskExecutionState,
+  PendingIntention,
+  HarnessMessage,
+  IntentionDecision
+} from '../main/agents/harness-types'
 
 export interface AppInfo {
   version: string
@@ -444,6 +451,117 @@ export interface AgentAPI {
   getStatus: () => Promise<AgentPoolStatus>
 }
 
+/**
+ * Harness state returned from getState().
+ */
+export interface HarnessStateResponse {
+  status: HarnessStatus
+  featureId: string | null
+  featureGoal: string | null
+  claudeMd: string | null
+  activeTasks: TaskExecutionState[]
+  pendingIntentions: PendingIntention[]
+  messageHistory: HarnessMessage[]
+  startedAt: string | null
+  stoppedAt: string | null
+}
+
+/**
+ * Harness Agent API for orchestrating task agents.
+ * Implements intention-approval workflow per DAGENT_SPEC section 7.
+ */
+export interface HarnessAPI {
+  /**
+   * Initialize harness for a feature execution
+   */
+  initialize: (
+    featureId: string,
+    featureGoal: string,
+    graph: DAGGraph,
+    claudeMd?: string
+  ) => Promise<boolean>
+
+  /**
+   * Start execution - harness becomes active
+   */
+  start: () => Promise<boolean>
+
+  /**
+   * Pause execution
+   */
+  pause: () => Promise<boolean>
+
+  /**
+   * Resume execution after pause
+   */
+  resume: () => Promise<boolean>
+
+  /**
+   * Stop execution
+   */
+  stop: () => Promise<boolean>
+
+  /**
+   * Get current harness state
+   */
+  getState: () => Promise<HarnessStateResponse>
+
+  /**
+   * Get harness status
+   */
+  getStatus: () => Promise<HarnessStatus>
+
+  /**
+   * Register a task agent assignment
+   */
+  registerTaskAssignment: (taskId: string, agentId: string) => Promise<boolean>
+
+  /**
+   * Receive an intention from a task agent
+   */
+  receiveIntention: (
+    agentId: string,
+    taskId: string,
+    intention: string,
+    files?: string[]
+  ) => Promise<boolean>
+
+  /**
+   * Process and decide on a pending intention
+   */
+  processIntention: (taskId: string) => Promise<IntentionDecision | null>
+
+  /**
+   * Mark task as working (post-approval)
+   */
+  markTaskWorking: (taskId: string) => Promise<boolean>
+
+  /**
+   * Mark task as merging
+   */
+  markTaskMerging: (taskId: string) => Promise<boolean>
+
+  /**
+   * Mark task as completed
+   */
+  completeTask: (taskId: string) => Promise<boolean>
+
+  /**
+   * Mark task as failed
+   */
+  failTask: (taskId: string, error: string) => Promise<boolean>
+
+  /**
+   * Get message history
+   */
+  getMessageHistory: () => Promise<HarnessMessage[]>
+
+  /**
+   * Reset harness state
+   */
+  reset: () => Promise<boolean>
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -494,6 +612,11 @@ export interface ElectronAPI {
    * Agent Pool API for managing AI agents
    */
   agent: AgentAPI
+
+  /**
+   * Harness Agent API for orchestrating task agents
+   */
+  harness: HarnessAPI
 
   // TODO: Add auth method types
 }

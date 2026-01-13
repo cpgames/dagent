@@ -4,6 +4,7 @@ import { registerDagHandlers } from './dag-handlers'
 import { registerExecutionHandlers } from './execution-handlers'
 import { registerGitHandlers } from './git-handlers'
 import { registerAgentHandlers } from './agent-handlers'
+import { registerHarnessHandlers } from './harness-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -20,6 +21,8 @@ export function registerIpcHandlers(): void {
   registerGitHandlers()
   // Register agent pool handlers (agent lifecycle, status management)
   registerAgentHandlers()
+  // Register harness agent handlers (intention-approval workflow)
+  registerHarnessHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'
