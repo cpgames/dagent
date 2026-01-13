@@ -70,6 +70,8 @@ export default function DAGView(): JSX.Element {
   const {
     dag,
     isMutating,
+    error,
+    setError,
     loadDag,
     updateNode,
     addConnection,
@@ -202,6 +204,20 @@ export default function DAGView(): JSX.Element {
           <div className="flex-1 relative">
             {activeFeatureId ? (
               <>
+                {error && (
+                  <div className="absolute top-2 left-2 right-2 z-10 bg-red-900/90 text-red-100 px-3 py-2 rounded-lg text-sm flex justify-between items-center">
+                    <span>
+                      <span className="font-medium">Error:</span> {error}
+                    </span>
+                    <button
+                      onClick={() => setError(null)}
+                      className="ml-2 hover:text-white text-red-200"
+                      aria-label="Dismiss error"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
