@@ -6,3 +6,4 @@ export * from './chat';
 export * from './log';
 export * from './auth';
 export * from './history';
+export * from './sdk-agent';
