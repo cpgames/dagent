@@ -2,7 +2,7 @@
  * DAGView - Displays features and their dependencies as a directed acyclic graph.
  * Shows task dependencies and execution flow using React Flow.
  */
-import { useCallback, useEffect, useMemo, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react'
 import {
   ReactFlow,
   Background,
@@ -25,6 +25,7 @@ import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
 import { TaskNode, FeatureTabs, NodeDialog, ExecutionControls, type TaskNodeData } from '../components/DAG'
 import { FeatureChat, TaskChat } from '../components/Chat'
+import { ResizeHandle } from '../components/Layout'
 import type { DAGGraph, Task } from '@shared/types'
 
 // Register custom node types
@@ -93,6 +94,23 @@ export default function DAGView(): JSX.Element {
     taskChatFeatureId,
     openTaskChat
   } = useDialogStore()
+
+  // Chat panel width state with localStorage persistence
+  const [chatWidth, setChatWidth] = useState(() => {
+    const saved = localStorage.getItem('dagent.chatPanelWidth')
+    return saved ? parseInt(saved, 10) : 320
+  })
+
+  // Handle chat panel resize
+  const handleChatResize = useCallback((deltaX: number) => {
+    // For left-edge resize: negative deltaX (drag right) = smaller, positive (drag left) = larger
+    setChatWidth((w) => Math.min(600, Math.max(280, w - deltaX)))
+  }, [])
+
+  // Persist width to localStorage when resize ends
+  const handleChatResizeEnd = useCallback(() => {
+    localStorage.setItem('dagent.chatPanelWidth', chatWidth.toString())
+  }, [chatWidth])
 
   // Find the task for the open dialog
   const dialogTask = useMemo(() => {
@@ -286,7 +304,8 @@ export default function DAGView(): JSX.Element {
 
         {/* Chat sidebar with overlay support */}
         {activeFeatureId && (
-          <div className="relative w-80">
+          <div className="relative" style={{ width: chatWidth }}>
+            <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
             <FeatureChat featureId={activeFeatureId} />
             {taskChatOpen && taskChatTaskId && taskChatFeatureId && (
               <TaskChat taskId={taskChatTaskId} featureId={taskChatFeatureId} />
