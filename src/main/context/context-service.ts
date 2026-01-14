@@ -200,6 +200,15 @@ export class ContextService {
         return []
       }
 
+      // Check if repo has any commits by trying to get HEAD
+      // Fresh repos with no commits will fail this check
+      try {
+        await this.git.revparse(['HEAD'])
+      } catch {
+        // No commits yet - return empty array
+        return []
+      }
+
       const log = await this.git.log({ maxCount: limit })
       return log.all.map((entry) => ({
         hash: entry.hash.substring(0, 7),
