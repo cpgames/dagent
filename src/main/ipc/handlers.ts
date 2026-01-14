@@ -11,6 +11,7 @@ import { registerAuthHandlers } from './auth-handlers'
 import { registerHistoryHandlers } from './history-handlers'
 import { registerProjectHandlers } from './project-handlers'
 import { registerChatHandlers } from './chat-handlers'
+import { registerSdkAgentHandlers } from './sdk-agent-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -41,6 +42,8 @@ export function registerIpcHandlers(): void {
   registerProjectHandlers()
   // Register chat handlers (AI chat integration)
   registerChatHandlers()
+  // Register SDK agent handlers (Agent SDK streaming)
+  registerSdkAgentHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'
