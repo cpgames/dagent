@@ -16,7 +16,7 @@ Migrate from raw Anthropic SDK to Claude Agent SDK for seamless authentication a
 
 | Phase | Description | Plans | Status |
 |-------|-------------|-------|--------|
-| 16. Agent SDK Integration | Install SDK, replace ChatService | 3 | Planned |
+| 16. Agent SDK Integration | Install SDK, replace ChatService | 3 | Complete |
 | 17. Agent Tools & Permissions | Configure tools, permission callbacks | 2 | Planned |
 | 18. Task Agent Migration | Migrate harness/task/merge agents | 2-3 | Planned |
 
