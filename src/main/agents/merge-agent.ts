@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
-import type { TaskMergeResult } from '../git/types'
-import type { MergeAgentState, MergeAgentStatus } from './merge-types'
+import type { TaskMergeResult, MergeConflict } from '../git/types'
+import type { MergeAgentState, MergeAgentStatus, ConflictAnalysis } from './merge-types'
 import { DEFAULT_MERGE_AGENT_STATE } from './merge-types'
 import type { IntentionDecision } from './harness-types'
 import { getAgentPool } from './agent-pool'
@@ -12,6 +12,7 @@ import {
   getFeatureWorktreeName,
   getTaskWorktreeName
 } from '../git'
+import { getAgentService } from '../agent'
 import * as path from 'path'
 
 export class MergeAgent extends EventEmitter {
@@ -131,6 +132,7 @@ export class MergeAgent extends EventEmitter {
 
     // Build intention based on conflict status
     const hasConflicts = this.state.conflicts.length > 0
+    const analysis = this.state.conflictAnalysis
     let intentionText: string
 
     if (hasConflicts) {
@@ -139,8 +141,19 @@ export class MergeAgent extends EventEmitter {
         `Task: ${this.state.taskId}\n` +
         `Branch: ${this.state.taskBranch} -> ${this.state.featureBranch}\n` +
         `Conflicts detected in ${this.state.conflicts.length} files:\n` +
-        this.state.conflicts.map((c) => `  - ${c.file} (${c.type})`).join('\n') +
-        `\nWill resolve conflicts with harness guidance.`
+        this.state.conflicts.map((c) => `  - ${c.file} (${c.type})`).join('\n')
+
+      // Include AI analysis if available
+      if (analysis) {
+        intentionText +=
+          `\n\n## AI Analysis\n` +
+          `Auto-resolvable: ${analysis.autoResolvable ? 'Yes' : 'No'}\n` +
+          `Recommendation: ${analysis.recommendation}\n` +
+          `\nSuggestions:\n` +
+          analysis.suggestions.map((s) => `  - ${s}`).join('\n')
+      } else {
+        intentionText += `\nWill resolve conflicts with harness guidance.`
+      }
     } else {
       intentionText =
         `INTENTION: Clean merge of task branch\n` +
@@ -222,6 +235,14 @@ export class MergeAgent extends EventEmitter {
         // Conflicts detected during merge
         this.state.status = 'resolving_conflicts'
         this.state.conflicts = result.conflicts
+
+        // Analyze conflicts using SDK
+        const analysis = await this.analyzeConflicts(result.conflicts)
+        if (analysis) {
+          this.state.conflictAnalysis = analysis
+          this.emit('merge-agent:analysis', analysis)
+        }
+
         this.emit('merge-agent:conflicts', result.conflicts)
       } else {
         this.state.status = 'failed'
@@ -267,6 +288,157 @@ export class MergeAgent extends EventEmitter {
       return result.success
     } catch {
       return false
+    }
+  }
+
+  /**
+   * Analyze conflicts using Claude Agent SDK for intelligent resolution suggestions.
+   */
+  async analyzeConflicts(conflicts: MergeConflict[]): Promise<ConflictAnalysis | null> {
+    if (!this.state.featureWorktreePath || conflicts.length === 0) {
+      return null
+    }
+
+    try {
+      const agentService = getAgentService()
+      const prompt = this.buildConflictAnalysisPrompt(conflicts)
+      let responseText = ''
+
+      for await (const event of agentService.streamQuery({
+        prompt,
+        toolPreset: 'mergeAgent',
+        permissionMode: 'acceptEdits',
+        cwd: this.state.featureWorktreePath
+      })) {
+        if (event.type === 'message' && event.message?.type === 'assistant') {
+          responseText += event.message.content
+        }
+        if (event.type === 'message' && event.message?.type === 'result') {
+          responseText = event.message.content
+        }
+      }
+
+      return this.parseConflictAnalysis(responseText, conflicts)
+    } catch (error) {
+      console.error('Conflict analysis failed:', error)
+      return null
+    }
+  }
+
+  /**
+   * Build prompt for conflict analysis.
+   */
+  private buildConflictAnalysisPrompt(conflicts: MergeConflict[]): string {
+    const parts: string[] = [
+      '# Merge Conflict Analysis Request',
+      '',
+      '## Context',
+      `Task branch: ${this.state.taskBranch}`,
+      `Feature branch: ${this.state.featureBranch}`,
+      '',
+      '## Conflicts',
+      `${conflicts.length} file(s) have conflicts:`,
+      ''
+    ]
+
+    for (const conflict of conflicts) {
+      parts.push(`### ${conflict.file}`)
+      parts.push(`Type: ${conflict.type}`)
+      parts.push('')
+    }
+
+    parts.push(
+      'Note: Use the Read tool to examine the conflicting files for detailed analysis.',
+      ''
+    )
+
+    parts.push(
+      '## Your Task',
+      'Analyze the conflicts and provide:',
+      '1. For each file, analyze what caused the conflict',
+      '2. Suggest resolution approach (ours/theirs/both/manual)',
+      '3. Provide an overall recommendation',
+      '4. Indicate if conflicts can be auto-resolved',
+      '',
+      'Format your response as:',
+      'AUTO_RESOLVABLE: [yes|no]',
+      'RECOMMENDATION: [overall approach]',
+      '',
+      'For each file:',
+      'FILE: [filename]',
+      'ANALYSIS: [what caused the conflict]',
+      'RESOLUTION: [ours|theirs|both|manual]',
+      '',
+      'SUGGESTIONS:',
+      '- [suggestion 1]',
+      '- [suggestion 2]'
+    )
+
+    return parts.join('\n')
+  }
+
+  /**
+   * Parse SDK response into ConflictAnalysis.
+   */
+  private parseConflictAnalysis(response: string, conflicts: MergeConflict[]): ConflictAnalysis {
+    const upperResponse = response.toUpperCase()
+
+    // Parse auto-resolvable
+    const autoResolvable = upperResponse.includes('AUTO_RESOLVABLE: YES')
+
+    // Parse recommendation
+    const recommendationMatch = response.match(/RECOMMENDATION:\s*(.+?)(?=\n|FILE:|SUGGESTIONS:|$)/is)
+    const recommendation = recommendationMatch?.[1]?.trim() || 'Manual review required'
+
+    // Parse file analyses
+    const conflictDetails: ConflictAnalysis['conflictDetails'] = []
+    const filePattern = /FILE:\s*(.+?)\nANALYSIS:\s*(.+?)\nRESOLUTION:\s*(ours|theirs|both|manual)/gis
+
+    let match
+    while ((match = filePattern.exec(response)) !== null) {
+      const file = match[1].trim()
+      const analysis = match[2].trim()
+      const resolutionStr = match[3].toLowerCase().trim()
+      const suggestedResolution = ['ours', 'theirs', 'both', 'manual'].includes(resolutionStr)
+        ? (resolutionStr as 'ours' | 'theirs' | 'both' | 'manual')
+        : 'manual'
+
+      conflictDetails.push({ file, analysis, suggestedResolution })
+    }
+
+    // If parsing didn't find file entries, create default entries
+    if (conflictDetails.length === 0) {
+      for (const conflict of conflicts) {
+        conflictDetails.push({
+          file: conflict.file,
+          analysis: 'Unable to parse analysis from SDK response',
+          suggestedResolution: 'manual'
+        })
+      }
+    }
+
+    // Parse suggestions
+    const suggestionsMatch = response.match(/SUGGESTIONS:\s*([\s\S]*?)$/i)
+    const suggestions: string[] = []
+    if (suggestionsMatch) {
+      const suggestionLines = suggestionsMatch[1].split('\n')
+      for (const line of suggestionLines) {
+        const trimmed = line.replace(/^[-*]\s*/, '').trim()
+        if (trimmed) {
+          suggestions.push(trimmed)
+        }
+      }
+    }
+
+    if (suggestions.length === 0) {
+      suggestions.push('Review conflicts manually and resolve based on project requirements')
+    }
+
+    return {
+      suggestions,
+      recommendation,
+      autoResolvable,
+      conflictDetails
     }
   }
 

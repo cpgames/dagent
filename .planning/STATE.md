@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 17 of 18 (v1.3) - Ready
-Plan: 0 of 2 in Phase 17
-Status: Phase 17 planned, ready for execution
-Last activity: 2026-01-13 - Created Phase 17 plans (17-01, 17-02)
+Phase: 18 of 18 (v1.3) - Complete
+Plan: 3 of 3 in Phase 18
+Status: v1.3 Claude Agent SDK Migration complete
+Last activity: 2026-01-13 - Completed Phase 18 (18-01, 18-02, 18-03)
 
-Progress (v1.3): █████░░░░░ 43%
+Progress (v1.3): ██████████ 100%
 
 ## Performance Metrics
 
@@ -36,8 +36,8 @@ Progress (v1.3): █████░░░░░ 43%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 14-01, 14-02, 15-01, 15-02
-- Trend: Smooth execution, v1.2 milestone complete
+- Last 5 plans: 17-01, 17-02, 18-01, 18-02, 18-03
+- Trend: v1.3 milestone complete
 
 ## Accumulated Context
 
@@ -166,3 +166,38 @@ All verification items passed. Milestone v1.1 Complete.
 - **15-02**: Final polish and v1.2 completion (integration verification, documentation updates)
 
 All verification items passed. Milestone v1.2 Complete.
+
+### Phase 16: Agent SDK Integration ✓
+
+- **16-01**: Install SDK, create AgentService wrapper with streaming
+- **16-02**: IPC handlers for agent queries, streaming UI updates
+- **16-03**: SDK availability detection, auth integration
+
+### Phase 17: Agent Tools & Permissions ✓
+
+- **17-01**: Tool presets (featureChat, taskAgent), cwd configuration
+- **17-02**: ToolUsageDisplay component, streaming tool events
+
+### Phase 18: Task Agent Migration ✓
+
+- **18-01**: HarnessAgent SDK migration (reviewIntention → SDK query)
+- **18-02**: TaskAgent SDK migration (execute → SDK with git commit)
+- **18-03**: MergeAgent SDK migration (conflict analysis → SDK)
+
+All verification items passed. Milestone v1.3 Complete.
+
+---
+
+## v1.3 Milestone Summary
+
+The Claude Agent SDK migration is complete. All three agent types now use the SDK:
+
+1. **HarnessAgent**: Uses SDK for intelligent intention review with fallback to auto-approve
+2. **TaskAgent**: Uses SDK for task execution with progress streaming and automatic git commits
+3. **MergeAgent**: Uses SDK for conflict analysis with resolution suggestions
+
+The application now uses Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) for all AI operations with:
+- Automatic authentication via Claude CLI credentials
+- Tool presets for different agent contexts (harnessAgent, taskAgent, mergeAgent)
+- Streaming responses with progress events
+- Permission modes (acceptEdits, bypassPermissions)

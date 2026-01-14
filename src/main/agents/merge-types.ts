@@ -22,6 +22,7 @@ export interface MergeAgentState {
   featureBranch: string | null
   taskBranch: string | null
   conflicts: MergeConflict[]
+  conflictAnalysis: ConflictAnalysis | null
   intention: string | null
   approval: IntentionDecision | null
   mergeResult: TaskMergeResult | null
@@ -55,6 +56,17 @@ export interface MergeIntention {
   proposedResolutions?: ConflictResolution[]
 }
 
+export interface ConflictAnalysis {
+  suggestions: string[] // Resolution approaches
+  recommendation: string // Best approach
+  autoResolvable: boolean // Can be resolved automatically
+  conflictDetails: Array<{
+    file: string
+    analysis: string
+    suggestedResolution: ConflictResolution['resolution']
+  }>
+}
+
 export const DEFAULT_MERGE_AGENT_STATE: Omit<MergeAgentState, 'featureId' | 'taskId'> = {
   status: 'initializing',
   agentId: null,
@@ -63,6 +75,7 @@ export const DEFAULT_MERGE_AGENT_STATE: Omit<MergeAgentState, 'featureId' | 'tas
   featureBranch: null,
   taskBranch: null,
   conflicts: [],
+  conflictAnalysis: null,
   intention: null,
   approval: null,
   mergeResult: null,
