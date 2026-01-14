@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { useAgentStore } from '../stores'
+import { AgentConfigPanel } from '../components/Agents'
 import type { AgentRole } from '@shared/types'
 
 const ROLE_ORDER: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
@@ -76,15 +77,13 @@ export function AgentsView(): JSX.Element {
         })}
       </div>
 
-      {/* Selected agent details panel */}
+      {/* Selected agent configuration panel */}
       {selectedRole && (
-        <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-          <h3 className="font-medium text-white mb-2">
-            {configs[selectedRole].name} Configuration
-          </h3>
-          <p className="text-sm text-gray-400">
-            Configuration editing will be added in Plan 20-02
-          </p>
+        <div className="mt-4">
+          <AgentConfigPanel
+            role={selectedRole}
+            onClose={() => selectRole(null)}
+          />
         </div>
       )}
     </div>
