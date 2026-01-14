@@ -5,18 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Project feature-complete (v1.4 shipped)
+**Current focus:** v1.5 UI Polish & Task Chat
 
 ## Current Position
 
-**All milestones complete through v1.4.**
+**Milestone:** v1.5 UI Polish & Task Chat
+**Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 24 of 24 - All Complete
-Plan: 52 of 52 - All Complete
-Status: v1.4 milestone shipped
-Last activity: 2026-01-14 - Completed v1.4 Agent System Overhaul
+Phase: 25 of 30 - Task Chat Overlay (Complete)
+Plan: 1 of 1 complete in phase
+Status: Phase complete
+Last activity: 2026-01-14 - Completed 25-01-PLAN.md
 
-Progress: ██████████ 100% (All milestones)
+Progress: ██████████ 100% (v1.4) | █░░░░░ 17% (v1.5)
+
+Next action: Plan Phase 26 (Agent Logs View)
 
 ## Performance Metrics
 
@@ -65,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: v1.4 milestone completed and archived
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
-Next action: Project is feature-complete. Ready for deployment packaging, testing, or new feature requests.
+Next action: Plan Phase 26 (Agent Logs View)
 
 ## Completed Phases
 
@@ -218,6 +221,10 @@ All verification items passed. Milestone v1.3 Complete.
 - **24-02**: Agent context integration (autoContext, prompt builders)
 
 All verification items passed. Milestone v1.4 Complete.
+
+### Phase 25: Task Chat Overlay ✓
+
+- **25-01**: TaskChat component, dialog store state, chat button on TaskNode, DAGView wiring
 
 ---
 
