@@ -5,6 +5,7 @@ import { getToolsForPreset } from './tool-config'
 
 export class AgentService {
   private activeQuery: Query | null = null
+  private lastToolUse: { name: string; input: unknown } | null = null
 
   async *streamQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
     try {
@@ -76,6 +77,8 @@ export class AgentService {
 
       // Return tool use event if found
       if (toolUseBlock) {
+        // Track last tool use to correlate with results
+        this.lastToolUse = toolUseBlock
         return {
           type: 'tool_use',
           message: {
@@ -84,6 +87,38 @@ export class AgentService {
             timestamp: new Date().toISOString(),
             toolName: toolUseBlock.name,
             toolInput: toolUseBlock.input
+          }
+        }
+      }
+    }
+
+    // Handle user messages (which include tool results)
+    if (sdkMessage.type === 'user') {
+      // Check if this is a tool result (user messages with tool_result content blocks)
+      for (const block of sdkMessage.message.content) {
+        // Block can be string or object - only check objects with type property
+        if (typeof block === 'object' && block !== null && 'type' in block && block.type === 'tool_result') {
+          const toolBlock = block as { type: 'tool_result'; content?: unknown }
+          const resultContent =
+            typeof toolBlock.content === 'string'
+              ? toolBlock.content
+              : Array.isArray(toolBlock.content)
+                ? (toolBlock.content as Array<{ type: string; text?: string }>)
+                    .filter((c) => c.type === 'text' && c.text)
+                    .map((c) => c.text!)
+                    .join('')
+                : ''
+
+          return {
+            type: 'tool_result',
+            message: {
+              type: 'result',
+              content: resultContent.slice(0, 500), // Truncate for display
+              timestamp: new Date().toISOString(),
+              toolName: this.lastToolUse?.name,
+              toolInput: this.lastToolUse?.input,
+              toolResult: resultContent
+            }
           }
         }
       }

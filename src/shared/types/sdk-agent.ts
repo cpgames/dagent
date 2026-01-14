@@ -19,6 +19,7 @@ export interface AgentMessage {
   timestamp: string
   toolName?: string // For tool_use messages
   toolInput?: unknown
+  toolResult?: string // Result from tool execution
 }
 
 /**

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react'
 import { useChatStore } from '../../stores/chat-store'
 import { ChatMessage } from './ChatMessage'
+import { ToolUsageDisplay } from './ToolUsageDisplay'
 
 interface FeatureChatProps {
   featureId: string
@@ -17,6 +18,7 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
     isLoading,
     isResponding,
     streamingContent,
+    activeToolUse,
     contextLoaded
   } = useChatStore()
   const [inputValue, setInputValue] = useState('')
@@ -27,10 +29,10 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
     loadChat(featureId)
   }, [featureId, loadChat])
 
-  // Auto-scroll to bottom when messages change or streaming content updates
+  // Auto-scroll to bottom when messages change, streaming content updates, or tool usage
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
+  }, [messages, streamingContent, activeToolUse])
 
   const handleSend = useCallback(async () => {
     const trimmedValue = inputValue.trim()
@@ -90,6 +92,15 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
           </div>
         ) : (
           messages.map((m) => <ChatMessage key={m.id} message={m} />)
+        )}
+        {/* Tool usage display */}
+        {activeToolUse && (
+          <ToolUsageDisplay
+            toolName={activeToolUse.name}
+            input={activeToolUse.input}
+            result={activeToolUse.result}
+            isLoading={!activeToolUse.result}
+          />
         )}
         {/* Streaming response */}
         {streamingContent && (

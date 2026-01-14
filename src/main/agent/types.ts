@@ -13,6 +13,7 @@ export interface AgentMessage {
   timestamp: string
   toolName?: string // For result messages
   toolInput?: unknown
+  toolResult?: string // Result from tool execution
 }
 
 export interface AgentQueryOptions {

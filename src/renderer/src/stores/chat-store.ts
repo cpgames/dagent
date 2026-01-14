@@ -11,11 +11,18 @@ export interface ChatMessage {
   timestamp: string
 }
 
+export interface ActiveToolUse {
+  name: string
+  input?: unknown
+  result?: string
+}
+
 interface ChatState {
   messages: ChatMessage[]
   isLoading: boolean
   isResponding: boolean
   streamingContent: string // Partial response being built
+  activeToolUse: ActiveToolUse | null // Current tool operation
   currentFeatureId: string | null
   systemPrompt: string | null
   contextLoaded: boolean
@@ -36,6 +43,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isResponding: false,
   streamingContent: '',
+  activeToolUse: null,
   currentFeatureId: null,
   systemPrompt: null,
   contextLoaded: false,
@@ -184,7 +192,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return get().sendToAI()
     }
 
-    set({ isResponding: true, streamingContent: '' })
+    set({ isResponding: true, streamingContent: '', activeToolUse: null })
 
     // Build prompt from message history
     const prompt = messages.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
@@ -192,14 +200,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Subscribe to stream events
     const unsubscribe = window.electronAPI.sdkAgent.onStream((event: AgentStreamEvent) => {
       if (event.type === 'message' && event.message) {
-        // Accumulate content
+        // Clear any active tool use when we get text content
         set((state) => ({
-          streamingContent: state.streamingContent + event.message!.content
+          streamingContent: state.streamingContent + event.message!.content,
+          activeToolUse: null
         }))
       } else if (event.type === 'tool_use' && event.message) {
-        // Show tool usage in chat
+        // Show tool usage in UI via activeToolUse state
+        set({
+          activeToolUse: {
+            name: event.message!.toolName!,
+            input: event.message!.toolInput
+          }
+        })
+      } else if (event.type === 'tool_result' && event.message) {
+        // Update activeToolUse with result
         set((state) => ({
-          streamingContent: state.streamingContent + `\n[Using ${event.message!.toolName}...]\n`
+          activeToolUse: state.activeToolUse
+            ? {
+                ...state.activeToolUse,
+                result: event.message!.toolResult
+              }
+            : null
         }))
       } else if (event.type === 'done') {
         // Finalize response
@@ -214,7 +236,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set((state) => ({
             messages: [...state.messages, assistantMessage],
             isResponding: false,
-            streamingContent: ''
+            streamingContent: '',
+            activeToolUse: null
           }))
 
           // Persist
@@ -227,11 +250,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }))
           })
         } else {
-          set({ isResponding: false, streamingContent: '' })
+          set({ isResponding: false, streamingContent: '', activeToolUse: null })
         }
         unsubscribe()
       } else if (event.type === 'error') {
-        set({ isResponding: false, streamingContent: '' })
+        set({ isResponding: false, streamingContent: '', activeToolUse: null })
         toast.error(event.error || 'Agent query failed')
         console.error('Agent error:', event.error)
         unsubscribe()
@@ -284,6 +307,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       currentFeatureId: null,
       isResponding: false,
       streamingContent: '',
+      activeToolUse: null,
       systemPrompt: null,
       contextLoaded: false
     })
