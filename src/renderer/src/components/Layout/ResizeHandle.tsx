@@ -48,9 +48,9 @@ export function ResizeHandle({
 
   return (
     <div
-      className={`absolute top-0 bottom-0 w-1 cursor-col-resize z-10
-        bg-transparent hover:bg-blue-500/50 transition-colors
-        ${position === 'left' ? 'left-0' : 'right-0'}`}
+      className={`absolute top-0 bottom-0 w-2 cursor-col-resize z-20
+        bg-gray-700 hover:bg-blue-500 active:bg-blue-600 transition-colors
+        ${position === 'left' ? '-left-1' : '-right-1'}`}
       onMouseDown={handleMouseDown}
       role="separator"
       aria-orientation="vertical"
