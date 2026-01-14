@@ -185,6 +185,11 @@ export class ExecutionOrchestrator {
     harness.reset()
     console.log('[Orchestrator] Harness agent stopped and reset')
 
+    // Clear log cache to ensure fresh loads next time
+    if (this.state.featureId) {
+      getLogService().clearCache(this.state.featureId)
+    }
+
     this.addEvent('stopped')
     return { success: true }
   }
