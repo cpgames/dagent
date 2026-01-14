@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 21 of 24 (v1.4) - In Progress
-Plan: 1 of 2 in Phase 21
-Status: 21-01 complete, 21-02 ready for execution
-Last activity: 2026-01-14 - Completed Plan 21-01 (PM Agent Task Creation Tool)
+Phase: 21 of 24 (v1.4) - Complete
+Plan: 2 of 2 in Phase 21
+Status: Phase 21 complete, Phase 22 ready for planning
+Last activity: 2026-01-14 - Completed Plan 21-02 (Intelligent Task Placement)
 
-Progress (v1.4): ████░░░░░░ 40%
+Progress (v1.4): █████░░░░░ 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 46 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 5)
+- Total plans completed: 47 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 6)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~230 min
+- Total execution time: ~242 min
 
 **By Phase:**
 
@@ -36,8 +36,8 @@ Progress (v1.4): ████░░░░░░ 40%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 19-01, 20-01, 20-02, 21-01
-- Trend: v1.4 in progress (Phase 21 in progress)
+- Last 5 plans: 20-01, 20-02, 21-01, 21-02
+- Trend: v1.4 in progress (Phase 21 complete)
 
 ## Accumulated Context
 
@@ -63,7 +63,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Plan 21-01 (PM Agent Task Creation Tool)
+Stopped at: Completed Phase 21 (Task Creation from Chat)
 Resume file: None
 
 ## Completed Phases
@@ -195,10 +195,10 @@ All verification items passed. Milestone v1.3 Complete.
 - **20-01**: Agents View infrastructure (AgentsView, agent-store, AgentConfig types)
 - **20-02**: Agent configuration UI and persistence (AgentConfigPanel, IPC, storage)
 
-### Phase 21: Task Creation from Chat (In Progress)
+### Phase 21: Task Creation from Chat ✓
 
-- **21-01**: PM Agent task creation tools (types, IPC, preload, pmAgent preset) ✓
-- **21-02**: Intelligent task placement with dependency inference (pending)
+- **21-01**: PM Agent task creation tools (types, IPC, preload, pmAgent preset)
+- **21-02**: Intelligent task placement with dependency inference
 
 ---
 
