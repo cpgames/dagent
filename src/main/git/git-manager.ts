@@ -257,7 +257,9 @@ export class GitManager {
       // Create branch if it doesn't exist
       const branchExistsResult = await this.branchExists(branchName)
       if (!branchExistsResult) {
-        await this.git.branch([branchName])
+        // Create from current branch (HEAD) to avoid 'master' not found errors
+        const currentBranch = await this.getCurrentBranch()
+        await this.git.branch([branchName, currentBranch || 'HEAD'])
       }
 
       // Create worktree
@@ -304,7 +306,9 @@ export class GitManager {
       const featureBranchExists = await this.branchExists(featureBranchName)
       if (!featureBranchExists) {
         console.log(`[GitManager] Feature branch ${featureBranchName} not found, creating it...`)
-        await this.git.branch([featureBranchName])
+        // Create from current branch (HEAD) to avoid 'master' not found errors
+        const currentBranch = await this.getCurrentBranch()
+        await this.git.branch([featureBranchName, currentBranch || 'HEAD'])
       }
 
       // Create task branch from feature branch and worktree
