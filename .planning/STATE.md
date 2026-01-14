@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 20 of 24 (v1.4) - In Progress
-Plan: 1 of 2 in Phase 20
-Status: Plan 20-01 complete, ready for 20-02
-Last activity: 2026-01-14 - Completed 20-01-PLAN.md
+Phase: 20 of 24 (v1.4) - Complete
+Plan: 2 of 2 in Phase 20
+Status: Phase 20 complete, ready for Phase 21
+Last activity: 2026-01-14 - Completed 20-02-PLAN.md
 
-Progress (v1.4): ██░░░░░░░░ 20%
+Progress (v1.4): ███░░░░░░░ 30%
 
 ## Performance Metrics
 
@@ -36,8 +36,8 @@ Progress (v1.4): ██░░░░░░░░ 20%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 18-01, 18-02, 18-03, 19-01, 20-01
-- Trend: v1.4 in progress
+- Last 5 plans: 18-03, 19-01, 20-01, 20-02
+- Trend: v1.4 in progress (Phase 20 complete)
 
 ## Accumulated Context
 
@@ -63,7 +63,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed 20-01-PLAN.md
+Stopped at: Completed Phase 20 (20-02-PLAN.md)
 Resume file: None
 
 ## Completed Phases
@@ -185,6 +185,15 @@ All verification items passed. Milestone v1.2 Complete.
 - **18-03**: MergeAgent SDK migration (conflict analysis → SDK)
 
 All verification items passed. Milestone v1.3 Complete.
+
+### Phase 19: Centralized Chat Component ✓
+
+- **19-01**: ChatPanel component with unified chat UI for all agent contexts
+
+### Phase 20: Agents View ✓
+
+- **20-01**: Agents View infrastructure (AgentsView, agent-store, AgentConfig types)
+- **20-02**: Agent configuration UI and persistence (AgentConfigPanel, IPC, storage)
 
 ---
 

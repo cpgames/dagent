@@ -17,7 +17,7 @@ Major overhaul of the agent system with unified chat UI, configurable agent role
 | Phase | Description | Plans | Status |
 |-------|-------------|-------|--------|
 | 19. Centralized Chat Component | Unified ChatPanel with agent name, clear button | 1/1 | Complete |
-| 20. Agents View | Sidebar view for agent configuration and status | 1/2 | In Progress |
+| 20. Agents View | Sidebar view for agent configuration and status | 2/2 | Complete |
 | 21. Task Creation from Chat | PM Agent creates tasks with dependency inference | 2 | Planned |
 | 22. PM Agent CRUD Operations | Full task management via PM Agent | 2 | Planned |
 | 23. Feature Deletion | Safe deletion with cleanup | 1-2 | Planned |
