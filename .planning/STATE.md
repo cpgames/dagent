@@ -5,28 +5,28 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v1.5 UI Polish & Task Chat
+**Current focus:** v1.5 Complete - Ready for v1.6
 
 ## Current Position
 
-**Milestone:** v1.5 UI Polish & Task Chat
+**Milestone:** v1.5 UI Polish & Task Chat (COMPLETE)
 **Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 30 of 30 - UI Layout Fixes
-Plan: 0 of 1 complete in phase
-Status: Planning complete
-Last activity: 2026-01-14 - Created 30-01-PLAN.md
+Phase: 30 of 30 - UI Layout Fixes (COMPLETE)
+Plan: 1 of 1 complete in phase
+Status: Milestone complete
+Last activity: 2026-01-14 - Completed Phase 30, v1.5 milestone done
 
-Progress: ██████████ 100% (v1.4) | █████░ 83% (v1.5)
+Progress: ██████████ 100% (v1.4) | ██████████ 100% (v1.5)
 
-Next action: Execute 30-01-PLAN.md
+Next action: Plan v1.6 roadmap or user-directed work
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 57 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 5)
+- Total plans completed: 58 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~270 min
+- Total execution time: ~275 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: Execute 30-01-PLAN.md
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 26-01, 27-01, 28-01, 29-01
-- Trend: v1.5 in progress (5/6 phases complete)
+- Last 5 plans: 27-01, 28-01, 29-01, 30-01
+- Trend: v1.5 COMPLETE (6/6 phases)
 
 ## Accumulated Context
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 29
+Stopped at: Completed Phase 30, v1.5 milestone complete
 Resume file: None
-Next action: Plan Phase 30 (UI Layout Fixes)
+Next action: None (milestone complete)
 
 ## Completed Phases
 
@@ -242,6 +242,12 @@ All verification items passed. Milestone v1.4 Complete.
 
 - **29-01**: Edge selection with highlighting, delete button, confirmation dialog
 
+### Phase 30: UI Layout Fixes ✓
+
+- **30-01**: Rename Play to Start, improve node spacing, header layout fixes
+
+All verification items passed. Milestone v1.5 Complete.
+
 ---
 
 ## v1.4 Milestone Summary
@@ -259,6 +265,19 @@ The application now provides agents with:
 - Recent git commit history
 - Feature and task context with dependencies
 - Role-specific instructions per agent type
+
+---
+
+## v1.5 Milestone Summary
+
+UI Polish & Task Chat is complete. The application now has polished UI interactions:
+
+1. **Task Chat Overlay**: Per-task chat dialogs for focused agent conversations
+2. **Agent Logs View**: Real-time log viewing with filtering by agent type
+3. **Resizable Chat Panel**: Draggable resize handle with localStorage persistence
+4. **Task Agent Badges**: Visual indicators (Dev, QA, Merge) on task nodes
+5. **Connection Management**: Click-to-select edges with inline delete confirmation
+6. **UI Layout Fixes**: Renamed Play to Start, improved spacing throughout
 
 ---
 
