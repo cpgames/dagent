@@ -6,7 +6,7 @@ interface AuthStatusIndicatorProps {
 }
 
 export function AuthStatusIndicator({ onConfigureClick }: AuthStatusIndicatorProps): JSX.Element {
-  const { state, isLoading } = useAuthStore();
+  const { state, sdkStatus, isLoading } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -17,6 +17,21 @@ export function AuthStatusIndicator({ onConfigureClick }: AuthStatusIndicatorPro
     );
   }
 
+  // SDK available - show special status
+  if (sdkStatus?.available) {
+    return (
+      <button
+        onClick={onConfigureClick}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm text-green-400 hover:text-green-300 hover:bg-gray-800 rounded transition-colors"
+        title="Using Claude Agent SDK - automatic authentication"
+      >
+        <div className="w-2 h-2 rounded-full bg-green-500" />
+        <span>SDK Active</span>
+      </button>
+    );
+  }
+
+  // Manual auth state (existing logic)
   if (state.authenticated) {
     return (
       <button
@@ -30,14 +45,15 @@ export function AuthStatusIndicator({ onConfigureClick }: AuthStatusIndicatorPro
     );
   }
 
+  // Not authenticated
   return (
     <button
       onClick={onConfigureClick}
-      className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-gray-800 rounded transition-colors"
-      title={state.error || 'Click to configure authentication'}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm text-yellow-400 hover:text-yellow-300 hover:bg-gray-800 rounded transition-colors"
+      title="Click to configure authentication"
     >
-      <div className="w-2 h-2 rounded-full bg-red-500" />
-      <span>Not authenticated</span>
+      <div className="w-2 h-2 rounded-full bg-yellow-500" />
+      <span>Not Authenticated</span>
     </button>
   );
 }
