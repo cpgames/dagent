@@ -13,9 +13,11 @@ import { transitionTask, createStateChangeRecord } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
 import { getReadyTasks } from './analyzer'
 import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent } from '../agents'
-import { getHarnessAgent } from '../agents/harness-agent'
+import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
+import type { HarnessMessage } from '../agents/harness-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
+import { getLogService } from '../storage/log-service'
 
 export class ExecutionOrchestrator {
   private state: ExecutionState
@@ -117,6 +119,13 @@ export class ExecutionOrchestrator {
     )
 
     if (initialized) {
+      // Subscribe to harness messages for real-time logging
+      harness.on('harness:message', async (msg: HarnessMessage) => {
+        const logService = getLogService()
+        const entry = HarnessAgent.toLogEntry(msg)
+        await logService.appendEntry(this.state.featureId!, entry)
+      })
+
       harness.start()
       console.log('[Orchestrator] Harness agent initialized and started')
     } else {
