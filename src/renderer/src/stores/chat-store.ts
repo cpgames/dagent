@@ -200,6 +200,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Subscribe to stream events
     const unsubscribe = window.electronAPI.sdkAgent.onStream((event: AgentStreamEvent) => {
       if (event.type === 'message' && event.message) {
+        // Filter out system messages (e.g., "System: init") - they're internal SDK events
+        if (event.message.type === 'system') {
+          return
+        }
         // Clear any active tool use when we get text content
         set((state) => ({
           streamingContent: state.streamingContent + event.message!.content,
