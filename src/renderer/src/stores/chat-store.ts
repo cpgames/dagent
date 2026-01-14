@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { toast } from './toast-store'
-import type { ChatHistory } from '@shared/types'
+import type { ChatHistory, AgentStreamEvent } from '@shared/types'
 
 export interface ChatMessage {
   id: string
@@ -13,6 +13,7 @@ interface ChatState {
   messages: ChatMessage[]
   isLoading: boolean
   isResponding: boolean
+  streamingContent: string // Partial response being built
   currentFeatureId: string | null
   systemPrompt: string | null
   contextLoaded: boolean
@@ -21,6 +22,8 @@ interface ChatState {
   loadChat: (featureId: string) => Promise<void>
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void
   sendToAI: () => Promise<void>
+  sendToAgent: () => Promise<void> // Agent SDK streaming
+  abortAgent: () => void
   refreshContext: () => Promise<void>
   clearChat: () => void
 }
@@ -29,6 +32,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
   isResponding: false,
+  streamingContent: '',
   currentFeatureId: null,
   systemPrompt: null,
   contextLoaded: false,
@@ -154,6 +158,92 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  sendToAgent: async () => {
+    const { messages, currentFeatureId, systemPrompt } = get()
+    if (!currentFeatureId || messages.length === 0) return
+
+    // Check if SDK agent API is available
+    if (!window.electronAPI?.sdkAgent) {
+      // Fall back to sendToAI if SDK agent not available
+      return get().sendToAI()
+    }
+
+    set({ isResponding: true, streamingContent: '' })
+
+    // Build prompt from message history
+    const prompt = messages.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
+
+    // Subscribe to stream events
+    const unsubscribe = window.electronAPI.sdkAgent.onStream((event: AgentStreamEvent) => {
+      if (event.type === 'message' && event.message) {
+        // Accumulate content
+        set((state) => ({
+          streamingContent: state.streamingContent + event.message!.content
+        }))
+      } else if (event.type === 'tool_use' && event.message) {
+        // Show tool usage in chat
+        set((state) => ({
+          streamingContent: state.streamingContent + `\n[Using ${event.message!.toolName}...]\n`
+        }))
+      } else if (event.type === 'done') {
+        // Finalize response
+        const { streamingContent, currentFeatureId: featId } = get()
+        if (streamingContent && featId) {
+          const assistantMessage: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: streamingContent,
+            timestamp: new Date().toISOString()
+          }
+          set((state) => ({
+            messages: [...state.messages, assistantMessage],
+            isResponding: false,
+            streamingContent: ''
+          }))
+
+          // Persist
+          const { messages: updated } = get()
+          window.electronAPI.storage.saveChat(featId, {
+            entries: updated.map((m) => ({
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp
+            }))
+          })
+        } else {
+          set({ isResponding: false, streamingContent: '' })
+        }
+        unsubscribe()
+      } else if (event.type === 'error') {
+        set({ isResponding: false, streamingContent: '' })
+        toast.error(event.error || 'Agent query failed')
+        console.error('Agent error:', event.error)
+        unsubscribe()
+      }
+    })
+
+    // Start agent query
+    try {
+      await window.electronAPI.sdkAgent.query({
+        prompt,
+        systemPrompt: systemPrompt || undefined,
+        allowedTools: [], // No tools for basic chat
+        permissionMode: 'default'
+      })
+    } catch (error) {
+      set({ isResponding: false, streamingContent: '' })
+      toast.error('Failed to start agent query')
+      unsubscribe()
+    }
+  },
+
+  abortAgent: () => {
+    if (window.electronAPI?.sdkAgent) {
+      window.electronAPI.sdkAgent.abort()
+    }
+    set({ isResponding: false, streamingContent: '' })
+  },
+
   refreshContext: async () => {
     const { currentFeatureId } = get()
     if (!currentFeatureId) return
@@ -172,6 +262,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       currentFeatureId: null,
       isResponding: false,
+      streamingContent: '',
       systemPrompt: null,
       contextLoaded: false
     })
