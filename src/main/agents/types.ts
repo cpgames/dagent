@@ -60,7 +60,7 @@ export interface ApprovalMessage {
 }
 
 export const DEFAULT_POOL_CONFIG: AgentPoolConfig = {
-  maxAgents: 4,
-  maxTaskAgents: 2,
+  maxAgents: 5,
+  maxTaskAgents: 3,
   maxMergeAgents: 1
 }
