@@ -70,6 +70,16 @@ import type {
 } from '../main/agents/merge-types'
 import type { AgentQueryOptions, AgentStreamEvent } from '../main/agent/types'
 
+/**
+ * SDK availability status for Claude Agent SDK.
+ */
+export interface SDKStatus {
+  available: boolean
+  claudeCodeInstalled: boolean
+  hasCredentials: boolean
+  message: string
+}
+
 export interface AppInfo {
   version: string
   platform: NodeJS.Platform
@@ -757,6 +767,11 @@ export interface AuthAPI {
    * Check if authenticated
    */
   isAuthenticated: () => Promise<boolean>
+
+  /**
+   * Get SDK availability status (Claude Code installation and credentials)
+   */
+  getSDKStatus: () => Promise<SDKStatus>
 }
 
 /**

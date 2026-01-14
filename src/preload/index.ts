@@ -401,7 +401,13 @@ const electronAPI = {
     setCredentials: (type: 'oauth' | 'api_key', value: string): Promise<AuthState> =>
       ipcRenderer.invoke('auth:setCredentials', type, value),
     clearCredentials: (): Promise<AuthState> => ipcRenderer.invoke('auth:clearCredentials'),
-    isAuthenticated: (): Promise<boolean> => ipcRenderer.invoke('auth:isAuthenticated')
+    isAuthenticated: (): Promise<boolean> => ipcRenderer.invoke('auth:isAuthenticated'),
+    getSDKStatus: (): Promise<{
+      available: boolean
+      claudeCodeInstalled: boolean
+      hasCredentials: boolean
+      message: string
+    }> => ipcRenderer.invoke('auth:getSDKStatus')
   },
 
   // Project API

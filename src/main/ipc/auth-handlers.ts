@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { getAuthManager } from '../auth';
+import { detectSDKAvailability, type SDKStatus } from '../auth/sdk-detector';
 
 export function registerAuthHandlers(): void {
   const auth = getAuthManager();
@@ -29,5 +30,10 @@ export function registerAuthHandlers(): void {
   // Check if authenticated
   ipcMain.handle('auth:isAuthenticated', () => {
     return auth.isAuthenticated();
+  });
+
+  // Get SDK availability status
+  ipcMain.handle('auth:getSDKStatus', async (): Promise<SDKStatus> => {
+    return detectSDKAvailability();
   });
 }
