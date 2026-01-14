@@ -17,6 +17,8 @@ export interface ActiveToolUse {
   result?: string
 }
 
+export type ChatContextType = 'feature' | 'task' | 'agent'
+
 interface ChatState {
   messages: ChatMessage[]
   isLoading: boolean
@@ -24,11 +26,12 @@ interface ChatState {
   streamingContent: string // Partial response being built
   activeToolUse: ActiveToolUse | null // Current tool operation
   currentFeatureId: string | null
+  contextType: ChatContextType | null
   systemPrompt: string | null
   contextLoaded: boolean
 
   // Actions
-  loadChat: (featureId: string) => Promise<void>
+  loadChat: (contextId: string, contextType?: ChatContextType) => Promise<void>
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void
   sendMessage: () => Promise<void> // Auto-selects SDK or ChatService
   sendToAI: () => Promise<void>
@@ -36,6 +39,7 @@ interface ChatState {
   abortAgent: () => void
   refreshContext: () => Promise<void>
   clearChat: () => void
+  clearMessages: () => void // Clear messages but keep context
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -45,26 +49,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingContent: '',
   activeToolUse: null,
   currentFeatureId: null,
+  contextType: null,
   systemPrompt: null,
   contextLoaded: false,
 
-  loadChat: async (featureId: string) => {
-    // Clear previous messages before loading new feature's chat
+  loadChat: async (contextId: string, contextType: ChatContextType = 'feature') => {
+    // Clear previous messages before loading new context's chat
     set({
       isLoading: true,
       messages: [],
-      currentFeatureId: featureId,
+      currentFeatureId: contextId,
+      contextType,
       systemPrompt: null,
       contextLoaded: false
     })
     try {
-      // Load chat messages
-      if (window.electronAPI?.storage?.loadChat) {
-        const chat = await window.electronAPI.storage.loadChat(featureId)
+      // Load chat messages (currently only feature context is supported)
+      if (contextType === 'feature' && window.electronAPI?.storage?.loadChat) {
+        const chat = await window.electronAPI.storage.loadChat(contextId)
         if (chat && chat.entries) {
           // Convert ChatEntry to ChatMessage (adding id field)
           const messages: ChatMessage[] = chat.entries.map((entry, index) => ({
-            id: `${featureId}-${index}-${entry.timestamp}`,
+            id: `${contextId}-${index}-${entry.timestamp}`,
             role: entry.role,
             content: entry.content,
             timestamp: entry.timestamp
@@ -73,9 +79,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
 
-      // Load feature context for AI prompts
-      if (window.electronAPI?.chat?.getContext) {
-        const contextResult = await window.electronAPI.chat.getContext(featureId)
+      // Automatically load context for AI prompts (no manual refresh needed)
+      if (contextType === 'feature' && window.electronAPI?.chat?.getContext) {
+        const contextResult = await window.electronAPI.chat.getContext(contextId)
         if (contextResult) {
           set({ systemPrompt: contextResult.systemPrompt, contextLoaded: true })
         }
@@ -309,10 +315,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: [],
       currentFeatureId: null,
+      contextType: null,
       isResponding: false,
       streamingContent: '',
       activeToolUse: null,
       systemPrompt: null,
       contextLoaded: false
+    }),
+
+  clearMessages: () => {
+    const { currentFeatureId, contextType } = get()
+
+    // Clear messages but keep context/ID
+    set({
+      messages: [],
+      isResponding: false,
+      streamingContent: '',
+      activeToolUse: null
     })
+
+    // Persist empty chat to storage
+    if (currentFeatureId && contextType === 'feature' && window.electronAPI?.storage?.saveChat) {
+      window.electronAPI.storage.saveChat(currentFeatureId, { entries: [] }).catch((err) => {
+        console.error('Failed to clear chat:', err)
+        toast.error('Failed to clear chat')
+      })
+    }
+  }
 }))
