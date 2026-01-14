@@ -12,6 +12,7 @@ import type {
 } from './harness-types'
 import { DEFAULT_HARNESS_STATE } from './harness-types'
 import { getAgentPool } from './agent-pool'
+import { getAgentService } from '../agent'
 
 export class HarnessAgent extends EventEmitter {
   private state: HarnessState
@@ -34,7 +35,8 @@ export class HarnessAgent extends EventEmitter {
     featureId: string,
     featureGoal: string,
     graph: DAGGraph,
-    claudeMd?: string
+    claudeMd?: string,
+    projectRoot?: string
   ): Promise<boolean> {
     if (this.state.status !== 'idle') {
       this.log('warning', 'Cannot initialize - harness not idle')
@@ -63,7 +65,8 @@ export class HarnessAgent extends EventEmitter {
       pendingIntentions: new Map(),
       messageHistory: [],
       startedAt: null,
-      stoppedAt: null
+      stoppedAt: null,
+      projectRoot: projectRoot || null
     }
 
     this.log('info', `Harness initialized for feature: ${featureId}`)
@@ -205,7 +208,7 @@ export class HarnessAgent extends EventEmitter {
    * Process and decide on a pending intention.
    * Returns the decision for the task agent.
    */
-  processIntention(taskId: string): IntentionDecision | null {
+  async processIntention(taskId: string): Promise<IntentionDecision | null> {
     const pending = this.state.pendingIntentions.get(taskId)
     if (!pending) {
       return null
@@ -234,9 +237,8 @@ export class HarnessAgent extends EventEmitter {
       completedTasks: this.state.graph!.nodes.filter((n) => n.status === 'completed')
     }
 
-    // In a full implementation, this would call Claude API for intelligent review
-    // For now, auto-approve with context notes
-    const decision = this.reviewIntention(context)
+    // Use SDK for intelligent review (falls back to auto-approve if unavailable)
+    const decision = await this.reviewIntention(context)
 
     // Apply decision
     this.applyDecision(taskId, decision)
@@ -245,24 +247,160 @@ export class HarnessAgent extends EventEmitter {
   }
 
   /**
-   * Review an intention (stub for Claude API integration).
-   * This will be enhanced in Plan 05-03 with actual AI review.
+   * Review an intention using Claude Agent SDK for intelligent analysis.
    */
-  private reviewIntention(context: IntentionReviewContext): IntentionDecision {
-    // Auto-approve for now with context-based notes
-    const notes: string[] = []
-
-    // Check for completed dependencies that might provide context
+  private async reviewIntention(context: IntentionReviewContext): Promise<IntentionDecision> {
+    // Build context for SDK review
     const taskDeps =
       this.state.graph?.connections.filter((c) => c.to === context.task.id).map((c) => c.from) || []
-
     const completedDeps = context.completedTasks.filter((t) => taskDeps.includes(t.id))
+
+    // Build the review prompt
+    const prompt = this.buildReviewPrompt(context, completedDeps)
+
+    // Try SDK review, fall back to auto-approve if unavailable
+    if (!this.state.projectRoot) {
+      return this.fallbackApprove(context, completedDeps)
+    }
+
+    try {
+      const agentService = getAgentService()
+      let responseText = ''
+
+      for await (const event of agentService.streamQuery({
+        prompt,
+        toolPreset: 'harnessAgent',
+        permissionMode: 'acceptEdits',
+        cwd: this.state.projectRoot
+      })) {
+        if (event.type === 'message' && event.message?.type === 'assistant') {
+          responseText += event.message.content
+        }
+        if (event.type === 'message' && event.message?.type === 'result') {
+          responseText = event.message.content
+        }
+      }
+
+      // Parse the response to extract decision
+      return this.parseReviewResponse(responseText)
+    } catch (error) {
+      this.log('warning', `SDK review failed, using fallback: ${error}`)
+      return this.fallbackApprove(context, completedDeps)
+    }
+  }
+
+  /**
+   * Build the prompt for intention review.
+   */
+  private buildReviewPrompt(
+    context: IntentionReviewContext,
+    completedDeps: import('@shared/types').Task[]
+  ): string {
+    const parts: string[] = [
+      '# Intention Review Request',
+      '',
+      '## Feature Context',
+      `Goal: ${context.featureGoal || 'Not specified'}`,
+      ''
+    ]
+
+    if (context.claudeMd) {
+      parts.push('## Project Guidelines (CLAUDE.md)', context.claudeMd, '')
+    }
+
+    parts.push(
+      '## Task Details',
+      `Title: ${context.task.title}`,
+      `Description: ${context.task.description || 'None'}`,
+      ''
+    )
+
+    parts.push('## Proposed Intention', context.intention.intention, '')
+
+    if (context.intention.files?.length) {
+      parts.push('## Files to modify', context.intention.files.join('\n'), '')
+    }
+
+    if (completedDeps.length > 0) {
+      parts.push(
+        '## Completed Dependencies',
+        completedDeps.map((t) => `- ${t.title}`).join('\n'),
+        ''
+      )
+    }
+
+    if (context.otherActiveTasks.length > 0) {
+      parts.push(
+        '## Other Active Tasks (avoid conflicts)',
+        context.otherActiveTasks.map((t) => `- Task ${t.taskId}: ${t.intention || 'working'}`).join('\n'),
+        ''
+      )
+    }
+
+    parts.push(
+      '## Your Task',
+      'Review this intention and respond with:',
+      '1. APPROVED, APPROVED_WITH_NOTES, or REJECTED',
+      '2. Any notes or modifications needed',
+      '3. Brief reasoning',
+      '',
+      'Format your response as:',
+      'DECISION: [APPROVED|APPROVED_WITH_NOTES|REJECTED]',
+      'NOTES: [any notes]',
+      'REASON: [brief reasoning]'
+    )
+
+    return parts.join('\n')
+  }
+
+  /**
+   * Parse SDK response to extract decision.
+   */
+  private parseReviewResponse(response: string): IntentionDecision {
+    const upperResponse = response.toUpperCase()
+
+    // Extract decision
+    let approved = true
+    let type: IntentionDecision['type'] = 'approved'
+
+    if (upperResponse.includes('REJECTED')) {
+      approved = false
+      type = 'rejected'
+    } else if (upperResponse.includes('APPROVED_WITH_NOTES') || upperResponse.includes('APPROVED WITH NOTES')) {
+      type = 'approved_with_notes'
+    }
+
+    // Extract notes
+    const notesMatch = response.match(/NOTES:\s*(.+?)(?=REASON:|$)/is)
+    const reasonMatch = response.match(/REASON:\s*(.+?)$/is)
+
+    const notes = notesMatch?.[1]?.trim() || undefined
+    const reason = reasonMatch?.[1]?.trim() || undefined
+
+    if (!approved) {
+      return { approved, type, reason: reason || notes || 'Intention rejected by review' }
+    }
+
+    return {
+      approved,
+      type,
+      notes: notes || (type === 'approved_with_notes' ? reason : undefined)
+    }
+  }
+
+  /**
+   * Fallback approval when SDK is unavailable.
+   */
+  private fallbackApprove(
+    context: IntentionReviewContext,
+    completedDeps: import('@shared/types').Task[]
+  ): IntentionDecision {
+    const notes: string[] = []
 
     if (completedDeps.length > 0) {
       notes.push(`Context from completed tasks: ${completedDeps.map((t) => t.title).join(', ')}`)
     }
 
-    // Check for other active tasks that might conflict
     if (context.otherActiveTasks.length > 0) {
       notes.push(`Other active tasks: ${context.otherActiveTasks.length}. Avoid conflicts.`)
     }

@@ -289,9 +289,10 @@ const electronAPI = {
       featureId: string,
       featureGoal: string,
       graph: DAGGraph,
-      claudeMd?: string
+      claudeMd?: string,
+      projectRoot?: string
     ): Promise<boolean> =>
-      ipcRenderer.invoke('harness:initialize', featureId, featureGoal, graph, claudeMd),
+      ipcRenderer.invoke('harness:initialize', featureId, featureGoal, graph, claudeMd, projectRoot),
     start: (): Promise<boolean> => ipcRenderer.invoke('harness:start'),
     pause: (): Promise<boolean> => ipcRenderer.invoke('harness:pause'),
     resume: (): Promise<boolean> => ipcRenderer.invoke('harness:resume'),

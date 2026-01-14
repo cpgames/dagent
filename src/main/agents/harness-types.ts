@@ -13,6 +13,7 @@ export interface HarnessState {
   messageHistory: HarnessMessage[]
   startedAt: string | null
   stoppedAt: string | null
+  projectRoot: string | null
 }
 
 export interface TaskExecutionState {
@@ -77,5 +78,6 @@ export const DEFAULT_HARNESS_STATE: Omit<
   claudeMd: null,
   graph: null,
   startedAt: null,
-  stoppedAt: null
+  stoppedAt: null,
+  projectRoot: null
 }

@@ -10,10 +10,11 @@ export function registerHarnessHandlers(): void {
       featureId: string,
       featureGoal: string,
       graph: DAGGraph,
-      claudeMd?: string
+      claudeMd?: string,
+      projectRoot?: string
     ) => {
       const harness = getHarnessAgent()
-      return harness.initialize(featureId, featureGoal, graph, claudeMd)
+      return harness.initialize(featureId, featureGoal, graph, claudeMd, projectRoot)
     }
   )
 

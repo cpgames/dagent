@@ -523,7 +523,8 @@ export interface HarnessAPI {
     featureId: string,
     featureGoal: string,
     graph: DAGGraph,
-    claudeMd?: string
+    claudeMd?: string,
+    projectRoot?: string
   ) => Promise<boolean>
 
   /**
