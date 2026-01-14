@@ -1,15 +1,20 @@
 // src/main/agent/agent-service.ts
 import { query, type Query, type Options, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentQueryOptions, AgentStreamEvent } from './types'
+import { getToolsForPreset } from './tool-config'
 
 export class AgentService {
   private activeQuery: Query | null = null
 
   async *streamQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
     try {
+      // Resolve tools from preset or explicit list
+      const tools =
+        options.allowedTools || (options.toolPreset ? getToolsForPreset(options.toolPreset) : [])
+
       const queryOptions: Options = {
         cwd: options.cwd,
-        allowedTools: options.allowedTools || [],
+        allowedTools: tools,
         permissionMode: options.permissionMode || 'default'
       }
 

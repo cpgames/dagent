@@ -4,7 +4,8 @@ export type AuthType =
   | 'oauth_stored'
   | 'api_key_stored'
   | 'api_key_env'
-  | 'manual';
+  | 'manual'
+  | 'sdk';
 
 export interface AuthCredentials {
   type: AuthType;

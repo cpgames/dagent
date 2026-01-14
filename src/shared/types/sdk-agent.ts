@@ -28,6 +28,7 @@ export interface AgentQueryOptions {
   prompt: string
   systemPrompt?: string
   allowedTools?: string[]
+  toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'none'
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
   cwd?: string // Working directory for file operations
 }

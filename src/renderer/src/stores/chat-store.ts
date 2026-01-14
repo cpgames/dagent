@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from './toast-store'
 import { useAuthStore } from './auth-store'
+import { useProjectStore } from './project-store'
 import type { ChatHistory, AgentStreamEvent } from '@shared/types'
 
 export interface ChatMessage {
@@ -237,13 +238,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     })
 
+    // Get current project for cwd
+    const projectState = useProjectStore.getState()
+    const projectRoot = projectState.projectPath || undefined
+
     // Start agent query
     try {
       await window.electronAPI.sdkAgent.query({
         prompt,
         systemPrompt: systemPrompt || undefined,
-        allowedTools: [], // No tools for basic chat
-        permissionMode: 'default'
+        toolPreset: 'featureChat', // Read, Glob, Grep tools
+        permissionMode: 'acceptEdits', // Auto-approve read-only tools
+        cwd: projectRoot
       })
     } catch (error) {
       set({ isResponding: false, streamingContent: '' })
