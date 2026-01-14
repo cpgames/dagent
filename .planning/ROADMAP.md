@@ -10,14 +10,14 @@ None
 
 ## Milestones
 
-### Current Milestone: v1.9 Agent Communication Architecture
+### Current Milestone: v1.9 Agent Communication Architecture - COMPLETE
 
 Refactor agent communication from direct method calls to message-based sessions.
 
-- [ ] **Phase 37: Task Agent Sessions** - Per-task log files for conversation history with harness
-- [ ] **Phase 38: Message Queue** - Replace direct method calls with message passing
-- [ ] **Phase 39: Harness Router** - Harness receives and routes messages by taskId
-- [ ] **Phase 40: Log UI Integration** - Update LogDialog to show per-task conversation history
+- [x] **Phase 37: Task Agent Sessions** - Per-task log files for conversation history with harness (2/2 plans)
+- [x] **Phase 38: Message Queue** - Replace direct method calls with message passing (2/2 plans)
+- [x] **Phase 39: Harness Router** - Harness receives and routes messages by taskId (2/2 plans)
+- [x] **Phase 40: Log UI Integration** - Update LogDialog to show per-task conversation history (1/1 plans)
 
 ## Phase Details
 
@@ -187,7 +187,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**v1.9 in progress.** 36 phases complete, 4 phases planned.
+**v1.9 complete.** 40 phases complete.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -227,7 +227,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 34. Agent Assignment | v1.8 | 1/1 | Complete | 2026-01-14 |
 | 35. Intention-Approval Workflow | v1.8 | 1/1 | Complete | 2026-01-14 |
 | 36. Communication Logging | v1.8 | 1/1 | Complete | 2026-01-14 |
-| 37. Task Agent Sessions | v1.9 | 0/? | Not started | - |
-| 38. Message Queue | v1.9 | 0/? | Not started | - |
-| 39. Harness Router | v1.9 | 0/? | Not started | - |
-| 40. Log UI Integration | v1.9 | 0/? | Not started | - |
+| 37. Task Agent Sessions | v1.9 | 2/2 | Complete | 2026-01-14 |
+| 38. Message Queue | v1.9 | 2/2 | Complete | 2026-01-14 |
+| 39. Harness Router | v1.9 | 2/2 | Complete | 2026-01-14 |
+| 40. Log UI Integration | v1.9 | 1/1 | Complete | 2026-01-14 |
