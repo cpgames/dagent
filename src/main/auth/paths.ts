@@ -26,7 +26,11 @@ export function getClaudeCredentialPaths(): string[] {
   const home = homedir();
 
   return [
+    // Primary: Claude Code stores credentials with dot prefix
+    join(home, '.claude', '.credentials.json'),
+    // Fallbacks for other possible locations
     join(configDir, 'credentials.json'),
+    join(configDir, '.credentials.json'),
     join(configDir, 'settings.json'),
     join(home, '.claude.json'),
     join(home, '.claude', 'credentials.json')

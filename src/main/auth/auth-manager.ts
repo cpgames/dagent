@@ -52,15 +52,33 @@ export class AuthManager {
         const content = readFileSync(credPath, 'utf-8');
         const data = JSON.parse(content);
 
-        // Check for OAuth token in various formats Claude Code uses
+        // Claude Code stores OAuth in claudeAiOauth.accessToken format
+        if (data.claudeAiOauth?.accessToken) {
+          const token = data.claudeAiOauth.accessToken;
+          // Check if token is expired
+          const expiresAt = data.claudeAiOauth.expiresAt;
+          if (expiresAt && Date.now() > expiresAt) {
+            console.log('Claude Code OAuth token expired, skipping');
+            continue;
+          }
+          return {
+            type: 'claude_cli',
+            value: token,
+            source: `Claude Code OAuth (${credPath})`
+          };
+        }
+
+        // Check for OAuth token in other formats
         const token =
           data.oauth_token ||
           data.oauthToken ||
+          data.accessToken ||
           data.token ||
           data.credentials?.oauth_token ||
+          data.credentials?.accessToken ||
           data.credentials?.token;
 
-        if (token && typeof token === 'string') {
+        if (token && typeof token === 'string' && token.startsWith('sk-ant-')) {
           return {
             type: 'claude_cli',
             value: token,
