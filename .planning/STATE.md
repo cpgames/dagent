@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 **Milestone:** v1.5 UI Polish & Task Chat
 **Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 28 of 30 - Task Agent Badges ✓
-Plan: 1 of 1 complete in phase
-Status: Phase complete
-Last activity: 2026-01-14 - Completed 28-01-PLAN.md
+Phase: 29 of 30 - Connection Management
+Plan: 0 of 1 complete in phase
+Status: Planning complete
+Last activity: 2026-01-14 - Created 29-01-PLAN.md
 
-Progress: ██████████ 100% (v1.4) | ████░░ 67% (v1.5)
+Progress: ██████████ 100% (v1.4) | █████░ 80% (v1.5)
 
-Next action: Plan Phase 29 (Connection Management)
+Next action: Execute 29-01-PLAN.md
 
 ## Performance Metrics
 
