@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import type { DAGGraph, LogEntry, LogEntryType } from '@shared/types'
+import type { InterAgentMessage, IntentionProposedPayload } from '@shared/types'
 import type { AgentInfo } from './types'
 import type {
   HarnessState,
@@ -13,10 +14,12 @@ import type {
 import { DEFAULT_HARNESS_STATE } from './harness-types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
+import { getMessageBus } from './message-bus'
 
 export class HarnessAgent extends EventEmitter {
   private state: HarnessState
   private agentInfo: AgentInfo | null = null
+  private unsubscribe?: () => void
 
   constructor() {
     super()
@@ -89,6 +92,14 @@ export class HarnessAgent extends EventEmitter {
       getAgentPool().updateAgentStatus(this.agentInfo.id, 'busy')
     }
 
+    // Subscribe to task messages via MessageBus
+    const bus = getMessageBus()
+    this.unsubscribe = bus.subscribe((msg) => {
+      if (msg.to.type === 'harness') {
+        this.handleMessage(msg)
+      }
+    })
+
     this.log('info', 'Harness execution started')
     this.emit('harness:started')
     return true
@@ -129,6 +140,10 @@ export class HarnessAgent extends EventEmitter {
     if (this.state.status === 'idle' || this.state.status === 'stopped') {
       return false
     }
+
+    // Unsubscribe from MessageBus
+    this.unsubscribe?.()
+    this.unsubscribe = undefined
 
     this.state.status = 'stopped'
     this.state.stoppedAt = new Date().toISOString()
@@ -438,6 +453,79 @@ export class HarnessAgent extends EventEmitter {
   }
 
   /**
+   * Handle incoming message from MessageBus.
+   * Routes to appropriate handler based on message type.
+   */
+  private handleMessage(msg: InterAgentMessage): void {
+    switch (msg.type) {
+      case 'task_registered':
+        this.handleTaskRegistered(msg)
+        break
+      case 'intention_proposed':
+        this.handleIntentionProposed(msg)
+        break
+      case 'task_working':
+        this.handleTaskWorking(msg)
+        break
+      case 'task_completed':
+        this.handleTaskCompleted(msg)
+        break
+      case 'task_failed':
+        this.handleTaskFailed(msg)
+        break
+      default:
+        // Unknown message type - log and ignore
+        this.log('warning', `Unknown message type: ${msg.type}`, msg.taskId)
+    }
+  }
+
+  /**
+   * Handle task_registered message.
+   * Delegates to existing registerTaskAssignment logic.
+   */
+  private handleTaskRegistered(msg: InterAgentMessage): void {
+    // During dual-write, both direct call AND message arrive - avoid duplicate processing
+    // Check if task already registered
+    if (!this.state.activeTasks.has(msg.taskId)) {
+      this.registerTaskAssignment(msg.taskId, msg.from.id)
+    }
+  }
+
+  /**
+   * Handle intention_proposed message.
+   * Delegates to existing receiveIntention logic.
+   */
+  private handleIntentionProposed(msg: InterAgentMessage): void {
+    const payload = msg.payload as IntentionProposedPayload
+    // Check if intention already pending (from direct call)
+    if (!this.state.pendingIntentions.has(msg.taskId)) {
+      this.receiveIntention(msg.from.id, msg.taskId, payload.intention, payload.files)
+    }
+  }
+
+  /**
+   * Handle task_working message.
+   */
+  private handleTaskWorking(msg: InterAgentMessage): void {
+    this.markTaskWorking(msg.taskId)
+  }
+
+  /**
+   * Handle task_completed message.
+   */
+  private handleTaskCompleted(msg: InterAgentMessage): void {
+    this.completeTask(msg.taskId)
+  }
+
+  /**
+   * Handle task_failed message.
+   */
+  private handleTaskFailed(msg: InterAgentMessage): void {
+    const payload = msg.payload as { error: string }
+    this.failTask(msg.taskId, payload.error)
+  }
+
+  /**
    * Mark task as working (post-approval).
    */
   markTaskWorking(taskId: string): void {
@@ -479,6 +567,10 @@ export class HarnessAgent extends EventEmitter {
    * Reset harness state.
    */
   reset(): void {
+    // Unsubscribe from MessageBus
+    this.unsubscribe?.()
+    this.unsubscribe = undefined
+
     if (this.agentInfo) {
       getAgentPool().terminateAgent(this.agentInfo.id)
     }
