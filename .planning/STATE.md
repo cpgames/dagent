@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 **Milestone:** v1.5 UI Polish & Task Chat
 **Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 25 of 30 - Task Chat Overlay (Complete)
+Phase: 26 of 30 - Agent Logs View (Complete)
 Plan: 1 of 1 complete in phase
 Status: Phase complete
-Last activity: 2026-01-14 - Completed 25-01-PLAN.md
+Last activity: 2026-01-14 - Completed 26-01-PLAN.md
 
-Progress: ██████████ 100% (v1.4) | █░░░░░ 17% (v1.5)
+Progress: ██████████ 100% (v1.4) | ██░░░░ 33% (v1.5)
 
-Next action: Plan Phase 26 (Agent Logs View)
+Next action: Plan Phase 27 (Resizable Chat Panel)
 
 ## Performance Metrics
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed 25-01-PLAN.md
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None
-Next action: Plan Phase 26 (Agent Logs View)
+Next action: Plan Phase 27 (Resizable Chat Panel)
 
 ## Completed Phases
 
@@ -225,6 +225,10 @@ All verification items passed. Milestone v1.4 Complete.
 ### Phase 25: Task Chat Overlay ✓
 
 - **25-01**: TaskChat component, dialog store state, chat button on TaskNode, DAGView wiring
+
+### Phase 26: Agent Logs View ✓
+
+- **26-01**: AgentLogsPanel component with filtering, logs tab in AgentsView, live polling
 
 ---
 
