@@ -14,6 +14,7 @@ interface AgentState {
   updateConfig: (role: AgentRole, updates: Partial<AgentConfig>) => Promise<void>
   selectRole: (role: AgentRole | null) => void
   updateRuntimeStatus: (status: AgentRuntimeStatus) => void
+  loadRuntimeStatus: () => Promise<void>
 }
 
 const ALL_ROLES: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
@@ -48,9 +49,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   loadConfigs: async () => {
     set({ isLoading: true, error: null })
     try {
-      // TODO: Load from storage via IPC (Plan 20-02)
-      // For now, use defaults
-      set({ configs: createDefaultConfigs(), isLoading: false })
+      const configs = await window.electronAPI.agentLoadConfigs()
+      set({ configs, isLoading: false })
     } catch (err) {
       set({ error: String(err), isLoading: false })
     }
@@ -62,9 +62,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (!current) return
 
     const updated = { ...current, ...updates }
-    set({ configs: { ...configs, [role]: updated } })
 
-    // TODO: Persist via IPC (Plan 20-02)
+    try {
+      await window.electronAPI.agentSaveConfig(updated)
+      set({ configs: { ...configs, [role]: updated } })
+    } catch (err) {
+      console.error('Failed to save agent config:', err)
+    }
   },
 
   selectRole: (role) => set({ selectedRole: role }),
@@ -72,5 +76,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   updateRuntimeStatus: (status) => {
     const { runtimeStatus } = get()
     set({ runtimeStatus: { ...runtimeStatus, [status.role]: status } })
+  },
+
+  loadRuntimeStatus: async () => {
+    try {
+      const status = await window.electronAPI.agentGetRuntimeStatus()
+      set({ runtimeStatus: status })
+    } catch (err) {
+      console.error('Failed to load agent runtime status:', err)
+    }
   }
 }))
