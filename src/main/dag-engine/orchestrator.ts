@@ -14,6 +14,7 @@ import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
 import { getReadyTasks } from './analyzer'
 import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent, getAgentPool } from '../agents'
 import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
+import { createMergeAgent, registerMergeAgent, removeMergeAgent } from '../agents/merge-agent'
 import type { HarnessMessage } from '../agents/harness-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
@@ -174,11 +175,86 @@ export class ExecutionOrchestrator {
         await logService.appendEntry(this.state.featureId!, entry)
       })
 
+      // Subscribe to task completion to trigger merge
+      harness.on('task:completed', async (taskId: string) => {
+        console.log(`[Orchestrator] Task ${taskId} completed, triggering merge...`)
+        await this.triggerMerge(taskId)
+      })
+
       harness.start()
       console.log('[Orchestrator] Harness agent initialized and started')
     } else {
       console.warn('[Orchestrator] Failed to initialize harness agent')
     }
+  }
+
+  /**
+   * Trigger merge agent for a completed task.
+   * Merges task branch into feature branch.
+   */
+  private async triggerMerge(taskId: string): Promise<void> {
+    if (!this.state.featureId || !this.state.graph) {
+      console.warn('[Orchestrator] Cannot trigger merge - no feature/graph loaded')
+      return
+    }
+
+    const task = this.state.graph.nodes.find((n) => n.id === taskId)
+    if (!task) {
+      console.warn(`[Orchestrator] Task ${taskId} not found for merge`)
+      return
+    }
+
+    // Transition task to merging status
+    const transitionResult = transitionTask(task, 'WORK_COMPLETE')
+    if (!transitionResult.success) {
+      console.warn(`[Orchestrator] Failed to transition task to merging: ${transitionResult.error}`)
+      return
+    }
+
+    this.history.push(
+      createStateChangeRecord(taskId, transitionResult.previousStatus, transitionResult.newStatus, 'WORK_COMPLETE')
+    )
+
+    // Create and initialize merge agent
+    const mergeAgent = createMergeAgent(this.state.featureId, taskId)
+    registerMergeAgent(mergeAgent)
+
+    const initialized = await mergeAgent.initialize(task.title)
+    if (!initialized) {
+      console.error(`[Orchestrator] Failed to initialize merge agent for task ${taskId}`)
+      this.failTask(taskId, 'Failed to initialize merge agent')
+      removeMergeAgent(taskId)
+      return
+    }
+
+    // Check branches for conflicts
+    const branchesOk = await mergeAgent.checkBranches()
+    if (!branchesOk) {
+      console.error(`[Orchestrator] Branch check failed for task ${taskId}`)
+      this.failTask(taskId, mergeAgent.getState().error || 'Branch check failed')
+      await mergeAgent.cleanup()
+      removeMergeAgent(taskId)
+      return
+    }
+
+    // For now, auto-approve clean merges (no conflicts)
+    // In the future, this could go through harness approval
+    mergeAgent.receiveApproval({ approved: true })
+
+    // Execute the merge
+    const mergeResult = await mergeAgent.executeMerge()
+    if (mergeResult.success && mergeResult.merged) {
+      console.log(`[Orchestrator] Merge successful for task ${taskId}`)
+      // Complete the task (transitions to 'done')
+      this.completeTask(taskId)
+    } else {
+      console.error(`[Orchestrator] Merge failed for task ${taskId}: ${mergeResult.error}`)
+      this.failTask(taskId, mergeResult.error || 'Merge failed')
+    }
+
+    // Cleanup
+    await mergeAgent.cleanup()
+    removeMergeAgent(taskId)
   }
 
   /**
