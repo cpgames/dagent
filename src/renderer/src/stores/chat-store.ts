@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { toast } from './toast-store'
+import { useAuthStore } from './auth-store'
 import type { ChatHistory, AgentStreamEvent } from '@shared/types'
 
 export interface ChatMessage {
@@ -21,6 +22,7 @@ interface ChatState {
   // Actions
   loadChat: (featureId: string) => Promise<void>
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void
+  sendMessage: () => Promise<void> // Auto-selects SDK or ChatService
   sendToAI: () => Promise<void>
   sendToAgent: () => Promise<void> // Agent SDK streaming
   abortAgent: () => void
@@ -105,6 +107,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         console.error('Failed to save chat:', err)
         toast.error('Failed to save chat message')
       })
+    }
+  },
+
+  sendMessage: async () => {
+    // Auto-select between Agent SDK and ChatService based on SDK availability
+    const { sdkStatus } = useAuthStore.getState()
+
+    if (sdkStatus?.available) {
+      // Use Agent SDK for streaming responses
+      return get().sendToAgent()
+    } else {
+      // Fall back to ChatService
+      return get().sendToAI()
     }
   },
 
