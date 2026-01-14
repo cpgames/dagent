@@ -27,12 +27,14 @@ import {
   TaskNode,
   FeatureTabs,
   NodeDialog,
+  LogDialog,
   ExecutionControls,
   SelectableEdge,
   type TaskNodeData,
   type SelectableEdgeData
 } from '../components/DAG'
-import { FeatureChat, TaskChat } from '../components/Chat'
+import type { LogEntry } from '@shared/types'
+import { FeatureChat } from '../components/Chat'
 import { ResizeHandle } from '../components/Layout'
 import type { DAGGraph, Task } from '@shared/types'
 
@@ -50,7 +52,7 @@ function dagToNodes(
   dag: DAGGraph | null,
   onEdit: (taskId: string) => void,
   onDelete: (taskId: string) => void,
-  onChat: (taskId: string) => void
+  onLog: (taskId: string) => void
 ): Node[] {
   if (!dag) return []
 
@@ -62,7 +64,7 @@ function dagToNodes(
       task,
       onEdit,
       onDelete,
-      onChat
+      onLog
     } as TaskNodeData
   }))
 }
@@ -104,6 +106,7 @@ export default function DAGView(): JSX.Element {
     addConnection,
     removeNode,
     removeConnection,
+    setSelectedNode,
     historyState,
     undo,
     redo
@@ -113,11 +116,14 @@ export default function DAGView(): JSX.Element {
     nodeDialogTaskId,
     openNodeDialog,
     closeNodeDialog,
-    taskChatOpen,
-    taskChatTaskId,
-    taskChatFeatureId,
-    openTaskChat
+    logDialogOpen,
+    logDialogTitle,
+    openLogDialog,
+    closeLogDialog
   } = useDialogStore()
+
+  // Log entries for LogDialog
+  const [logEntries, setLogEntries] = useState<LogEntry[]>([])
 
   // Chat panel width state with localStorage persistence
   const [chatWidth, setChatWidth] = useState(() => {
@@ -153,10 +159,19 @@ export default function DAGView(): JSX.Element {
     [removeConnection]
   )
 
-  // Clear edge selection when clicking on pane
+  // Clear edge and node selection when clicking on pane
   const handlePaneClick = useCallback(() => {
     setSelectedEdgeId(null)
-  }, [])
+    setSelectedNode(null)
+  }, [setSelectedNode])
+
+  // Handle node click - select the task for PM agent context
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setSelectedNode(node.id)
+    },
+    [setSelectedNode]
+  )
 
   // Find the task for the open dialog
   const dialogTask = useMemo(() => {
@@ -189,19 +204,63 @@ export default function DAGView(): JSX.Element {
     [removeNode]
   )
 
-  const handleChatTask = useCallback(
-    (taskId: string) => {
+  // Handle log button click on task
+  const handleLogTask = useCallback(
+    async (taskId: string) => {
+      const task = dag?.nodes.find((n) => n.id === taskId)
+      const taskTitle = task?.title || 'Task'
+      openLogDialog(`${taskTitle} Logs`, taskId, 'task')
+
+      // Load logs filtered by taskId
       if (activeFeatureId) {
-        openTaskChat(taskId, activeFeatureId)
+        try {
+          const harnessLog = await window.electronAPI.storage.loadHarnessLog(activeFeatureId)
+          if (harnessLog) {
+            const filtered = harnessLog.entries.filter((e) => e.taskId === taskId)
+            setLogEntries(filtered)
+          } else {
+            setLogEntries([])
+          }
+        } catch (error) {
+          console.error('Failed to load logs:', error)
+          setLogEntries([])
+        }
       }
     },
-    [activeFeatureId, openTaskChat]
+    [dag, activeFeatureId, openLogDialog]
   )
+
+  // Handle PM log button click
+  const handleShowPMLogs = useCallback(async () => {
+    openLogDialog('PM Agent Logs', null, 'pm')
+
+    // Load PM-specific logs or chat history converted to log format
+    if (activeFeatureId) {
+      try {
+        const chatHistory = await window.electronAPI.storage.loadChat(activeFeatureId)
+        if (chatHistory && chatHistory.entries.length > 0) {
+          // Convert chat entries to log entries
+          const entries: LogEntry[] = chatHistory.entries.map((entry) => ({
+            timestamp: entry.timestamp,
+            type: entry.role === 'user' ? 'pm-query' : 'pm-response',
+            agent: 'pm',
+            content: entry.content
+          }))
+          setLogEntries(entries)
+        } else {
+          setLogEntries([])
+        }
+      } catch (error) {
+        console.error('Failed to load PM logs:', error)
+        setLogEntries([])
+      }
+    }
+  }, [activeFeatureId, openLogDialog])
 
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
-    () => dagToNodes(dag, handleEditTask, handleDeleteTask, handleChatTask),
-    [dag, handleEditTask, handleDeleteTask, handleChatTask]
+    () => dagToNodes(dag, handleEditTask, handleDeleteTask, handleLogTask),
+    [dag, handleEditTask, handleDeleteTask, handleLogTask]
   )
   const initialEdges = useMemo(
     () => dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge),
@@ -213,9 +272,9 @@ export default function DAGView(): JSX.Element {
 
   // Update nodes/edges when DAG or selection changes
   useEffect(() => {
-    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask, handleChatTask))
+    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask, handleLogTask))
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
-  }, [dag, handleEditTask, handleDeleteTask, handleChatTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
+  }, [dag, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
   // Load DAG when active feature changes
   useEffect(() => {
@@ -312,6 +371,7 @@ export default function DAGView(): JSX.Element {
                   onEdgesChange={handleEdgesChange}
                   onConnect={handleConnect}
                   onPaneClick={handlePaneClick}
+                  onNodeClick={handleNodeClick}
                   onEdgeClick={(_event, edge) => handleSelectEdge(edge.id)}
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
@@ -358,14 +418,11 @@ export default function DAGView(): JSX.Element {
           </div>
         </div>
 
-        {/* Chat sidebar with overlay support */}
+        {/* Chat sidebar */}
         {activeFeatureId && (
           <div className="relative" style={{ width: chatWidth }}>
             <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
-            <FeatureChat featureId={activeFeatureId} />
-            {taskChatOpen && taskChatTaskId && taskChatFeatureId && (
-              <TaskChat taskId={taskChatTaskId} featureId={taskChatFeatureId} />
-            )}
+            <FeatureChat featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
           </div>
         )}
       </div>
@@ -373,6 +430,11 @@ export default function DAGView(): JSX.Element {
       {/* Node Dialog */}
       {dialogTask && (
         <NodeDialog task={dialogTask} onSave={handleDialogSave} onClose={closeNodeDialog} />
+      )}
+
+      {/* Log Dialog */}
+      {logDialogOpen && logDialogTitle && (
+        <LogDialog entries={logEntries} title={logDialogTitle} onClose={closeLogDialog} />
       )}
     </div>
   )

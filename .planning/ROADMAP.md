@@ -12,9 +12,43 @@ None
 
 ### Current Status
 
-All planned milestones complete. Project is feature-complete through v1.4.
+All planned milestones complete. Project is feature-complete through v1.7.
 
 ## Completed Milestones
+
+<details>
+<summary>v1.7 Agent Logs (Phase 32) - SHIPPED 2026-01-14</summary>
+
+- [x] **Phase 32: Agent Logs** - LogDialog, PM log types, task/PM log buttons (2/2 plans)
+
+**Total:** 1 phase, 2 plans
+
+See [v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) for details.
+
+</details>
+
+<details>
+<summary>v1.6 Task Selection Context (Phase 31) - SHIPPED 2026-01-14</summary>
+
+- [x] **Phase 31: Task Selection Context** - Remove TaskChat overlay, pass selected task to PM context (1/1 plans)
+
+**Total:** 1 phase, 1 plan
+
+</details>
+
+<details>
+<summary>v1.5 UI Polish & Task Chat (Phases 25-30) - SHIPPED 2026-01-14</summary>
+
+- [x] **Phase 25: Task Chat** - TaskChat component, dialog store, DAGView wiring (1/1 plans)
+- [x] **Phase 26: Agent Logs** - AgentLogsPanel, live polling (1/1 plans)
+- [x] **Phase 27: Resizable Chat** - ResizeHandle, width persistence (1/1 plans)
+- [x] **Phase 28: Task Agent Badges** - Dev/QA/Merge badges on TaskNode (1/1 plans)
+- [x] **Phase 29: Connection Management** - Edge selection, delete confirmation (1/1 plans)
+- [x] **Phase 30: UI Layout Fixes** - Rename Play to Start, spacing improvements (1/1 plans)
+
+**Total:** 6 phases, 6 plans
+
+</details>
 
 <details>
 <summary>v1.4 Agent System Overhaul (Phases 19-24) - SHIPPED 2026-01-14</summary>
@@ -84,7 +118,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**All milestones complete.** 24 phases, 52 plans shipped.
+**All milestones complete.** 32 phases, 61 plans shipped.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -112,3 +146,11 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 22. PM Agent CRUD Operations | v1.4 | 2/2 | Complete | 2026-01-14 |
 | 23. Feature Deletion | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 24. Universal Context Access | v1.4 | 2/2 | Complete | 2026-01-14 |
+| 25. Task Chat | v1.5 | 1/1 | Complete | 2026-01-14 |
+| 26. Agent Logs | v1.5 | 1/1 | Complete | 2026-01-14 |
+| 27. Resizable Chat | v1.5 | 1/1 | Complete | 2026-01-14 |
+| 28. Task Agent Badges | v1.5 | 1/1 | Complete | 2026-01-14 |
+| 29. Connection Management | v1.5 | 1/1 | Complete | 2026-01-14 |
+| 30. UI Layout Fixes | v1.5 | 1/1 | Complete | 2026-01-14 |
+| 31. Task Selection Context | v1.6 | 1/1 | Complete | 2026-01-14 |
+| 32. Agent Logs | v1.7 | 2/2 | Complete | 2026-01-14 |

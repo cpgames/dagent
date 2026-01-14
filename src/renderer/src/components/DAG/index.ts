@@ -1,5 +1,6 @@
 export { TaskNode, type TaskNodeData } from './TaskNode'
 export { FeatureTabs } from './FeatureTabs'
 export { default as NodeDialog, type NodeDialogProps } from './NodeDialog'
+export { default as LogDialog, type LogDialogProps } from './LogDialog'
 export { default as ExecutionControls } from './ExecutionControls'
 export { default as SelectableEdge, type SelectableEdgeData } from './SelectableEdge'

@@ -1,29 +1,33 @@
 import { create } from 'zustand'
 
+export type LogDialogSource = 'task' | 'pm' | null
+
 interface DialogState {
   // Node dialog
   nodeDialogOpen: boolean
   nodeDialogTaskId: string | null
 
-  // Task chat overlay
-  taskChatOpen: boolean
-  taskChatTaskId: string | null
-  taskChatFeatureId: string | null
+  // Log dialog
+  logDialogOpen: boolean
+  logDialogTitle: string | null
+  logDialogTaskId: string | null
+  logDialogSource: LogDialogSource
 
   // Actions
   openNodeDialog: (taskId: string) => void
   closeNodeDialog: () => void
-  openTaskChat: (taskId: string, featureId: string) => void
-  closeTaskChat: () => void
+  openLogDialog: (title: string, taskId?: string | null, source?: LogDialogSource) => void
+  closeLogDialog: () => void
 }
 
 export const useDialogStore = create<DialogState>((set) => ({
   nodeDialogOpen: false,
   nodeDialogTaskId: null,
 
-  taskChatOpen: false,
-  taskChatTaskId: null,
-  taskChatFeatureId: null,
+  logDialogOpen: false,
+  logDialogTitle: null,
+  logDialogTaskId: null,
+  logDialogSource: null,
 
   openNodeDialog: (taskId) =>
     set({
@@ -37,17 +41,19 @@ export const useDialogStore = create<DialogState>((set) => ({
       nodeDialogTaskId: null
     }),
 
-  openTaskChat: (taskId, featureId) =>
+  openLogDialog: (title, taskId = null, source = null) =>
     set({
-      taskChatOpen: true,
-      taskChatTaskId: taskId,
-      taskChatFeatureId: featureId
+      logDialogOpen: true,
+      logDialogTitle: title,
+      logDialogTaskId: taskId,
+      logDialogSource: source
     }),
 
-  closeTaskChat: () =>
+  closeLogDialog: () =>
     set({
-      taskChatOpen: false,
-      taskChatTaskId: null,
-      taskChatFeatureId: null
+      logDialogOpen: false,
+      logDialogTitle: null,
+      logDialogTaskId: null,
+      logDialogSource: null
     })
 }))

@@ -1,5 +1,5 @@
-export type LogEntryType = 'intention' | 'approval' | 'rejection' | 'modification' | 'action' | 'error';
-export type AgentType = 'harness' | 'task' | 'merge';
+export type LogEntryType = 'intention' | 'approval' | 'rejection' | 'modification' | 'action' | 'error' | 'pm-query' | 'pm-response';
+export type AgentType = 'harness' | 'task' | 'merge' | 'pm';
 
 export interface LogEntry {
   timestamp: string;

@@ -11,7 +11,8 @@ interface AgentLogsPanelProps {
 const AGENT_COLORS: Record<LogAgentType, string> = {
   harness: 'bg-purple-600',
   task: 'bg-blue-600',
-  merge: 'bg-green-600'
+  merge: 'bg-green-600',
+  pm: 'bg-indigo-600'
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -93,7 +94,7 @@ export function AgentLogsPanel({ featureId }: AgentLogsPanelProps): JSX.Element 
       <div className="flex items-center gap-2 p-3 border-b border-gray-700">
         <span className="text-sm text-gray-400">Filter:</span>
         <div className="flex gap-1">
-          {(['all', 'harness', 'task', 'merge'] as FilterType[]).map((type) => (
+          {(['all', 'harness', 'task', 'merge', 'pm'] as FilterType[]).map((type) => (
             <button
               key={type}
               onClick={() => setFilter(type)}

@@ -8,12 +8,12 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v1.4 Agent System Overhaul)
+## Current State (v1.7 Agent Logs)
 
-Shipped 2026-01-14. Complete agent system with PM Agent, universal context, and feature management:
-- 110+ source files, ~16,000 LOC TypeScript
-- 24 phases, 52 plans executed across 4 milestones
-- All agents receive automatic project/codebase context
+Shipped 2026-01-14. Complete agent communication visibility:
+- 110+ source files, ~19,500 LOC TypeScript
+- 32 phases, 61 plans executed across 7 milestones
+- Task and PM agent logs viewable via popup dialogs
 
 ## Requirements
 
@@ -58,6 +58,17 @@ Shipped 2026-01-14. Complete agent system with PM Agent, universal context, and 
 - [x] Universal context access for all agents - v1.4
 - [x] ContextService for project/codebase context assembly - v1.4
 - [x] Agent prompt builders with role-specific instructions - v1.4
+- [x] Task chat overlay for per-task agent conversations - v1.5
+- [x] Agent logs panel with live polling - v1.5
+- [x] Resizable chat panel with localStorage persistence - v1.5
+- [x] Task agent badges (Dev, QA, Merge) on task nodes - v1.5
+- [x] Connection management with edge selection and deletion - v1.5
+- [x] UI layout improvements (Start button, spacing) - v1.5
+- [x] Selected task context passed to PM agent - v1.6
+- [x] LogDialog component for viewing agent communications - v1.7
+- [x] PM log types (pm-query, pm-response) - v1.7
+- [x] Task log button showing task-specific agent logs - v1.7
+- [x] PM log button showing PM agent communications - v1.7
 
 ### Backlog
 
@@ -110,4 +121,4 @@ Key reference material:
 | autoContext option | Automatic prompt injection | Good |
 
 ---
-*Last updated: 2026-01-14 after v1.4 milestone*
+*Last updated: 2026-01-14 after v1.7 milestone*

@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-**Milestone:** v1.7 Agent Logs
+**Milestone:** v1.7 Agent Logs - COMPLETE
 **Roadmap:** .planning/milestones/v1.7-ROADMAP.md
 
-Phase: 32 of 32 - Agent Logs
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-14 - Created v1.7 milestone for Agent Logs
+Phase: 32 of 32 - Agent Logs ✓
+Plan: 02 of 02 ✓
+Status: Complete
+Last activity: 2026-01-14 - Completed Phase 32 (Agent Logs)
 
-Progress: ██████████ 100% (v1.6) | ░░░░░░░░░░ 0% (v1.7)
+Progress: ██████████ 100% (v1.7)
 
-Next action: /gsd:plan-phase 32
+Next action: Milestone complete
 
 ## Performance Metrics
 
@@ -254,6 +254,13 @@ All verification items passed. Milestone v1.5 Complete.
 
 All verification items passed. Milestone v1.6 Complete.
 
+### Phase 32: Agent Logs ✓
+
+- **32-01**: LogDialog component, extended log types for PM agent, dialog store state
+- **32-02**: Log buttons on TaskNode and ChatPanel, wiring in DAGView
+
+All verification items passed. Milestone v1.7 Complete.
+
 ---
 
 ## v1.4 Milestone Summary
@@ -296,6 +303,18 @@ Task Selection Context is complete. The PM Agent now automatically knows which t
 3. **Context Passing**: Selected task ID is passed to PM agent via autoContext
 4. **PM Agent Awareness**: Agent recognizes "this task" and "the task" as the selected task
 5. **Simplified UI**: Removed chat button from TaskNode, cleaner interface
+
+---
+
+## v1.7 Milestone Summary
+
+Agent Logs is complete. Users can now view agent communications:
+
+1. **LogDialog Component**: Popup dialog for viewing log entries with filtering
+2. **Extended Log Types**: Added 'pm' agent type and 'pm-query'/'pm-response' entry types
+3. **Task Log Button**: Each task node has a log button showing task-specific logs
+4. **PM Log Button**: Chat header has a log button showing PM agent communication history
+5. **Dialog Store**: Added log dialog state management
 
 ---
 
