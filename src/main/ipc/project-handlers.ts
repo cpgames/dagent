@@ -4,6 +4,7 @@ import path from 'path'
 import { getGitManager } from '../git'
 import { initializeStorage } from './storage-handlers'
 import { setHistoryProjectRoot } from './history-handlers'
+import { setAgentConfigProjectRoot } from './agent-config-handlers'
 import { ensureDagentStructure } from '../storage/paths'
 import {
   getRecentProjects,
@@ -81,9 +82,10 @@ export function registerProjectHandlers(): void {
           console.log('[DAGent] Project is not a git repository')
         }
 
-        // Initialize storage and history for the new project
+        // Initialize storage, history, and agent config for the new project
         initializeStorage(projectRoot)
         setHistoryProjectRoot(projectRoot)
+        setAgentConfigProjectRoot(projectRoot)
 
         // Update current project path
         currentProjectPath = projectRoot
@@ -170,9 +172,10 @@ export function registerProjectHandlers(): void {
           // Continue anyway - project may not be a git repo yet
         }
 
-        // Initialize storage and history for the new project
+        // Initialize storage, history, and agent config for the new project
         initializeStorage(projectPath)
         setHistoryProjectRoot(projectPath)
+        setAgentConfigProjectRoot(projectPath)
 
         // Update current project path
         currentProjectPath = projectPath

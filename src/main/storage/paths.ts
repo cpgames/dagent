@@ -86,6 +86,14 @@ export function getArchivedDir(projectRoot: string): string {
 }
 
 /**
+ * Get the path to agents.json for agent configurations.
+ * Location: {projectRoot}/.dagent/agents.json
+ */
+export function getAgentConfigsPath(projectRoot: string): string {
+  return path.join(projectRoot, '.dagent', 'agents.json');
+}
+
+/**
  * Get the .dagent-worktrees directory for a project.
  * This is where all feature worktrees are stored.
  */
