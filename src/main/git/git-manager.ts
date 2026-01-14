@@ -193,7 +193,24 @@ export class GitManager {
     this.ensureInitialized()
     try {
       const status = await this.git.status()
-      return { success: true, data: status }
+      // Extract only serializable properties to avoid IPC cloning issues
+      // simple-git's StatusResult may contain non-serializable getters
+      const serializableStatus = {
+        current: status.current,
+        tracking: status.tracking || null,
+        detached: status.detached,
+        ahead: status.ahead,
+        behind: status.behind,
+        staged: status.staged,
+        modified: status.modified,
+        created: status.created,
+        deleted: status.deleted,
+        renamed: status.renamed,
+        conflicted: status.conflicted,
+        not_added: status.not_added,
+        isClean: status.isClean()
+      }
+      return { success: true, data: serializableStatus }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
