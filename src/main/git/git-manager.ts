@@ -300,13 +300,11 @@ export class GitManager {
         }
       }
 
-      // Verify feature branch exists
+      // Create feature branch if it doesn't exist (auto-recovery for failed feature setup)
       const featureBranchExists = await this.branchExists(featureBranchName)
       if (!featureBranchExists) {
-        return {
-          success: false,
-          error: `Feature branch ${featureBranchName} does not exist`
-        }
+        console.log(`[GitManager] Feature branch ${featureBranchName} not found, creating it...`)
+        await this.git.branch([featureBranchName])
       }
 
       // Create task branch from feature branch and worktree
