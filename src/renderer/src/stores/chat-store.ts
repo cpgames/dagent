@@ -191,7 +191,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendToAgent: async () => {
-    const { messages, currentFeatureId, systemPrompt } = get()
+    const { messages, currentFeatureId } = get()
     if (!currentFeatureId || messages.length === 0) return
 
     // Check if SDK agent API is available
@@ -290,14 +290,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const projectState = useProjectStore.getState()
     const projectRoot = projectState.projectPath || undefined
 
-    // Start agent query with PM Agent tools
+    // Start agent query with PM Agent tools and autoContext
     try {
       await window.electronAPI.sdkAgent.query({
         prompt,
-        systemPrompt: systemPrompt || undefined,
+        // Use autoContext for automatic context injection instead of manual systemPrompt
         toolPreset: 'pmAgent', // Read, Glob, Grep + CreateTask, ListTasks tools
         permissionMode: 'acceptEdits', // Auto-approve read-only tools
-        cwd: projectRoot
+        cwd: projectRoot,
+        // Context options for autoContext
+        featureId: currentFeatureId,
+        agentType: 'pm',
+        autoContext: true
       })
     } catch (error) {
       set({ isResponding: false, streamingContent: '' })
