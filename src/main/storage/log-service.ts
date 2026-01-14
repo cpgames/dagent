@@ -1,5 +1,5 @@
-import { getStore } from './feature-store'
-import type { LogEntry, AgentLog } from '@shared/types'
+import { getFeatureStore } from '../ipc/storage-handlers'
+import type { LogEntry } from '@shared/types'
 
 /**
  * LogService handles appending log entries to harness_log.json.
@@ -13,17 +13,23 @@ class LogService {
    * Uses cache to avoid repeated file reads.
    */
   async appendEntry(featureId: string, entry: LogEntry): Promise<void> {
+    const store = getFeatureStore()
+    if (!store) {
+      console.warn('[LogService] FeatureStore not initialized')
+      return
+    }
+
     // Load existing or use cache
     let entries = this.cache.get(featureId)
     if (!entries) {
-      const existing = await getStore().loadHarnessLog(featureId)
+      const existing = await store.loadHarnessLog(featureId)
       entries = existing?.entries || []
       this.cache.set(featureId, entries)
     }
 
     // Append and save
     entries.push(entry)
-    await getStore().saveHarnessLog(featureId, { entries })
+    await store.saveHarnessLog(featureId, { entries })
   }
 
   /**
