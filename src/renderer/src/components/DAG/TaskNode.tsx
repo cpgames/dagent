@@ -36,7 +36,7 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   return (
     <div
       className={`
-        min-w-[180px] rounded-lg shadow-lg border-2
+        min-w-[200px] rounded-lg shadow-lg border-2
         ${borderColor} ${bgColor}
         ${selected ? 'ring-2 ring-white/50' : ''}
         bg-gray-800

@@ -135,7 +135,7 @@ export default function ExecutionControls({
         title={isRunning ? 'Pause execution' : isPaused ? 'Resume execution' : 'Start execution'}
       >
         {isRunning ? <PauseIcon /> : <PlayIcon />}
-        {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Play'}
+        {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
       </button>
 
       {/* Stop button */}

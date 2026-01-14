@@ -119,11 +119,11 @@ function App(): React.JSX.Element {
     <ErrorBoundary>
       <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
+        <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-gray-700">
           <ProjectSelector onOpenFullDialog={() => setProjectSelectionDialogOpen(true)} />
           <button
             onClick={() => setNewFeatureDialogOpen(true)}
-            className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
+            className="shrink-0 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
           >
             + New Feature
           </button>

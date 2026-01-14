@@ -315,6 +315,10 @@ export default function DAGView(): JSX.Element {
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
                   fitView
+                  fitViewOptions={{ padding: 0.2, minZoom: 0.5, maxZoom: 1.5 }}
+                  minZoom={0.25}
+                  maxZoom={2}
+                  nodesDraggable
                   className="bg-gray-900"
                   proOptions={{ hideAttribution: true }}
                 >
