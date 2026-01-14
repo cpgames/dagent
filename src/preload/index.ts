@@ -20,7 +20,9 @@ import type {
   UpdateTaskInput,
   UpdateTaskResult,
   DeleteTaskInput,
-  DeleteTaskResult
+  DeleteTaskResult,
+  RemoveDependencyInput,
+  RemoveDependencyResult
 } from '@shared/types'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
@@ -509,7 +511,9 @@ const electronAPI = {
     updateTask: (input: UpdateTaskInput): Promise<UpdateTaskResult> =>
       ipcRenderer.invoke('pm-tools:updateTask', input),
     deleteTask: (input: DeleteTaskInput): Promise<DeleteTaskResult> =>
-      ipcRenderer.invoke('pm-tools:deleteTask', input)
+      ipcRenderer.invoke('pm-tools:deleteTask', input),
+    removeDependency: (input: RemoveDependencyInput): Promise<RemoveDependencyResult> =>
+      ipcRenderer.invoke('pm-tools:removeDependency', input)
   }
 }
 

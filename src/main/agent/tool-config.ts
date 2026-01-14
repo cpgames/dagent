@@ -15,7 +15,7 @@ export const TOOL_PRESETS = {
   mergeAgent: ['Read', 'Glob', 'Grep', 'Bash'],
 
   // PM Agent - read + full task management (CRUD + dependency inference)
-  pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'GetTask', 'UpdateTask', 'DeleteTask'],
+  pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask'],
 
   // No tools - basic chat only
   none: []

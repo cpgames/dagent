@@ -14,7 +14,9 @@ import type {
   UpdateTaskInput,
   UpdateTaskResult,
   DeleteTaskInput,
-  DeleteTaskResult
+  DeleteTaskResult,
+  RemoveDependencyInput,
+  RemoveDependencyResult
 } from '@shared/types'
 
 /**
@@ -35,6 +37,9 @@ let addDependencyHandler: ((input: AddDependencyInput) => Promise<AddDependencyR
 let getTaskHandler: ((input: GetTaskInput) => Promise<GetTaskResult>) | null = null
 let updateTaskHandler: ((input: UpdateTaskInput) => Promise<UpdateTaskResult>) | null = null
 let deleteTaskHandler: ((input: DeleteTaskInput) => Promise<DeleteTaskResult>) | null = null
+let removeDependencyHandler:
+  | ((input: RemoveDependencyInput) => Promise<RemoveDependencyResult>)
+  | null = null
 
 export function setCreateTaskHandler(
   handler: (input: CreateTaskInput) => Promise<CreateTaskResult>
@@ -68,6 +73,12 @@ export function setDeleteTaskHandler(
   deleteTaskHandler = handler
 }
 
+export function setRemoveDependencyHandler(
+  handler: (input: RemoveDependencyInput) => Promise<RemoveDependencyResult>
+): void {
+  removeDependencyHandler = handler
+}
+
 export function clearPMToolHandlers(): void {
   createTaskHandler = null
   listTasksHandler = null
@@ -75,6 +86,7 @@ export function clearPMToolHandlers(): void {
   getTaskHandler = null
   updateTaskHandler = null
   deleteTaskHandler = null
+  removeDependencyHandler = null
 }
 
 /**
@@ -99,6 +111,9 @@ export async function executePMTool(toolName: string, input: unknown): Promise<u
   if (toolName === 'DeleteTask' && deleteTaskHandler) {
     return deleteTaskHandler(input as DeleteTaskInput)
   }
+  if (toolName === 'RemoveDependency' && removeDependencyHandler) {
+    return removeDependencyHandler(input as RemoveDependencyInput)
+  }
   return { success: false, error: `Unknown PM tool: ${toolName}` }
 }
 
@@ -112,7 +127,8 @@ export function isPMTool(toolName: string): boolean {
     toolName === 'AddDependency' ||
     toolName === 'GetTask' ||
     toolName === 'UpdateTask' ||
-    toolName === 'DeleteTask'
+    toolName === 'DeleteTask' ||
+    toolName === 'RemoveDependency'
   )
 }
 
@@ -267,6 +283,31 @@ export const PM_TOOLS: PMToolHandler[] = [
         return { success: false, error: 'DeleteTask handler not initialized' }
       }
       return deleteTaskHandler(input as DeleteTaskInput)
+    }
+  },
+  {
+    name: 'RemoveDependency',
+    description:
+      'Remove an existing dependency between two tasks. The toTask may become ready if it has no other incomplete dependencies.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fromTaskId: {
+          type: 'string',
+          description: 'ID of the dependency task to remove'
+        },
+        toTaskId: {
+          type: 'string',
+          description: 'ID of the task that currently depends on fromTaskId'
+        }
+      },
+      required: ['fromTaskId', 'toTaskId']
+    },
+    handler: async (input: unknown): Promise<RemoveDependencyResult> => {
+      if (!removeDependencyHandler) {
+        return { success: false, error: 'RemoveDependency handler not initialized' }
+      }
+      return removeDependencyHandler(input as RemoveDependencyInput)
     }
   }
 ]

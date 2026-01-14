@@ -24,7 +24,9 @@ import type {
   UpdateTaskInput,
   UpdateTaskResult,
   DeleteTaskInput,
-  DeleteTaskResult
+  DeleteTaskResult,
+  RemoveDependencyInput,
+  RemoveDependencyResult
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -946,6 +948,12 @@ export interface PMToolsAPI {
    * Uses reassignDependents to control how dependent tasks are handled.
    */
   deleteTask: (input: DeleteTaskInput) => Promise<DeleteTaskResult>
+
+  /**
+   * Remove an existing dependency between two tasks.
+   * The toTask may become ready if it has no other incomplete dependencies.
+   */
+  removeDependency: (input: RemoveDependencyInput) => Promise<RemoveDependencyResult>
 }
 
 /**
