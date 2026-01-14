@@ -1,5 +1,5 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { mkdir, stat } from 'fs/promises'
+import { mkdir, stat, writeFile } from 'fs/promises'
 import path from 'path'
 import { getGitManager } from '../git'
 import { initializeStorage } from './storage-handlers'
@@ -165,13 +165,38 @@ export function registerProjectHandlers(): void {
         // Create .dagent-worktrees structure
         await ensureDagentStructure(projectPath)
 
-        // Initialize git manager for the new project
+        // Initialize git repository for new project
         const gitManager = getGitManager()
-        const gitResult = await gitManager.initialize(projectPath)
 
+        // Check if it's already a git repo
+        const isRepo = await gitManager.isGitRepo(projectPath)
+        if (!isRepo) {
+          // Initialize new git repo
+          console.log('[DAGent] Initializing git repository for new project...')
+          const initResult = await gitManager.initRepo(projectPath)
+          if (!initResult.success) {
+            console.warn('[DAGent] Failed to initialize git repo:', initResult.error)
+          } else {
+            // Create initial commit so branches can be created
+            const simpleGit = (await import('simple-git')).default
+            const git = simpleGit({ baseDir: projectPath })
+
+            // Create a .gitignore file
+            const gitignorePath = path.join(projectPath, '.gitignore')
+            await writeFile(gitignorePath, '# DAGent worktrees are stored outside the project\n.dagent-worktrees/\n')
+
+            // Stage and commit
+            await git.add('.gitignore')
+            await git.commit('Initial commit - DAGent project')
+            console.log('[DAGent] Git repository initialized with initial commit')
+          }
+        }
+
+        // Now initialize git manager with the repo
+        const gitResult = await gitManager.initialize(projectPath)
         if (!gitResult.success) {
-          console.log('[DAGent] Git initialization skipped for new project:', gitResult.error)
-          // Continue anyway - project may not be a git repo yet
+          console.log('[DAGent] Git manager initialization failed:', gitResult.error)
+          // Continue anyway - some features may not work without git
         }
 
         // Initialize storage, history, agent config, and context for the new project
