@@ -8,12 +8,12 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v1.7 Agent Logs)
+## Current State (v1.8 DAG Execution)
 
-Shipped 2026-01-14. Complete agent communication visibility:
-- 110+ source files, ~19,500 LOC TypeScript
-- 32 phases, 61 plans executed across 7 milestones
-- Task and PM agent logs viewable via popup dialogs
+Shipped 2026-01-14. Full DAG execution engine operational:
+- 115+ source files, ~21,000 LOC TypeScript
+- 36 phases, 65 plans executed across 8 milestones
+- Clicking Start runs dependency-aware task execution with agents
 
 ## Requirements
 
@@ -69,6 +69,10 @@ Shipped 2026-01-14. Complete agent communication visibility:
 - [x] PM log types (pm-query, pm-response) - v1.7
 - [x] Task log button showing task-specific agent logs - v1.7
 - [x] PM log button showing PM agent communications - v1.7
+- [x] Tick-based execution loop with 1-second intervals - v1.8
+- [x] Automatic agent assignment to ready tasks - v1.8
+- [x] Intention-approval workflow wired in orchestrator - v1.8
+- [x] Real-time communication logging to harness_log.json - v1.8
 
 ### Backlog
 
@@ -119,6 +123,8 @@ Key reference material:
 | Tool presets per agent | Different capabilities per role | Good |
 | ContextService singleton | Centralized context assembly | Good |
 | autoContext option | Automatic prompt injection | Good |
+| LogService with cache | Efficient log persistence | Good |
+| Event-driven logging | Subscribe to harness:message events | Good |
 
 ---
-*Last updated: 2026-01-14 after v1.7 milestone*
+*Last updated: 2026-01-14 after v1.8 milestone*

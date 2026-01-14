@@ -10,18 +10,25 @@ None
 
 ## Milestones
 
-### Current Milestone: v1.8 DAG Execution
+### Current Milestone: None
 
-Implement the core DAG execution engine where clicking Start runs the dependency-aware task execution.
+All planned milestones complete. Next milestone TBD.
 
-- [ ] **Phase 33: Execution Orchestration** - Wire Start button to execution loop, ready task identification
-- [ ] **Phase 34: Agent Assignment** - PM assigns agents to ready tasks, task agent spawning
-- [ ] **Phase 35: Intention-Approval Workflow** - Task agents propose intentions, PM approves/modifies/rejects
-- [ ] **Phase 36: Communication Logging** - Log all agent communications to harness_log.json
+## Completed Milestones
+
+<details>
+<summary>v1.8 DAG Execution (Phases 33-36) - SHIPPED 2026-01-14</summary>
+
+- [x] **Phase 33: Execution Orchestration** - Wire Start button to execution loop, ready task identification (1/1 plans)
+- [x] **Phase 34: Agent Assignment** - PM assigns agents to ready tasks, task agent spawning (1/1 plans)
+- [x] **Phase 35: Intention-Approval Workflow** - Task agents propose intentions, PM approves/modifies/rejects (1/1 plans)
+- [x] **Phase 36: Communication Logging** - Log all agent communications to harness_log.json (1/1 plans)
+
+**Total:** 4 phases, 4 plans
 
 See [v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v1.7 Agent Logs (Phase 32) - SHIPPED 2026-01-14</summary>
@@ -125,7 +132,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**All milestones complete.** 32 phases, 61 plans shipped.
+**All milestones complete.** 36 phases, 65 plans shipped.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -161,3 +168,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 30. UI Layout Fixes | v1.5 | 1/1 | Complete | 2026-01-14 |
 | 31. Task Selection Context | v1.6 | 1/1 | Complete | 2026-01-14 |
 | 32. Agent Logs | v1.7 | 2/2 | Complete | 2026-01-14 |
+| 33. Execution Orchestration | v1.8 | 1/1 | Complete | 2026-01-14 |
+| 34. Agent Assignment | v1.8 | 1/1 | Complete | 2026-01-14 |
+| 35. Intention-Approval Workflow | v1.8 | 1/1 | Complete | 2026-01-14 |
+| 36. Communication Logging | v1.8 | 1/1 | Complete | 2026-01-14 |
