@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v1.2 UX Overhaul - Layout, project selection, chat, git status
+**Current focus:** v1.2 UX Overhaul - COMPLETE
 
 ## Current Position
 
-Phase: 15 of 15 (v1.2) - In Progress
-Plan: 1 of 2 in Phase 15
-Status: Completed 15-01, ready for 15-02
-Last activity: 2026-01-13 - Completed 15-01-PLAN.md
+Phase: 15 of 15 (v1.2) - Complete
+Plan: 2 of 2 in Phase 15
+Status: v1.2 milestone complete
+Last activity: 2026-01-13 - Completed 15-02-PLAN.md
 
-Progress (v1.2): █████████░ 92%
+Progress (v1.2): ██████████ 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 43 (v1.0: 25, v1.1: 10, v1.2: 8)
+- Total plans completed: 45 (v1.0: 25, v1.1: 10, v1.2: 10)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~210 min
+- Total execution time: ~220 min
 
 **By Phase:**
 
@@ -36,8 +36,8 @@ Progress (v1.2): █████████░ 92%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 13-02, 13-03, 14-01, 14-02
-- Trend: Smooth execution, no blockers
+- Last 5 plans: 14-01, 14-02, 15-01, 15-02
+- Trend: Smooth execution, v1.2 milestone complete
 
 ## Accumulated Context
 
@@ -159,3 +159,10 @@ All verification items passed. Milestone v1.1 Complete.
 
 - **14-01**: Git status monitoring (dirty indicator, change counts, ahead/behind, periodic refresh)
 - **14-02**: Branch switcher UI (dropdown, checkout IPC, git-store integration)
+
+### Phase 15: Alignment & Polish ✓
+
+- **15-01**: Layout alignment fixes (ContextView fill, StatusBar sizing, overflow handling)
+- **15-02**: Final polish and v1.2 completion (integration verification, documentation updates)
+
+All verification items passed. Milestone v1.2 Complete.
