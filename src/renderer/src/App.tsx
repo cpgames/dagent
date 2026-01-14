@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useFeatureStore, useViewStore, useAuthStore, useProjectStore } from './stores'
-import { KanbanView, DAGView, ContextView } from './views'
+import { KanbanView, DAGView, ContextView, AgentsView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
@@ -136,6 +136,7 @@ function App(): React.JSX.Element {
             {activeView === 'kanban' && <KanbanView />}
             {activeView === 'dag' && <DAGView />}
             {activeView === 'context' && <ContextView />}
+            {activeView === 'agents' && <AgentsView />}
           </main>
         </div>
 
