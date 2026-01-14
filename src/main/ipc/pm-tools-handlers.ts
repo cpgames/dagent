@@ -532,3 +532,370 @@ export function registerPMToolsHandlers(): void {
     }
   )
 }
+
+/**
+ * Direct function exports for MCP server (bypasses IPC)
+ * These allow the PM MCP server to call the same logic without going through IPC
+ */
+
+export async function pmCreateTask(input: CreateTaskInput): Promise<CreateTaskResult> {
+  if (!currentFeatureId) {
+    return { success: false, error: 'No feature selected' }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { success: false, error: 'Storage not initialized' }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { success: false, error: 'DAG not found' }
+    }
+
+    const position = calculatePosition(dag, input)
+
+    let status: TaskStatus = 'ready'
+    if (input.dependsOn && input.dependsOn.length > 0) {
+      const allDepsCompleted = input.dependsOn.every((depId) => {
+        const dep = dag.nodes.find((n) => n.id === depId)
+        return dep && dep.status === 'completed'
+      })
+      status = allDepsCompleted ? 'ready' : 'blocked'
+    } else if (dag.nodes.length > 0) {
+      status = 'blocked'
+    }
+
+    const newTask: Task = {
+      id: randomUUID(),
+      title: input.title,
+      description: input.description,
+      status,
+      locked: false,
+      position
+    }
+
+    dag.nodes.push(newTask)
+
+    if (input.dependsOn) {
+      for (const depId of input.dependsOn) {
+        if (dag.nodes.find((n) => n.id === depId)) {
+          dag.connections.push({ from: depId, to: newTask.id })
+        }
+      }
+    }
+
+    await storage.saveDag(currentFeatureId, dag)
+    return { success: true, taskId: newTask.id }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export async function pmListTasks(): Promise<ListTasksResult> {
+  if (!currentFeatureId) {
+    return { tasks: [] }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { tasks: [] }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { tasks: [] }
+    }
+
+    return {
+      tasks: dag.nodes.map((node) => ({
+        id: node.id,
+        title: node.title,
+        status: node.status,
+        description: node.description
+      }))
+    }
+  } catch {
+    return { tasks: [] }
+  }
+}
+
+export async function pmGetTask(input: GetTaskInput): Promise<GetTaskResult> {
+  if (!currentFeatureId) {
+    return { task: null, error: 'No feature selected' }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { task: null, error: 'Storage not initialized' }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { task: null, error: 'DAG not found' }
+    }
+
+    const task = dag.nodes.find((n) => n.id === input.taskId)
+    if (!task) {
+      return { task: null, error: 'Task not found' }
+    }
+
+    const dependencies = dag.connections.filter((c) => c.to === input.taskId).map((c) => c.from)
+    const dependents = dag.connections.filter((c) => c.from === input.taskId).map((c) => c.to)
+
+    return {
+      task: {
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        description: task.description,
+        dependencies,
+        dependents
+      }
+    }
+  } catch (error) {
+    return { task: null, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export async function pmUpdateTask(input: UpdateTaskInput): Promise<UpdateTaskResult> {
+  if (!currentFeatureId) {
+    return { success: false, error: 'No feature selected' }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { success: false, error: 'Storage not initialized' }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { success: false, error: 'DAG not found' }
+    }
+
+    const taskIndex = dag.nodes.findIndex((n) => n.id === input.taskId)
+    if (taskIndex < 0) {
+      return { success: false, error: 'Task not found' }
+    }
+
+    if (input.title !== undefined) {
+      dag.nodes[taskIndex].title = input.title
+    }
+    if (input.description !== undefined) {
+      dag.nodes[taskIndex].description = input.description
+    }
+
+    await storage.saveDag(currentFeatureId, dag)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export async function pmDeleteTask(input: DeleteTaskInput): Promise<DeleteTaskResult> {
+  if (!currentFeatureId) {
+    return { success: false, error: 'No feature selected' }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { success: false, error: 'Storage not initialized' }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { success: false, error: 'DAG not found' }
+    }
+
+    const task = dag.nodes.find((n) => n.id === input.taskId)
+    if (!task) {
+      return { success: false, error: 'Task not found' }
+    }
+
+    const mode = input.reassignDependents || 'reconnect'
+    const deletedTaskIds: string[] = [input.taskId]
+
+    const taskDependencies = dag.connections
+      .filter((c) => c.to === input.taskId)
+      .map((c) => c.from)
+
+    const taskDependents = dag.connections
+      .filter((c) => c.from === input.taskId)
+      .map((c) => c.to)
+
+    if (mode === 'cascade') {
+      const toDelete = new Set<string>([input.taskId])
+      const queue = [...taskDependents]
+
+      while (queue.length > 0) {
+        const depId = queue.shift()!
+        if (!toDelete.has(depId)) {
+          toDelete.add(depId)
+          deletedTaskIds.push(depId)
+          const nextDeps = dag.connections.filter((c) => c.from === depId).map((c) => c.to)
+          queue.push(...nextDeps)
+        }
+      }
+
+      dag.nodes = dag.nodes.filter((n) => !toDelete.has(n.id))
+      dag.connections = dag.connections.filter(
+        (c) => !toDelete.has(c.from) && !toDelete.has(c.to)
+      )
+    } else if (mode === 'reconnect') {
+      for (const dependentId of taskDependents) {
+        for (const depId of taskDependencies) {
+          const exists = dag.connections.some(
+            (c) => c.from === depId && c.to === dependentId
+          )
+          if (!exists) {
+            dag.connections.push({ from: depId, to: dependentId })
+          }
+        }
+      }
+
+      dag.nodes = dag.nodes.filter((n) => n.id !== input.taskId)
+      dag.connections = dag.connections.filter(
+        (c) => c.from !== input.taskId && c.to !== input.taskId
+      )
+    } else {
+      dag.nodes = dag.nodes.filter((n) => n.id !== input.taskId)
+      dag.connections = dag.connections.filter(
+        (c) => c.from !== input.taskId && c.to !== input.taskId
+      )
+    }
+
+    for (const node of dag.nodes) {
+      if (node.status === 'blocked') {
+        const nodeDeps = dag.connections.filter((c) => c.to === node.id).map((c) => c.from)
+        const allDepsComplete = nodeDeps.every((depId) => {
+          const dep = dag.nodes.find((n) => n.id === depId)
+          return dep && dep.status === 'completed'
+        })
+        if (nodeDeps.length === 0 || allDepsComplete) {
+          node.status = 'ready'
+        }
+      }
+    }
+
+    await storage.saveDag(currentFeatureId, dag)
+    return { success: true, deletedTaskIds }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export async function pmAddDependency(input: AddDependencyInput): Promise<AddDependencyResult> {
+  if (!currentFeatureId) {
+    return { success: false, error: 'No feature selected' }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { success: false, error: 'Storage not initialized' }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { success: false, error: 'DAG not found' }
+    }
+
+    const fromTask = dag.nodes.find((n) => n.id === input.fromTaskId)
+    const toTask = dag.nodes.find((n) => n.id === input.toTaskId)
+
+    if (!fromTask) {
+      return { success: false, error: `Task ${input.fromTaskId} not found` }
+    }
+    if (!toTask) {
+      return { success: false, error: `Task ${input.toTaskId} not found` }
+    }
+
+    const exists = dag.connections.some(
+      (c) => c.from === input.fromTaskId && c.to === input.toTaskId
+    )
+    if (exists) {
+      return { success: false, error: 'Dependency already exists' }
+    }
+
+    dag.connections.push({ from: input.fromTaskId, to: input.toTaskId })
+
+    if (toTask.status === 'ready' && fromTask.status !== 'completed') {
+      const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
+      if (toIndex >= 0) {
+        dag.nodes[toIndex].status = 'blocked'
+      }
+    }
+
+    await storage.saveDag(currentFeatureId, dag)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+export async function pmRemoveDependency(input: RemoveDependencyInput): Promise<RemoveDependencyResult> {
+  if (!currentFeatureId) {
+    return { success: false, error: 'No feature selected' }
+  }
+
+  try {
+    const storage = getFeatureStore()
+    if (!storage) {
+      return { success: false, error: 'Storage not initialized' }
+    }
+
+    const dag = await storage.loadDag(currentFeatureId)
+    if (!dag) {
+      return { success: false, error: 'DAG not found' }
+    }
+
+    const fromTask = dag.nodes.find((n) => n.id === input.fromTaskId)
+    const toTask = dag.nodes.find((n) => n.id === input.toTaskId)
+
+    if (!fromTask) {
+      return { success: false, error: `Task ${input.fromTaskId} not found` }
+    }
+    if (!toTask) {
+      return { success: false, error: `Task ${input.toTaskId} not found` }
+    }
+
+    const connectionIndex = dag.connections.findIndex(
+      (c) => c.from === input.fromTaskId && c.to === input.toTaskId
+    )
+    if (connectionIndex < 0) {
+      return { success: false, error: 'Dependency does not exist' }
+    }
+
+    dag.connections.splice(connectionIndex, 1)
+
+    let statusChanged = false
+    if (toTask.status === 'blocked') {
+      const remainingDeps = dag.connections
+        .filter((c) => c.to === input.toTaskId)
+        .map((c) => c.from)
+
+      const allRemainingComplete = remainingDeps.every((depId) => {
+        const dep = dag.nodes.find((n) => n.id === depId)
+        return dep && dep.status === 'completed'
+      })
+
+      if (remainingDeps.length === 0 || allRemainingComplete) {
+        const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
+        if (toIndex >= 0) {
+          dag.nodes[toIndex].status = 'ready'
+          statusChanged = true
+        }
+      }
+    }
+
+    await storage.saveDag(currentFeatureId, dag)
+    return { success: true, statusChanged }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}

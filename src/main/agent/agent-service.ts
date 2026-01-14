@@ -14,6 +14,7 @@ type SDKMessage = {
 import type { AgentQueryOptions, AgentStreamEvent } from './types'
 import { getToolsForPreset } from './tool-config'
 import { buildAgentPrompt } from './prompt-builders'
+import { createPMMcpServer, getPMToolNamesForAllowedTools } from './pm-mcp-server'
 
 // Dynamic import cache for ES module - use 'any' to avoid type conflicts with SDK
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,6 +36,9 @@ async function getSDK(): Promise<{ query: (opts: unknown) => SDKQuery } | null> 
 export class AgentService {
   private activeQuery: SDKQuery | null = null
   private lastToolUse: { name: string; input: unknown } | null = null
+  // Cache the PM MCP server
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private pmMcpServer: any = null
 
   async *streamQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
     try {
@@ -45,14 +49,38 @@ export class AgentService {
         return
       }
 
+      // Check if PM tools are needed
+      const isPMAgent = options.toolPreset === 'pmAgent' || options.agentType === 'pm'
+
       // Resolve tools from preset or explicit list
-      const tools =
+      let tools =
         options.allowedTools || (options.toolPreset ? getToolsForPreset(options.toolPreset) : [])
+
+      // For PM Agent, replace PM tool names with MCP-prefixed names
+      if (isPMAgent) {
+        // Filter out the old PM tool names (they won't work without MCP)
+        const pmToolNames = ['CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask']
+        tools = tools.filter(t => !pmToolNames.includes(t))
+        // Add the MCP-prefixed tool names
+        tools = [...tools, ...getPMToolNamesForAllowedTools()]
+      }
 
       const queryOptions: Record<string, unknown> = {
         cwd: options.cwd,
         allowedTools: tools,
         permissionMode: options.permissionMode || 'default'
+      }
+
+      // Add PM MCP server if PM tools are needed
+      if (isPMAgent) {
+        if (!this.pmMcpServer) {
+          this.pmMcpServer = await createPMMcpServer()
+        }
+        if (this.pmMcpServer) {
+          queryOptions.mcpServers = {
+            'pm-tools': this.pmMcpServer
+          }
+        }
       }
 
       // Build system prompt: autoContext takes priority over explicit systemPrompt
@@ -75,8 +103,22 @@ export class AgentService {
         queryOptions.systemPrompt = systemPrompt
       }
 
+      // MCP servers require streaming input (async generator for prompt)
+      // Create an async generator that yields the user message
+      const promptGenerator = isPMAgent && this.pmMcpServer
+        ? (async function* () {
+            yield {
+              type: 'user' as const,
+              message: {
+                role: 'user' as const,
+                content: options.prompt
+              }
+            }
+          })()
+        : options.prompt
+
       this.activeQuery = sdk.query({
-        prompt: options.prompt,
+        prompt: promptGenerator,
         options: queryOptions
       })
 
