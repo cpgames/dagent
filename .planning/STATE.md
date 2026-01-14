@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 **Milestone:** v1.5 UI Polish & Task Chat
 **Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 27 of 30 - Resizable Chat Panel
-Plan: 0 of 1 complete in phase
-Status: Plan ready
-Last activity: 2026-01-14 - Created 27-01-PLAN.md
+Phase: 27 of 30 - Resizable Chat Panel ✓
+Plan: 1 of 1 complete in phase
+Status: Phase complete
+Last activity: 2026-01-14 - Completed 27-01-PLAN.md
 
-Progress: ██████████ 100% (v1.4) | ██░░░░ 33% (v1.5)
+Progress: ██████████ 100% (v1.4) | ███░░░ 50% (v1.5)
 
-Next action: Execute 27-01-PLAN.md
+Next action: Plan Phase 28 (Task Agent Badges)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 52 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11)
+- Total plans completed: 55 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 3)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~270 min
 
@@ -41,8 +41,8 @@ Next action: Execute 27-01-PLAN.md
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 22-02, 23-01, 24-01, 24-02
-- Trend: v1.4 milestone complete (all 24 phases done)
+- Last 5 plans: 24-02, 25-01, 26-01, 27-01
+- Trend: v1.5 in progress (3/6 phases complete)
 
 ## Accumulated Context
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Created 27-01-PLAN.md
+Stopped at: Completed Phase 27
 Resume file: None
-Next action: Execute 27-01-PLAN.md
+Next action: Plan Phase 28 (Task Agent Badges)
 
 ## Completed Phases
 
@@ -229,6 +229,10 @@ All verification items passed. Milestone v1.4 Complete.
 ### Phase 26: Agent Logs View ✓
 
 - **26-01**: AgentLogsPanel component with filtering, logs tab in AgentsView, live polling
+
+### Phase 27: Resizable Chat Panel ✓
+
+- **27-01**: ResizeHandle component, width state in DAGView, localStorage persistence, CSS polish
 
 ---
 
