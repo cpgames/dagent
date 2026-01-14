@@ -91,7 +91,7 @@ export function ChatPanel({
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto" style={{ padding: '16px' }}>
         {isLoading ? (
           <div className="text-gray-400 text-center">Loading chat...</div>
         ) : messages.length === 0 && !streamingContent ? (
@@ -99,7 +99,11 @@ export function ChatPanel({
             No messages yet. Start a conversation.
           </div>
         ) : (
-          messages.map((m) => <ChatMessage key={m.id} message={m} />)
+          <div className="flex flex-col gap-2">
+            {messages.map((m) => (
+              <ChatMessage key={m.id} message={m} />
+            ))}
+          </div>
         )}
         {/* Tool usage display */}
         {activeToolUse && (
