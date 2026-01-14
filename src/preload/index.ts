@@ -43,6 +43,7 @@ import type {
   HarnessMessage,
   IntentionDecision
 } from '../main/agents/harness-types'
+import type { AgentQueryOptions, AgentStreamEvent } from '../main/agent/types'
 import type {
   TaskAgentState,
   TaskAgentStatus,
@@ -427,6 +428,19 @@ const electronAPI = {
   chat: {
     send: (request) => ipcRenderer.invoke('chat:send', request),
     getContext: (featureId: string) => ipcRenderer.invoke('chat:getContext', featureId)
+  },
+
+  // SDK Agent API (Agent SDK streaming)
+  sdkAgent: {
+    query: (options: AgentQueryOptions): Promise<void> =>
+      ipcRenderer.invoke('sdk-agent:query', options),
+    abort: (): Promise<void> => ipcRenderer.invoke('sdk-agent:abort'),
+    onStream: (callback: (event: AgentStreamEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent): void =>
+        callback(data)
+      ipcRenderer.on('sdk-agent:stream', handler)
+      return () => ipcRenderer.removeListener('sdk-agent:stream', handler)
+    }
   },
 
   // History API (undo/redo)

@@ -68,6 +68,7 @@ import type {
   ConflictResolution,
   MergeIntention
 } from '../main/agents/merge-types'
+import type { AgentQueryOptions, AgentStreamEvent } from '../main/agent/types'
 
 export interface AppInfo {
   version: string
@@ -844,6 +845,29 @@ export interface ChatAPI {
 }
 
 /**
+ * SDK Agent API for Agent SDK streaming.
+ * Enables streaming queries through the Claude Agent SDK.
+ */
+export interface SdkAgentAPI {
+  /**
+   * Start a streaming agent query.
+   * Events are received via onStream callback.
+   */
+  query: (options: AgentQueryOptions) => Promise<void>
+
+  /**
+   * Abort the current agent query.
+   */
+  abort: () => Promise<void>
+
+  /**
+   * Subscribe to stream events.
+   * Returns unsubscribe function.
+   */
+  onStream: (callback: (event: AgentStreamEvent) => void) => () => void
+}
+
+/**
  * History API for undo/redo graph versioning.
  * Implements DAGENT_SPEC 5.5 with 20-version history.
  */
@@ -967,6 +991,11 @@ export interface ElectronAPI {
    * Chat API for AI chat integration
    */
   chat: ChatAPI
+
+  /**
+   * SDK Agent API for Agent SDK streaming
+   */
+  sdkAgent: SdkAgentAPI
 }
 
 declare global {
