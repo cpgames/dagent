@@ -6,7 +6,7 @@
 
 import { EventEmitter } from 'events'
 import { simpleGit } from 'simple-git'
-import type { Task, DAGGraph } from '@shared/types'
+import type { Task, DAGGraph, TaskAgentMessage } from '@shared/types'
 import type {
   TaskAgentState,
   TaskAgentStatus,
@@ -21,6 +21,7 @@ import { getAgentPool } from './agent-pool'
 import { getHarnessAgent } from './harness-agent'
 import { getGitManager } from '../git'
 import { getAgentService } from '../agent'
+import { getFeatureStore } from '../ipc/storage-handlers'
 
 export class TaskAgent extends EventEmitter {
   private state: TaskAgentState
@@ -34,6 +35,48 @@ export class TaskAgent extends EventEmitter {
       taskId
     }
     this.config = { ...DEFAULT_TASK_AGENT_CONFIG, ...config }
+  }
+
+  /**
+   * Log a message to the task session.
+   * Creates session on first message if it doesn't exist.
+   */
+  private async logToSession(
+    direction: TaskAgentMessage['direction'],
+    type: TaskAgentMessage['type'],
+    content: string,
+    metadata?: TaskAgentMessage['metadata']
+  ): Promise<void> {
+    const store = getFeatureStore()
+    if (!store) return
+
+    const message: TaskAgentMessage = {
+      timestamp: new Date().toISOString(),
+      direction,
+      type,
+      content,
+      ...(metadata && { metadata })
+    }
+
+    await store.appendSessionMessage(this.state.featureId, this.state.taskId, message, {
+      agentId: this.state.agentId || 'unknown',
+      status: 'active'
+    })
+  }
+
+  /**
+   * Update the session status (completed or failed).
+   */
+  private async updateSessionStatus(status: 'completed' | 'failed'): Promise<void> {
+    const store = getFeatureStore()
+    if (!store) return
+
+    const session = await store.loadTaskSession(this.state.featureId, this.state.taskId)
+    if (!session) return
+
+    session.status = status
+    session.completedAt = new Date().toISOString()
+    await store.saveTaskSession(this.state.featureId, this.state.taskId, session)
   }
 
   /**
@@ -84,6 +127,9 @@ export class TaskAgent extends EventEmitter {
       this.state.error = 'Failed to load task context'
       return false
     }
+
+    // Log session initialization
+    await this.logToSession('task_to_harness', 'progress', 'Task agent initialized')
 
     return true
   }
@@ -175,6 +221,9 @@ export class TaskAgent extends EventEmitter {
     const intentionText = intention || this.generateIntention()
     this.state.intention = intentionText
 
+    // Log intention to session
+    await this.logToSession('task_to_harness', 'intention', intentionText)
+
     // Send to harness
     const harness = getHarnessAgent()
     harness.receiveIntention(this.state.agentId!, this.state.taskId, intentionText)
@@ -210,7 +259,7 @@ export class TaskAgent extends EventEmitter {
   /**
    * Receive approval decision from harness.
    */
-  receiveApproval(decision: IntentionDecision): void {
+  async receiveApproval(decision: IntentionDecision): Promise<void> {
     if (this.state.status !== 'awaiting_approval') {
       return
     }
@@ -218,6 +267,9 @@ export class TaskAgent extends EventEmitter {
     this.state.approval = decision
 
     if (decision.approved) {
+      // Log approval to session
+      await this.logToSession('harness_to_task', 'approval', decision.notes || 'Approved')
+
       this.state.status = 'approved'
       this.emit('task-agent:approved', decision)
 
@@ -229,6 +281,9 @@ export class TaskAgent extends EventEmitter {
         this.execute()
       }
     } else {
+      // Log rejection to session
+      await this.logToSession('harness_to_task', 'rejection', decision.reason || 'Intention rejected')
+
       this.state.status = 'failed'
       this.state.error = decision.reason || 'Intention rejected'
       this.emit('task-agent:rejected', decision)
@@ -249,6 +304,9 @@ export class TaskAgent extends EventEmitter {
 
     this.state.status = 'working'
     this.emit('task-agent:executing')
+
+    // Log execution start
+    await this.logToSession('task_to_harness', 'progress', 'Starting task execution')
 
     try {
       // Build execution prompt from context
@@ -309,10 +367,16 @@ export class TaskAgent extends EventEmitter {
       this.state.status = 'completed'
       this.state.completedAt = new Date().toISOString()
 
+      const completionSummary = summary || `Completed: ${this.state.task?.title}`
+
+      // Log completion and update session status
+      await this.logToSession('task_to_harness', 'completion', completionSummary)
+      await this.updateSessionStatus('completed')
+
       const result: TaskExecutionResult = {
         success: true,
         taskId: this.state.taskId,
-        summary: summary || `Completed: ${this.state.task?.title}`,
+        summary: completionSummary,
         commitHash: commitResult.commitHash,
         filesChanged: commitResult.filesChanged
       }
@@ -322,6 +386,10 @@ export class TaskAgent extends EventEmitter {
     } catch (error) {
       this.state.status = 'failed'
       this.state.error = (error as Error).message
+
+      // Log error and update session status
+      await this.logToSession('task_to_harness', 'error', this.state.error)
+      await this.updateSessionStatus('failed')
 
       const result: TaskExecutionResult = {
         success: false,
