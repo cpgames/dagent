@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 **Milestone:** v1.8 DAG Execution
 **Roadmap:** .planning/milestones/v1.8-ROADMAP.md
 
-Phase: 34 of 36 - Agent Assignment
-Plan: 34-01 Complete
-Status: Ready for Phase 35
-Last activity: 2026-01-14 - Completed Phase 34-01 agent assignment implementation
+Phase: 35 of 36 - Intention-Approval Workflow
+Plan: 35-01 Ready
+Status: Plan created, ready to execute
+Last activity: 2026-01-14 - Created Phase 35-01 plan for intention-approval wiring
 
-Progress: █████░░░░░ 50% (v1.8)
+Progress: ██████░░░░ 62% (v1.8)
 
-Next action: /gsd:plan-phase 35
+Next action: /gsd:execute-plan
 
 ## Performance Metrics
 
