@@ -45,7 +45,7 @@ export class GitManager {
     try {
       this.config = {
         baseDir: projectRoot,
-        worktreesDir: path.join(path.dirname(projectRoot), '.dagent-worktrees')
+        worktreesDir: path.join(projectRoot, '.dagent-worktrees')
       }
 
       const options: Partial<SimpleGitOptions> = {
