@@ -164,7 +164,9 @@ export class GitManager {
       if (checkout) {
         await this.git.checkoutLocalBranch(branchName)
       } else {
-        await this.git.branch([branchName])
+        // Create from current branch to avoid 'master' not found errors
+        const currentBranch = await this.getCurrentBranch()
+        await this.git.branch([branchName, currentBranch || 'HEAD'])
       }
       return { success: true }
     } catch (error) {

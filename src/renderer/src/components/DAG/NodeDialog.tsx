@@ -70,7 +70,7 @@ export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): 
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="px-6 py-4 space-y-4">
+          <div className="px-6 py-6" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {/* Name field */}
             <div>
               <label htmlFor="task-title" className="block text-sm font-medium text-gray-300 mb-1">
@@ -106,8 +106,8 @@ export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): 
             </div>
 
             {/* Status display (read-only) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-300">Status</label>
               <span
                 className={`inline-block px-3 py-1 text-sm font-medium rounded-full border capitalize ${statusBadgeColors[task.status]}`}
               >

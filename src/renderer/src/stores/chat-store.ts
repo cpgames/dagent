@@ -287,9 +287,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     })
 
-    // Get current project for cwd
+    // Get current project for cwd and selected task
     const projectState = useProjectStore.getState()
     const projectRoot = projectState.projectPath || undefined
+    const dagState = useDAGStore.getState()
+    const selectedTaskId = dagState.selectedNodeId || undefined
 
     // Start agent query with PM Agent tools and autoContext
     try {
@@ -301,6 +303,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         cwd: projectRoot,
         // Context options for autoContext
         featureId: currentFeatureId,
+        taskId: selectedTaskId, // Pass selected task to agent context
         agentType: 'pm',
         autoContext: true
       })

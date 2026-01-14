@@ -549,13 +549,15 @@ export async function pmCreateTask(input: CreateTaskInput): Promise<CreateTaskRe
       return { success: false, error: 'Storage not initialized' }
     }
 
-    const dag = await storage.loadDag(currentFeatureId)
+    // Load existing DAG or create empty one if it doesn't exist
+    let dag = await storage.loadDag(currentFeatureId)
     if (!dag) {
-      return { success: false, error: 'DAG not found' }
+      dag = { nodes: [], connections: [] }
     }
 
     const position = calculatePosition(dag, input)
 
+    // First task is always ready, subsequent tasks without deps are blocked
     let status: TaskStatus = 'ready'
     if (input.dependsOn && input.dependsOn.length > 0) {
       const allDepsCompleted = input.dependsOn.every((depId) => {

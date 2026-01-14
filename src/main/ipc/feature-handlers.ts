@@ -1,0 +1,166 @@
+import { ipcMain } from 'electron'
+import { getGitManager } from '../git/git-manager'
+import { getAgentPool } from '../agents/agent-pool'
+import { getFeatureStore } from './storage-handlers'
+import { getFeatureWorktreeName, getFeatureBranchName } from '../git/types'
+import * as path from 'path'
+
+export interface FeatureDeleteOptions {
+  deleteBranch?: boolean
+  force?: boolean
+}
+
+export interface FeatureDeleteResult {
+  success: boolean
+  deletedBranch?: boolean
+  deletedWorktrees?: number
+  terminatedAgents?: number
+  error?: string
+}
+
+/**
+ * Register feature-level IPC handlers.
+ * Handles feature lifecycle operations like deletion with full cleanup.
+ */
+export function registerFeatureHandlers(): void {
+  /**
+   * Delete a feature with comprehensive cleanup:
+   * 1. Terminate agents working on this feature's tasks
+   * 2. Remove all task worktrees for the feature
+   * 3. Remove the feature worktree
+   * 4. Delete the feature branch (if option is true)
+   * 5. Delete feature storage (.dagent/worktrees/{featureId}/)
+   */
+  ipcMain.handle(
+    'feature:delete',
+    async (
+      _event,
+      featureId: string,
+      options: FeatureDeleteOptions = {}
+    ): Promise<FeatureDeleteResult> => {
+      const { deleteBranch = true, force = false } = options
+      const errors: string[] = []
+      let deletedWorktrees = 0
+      let terminatedAgents = 0
+      let deletedBranchSuccess = false
+
+      try {
+        const gitManager = getGitManager()
+        const agentPool = getAgentPool()
+        const featureStore = getFeatureStore()
+
+        // Get branch name for this feature
+        const featureBranchName = getFeatureBranchName(featureId)
+
+        // Step 1: Terminate any agents working on this feature's tasks
+        const agents = agentPool.getAgents()
+        for (const agent of agents) {
+          if (agent.featureId === featureId && agent.status !== 'terminated') {
+            const terminated = agentPool.terminateAgent(agent.id)
+            if (terminated) {
+              terminatedAgents++
+            }
+          }
+        }
+
+        // Step 2: List and remove all task worktrees for the feature
+        if (gitManager.isInitialized()) {
+          const worktrees = await gitManager.listWorktrees()
+          const config = gitManager.getConfig()
+
+          // Find task worktrees for this feature (pattern: featureId--task-*)
+          const featureWorktreePrefix = `${featureId}--task-`
+          for (const worktree of worktrees) {
+            const worktreeDirName = path.basename(worktree.path)
+            if (worktreeDirName.startsWith(featureWorktreePrefix)) {
+              try {
+                // Remove task worktree and its branch
+                const result = await gitManager.removeWorktree(worktree.path, true)
+                if (result.success) {
+                  deletedWorktrees++
+                } else if (result.error) {
+                  errors.push(`Task worktree ${worktreeDirName}: ${result.error}`)
+                }
+              } catch (err) {
+                errors.push(`Task worktree ${worktreeDirName}: ${(err as Error).message}`)
+              }
+            }
+          }
+
+          // Step 3: Remove the feature worktree
+          const featureWorktreeName = getFeatureWorktreeName(featureId)
+          const featureWorktreePath = path.join(config.worktreesDir, featureWorktreeName)
+
+          const featureWorktree = worktrees.find((w) => w.path === featureWorktreePath)
+          if (featureWorktree) {
+            try {
+              // Don't delete branch here - we'll do it separately if option is set
+              const result = await gitManager.removeWorktree(featureWorktreePath, false)
+              if (result.success) {
+                deletedWorktrees++
+              } else if (result.error) {
+                errors.push(`Feature worktree: ${result.error}`)
+              }
+            } catch (err) {
+              errors.push(`Feature worktree: ${(err as Error).message}`)
+            }
+          }
+
+          // Step 4: Delete the feature branch (if option is true)
+          if (deleteBranch) {
+            try {
+              const branchExists = await gitManager.branchExists(featureBranchName)
+              if (branchExists) {
+                const result = await gitManager.deleteBranch(featureBranchName, force)
+                if (result.success) {
+                  deletedBranchSuccess = true
+                } else if (result.error) {
+                  errors.push(`Branch deletion: ${result.error}`)
+                }
+              } else {
+                deletedBranchSuccess = true // Branch didn't exist, consider it "deleted"
+              }
+            } catch (err) {
+              errors.push(`Branch deletion: ${(err as Error).message}`)
+            }
+          }
+        }
+
+        // Step 5: Delete the feature storage
+        try {
+          if (featureStore) {
+            await featureStore.deleteFeature(featureId)
+          }
+        } catch (err) {
+          errors.push(`Storage deletion: ${(err as Error).message}`)
+        }
+
+        // Return result
+        if (errors.length > 0) {
+          return {
+            success: false,
+            deletedBranch: deletedBranchSuccess,
+            deletedWorktrees,
+            terminatedAgents,
+            error: errors.join('; ')
+          }
+        }
+
+        return {
+          success: true,
+          deletedBranch: deleteBranch ? deletedBranchSuccess : undefined,
+          deletedWorktrees,
+          terminatedAgents
+        }
+      } catch (error) {
+        return {
+          success: false,
+          deletedBranch: deletedBranchSuccess,
+          deletedWorktrees,
+          terminatedAgents,
+          error: (error as Error).message
+        }
+      }
+    }
+  )
+}

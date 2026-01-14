@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd DAGENT specification document\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\ndocs: initialize DAGent\n\nDependency-aware AI agent orchestration for autonomous software development.\n\nCreates PROJECT.md with requirements and constraints.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\ndocs: initialize DAGent \\(7 phases\\)\n\nDependency-aware AI agent orchestration for autonomous software development.\n\nPhases:\n1. Foundation: Electron + React + TypeScript project setup\n2. Data Model & Storage: Core types, JSON persistence\n3. DAG Engine: Dependency resolution, topological ordering\n4. Git Integration: Worktree management, branch operations\n5. Agent System: Harness/task/merge agents, intention-approval\n6. UI Views: Kanban, DAG graph, Context views\n7. Polish & Integration: Auth, chat, undo/redo\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Skill(gsd:plan-phase)",
+      "Skill(gsd:plan-phase:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir \"%APPDATA%\\\\Claude\")",
+      "Bash(dir \"%LOCALAPPDATA%\\\\Claude\")",
+      "Bash(dir \"%USERPROFILE%\\\\.claude\")",
+      "Bash(dir /s /b \"%USERPROFILE%\\\\.claude*\")",
+      "Bash(dir /s /b \"%APPDATA%\\\\claude-code\")",
+      "Bash(powershell -Command:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(grep:*)",
+      "Skill(gsd:create-roadmap)",
+      "Skill(gsd:create-roadmap:*)",
+      "Bash(npx tsc:*)",
+      "Skill(gsd:new-milestone)",
+      "Skill(gsd:new-milestone:*)"
+    ]
+  }
+}

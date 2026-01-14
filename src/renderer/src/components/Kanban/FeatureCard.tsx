@@ -4,6 +4,7 @@ interface FeatureCardProps {
   feature: Feature;
   onSelect: (featureId: string) => void;
   onArchive?: (featureId: string) => void;
+  onDelete?: (featureId: string) => void;
 }
 
 /**
@@ -17,11 +18,34 @@ const statusColors: Record<FeatureStatus, string> = {
 };
 
 /**
- * FeatureCard - Displays a single feature in the Kanban board.
- * Shows feature name, task progress placeholder, and archive button for completed features.
+ * Trash icon SVG component
  */
-export default function FeatureCard({ feature, onSelect, onArchive }: FeatureCardProps) {
+function TrashIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
+
+/**
+ * FeatureCard - Displays a single feature in the Kanban board.
+ * Shows feature name, task progress placeholder, archive button for completed features,
+ * and delete button on hover (except for in_progress features).
+ */
+export default function FeatureCard({ feature, onSelect, onArchive, onDelete }: FeatureCardProps) {
   const borderColor = statusColors[feature.status];
+  const canDelete = feature.status !== 'in_progress';
 
   const handleClick = () => {
     onSelect(feature.id);
@@ -32,9 +56,14 @@ export default function FeatureCard({ feature, onSelect, onArchive }: FeatureCar
     onArchive?.(feature.id);
   };
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering onSelect
+    onDelete?.(feature.id);
+  };
+
   return (
     <div
-      className="bg-gray-800 rounded-lg p-4 cursor-pointer transition-all hover:ring-1 hover:ring-gray-600"
+      className="group bg-gray-800 rounded-lg p-4 cursor-pointer transition-all hover:ring-1 hover:ring-gray-600"
       style={{ borderLeft: `4px solid ${borderColor}` }}
       onClick={handleClick}
       role="button"
@@ -45,11 +74,25 @@ export default function FeatureCard({ feature, onSelect, onArchive }: FeatureCar
         }
       }}
     >
-      <h3 className="text-white font-medium mb-2 truncate" title={feature.name}>
-        {feature.name}
-      </h3>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-white font-medium truncate flex-1" title={feature.name}>
+          {feature.name}
+        </h3>
 
-      <div className="flex items-center justify-end">
+        {/* Delete button - shown on hover, hidden for in_progress features */}
+        {canDelete && onDelete && (
+          <button
+            className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1 -m-1"
+            onClick={handleDelete}
+            aria-label={`Delete ${feature.name}`}
+            title="Delete feature"
+          >
+            <TrashIcon />
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end mt-2">
         {feature.status === 'completed' && onArchive && (
           <button
             className="text-sm text-gray-400 hover:text-white transition-colors"

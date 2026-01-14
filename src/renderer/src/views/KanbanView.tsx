@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
 import { KanbanColumn } from '../components/Kanban';
+import { DeleteFeatureDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
 
 /**
@@ -20,8 +21,12 @@ const columns: { title: string; status: FeatureStatus }[] = [
  * Shows the workflow state of all features with navigation to DAG view.
  */
 export default function KanbanView() {
-  const { features, isLoading, setActiveFeature, removeFeature } = useFeatureStore();
+  const { features, isLoading, setActiveFeature, removeFeature, deleteFeature } = useFeatureStore();
   const setView = useViewStore((state) => state.setView);
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
 
   // Group features by status
   const featuresByStatus = useMemo(() => {
@@ -52,6 +57,24 @@ export default function KanbanView() {
     removeFeature(featureId);
   };
 
+  // Handle feature delete - opens confirmation dialog
+  const handleDeleteFeature = (featureId: string) => {
+    const feature = features.find((f) => f.id === featureId);
+    if (feature) {
+      setFeatureToDelete(feature);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  // Handle delete confirmation
+  const handleConfirmDelete = async (deleteBranch: boolean) => {
+    if (featureToDelete) {
+      await deleteFeature(featureToDelete.id, deleteBranch);
+      setDeleteDialogOpen(false);
+      setFeatureToDelete(null);
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -62,19 +85,31 @@ export default function KanbanView() {
   }
 
   return (
-    <div className="h-full p-4">
-      <div className="flex gap-4 h-full overflow-x-auto">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.status}
-            title={column.title}
-            status={column.status}
-            features={featuresByStatus[column.status]}
-            onSelectFeature={handleSelectFeature}
-            onArchiveFeature={handleArchiveFeature}
-          />
-        ))}
+    <>
+      <div className="h-full p-4">
+        <div className="flex gap-4 h-full overflow-x-auto">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.status}
+              title={column.title}
+              status={column.status}
+              features={featuresByStatus[column.status]}
+              onSelectFeature={handleSelectFeature}
+              onArchiveFeature={handleArchiveFeature}
+              onDeleteFeature={handleDeleteFeature}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+      <DeleteFeatureDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setFeatureToDelete(null);
+        }}
+        feature={featureToDelete}
+        onConfirm={handleConfirmDelete}
+      />
+    </>
   );
 }

@@ -13,6 +13,7 @@ interface ExecutionState {
 interface ExecutionStoreState {
   execution: ExecutionState
   isLoading: boolean
+  activePollId: number | null
 
   // Actions
   start: (featureId: string) => Promise<{ success: boolean; error?: string }>
@@ -22,7 +23,9 @@ interface ExecutionStoreState {
   getState: () => Promise<void>
 }
 
-export const useExecutionStore = create<ExecutionStoreState>((set) => ({
+const POLL_INTERVAL_MS = 2000
+
+export const useExecutionStore = create<ExecutionStoreState>((set, get) => ({
   execution: {
     status: 'idle',
     featureId: null,
@@ -30,6 +33,7 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
     startedAt: null
   },
   isLoading: false,
+  activePollId: null,
 
   start: async (featureId) => {
     set({ isLoading: true })
@@ -49,6 +53,38 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       const result = await window.electronAPI.execution.start()
       if (result.success) {
         const state = await window.electronAPI.execution.getState()
+        // Clear any existing poll
+        const existingPollId = get().activePollId
+        if (existingPollId) {
+          window.clearInterval(existingPollId)
+        }
+
+        // Start polling for state updates
+        const pollId = window.setInterval(async () => {
+          try {
+            const polledState = await window.electronAPI.execution.getState()
+            set({
+              execution: {
+                status: polledState.status,
+                featureId: polledState.featureId,
+                error: polledState.error,
+                startedAt: polledState.startedAt
+              }
+            })
+            // Stop polling if execution ended
+            if (
+              polledState.status === 'idle' ||
+              polledState.status === 'completed' ||
+              polledState.status === 'failed'
+            ) {
+              window.clearInterval(pollId)
+              set({ activePollId: null })
+            }
+          } catch {
+            // Ignore polling errors
+          }
+        }, POLL_INTERVAL_MS)
+
         set({
           execution: {
             status: state.status,
@@ -56,7 +92,8 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             error: state.error,
             startedAt: state.startedAt
           },
-          isLoading: false
+          isLoading: false,
+          activePollId: pollId
         })
         toast.success('Execution started')
       } else {
@@ -136,6 +173,12 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
   stop: async () => {
     set({ isLoading: true })
     try {
+      // Clear polling interval
+      const existingPollId = get().activePollId
+      if (existingPollId) {
+        window.clearInterval(existingPollId)
+      }
+
       const result = await window.electronAPI.execution.stop()
       if (result.success) {
         set({
@@ -145,7 +188,8 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             error: null,
             startedAt: null
           },
-          isLoading: false
+          isLoading: false,
+          activePollId: null
         })
         toast.info('Execution stopped')
       } else {

@@ -21,6 +21,7 @@ interface FeatureState {
   loadFeatures: () => Promise<void>;
   saveFeature: (feature: Feature) => Promise<void>;
   createFeature: (name: string) => Promise<Feature | null>;
+  deleteFeature: (featureId: string, deleteBranch?: boolean) => Promise<boolean>;
 }
 
 export const useFeatureStore = create<FeatureState>((set, get) => ({
@@ -104,6 +105,48 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
       toast.error(`Failed to create feature: ${message}`);
       console.error('Failed to create feature:', error);
       return null;
+    }
+  },
+
+  deleteFeature: async (featureId, deleteBranch = true) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await window.electronAPI.feature.delete(featureId, { deleteBranch });
+
+      if (result.success) {
+        // Remove from local state
+        get().removeFeature(featureId);
+
+        // Show success toast with details
+        const details: string[] = [];
+        if (result.deletedWorktrees && result.deletedWorktrees > 0) {
+          details.push(`${result.deletedWorktrees} worktree(s)`);
+        }
+        if (result.deletedBranch) {
+          details.push('branch');
+        }
+        if (result.terminatedAgents && result.terminatedAgents > 0) {
+          details.push(`${result.terminatedAgents} agent(s)`);
+        }
+
+        const detailsStr = details.length > 0 ? ` (cleaned up ${details.join(', ')})` : '';
+        toast.success(`Feature deleted${detailsStr}`);
+
+        set({ isLoading: false });
+        return true;
+      } else {
+        const message = result.error || 'Unknown error';
+        set({ error: message, isLoading: false });
+        toast.error(`Failed to delete feature: ${message}`);
+        console.error('Failed to delete feature:', result.error);
+        return false;
+      }
+    } catch (error) {
+      const message = (error as Error).message;
+      set({ error: message, isLoading: false });
+      toast.error(`Failed to delete feature: ${message}`);
+      console.error('Failed to delete feature:', error);
+      return false;
     }
   },
 }));

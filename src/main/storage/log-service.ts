@@ -22,8 +22,14 @@ class LogService {
     // Load existing or use cache
     let entries = this.cache.get(featureId)
     if (!entries) {
-      const existing = await store.loadHarnessLog(featureId)
-      entries = existing?.entries || []
+      try {
+        const existing = await store.loadHarnessLog(featureId)
+        entries = existing?.entries || []
+      } catch (error) {
+        // Log file corrupted - start fresh
+        console.warn(`[LogService] Corrupted harness_log.json for ${featureId}, starting fresh:`, error)
+        entries = []
+      }
       this.cache.set(featureId, entries)
     }
 

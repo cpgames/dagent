@@ -7,6 +7,7 @@ interface KanbanColumnProps {
   features: Feature[];
   onSelectFeature: (featureId: string) => void;
   onArchiveFeature: (featureId: string) => void;
+  onDeleteFeature: (featureId: string) => void;
 }
 
 /**
@@ -29,6 +30,7 @@ export default function KanbanColumn({
   features,
   onSelectFeature,
   onArchiveFeature,
+  onDeleteFeature,
 }: KanbanColumnProps) {
   const titleColor = statusColors[status];
   const count = features.length;
@@ -61,6 +63,7 @@ export default function KanbanColumn({
               feature={feature}
               onSelect={onSelectFeature}
               onArchive={status === 'completed' ? onArchiveFeature : undefined}
+              onDelete={onDeleteFeature}
             />
           ))
         )}
