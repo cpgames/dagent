@@ -8,6 +8,7 @@ import {
   type FeatureContext
 } from '../chat'
 import { getFeatureStore } from './storage-handlers'
+import { setPMToolsFeatureContext } from './pm-tools-handlers'
 
 export interface ContextResult {
   context: FeatureContext
@@ -32,6 +33,9 @@ export function registerChatHandlers(): void {
       const dag = await featureStore.loadDag(featureId)
       const context = buildFeatureContext(feature, dag)
       const systemPrompt = buildSystemPrompt(context)
+
+      // Set PM tools feature context for task management operations
+      setPMToolsFeatureContext(featureId)
 
       return { context, systemPrompt }
     }

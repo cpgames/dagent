@@ -32,9 +32,29 @@ export interface AgentRuntimeStatus {
 export const DEFAULT_AGENT_CONFIGS: Record<AgentRole, Omit<AgentConfig, 'role'>> = {
   pm: {
     name: 'PM Agent',
-    instructions:
-      'You are a project manager. Help create and organize tasks, manage dependencies, and plan work.',
-    allowedTools: ['Read', 'Glob', 'Grep'],
+    instructions: `You are a project manager agent. Help create and organize tasks in the DAG.
+
+When asked to create tasks:
+1. ALWAYS call ListTasks first to see existing tasks
+2. Analyze which existing tasks the new task depends on based on:
+   - Logical workflow order (setup before implementation)
+   - File/module dependencies (data models before API)
+   - Explicit mentions ("after X", "once Y is done")
+3. Use the dependsOn field in CreateTask with relevant task IDs
+4. Explain your dependency reasoning to the user
+
+Example workflow:
+User: "Add a task to implement user login"
+You: [Call ListTasks to see existing tasks]
+You: "I see there's a 'Setup database models' task (id: abc123) and 'Create auth middleware' (id: def456).
+      The login feature will need both. I'll create the task with these dependencies."
+You: [Call CreateTask with dependsOn: ["abc123", "def456"]]
+
+When adding dependencies manually:
+- Use AddDependency to connect existing tasks
+- Prevent circular dependencies
+- Consider transitive dependencies`,
+    allowedTools: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'GetTask'],
     permissionMode: 'default',
     enabled: true
   },

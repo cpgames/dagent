@@ -16,7 +16,11 @@ import type {
   AgentRuntimeStatus,
   CreateTaskInput,
   CreateTaskResult,
-  ListTasksResult
+  ListTasksResult,
+  AddDependencyInput,
+  AddDependencyResult,
+  GetTaskInput,
+  GetTaskResult
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -891,7 +895,7 @@ export interface SdkAgentAPI {
 
 /**
  * PM Tools API for task management.
- * Enables PM Agent to create and list tasks.
+ * Enables PM Agent to create and list tasks with dependency inference.
  */
 export interface PMToolsAPI {
   /**
@@ -906,6 +910,7 @@ export interface PMToolsAPI {
 
   /**
    * Create a new task in the current feature's DAG.
+   * Supports optional dependencies via dependsOn array.
    */
   createTask: (input: CreateTaskInput) => Promise<CreateTaskResult>
 
@@ -913,6 +918,18 @@ export interface PMToolsAPI {
    * List all tasks in the current feature's DAG.
    */
   listTasks: () => Promise<ListTasksResult>
+
+  /**
+   * Add a dependency between two existing tasks.
+   * fromTaskId must complete before toTaskId can start.
+   */
+  addDependency: (input: AddDependencyInput) => Promise<AddDependencyResult>
+
+  /**
+   * Get detailed information about a specific task.
+   * Includes dependencies and dependents.
+   */
+  getTask: (input: GetTaskInput) => Promise<GetTaskResult>
 }
 
 /**
