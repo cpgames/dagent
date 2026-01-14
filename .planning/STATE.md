@@ -13,13 +13,13 @@ See: .planning/PROJECT.md (updated 2026-01-14)
 **Roadmap:** .planning/ROADMAP.md
 
 Phase: 37 of 40 (Task Agent Sessions)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-14 - Created v1.9 milestone
+Plan: 37-01-PLAN.md (Session Types and Storage)
+Status: Ready to execute
+Last activity: 2026-01-14 - Created Phase 37-01 plan
 
 Progress: ░░░░░░░░░░ 0%
 
-Next action: /gsd:plan-phase 37
+Next action: /gsd:execute-plan 37-01
 
 ## Performance Metrics
 
