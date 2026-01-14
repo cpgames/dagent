@@ -10,21 +10,35 @@ None
 
 ## Milestones
 
-### v1.3 Claude Agent SDK Migration (Active)
+### v1.4 Agent System Overhaul (Active)
 
-Migrate from raw Anthropic SDK to Claude Agent SDK for seamless authentication and built-in agent capabilities.
+Major overhaul of the agent system with unified chat UI, configurable agent roles, intelligent task management, and universal context access.
 
 | Phase | Description | Plans | Status |
 |-------|-------------|-------|--------|
-| 16. Agent SDK Integration | Install SDK, replace ChatService | 3 | Complete |
-| 17. Agent Tools & Permissions | Configure tools, permission callbacks | 2 | Planned |
-| 18. Task Agent Migration | Migrate harness/task/merge agents | 2-3 | Planned |
+| 19. Centralized Chat Component | Unified ChatPanel with agent name, clear button | 2-3 | Planned |
+| 20. Agents View | Sidebar view for agent configuration and status | 2-3 | Planned |
+| 21. Task Creation from Chat | PM Agent creates tasks with dependency inference | 2 | Planned |
+| 22. PM Agent CRUD Operations | Full task management via PM Agent | 2 | Planned |
+| 23. Feature Deletion | Safe deletion with cleanup | 1-2 | Planned |
+| 24. Universal Context Access | Codebase/project context for all agents | 2 | Planned |
 
-**Total:** 3 phases, ~7 plans
+**Total:** 6 phases, ~12-16 plans
 
-See [v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for details.
+See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Completed Milestones
+
+<details>
+<summary>v1.3 Claude Agent SDK Migration (Phases 16-18) - SHIPPED 2026-01-13</summary>
+
+- [x] **Phase 16: Agent SDK Integration** - Install SDK, AgentService wrapper, IPC (3/3 plans)
+- [x] **Phase 17: Agent Tools & Permissions** - Tool presets, ToolUsageDisplay (2/2 plans)
+- [x] **Phase 18: Task Agent Migration** - Harness, Task, Merge agent SDK migration (3/3 plans)
+
+**Total:** 3 phases, 8 plans
+
+</details>
 
 <details>
 <summary>v1.2 UX Overhaul (Phases 11-15) - SHIPPED 2026-01-13</summary>
@@ -80,7 +94,15 @@ See [v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for details.
 | 9. Feature Creation | v1.1 | 3/3 | Complete | 2026-01-13 |
 | 10. UI Polish | v1.1 | 4/4 | Complete | 2026-01-13 |
 
-**v1.0 + v1.1 + v1.2 complete.** 15 phases, 45 plans shipped.
+**v1.0 + v1.1 + v1.2 + v1.3 complete.** 18 phases, 53 plans shipped.
+
+## v1.3 Claude Agent SDK Migration (Complete)
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 16. Agent SDK Integration | v1.3 | 3/3 | Complete | 2026-01-13 |
+| 17. Agent Tools & Permissions | v1.3 | 2/2 | Complete | 2026-01-13 |
+| 18. Task Agent Migration | v1.3 | 3/3 | Complete | 2026-01-13 |
 
 ## v1.2 UX Overhaul (Complete)
 
