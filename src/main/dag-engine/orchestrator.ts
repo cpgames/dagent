@@ -12,7 +12,7 @@ import type { TaskStateChange } from './task-controller'
 import { transitionTask, createStateChangeRecord } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
 import { getReadyTasks } from './analyzer'
-import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent } from '../agents'
+import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent, getAgentPool } from '../agents'
 import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
 import type { HarnessMessage } from '../agents/harness-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
@@ -195,6 +195,13 @@ export class ExecutionOrchestrator {
     harness.stop()
     harness.reset()
     console.log('[Orchestrator] Harness agent stopped and reset')
+
+    // Cleanup terminated agents from pool
+    const pool = getAgentPool()
+    const cleaned = pool.cleanup()
+    if (cleaned > 0) {
+      console.log(`[Orchestrator] Cleaned up ${cleaned} terminated agents from pool`)
+    }
 
     // Clear log cache to ensure fresh loads next time
     if (this.state.featureId) {
