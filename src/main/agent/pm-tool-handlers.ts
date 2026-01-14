@@ -10,7 +10,11 @@ import type {
   AddDependencyInput,
   AddDependencyResult,
   GetTaskInput,
-  GetTaskResult
+  GetTaskResult,
+  UpdateTaskInput,
+  UpdateTaskResult,
+  DeleteTaskInput,
+  DeleteTaskResult
 } from '@shared/types'
 
 /**
@@ -29,6 +33,8 @@ let listTasksHandler: (() => Promise<ListTasksResult>) | null = null
 let addDependencyHandler: ((input: AddDependencyInput) => Promise<AddDependencyResult>) | null =
   null
 let getTaskHandler: ((input: GetTaskInput) => Promise<GetTaskResult>) | null = null
+let updateTaskHandler: ((input: UpdateTaskInput) => Promise<UpdateTaskResult>) | null = null
+let deleteTaskHandler: ((input: DeleteTaskInput) => Promise<DeleteTaskResult>) | null = null
 
 export function setCreateTaskHandler(
   handler: (input: CreateTaskInput) => Promise<CreateTaskResult>
@@ -50,11 +56,25 @@ export function setGetTaskHandler(handler: (input: GetTaskInput) => Promise<GetT
   getTaskHandler = handler
 }
 
+export function setUpdateTaskHandler(
+  handler: (input: UpdateTaskInput) => Promise<UpdateTaskResult>
+): void {
+  updateTaskHandler = handler
+}
+
+export function setDeleteTaskHandler(
+  handler: (input: DeleteTaskInput) => Promise<DeleteTaskResult>
+): void {
+  deleteTaskHandler = handler
+}
+
 export function clearPMToolHandlers(): void {
   createTaskHandler = null
   listTasksHandler = null
   addDependencyHandler = null
   getTaskHandler = null
+  updateTaskHandler = null
+  deleteTaskHandler = null
 }
 
 /**
@@ -73,6 +93,12 @@ export async function executePMTool(toolName: string, input: unknown): Promise<u
   if (toolName === 'GetTask' && getTaskHandler) {
     return getTaskHandler(input as GetTaskInput)
   }
+  if (toolName === 'UpdateTask' && updateTaskHandler) {
+    return updateTaskHandler(input as UpdateTaskInput)
+  }
+  if (toolName === 'DeleteTask' && deleteTaskHandler) {
+    return deleteTaskHandler(input as DeleteTaskInput)
+  }
   return { success: false, error: `Unknown PM tool: ${toolName}` }
 }
 
@@ -84,7 +110,9 @@ export function isPMTool(toolName: string): boolean {
     toolName === 'CreateTask' ||
     toolName === 'ListTasks' ||
     toolName === 'AddDependency' ||
-    toolName === 'GetTask'
+    toolName === 'GetTask' ||
+    toolName === 'UpdateTask' ||
+    toolName === 'DeleteTask'
   )
 }
 
@@ -184,6 +212,62 @@ export const PM_TOOLS: PMToolHandler[] = [
       }
       return getTaskHandler(input as GetTaskInput)
     }
+  },
+  {
+    name: 'UpdateTask',
+    description:
+      'Update an existing task. Use this to modify task title or description. Only provided fields will be updated.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskId: {
+          type: 'string',
+          description: 'The ID of the task to update'
+        },
+        title: {
+          type: 'string',
+          description: 'New title for the task (optional)'
+        },
+        description: {
+          type: 'string',
+          description: 'New description for the task (optional)'
+        }
+      },
+      required: ['taskId']
+    },
+    handler: async (input: unknown): Promise<UpdateTaskResult> => {
+      if (!updateTaskHandler) {
+        return { success: false, error: 'UpdateTask handler not initialized' }
+      }
+      return updateTaskHandler(input as UpdateTaskInput)
+    }
+  },
+  {
+    name: 'DeleteTask',
+    description:
+      'Delete a task from the DAG. Use reassignDependents to control how dependent tasks are handled: "reconnect" (default) connects dependents to this task\'s dependencies, "cascade" deletes all transitive dependents, "orphan" leaves dependents with missing dependency.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskId: {
+          type: 'string',
+          description: 'The ID of the task to delete'
+        },
+        reassignDependents: {
+          type: 'string',
+          enum: ['cascade', 'orphan', 'reconnect'],
+          description:
+            'How to handle dependent tasks: reconnect (default), cascade (delete dependents), orphan (leave orphaned)'
+        }
+      },
+      required: ['taskId']
+    },
+    handler: async (input: unknown): Promise<DeleteTaskResult> => {
+      if (!deleteTaskHandler) {
+        return { success: false, error: 'DeleteTask handler not initialized' }
+      }
+      return deleteTaskHandler(input as DeleteTaskInput)
+    }
   }
 ]
 
@@ -198,13 +282,28 @@ You have access to the following task management tools:
 
 ### ListTasks
 Lists all existing tasks in the current feature's DAG.
-**ALWAYS call this first** before creating tasks to understand existing dependencies.
+**ALWAYS call this first** before creating, updating, or deleting tasks to understand existing dependencies.
 
 ### CreateTask
 Creates a new task in the current feature's DAG (Directed Acyclic Graph).
 - title: Task title (required)
 - description: Detailed description (required)
 - dependsOn: Array of task IDs this task depends on (optional)
+
+### UpdateTask
+Updates an existing task's title or description.
+- taskId: The ID of the task to update (required)
+- title: New title for the task (optional)
+- description: New description for the task (optional)
+Only provided fields will be updated.
+
+### DeleteTask
+Deletes a task from the DAG with dependency handling.
+- taskId: The ID of the task to delete (required)
+- reassignDependents: How to handle dependent tasks (optional):
+  - "reconnect" (default): Dependents inherit this task's dependencies
+  - "cascade": Delete this task and all its transitive dependents
+  - "orphan": Just delete this task, leave dependents with missing dependency
 
 ### AddDependency
 Adds a dependency between two existing tasks.
@@ -225,5 +324,22 @@ When asked to create tasks:
    - Explicit mentions ("after X", "once Y is done")
 3. Use dependsOn in CreateTask with relevant task IDs
 4. Explain your dependency reasoning to the user
+
+## Updating Tasks
+When asked to modify a task:
+1. Call ListTasks to find the task ID
+2. Call UpdateTask with the taskId and the fields to change
+3. Confirm the changes to the user
+
+## Deleting Tasks
+When asked to delete a task:
+1. Call ListTasks to find the task ID and understand its dependencies
+2. Call GetTask to see what depends on this task
+3. Explain the deletion options if the task has dependents:
+   - reconnect: Safest option, preserves dependency chain
+   - cascade: Use when removing a whole feature branch
+   - orphan: Use with caution, may leave tasks stuck as blocked
+4. Call DeleteTask with appropriate reassignDependents option
+5. Confirm what was deleted to the user
 `
 }

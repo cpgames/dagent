@@ -20,7 +20,11 @@ import type {
   AddDependencyInput,
   AddDependencyResult,
   GetTaskInput,
-  GetTaskResult
+  GetTaskResult,
+  UpdateTaskInput,
+  UpdateTaskResult,
+  DeleteTaskInput,
+  DeleteTaskResult
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -895,7 +899,7 @@ export interface SdkAgentAPI {
 
 /**
  * PM Tools API for task management.
- * Enables PM Agent to create and list tasks with dependency inference.
+ * Enables PM Agent to create, read, update, and delete tasks with dependency inference.
  */
 export interface PMToolsAPI {
   /**
@@ -930,6 +934,18 @@ export interface PMToolsAPI {
    * Includes dependencies and dependents.
    */
   getTask: (input: GetTaskInput) => Promise<GetTaskResult>
+
+  /**
+   * Update an existing task's title and/or description.
+   * Only provided fields will be updated.
+   */
+  updateTask: (input: UpdateTaskInput) => Promise<UpdateTaskResult>
+
+  /**
+   * Delete a task from the DAG.
+   * Uses reassignDependents to control how dependent tasks are handled.
+   */
+  deleteTask: (input: DeleteTaskInput) => Promise<DeleteTaskResult>
 }
 
 /**
