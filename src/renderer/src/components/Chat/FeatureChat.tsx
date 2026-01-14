@@ -8,7 +8,7 @@ interface FeatureChatProps {
 export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
   return (
     <ChatPanel
-      agentName="Feature Chat"
+      agentName="Project Manager"
       contextId={featureId}
       contextType="feature"
       className="h-full"
