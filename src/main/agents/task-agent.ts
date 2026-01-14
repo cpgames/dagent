@@ -139,7 +139,10 @@ export class TaskAgent extends EventEmitter {
 
     if (!contextLoaded) {
       this.state.status = 'failed'
-      this.state.error = 'Failed to load task context'
+      // Preserve specific error from loadContext, or use generic message
+      if (!this.state.error) {
+        this.state.error = 'Failed to load task context'
+      }
       return false
     }
 
