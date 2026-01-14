@@ -9,6 +9,7 @@ import {
 } from '../chat'
 import { getFeatureStore } from './storage-handlers'
 import { setPMToolsFeatureContext } from './pm-tools-handlers'
+import { getContextService } from './context-handlers'
 
 export interface ContextResult {
   context: FeatureContext
@@ -32,11 +33,28 @@ export function registerChatHandlers(): void {
 
       const dag = await featureStore.loadDag(featureId)
       const context = buildFeatureContext(feature, dag)
-      const systemPrompt = buildSystemPrompt(context)
 
       // Set PM tools feature context for task management operations
       setPMToolsFeatureContext(featureId)
 
+      // Try to use ContextService for enhanced context with project info
+      const contextService = getContextService()
+      if (contextService) {
+        try {
+          const fullContext = await contextService.buildFullContext({
+            featureId,
+            includeGitHistory: true,
+            includeClaudeMd: true
+          })
+          const enhancedPrompt = contextService.formatContextAsPrompt(fullContext)
+          return { context, systemPrompt: enhancedPrompt }
+        } catch (error) {
+          console.error('[DAGent] Failed to build enhanced context, using basic:', error)
+        }
+      }
+
+      // Fall back to existing buildSystemPrompt if ContextService not available
+      const systemPrompt = buildSystemPrompt(context)
       return { context, systemPrompt }
     }
   )

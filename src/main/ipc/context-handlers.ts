@@ -5,11 +5,14 @@
 
 import { ipcMain } from 'electron'
 import {
-  getContextService,
+  getContextService as getService,
   initContextService as initService,
   type ContextOptions,
   type FullContext
 } from '../context'
+
+// Re-export for use by other handlers (e.g., chat-handlers)
+export { getService as getContextService }
 
 /**
  * Initialize the context service with a project root.
@@ -28,7 +31,7 @@ export function registerContextHandlers(): void {
    * Get project context (structure, CLAUDE.md, PROJECT.md, git history).
    */
   ipcMain.handle('context:getProjectContext', async () => {
-    const service = getContextService()
+    const service = getService()
     if (!service) {
       return { error: 'Context service not initialized' }
     }
@@ -45,7 +48,7 @@ export function registerContextHandlers(): void {
    * Get full context with optional feature and task context.
    */
   ipcMain.handle('context:getFullContext', async (_event, options: ContextOptions) => {
-    const service = getContextService()
+    const service = getService()
     if (!service) {
       return { error: 'Context service not initialized' }
     }
@@ -62,7 +65,7 @@ export function registerContextHandlers(): void {
    * Get formatted prompt from full context.
    */
   ipcMain.handle('context:getFormattedPrompt', async (_event, context: FullContext) => {
-    const service = getContextService()
+    const service = getService()
     if (!service) {
       return { error: 'Context service not initialized' }
     }
