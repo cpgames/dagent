@@ -23,14 +23,26 @@ import '@xyflow/react/dist/style.css'
 import { useFeatureStore } from '../stores/feature-store'
 import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
-import { TaskNode, FeatureTabs, NodeDialog, ExecutionControls, type TaskNodeData } from '../components/DAG'
+import {
+  TaskNode,
+  FeatureTabs,
+  NodeDialog,
+  ExecutionControls,
+  SelectableEdge,
+  type TaskNodeData,
+  type SelectableEdgeData
+} from '../components/DAG'
 import { FeatureChat, TaskChat } from '../components/Chat'
 import { ResizeHandle } from '../components/Layout'
 import type { DAGGraph, Task } from '@shared/types'
 
-// Register custom node types
+// Register custom node and edge types
 const nodeTypes = {
   taskNode: TaskNode
+}
+
+const edgeTypes = {
+  selectable: SelectableEdge
 }
 
 // Convert DAG nodes to React Flow format
@@ -56,16 +68,28 @@ function dagToNodes(
 }
 
 // Convert DAG connections to React Flow edges
-function dagToEdges(dag: DAGGraph | null): Edge[] {
+function dagToEdges(
+  dag: DAGGraph | null,
+  selectedEdgeId: string | null,
+  onSelectEdge: (edgeId: string) => void,
+  onDeleteEdge: (source: string, target: string) => void
+): Edge[] {
   if (!dag) return []
 
-  return dag.connections.map((conn) => ({
-    id: `${conn.from}-${conn.to}`,
-    source: conn.from,
-    target: conn.to,
-    animated: false,
-    style: { stroke: '#6B7280', strokeWidth: 2 }
-  }))
+  return dag.connections.map((conn) => {
+    const edgeId = `${conn.from}-${conn.to}`
+    return {
+      id: edgeId,
+      source: conn.from,
+      target: conn.to,
+      type: 'selectable',
+      data: {
+        selected: edgeId === selectedEdgeId,
+        onSelect: onSelectEdge,
+        onDelete: onDeleteEdge
+      } as SelectableEdgeData
+    }
+  })
 }
 
 export default function DAGView(): JSX.Element {
@@ -112,6 +136,28 @@ export default function DAGView(): JSX.Element {
     localStorage.setItem('dagent.chatPanelWidth', chatWidth.toString())
   }, [chatWidth])
 
+  // Edge selection state
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+
+  // Handle edge selection
+  const handleSelectEdge = useCallback((edgeId: string) => {
+    setSelectedEdgeId(edgeId)
+  }, [])
+
+  // Handle edge deletion
+  const handleDeleteEdge = useCallback(
+    (source: string, target: string) => {
+      removeConnection(source, target)
+      setSelectedEdgeId(null)
+    },
+    [removeConnection]
+  )
+
+  // Clear edge selection when clicking on pane
+  const handlePaneClick = useCallback(() => {
+    setSelectedEdgeId(null)
+  }, [])
+
   // Find the task for the open dialog
   const dialogTask = useMemo(() => {
     if (!nodeDialogOpen || !nodeDialogTaskId || !dag) return null
@@ -157,16 +203,19 @@ export default function DAGView(): JSX.Element {
     () => dagToNodes(dag, handleEditTask, handleDeleteTask, handleChatTask),
     [dag, handleEditTask, handleDeleteTask, handleChatTask]
   )
-  const initialEdges = useMemo(() => dagToEdges(dag), [dag])
+  const initialEdges = useMemo(
+    () => dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge),
+    [dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge]
+  )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  // Update nodes/edges when DAG changes
+  // Update nodes/edges when DAG or selection changes
   useEffect(() => {
     setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask, handleChatTask))
-    setEdges(dagToEdges(dag))
-  }, [dag, handleEditTask, handleDeleteTask, handleChatTask, setNodes, setEdges])
+    setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
+  }, [dag, handleEditTask, handleDeleteTask, handleChatTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
   // Load DAG when active feature changes
   useEffect(() => {
@@ -262,7 +311,9 @@ export default function DAGView(): JSX.Element {
                   onNodesChange={handleNodesChange}
                   onEdgesChange={handleEdgesChange}
                   onConnect={handleConnect}
+                  onPaneClick={handlePaneClick}
                   nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
                   fitView
                   className="bg-gray-900"
                   proOptions={{ hideAttribution: true }}
