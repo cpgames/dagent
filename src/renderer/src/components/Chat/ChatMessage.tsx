@@ -10,8 +10,8 @@ export function ChatMessage({ message }: ChatMessageProps): JSX.Element {
 
   return (
     <div
-      className={`rounded-lg p-3 max-w-[80%] ${
-        isUser ? 'bg-blue-900/50 ml-auto' : 'bg-gray-700 mr-auto'
+      className={`rounded-lg p-3 ${
+        isUser ? 'bg-blue-900/50' : 'bg-gray-700'
       }`}
     >
       <div className="text-sm text-gray-400 mb-1">{isUser ? 'You' : 'AI'}</div>
