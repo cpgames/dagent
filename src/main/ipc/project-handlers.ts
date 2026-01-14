@@ -12,6 +12,7 @@ import {
   removeRecentProject,
   clearRecentProjects
 } from '../storage/recent-projects'
+import { initContextService } from './context-handlers'
 
 /**
  * Current project root path.
@@ -82,10 +83,11 @@ export function registerProjectHandlers(): void {
           console.log('[DAGent] Project is not a git repository')
         }
 
-        // Initialize storage, history, and agent config for the new project
+        // Initialize storage, history, agent config, and context for the new project
         initializeStorage(projectRoot)
         setHistoryProjectRoot(projectRoot)
         setAgentConfigProjectRoot(projectRoot)
+        initContextService(projectRoot)
 
         // Update current project path
         currentProjectPath = projectRoot
@@ -172,10 +174,11 @@ export function registerProjectHandlers(): void {
           // Continue anyway - project may not be a git repo yet
         }
 
-        // Initialize storage, history, and agent config for the new project
+        // Initialize storage, history, agent config, and context for the new project
         initializeStorage(projectPath)
         setHistoryProjectRoot(projectPath)
         setAgentConfigProjectRoot(projectPath)
+        initContextService(projectPath)
 
         // Update current project path
         currentProjectPath = projectPath
