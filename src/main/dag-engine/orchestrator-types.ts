@@ -38,6 +38,7 @@ export interface ExecutionEvent {
     | 'tick'
     | 'task_started'
     | 'task_completed'
+    | 'task_finished'
     | 'task_failed'
     | 'agent_assigned'
     | 'error'

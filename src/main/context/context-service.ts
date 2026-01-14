@@ -98,6 +98,13 @@ export class ContextService {
   }
 
   /**
+   * Get the project root path.
+   */
+  getProjectRoot(): string {
+    return this.projectRoot
+  }
+
+  /**
    * Get project directory structure summary.
    */
   async getProjectStructure(): Promise<ProjectStructure> {

@@ -12,7 +12,8 @@ import type { TaskStateChange } from './task-controller'
 import { transitionTask, createStateChangeRecord } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
 import { getReadyTasks } from './analyzer'
-import { createTaskAgent, registerTaskAgent } from '../agents'
+import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent } from '../agents'
+import { getHarnessAgent } from '../agents/harness-agent'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
 
@@ -60,7 +61,7 @@ export class ExecutionOrchestrator {
   /**
    * Start execution (Play button pressed).
    */
-  start(): { success: boolean; error?: string } {
+  async start(): Promise<{ success: boolean; error?: string }> {
     if (!this.state.graph || !this.state.featureId) {
       return { success: false, error: 'No graph loaded' }
     }
@@ -68,6 +69,9 @@ export class ExecutionOrchestrator {
     if (this.state.status === 'running') {
       return { success: false, error: 'Execution already running' }
     }
+
+    // Initialize harness agent before starting execution
+    await this.initializeHarness()
 
     this.state.status = 'running'
     this.state.startedAt = new Date().toISOString()
@@ -77,6 +81,47 @@ export class ExecutionOrchestrator {
     this.addEvent('started')
     this.startLoop()
     return { success: true }
+  }
+
+  /**
+   * Initialize harness agent for execution.
+   */
+  private async initializeHarness(): Promise<void> {
+    if (!this.state.featureId || !this.state.graph) {
+      return
+    }
+
+    // Load feature for goal
+    const featureStore = getFeatureStore()
+    const feature = featureStore ? await featureStore.loadFeature(this.state.featureId) : null
+    const featureGoal = feature?.name || 'Complete tasks'
+
+    // Load CLAUDE.md
+    let claudeMd: string | undefined
+    const contextService = getContextService()
+    if (contextService) {
+      claudeMd = (await contextService.getClaudeMd()) || undefined
+    }
+
+    // Get project root from context service
+    const projectRoot = contextService?.getProjectRoot() || undefined
+
+    // Initialize and start harness
+    const harness = getHarnessAgent()
+    const initialized = await harness.initialize(
+      this.state.featureId,
+      featureGoal,
+      this.state.graph,
+      claudeMd,
+      projectRoot
+    )
+
+    if (initialized) {
+      harness.start()
+      console.log('[Orchestrator] Harness agent initialized and started')
+    } else {
+      console.warn('[Orchestrator] Failed to initialize harness agent')
+    }
   }
 
   /**
@@ -124,6 +169,12 @@ export class ExecutionOrchestrator {
     this.state.stoppedAt = new Date().toISOString()
     this.stopLoop()
     this.assignments.clear()
+
+    // Stop and reset harness agent
+    const harness = getHarnessAgent()
+    harness.stop()
+    harness.reset()
+    console.log('[Orchestrator] Harness agent stopped and reset')
 
     this.addEvent('stopped')
     return { success: true }
@@ -184,11 +235,92 @@ export class ExecutionOrchestrator {
       }
     }
 
+    // Process pending intentions
+    await this.processPendingIntentions()
+
+    // Handle completed task agents
+    await this.handleCompletedTasks()
+
     // Emit tick event for UI updates
     this.addEvent('tick', {
       availableCount: available.length,
       canAssign
     })
+  }
+
+  /**
+   * Process pending intentions from task agents.
+   */
+  private async processPendingIntentions(): Promise<void> {
+    const harness = getHarnessAgent()
+    const harnessState = harness.getState()
+
+    // Process each pending intention
+    for (const pending of harnessState.pendingIntentions) {
+      const taskId = pending.taskId
+      const decision = await harness.processIntention(taskId)
+
+      if (decision) {
+        // Send decision back to task agent
+        const taskAgent = getTaskAgent(taskId)
+        if (taskAgent) {
+          taskAgent.receiveApproval(decision)
+          console.log('[Orchestrator] Sent approval to task:', taskId, 'decision:', decision.type)
+        }
+      }
+    }
+  }
+
+  /**
+   * Handle completed task agents - update orchestrator state and cleanup.
+   */
+  private async handleCompletedTasks(): Promise<void> {
+    const taskAgents = getAllTaskAgents()
+    const harness = getHarnessAgent()
+
+    for (const agent of taskAgents) {
+      const agentState = agent.getState()
+
+      if (agentState.status === 'completed') {
+        const taskId = agentState.taskId
+        console.log('[Orchestrator] Handling completed task:', taskId)
+
+        // Transition task: running → merging → completed
+        const codeResult = this.completeTaskCode(taskId)
+        if (codeResult.success) {
+          // Skip actual merge for now (Phase 36 scope), go straight to completed
+          const mergeResult = this.completeMerge(taskId)
+          if (mergeResult.success) {
+            console.log('[Orchestrator] Task completed:', taskId, 'unblocked:', mergeResult.unblocked)
+          }
+        }
+
+        // Notify harness
+        harness.completeTask(taskId)
+
+        // Cleanup agent
+        await agent.cleanup()
+        removeTaskAgent(taskId)
+
+        this.addEvent('task_finished', { taskId })
+      } else if (agentState.status === 'failed') {
+        const taskId = agentState.taskId
+        const errorMsg = agentState.error || 'Unknown error'
+        console.log('[Orchestrator] Handling failed task:', taskId, 'error:', errorMsg)
+
+        // Mark task as failed in orchestrator
+        this.failTask(taskId, errorMsg)
+
+        // Notify harness
+        harness.failTask(taskId, errorMsg)
+
+        // Cleanup agent
+        await agent.cleanup()
+        removeTaskAgent(taskId)
+
+        this.addEvent('task_failed', { taskId, error: errorMsg })
+      }
+    }
   }
 
   /**
@@ -223,6 +355,9 @@ export class ExecutionOrchestrator {
       }
 
       registerTaskAgent(agent)
+
+      // Propose intention to harness
+      await agent.proposeIntention()
 
       // Update orchestrator state
       const agentId = agent.getState().agentId || undefined
