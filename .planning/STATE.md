@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-14)
 **Milestone:** v1.9 Agent Communication Architecture
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 39 of 40 (Harness Router) - COMPLETE
-Plan: 39-02-PLAN.md (MessageBus Response Migration)
-Status: Phase Complete
-Last activity: 2026-01-14 - Completed Phase 39-02
+Phase: 40 of 40 (Log UI Integration) - PLANNED
+Plan: 40-01-PLAN.md (Session Log Dialog)
+Status: Ready for execution
+Last activity: 2026-01-14 - Created Phase 40-01 plan
 
 Progress: █████████░ 90%
 
-Next action: /gsd:plan-phase 40 or /gsd:progress
+Next action: /gsd:execute-plan .planning/phases/40-log-ui-integration/40-01-PLAN.md
 
 ## Performance Metrics
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 39 (Harness Router)
+Stopped at: Created Phase 40 plan
 Resume file: None
-Next action: /gsd:plan-phase 40 (Direct Call Cleanup)
+Next action: /gsd:execute-plan 40-01
 
 ## Completed Phases
 
