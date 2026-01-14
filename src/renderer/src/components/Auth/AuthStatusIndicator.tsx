@@ -19,10 +19,14 @@ export function AuthStatusIndicator({ onConfigureClick }: AuthStatusIndicatorPro
 
   if (state.authenticated) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-green-400">
+      <button
+        onClick={onConfigureClick}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm text-green-400 hover:text-green-300 hover:bg-gray-800 rounded transition-colors"
+        title={state.credentials?.source || 'Click to view or change authentication'}
+      >
         <div className="w-2 h-2 rounded-full bg-green-500" />
         <span>Authenticated</span>
-      </div>
+      </button>
     );
   }
 

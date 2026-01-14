@@ -7,6 +7,7 @@ interface AuthStoreState {
 
   // Actions
   initialize: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
   setCredentials: (type: 'oauth' | 'api_key', value: string) => Promise<void>;
   clearCredentials: () => Promise<void>;
 }
@@ -20,6 +21,23 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   isLoading: true,
 
   initialize: async () => {
+    set({ isLoading: true });
+    try {
+      const state = await window.electronAPI.auth.initialize();
+      set({ state, isLoading: false });
+    } catch (error) {
+      set({
+        state: {
+          authenticated: false,
+          credentials: null,
+          error: String(error)
+        },
+        isLoading: false
+      });
+    }
+  },
+
+  refreshAuth: async () => {
     set({ isLoading: true });
     try {
       const state = await window.electronAPI.auth.initialize();
