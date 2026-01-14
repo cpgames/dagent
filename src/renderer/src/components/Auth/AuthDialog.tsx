@@ -8,7 +8,7 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ isOpen, onClose }: AuthDialogProps): JSX.Element | null {
-  const { setCredentials, refreshAuth, state, isLoading } = useAuthStore();
+  const { setCredentials, refreshAuth, checkSDK, state, sdkStatus, isLoading } = useAuthStore();
   const [credType, setCredType] = useState<'api_key' | 'oauth'>('api_key');
   const [value, setValue] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -52,14 +52,15 @@ export function AuthDialog({ isOpen, onClose }: AuthDialogProps): JSX.Element | 
   };
 
   const handleRefresh = async (): Promise<void> => {
+    await checkSDK();
     await refreshAuth();
   };
 
   // Mask credential value for display (show first and last few chars)
   const maskCredential = (cred: string | undefined): string => {
-    if (!cred) return '••••••••';
-    if (cred.length <= 12) return '••••••••';
-    return `${cred.substring(0, 8)}••••${cred.substring(cred.length - 4)}`;
+    if (!cred) return '(automatic)';
+    if (cred.length <= 12) return '(automatic)';
+    return `${cred.substring(0, 8)}....${cred.substring(cred.length - 4)}`;
   };
 
   return (
@@ -69,12 +70,65 @@ export function AuthDialog({ isOpen, onClose }: AuthDialogProps): JSX.Element | 
 
       {/* Dialog */}
       <div className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
-          {isAuthenticated && !showChangeForm ? 'Authentication Settings' : 'Configure Authentication'}
-        </h2>
+        <h2 className="text-lg font-semibold text-white mb-4">Authentication</h2>
 
-        {/* Current auth status display */}
-        {isAuthenticated && !showChangeForm && (
+        {/* SDK Status Section - Always show */}
+        <div className="mb-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+          <div className="text-sm font-medium text-gray-300 mb-2">Claude Agent SDK</div>
+          <div
+            className={`text-sm ${sdkStatus?.available ? 'text-green-400' : 'text-yellow-400'}`}
+          >
+            {sdkStatus?.message || 'Checking SDK status...'}
+          </div>
+          {sdkStatus?.available && (
+            <div className="text-xs text-gray-500 mt-1">
+              Authentication handled automatically by Claude Code
+            </div>
+          )}
+        </div>
+
+        {/* SDK Available - Simplified View */}
+        {sdkStatus?.available && !showChangeForm && (
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-700/50 rounded-lg border border-green-600/30">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                <span className="text-sm font-medium text-green-400">SDK Active</span>
+              </div>
+              <p className="text-sm text-gray-400">
+                Using Claude Agent SDK for authentication. No manual configuration needed.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                {isLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowChangeForm(true)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Use Manual Auth
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Auth - Current credentials display */}
+        {!sdkStatus?.available && isAuthenticated && !showChangeForm && (
           <div className="space-y-4">
             <div className="p-4 bg-gray-700/50 rounded-lg border border-gray-600">
               <div className="flex items-center gap-2 mb-3">
@@ -124,9 +178,19 @@ export function AuthDialog({ isOpen, onClose }: AuthDialogProps): JSX.Element | 
           </div>
         )}
 
-        {/* Credential entry form */}
-        {showForm && (
+        {/* Credential entry form - Manual auth fallback */}
+        {showForm && (!sdkStatus?.available || showChangeForm) && (
           <form onSubmit={handleSubmit}>
+            {/* Manual auth fallback header */}
+            {sdkStatus?.available && showChangeForm && (
+              <div className="mb-4 text-sm text-gray-400">
+                Override SDK with manual credentials:
+              </div>
+            )}
+            {!sdkStatus?.available && (
+              <div className="mb-4 text-sm text-gray-400">Manual authentication (fallback):</div>
+            )}
+
             {/* Credential type selection */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
