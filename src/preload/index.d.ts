@@ -13,7 +13,10 @@ import type {
   HistoryState,
   AgentConfig,
   AgentRole,
-  AgentRuntimeStatus
+  AgentRuntimeStatus,
+  CreateTaskInput,
+  CreateTaskResult,
+  ListTasksResult
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -887,6 +890,32 @@ export interface SdkAgentAPI {
 }
 
 /**
+ * PM Tools API for task management.
+ * Enables PM Agent to create and list tasks.
+ */
+export interface PMToolsAPI {
+  /**
+   * Set the feature context for PM tool operations.
+   */
+  setContext: (featureId: string | null) => Promise<void>
+
+  /**
+   * Get the current feature context.
+   */
+  getContext: () => Promise<string | null>
+
+  /**
+   * Create a new task in the current feature's DAG.
+   */
+  createTask: (input: CreateTaskInput) => Promise<CreateTaskResult>
+
+  /**
+   * List all tasks in the current feature's DAG.
+   */
+  listTasks: () => Promise<ListTasksResult>
+}
+
+/**
  * History API for undo/redo graph versioning.
  * Implements DAGENT_SPEC 5.5 with 20-version history.
  */
@@ -1035,6 +1064,11 @@ export interface ElectronAPI {
    * Get runtime status for all agents from the pool
    */
   agentGetRuntimeStatus: () => Promise<Record<AgentRole, AgentRuntimeStatus>>
+
+  /**
+   * PM Tools API for task management
+   */
+  pmTools: PMToolsAPI
 }
 
 declare global {

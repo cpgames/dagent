@@ -9,7 +9,10 @@ import type {
   HistoryState,
   AgentConfig,
   AgentRole,
-  AgentRuntimeStatus
+  AgentRuntimeStatus,
+  CreateTaskInput,
+  CreateTaskResult,
+  ListTasksResult
 } from '@shared/types'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
@@ -481,7 +484,19 @@ const electronAPI = {
   agentResetConfig: (role: AgentRole): Promise<AgentConfig> =>
     ipcRenderer.invoke('agent:resetConfig', role),
   agentGetRuntimeStatus: (): Promise<Record<AgentRole, AgentRuntimeStatus>> =>
-    ipcRenderer.invoke('agent:getRuntimeStatus')
+    ipcRenderer.invoke('agent:getRuntimeStatus'),
+
+  // PM Tools API (task management for PM Agent)
+  pmTools: {
+    setContext: (featureId: string | null): Promise<void> =>
+      ipcRenderer.invoke('pm-tools:setContext', featureId),
+    getContext: (): Promise<string | null> =>
+      ipcRenderer.invoke('pm-tools:getContext'),
+    createTask: (input: CreateTaskInput): Promise<CreateTaskResult> =>
+      ipcRenderer.invoke('pm-tools:createTask', input),
+    listTasks: (): Promise<ListTasksResult> =>
+      ipcRenderer.invoke('pm-tools:listTasks')
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

@@ -13,6 +13,7 @@ import { registerProjectHandlers } from './project-handlers'
 import { registerChatHandlers } from './chat-handlers'
 import { registerSdkAgentHandlers } from './sdk-agent-handlers'
 import { registerAgentConfigHandlers } from './agent-config-handlers'
+import { registerPMToolsHandlers } from './pm-tools-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -47,6 +48,8 @@ export function registerIpcHandlers(): void {
   registerSdkAgentHandlers()
   // Register agent configuration handlers (agent roles, persistence)
   registerAgentConfigHandlers()
+  // Register PM tools handlers (task creation, listing)
+  registerPMToolsHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

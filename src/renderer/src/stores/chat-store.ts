@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { toast } from './toast-store'
 import { useAuthStore } from './auth-store'
 import { useProjectStore } from './project-store'
+import { useDAGStore } from './dag-store'
+import { useFeatureStore } from './feature-store'
 import type { ChatHistory, AgentStreamEvent } from '@shared/types'
 
 export interface ChatMessage {
@@ -200,6 +202,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isResponding: true, streamingContent: '', activeToolUse: null })
 
+    // Set PM tools feature context for task creation
+    if (window.electronAPI?.pmTools) {
+      await window.electronAPI.pmTools.setContext(currentFeatureId)
+    }
+
     // Build prompt from message history
     const prompt = messages.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
 
@@ -262,6 +269,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         } else {
           set({ isResponding: false, streamingContent: '', activeToolUse: null })
         }
+
+        // Refresh DAG to show any new tasks created by PM agent
+        const dagStore = useDAGStore.getState()
+        const featureStore = useFeatureStore.getState()
+        if (featureStore.activeFeatureId) {
+          dagStore.loadDag(featureStore.activeFeatureId)
+        }
+
         unsubscribe()
       } else if (event.type === 'error') {
         set({ isResponding: false, streamingContent: '', activeToolUse: null })
@@ -275,12 +290,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const projectState = useProjectStore.getState()
     const projectRoot = projectState.projectPath || undefined
 
-    // Start agent query
+    // Start agent query with PM Agent tools
     try {
       await window.electronAPI.sdkAgent.query({
         prompt,
         systemPrompt: systemPrompt || undefined,
-        toolPreset: 'featureChat', // Read, Glob, Grep tools
+        toolPreset: 'pmAgent', // Read, Glob, Grep + CreateTask, ListTasks tools
         permissionMode: 'acceptEdits', // Auto-approve read-only tools
         cwd: projectRoot
       })

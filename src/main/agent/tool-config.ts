@@ -14,6 +14,9 @@ export const TOOL_PRESETS = {
   // Merge agent - read + conflict analysis
   mergeAgent: ['Read', 'Glob', 'Grep', 'Bash'],
 
+  // PM Agent - read + task management
+  pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks'],
+
   // No tools - basic chat only
   none: []
 } as const

@@ -8,3 +8,4 @@ export * from './auth';
 export * from './history';
 export * from './sdk-agent';
 export * from './agent-config';
+export * from './pm-tools';
