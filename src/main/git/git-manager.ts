@@ -105,6 +105,21 @@ export class GitManager {
   }
 
   /**
+   * Check if the repository has at least one commit.
+   * This is required for creating branches.
+   */
+  async hasCommits(): Promise<boolean> {
+    this.ensureInitialized()
+    try {
+      // Try to get the first commit - if it fails, no commits exist
+      await this.git.revparse(['HEAD'])
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * Get current configuration.
    */
   getConfig(): GitManagerConfig {

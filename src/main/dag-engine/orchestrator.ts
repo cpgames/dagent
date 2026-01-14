@@ -18,6 +18,7 @@ import type { HarnessMessage } from '../agents/harness-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
 import { getLogService } from '../storage/log-service'
+import { getGitManager } from '../git'
 
 export class ExecutionOrchestrator {
   private state: ExecutionState
@@ -81,6 +82,12 @@ export class ExecutionOrchestrator {
       return { success: false, error: 'Execution already running' }
     }
 
+    // Validate git repository is ready for execution
+    const gitValidation = await this.validateGitReady()
+    if (!gitValidation.ready) {
+      return { success: false, error: gitValidation.error }
+    }
+
     // Initialize harness agent before starting execution
     await this.initializeHarness()
 
@@ -92,6 +99,38 @@ export class ExecutionOrchestrator {
     this.addEvent('started')
     this.startLoop()
     return { success: true }
+  }
+
+  /**
+   * Validate that git is ready for task execution.
+   * Checks for initialized repo and at least one commit.
+   */
+  private async validateGitReady(): Promise<{ ready: boolean; error?: string }> {
+    const gitManager = getGitManager()
+
+    // Check if git manager is initialized
+    if (!gitManager.isInitialized()) {
+      return {
+        ready: false,
+        error: 'Git repository not initialized. Please ensure the project has a git repository with at least one commit.'
+      }
+    }
+
+    // Check if there's at least one commit (required to create branches)
+    try {
+      const hasCommits = await gitManager.hasCommits()
+      if (!hasCommits) {
+        return {
+          ready: false,
+          error: 'Git repository has no commits. Please create an initial commit before running tasks.'
+        }
+      }
+    } catch (error) {
+      console.warn('[Orchestrator] Failed to check git commits:', error)
+      // Continue anyway - let it fail later with a more specific error
+    }
+
+    return { ready: true }
   }
 
   /**
