@@ -22,10 +22,13 @@ import { getHarnessAgent } from './harness-agent'
 import { getGitManager } from '../git'
 import { getAgentService } from '../agent'
 import { getFeatureStore } from '../ipc/storage-handlers'
+import { getMessageBus, createTaskToHarnessMessage } from './message-bus'
+import type { IntentionApprovedPayload, IntentionRejectedPayload } from '@shared/types'
 
 export class TaskAgent extends EventEmitter {
   private state: TaskAgentState
   private config: TaskAgentConfig
+  private unsubscribe?: () => void
 
   constructor(featureId: string, taskId: string, config: Partial<TaskAgentConfig> = {}) {
     super()
@@ -115,6 +118,23 @@ export class TaskAgent extends EventEmitter {
     // Register with harness
     const harness = getHarnessAgent()
     harness.registerTaskAssignment(this.state.taskId, agentInfo.id)
+
+    // Publish task_registered message (dual-write during migration)
+    const bus = getMessageBus()
+    bus.publish(
+      createTaskToHarnessMessage(this.state.taskId, agentInfo.id, 'task_registered', {
+        taskId: this.state.taskId
+      })
+    )
+
+    // Subscribe to approval/rejection messages for this task
+    this.unsubscribe = bus.subscribeToTask(this.state.taskId, (msg) => {
+      if (msg.type === 'intention_approved' && msg.to.id === this.state.agentId) {
+        this.handleApprovalMessage(msg.payload as IntentionApprovedPayload)
+      } else if (msg.type === 'intention_rejected' && msg.to.id === this.state.agentId) {
+        this.handleRejectionMessage(msg.payload as IntentionRejectedPayload)
+      }
+    })
 
     this.emit('task-agent:initialized', this.getState())
 
@@ -237,7 +257,16 @@ export class TaskAgent extends EventEmitter {
     // Log intention to session
     await this.logToSession('task_to_harness', 'intention', intentionText)
 
-    // Send to harness
+    // Publish intention_proposed message (dual-write during migration)
+    const bus = getMessageBus()
+    bus.publish(
+      createTaskToHarnessMessage(this.state.taskId, this.state.agentId!, 'intention_proposed', {
+        intention: intentionText,
+        files: undefined
+      })
+    )
+
+    // Send to harness (backward compatibility - direct call still works)
     const harness = getHarnessAgent()
     harness.receiveIntention(this.state.agentId!, this.state.taskId, intentionText)
 
@@ -301,6 +330,32 @@ export class TaskAgent extends EventEmitter {
       this.state.error = decision.reason || 'Intention rejected'
       this.emit('task-agent:rejected', decision)
     }
+  }
+
+  /**
+   * Handle approval message from MessageBus.
+   * Converts payload to IntentionDecision and delegates to receiveApproval.
+   */
+  private handleApprovalMessage(payload: IntentionApprovedPayload): void {
+    const decision: IntentionDecision = {
+      approved: true,
+      type: payload.type,
+      notes: payload.notes
+    }
+    this.receiveApproval(decision)
+  }
+
+  /**
+   * Handle rejection message from MessageBus.
+   * Converts payload to IntentionDecision and delegates to receiveApproval.
+   */
+  private handleRejectionMessage(payload: IntentionRejectedPayload): void {
+    const decision: IntentionDecision = {
+      approved: false,
+      type: 'rejected',
+      reason: payload.reason
+    }
+    this.receiveApproval(decision)
   }
 
   /**
@@ -535,6 +590,9 @@ export class TaskAgent extends EventEmitter {
    * Clean up task agent resources.
    */
   async cleanup(removeWorktree: boolean = false): Promise<void> {
+    // Unsubscribe from message bus
+    this.unsubscribe?.()
+
     // Release from pool
     if (this.state.agentId) {
       const pool = getAgentPool()
