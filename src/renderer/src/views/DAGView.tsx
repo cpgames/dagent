@@ -28,12 +28,13 @@ import {
   FeatureTabs,
   NodeDialog,
   LogDialog,
+  SessionLogDialog,
   ExecutionControls,
   SelectableEdge,
   type TaskNodeData,
   type SelectableEdgeData
 } from '../components/DAG'
-import type { LogEntry } from '@shared/types'
+import type { LogEntry, TaskAgentSession } from '@shared/types'
 import { FeatureChat } from '../components/Chat'
 import { ResizeHandle } from '../components/Layout'
 import type { DAGGraph, Task } from '@shared/types'
@@ -118,12 +119,17 @@ export default function DAGView(): JSX.Element {
     closeNodeDialog,
     logDialogOpen,
     logDialogTitle,
+    logDialogTaskId,
+    logDialogSource,
     openLogDialog,
     closeLogDialog
   } = useDialogStore()
 
-  // Log entries for LogDialog
+  // Log entries for LogDialog (PM logs)
   const [logEntries, setLogEntries] = useState<LogEntry[]>([])
+
+  // Task session for SessionLogDialog
+  const [taskSession, setTaskSession] = useState<TaskAgentSession | null>(null)
 
   // Chat panel width state with localStorage persistence
   const [chatWidth, setChatWidth] = useState(() => {
@@ -209,21 +215,16 @@ export default function DAGView(): JSX.Element {
     async (taskId: string) => {
       const task = dag?.nodes.find((n) => n.id === taskId)
       const taskTitle = task?.title || 'Task'
-      openLogDialog(`${taskTitle} Logs`, taskId, 'task')
+      openLogDialog(`${taskTitle} Session`, taskId, 'task')
 
-      // Load logs filtered by taskId
+      // Load task session
       if (activeFeatureId) {
         try {
-          const harnessLog = await window.electronAPI.storage.loadHarnessLog(activeFeatureId)
-          if (harnessLog) {
-            const filtered = harnessLog.entries.filter((e) => e.taskId === taskId)
-            setLogEntries(filtered)
-          } else {
-            setLogEntries([])
-          }
+          const session = await window.electronAPI.storage.loadTaskSession(activeFeatureId, taskId)
+          setTaskSession(session)
         } catch (error) {
-          console.error('Failed to load logs:', error)
-          setLogEntries([])
+          console.error('Failed to load task session:', error)
+          setTaskSession(null)
         }
       }
     },
@@ -282,6 +283,36 @@ export default function DAGView(): JSX.Element {
       loadDag(activeFeatureId)
     }
   }, [activeFeatureId, loadDag])
+
+  // Poll for real-time session updates when task log dialog is open
+  useEffect(() => {
+    if (!logDialogOpen || logDialogSource !== 'task' || !logDialogTaskId || !activeFeatureId) {
+      return
+    }
+
+    const poll = async (): Promise<void> => {
+      try {
+        const session = await window.electronAPI.storage.loadTaskSession(
+          activeFeatureId,
+          logDialogTaskId
+        )
+        // Only update if message count changed to prevent unnecessary re-renders
+        setTaskSession((prev) => {
+          if (session?.messages.length !== prev?.messages.length) {
+            return session
+          }
+          return prev
+        })
+      } catch (error) {
+        console.error('Failed to poll task session:', error)
+      }
+    }
+
+    // Poll every 2 seconds
+    const intervalId = setInterval(poll, 2000)
+
+    return () => clearInterval(intervalId)
+  }, [logDialogOpen, logDialogSource, logDialogTaskId, activeFeatureId])
 
   // Handle node position changes
   const handleNodesChange = useCallback(
@@ -432,8 +463,13 @@ export default function DAGView(): JSX.Element {
         <NodeDialog task={dialogTask} onSave={handleDialogSave} onClose={closeNodeDialog} />
       )}
 
-      {/* Log Dialog */}
-      {logDialogOpen && logDialogTitle && (
+      {/* Session Log Dialog for task logs */}
+      {logDialogOpen && logDialogTitle && logDialogSource === 'task' && (
+        <SessionLogDialog session={taskSession} title={logDialogTitle} onClose={closeLogDialog} />
+      )}
+
+      {/* Log Dialog for PM logs */}
+      {logDialogOpen && logDialogTitle && logDialogSource === 'pm' && (
         <LogDialog entries={logEntries} title={logDialogTitle} onClose={closeLogDialog} />
       )}
     </div>

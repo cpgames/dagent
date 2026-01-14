@@ -26,7 +26,8 @@ import type {
   DeleteTaskInput,
   DeleteTaskResult,
   RemoveDependencyInput,
-  RemoveDependencyResult
+  RemoveDependencyResult,
+  TaskAgentSession
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -141,6 +142,9 @@ export interface StorageAPI {
 
   // Node deletion
   deleteNode: (featureId: string, nodeId: string) => Promise<boolean>
+
+  // Task session operations
+  loadTaskSession: (featureId: string, taskId: string) => Promise<TaskAgentSession | null>
 }
 
 /**
