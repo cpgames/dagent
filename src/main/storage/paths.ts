@@ -78,6 +78,14 @@ export function getNodeLogsPath(projectRoot: string, featureId: string, nodeId: 
 }
 
 /**
+ * Get the path to session.json for a specific task.
+ * Location: {projectRoot}/.dagent-worktrees/{featureId}/.dagent/nodes/{taskId}/session.json
+ */
+export function getTaskSessionPath(projectRoot: string, featureId: string, taskId: string): string {
+  return path.join(getNodeDir(projectRoot, featureId, taskId), 'session.json');
+}
+
+/**
  * Get the root directory for archived features.
  * Location: {projectRoot}/.dagent-archived/
  */

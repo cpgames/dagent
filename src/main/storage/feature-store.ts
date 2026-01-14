@@ -1,4 +1,4 @@
-import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, TaskAgentSession, TaskAgentMessage } from '@shared/types';
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
@@ -165,6 +165,48 @@ export class FeatureStore {
   async loadNodeLogs(featureId: string, nodeId: string): Promise<AgentLog | null> {
     const filePath = paths.getNodeLogsPath(this.projectRoot, featureId, nodeId);
     return readJson<AgentLog>(filePath);
+  }
+
+  /**
+   * Save task agent session.
+   */
+  async saveTaskSession(featureId: string, taskId: string, session: TaskAgentSession): Promise<void> {
+    const filePath = paths.getTaskSessionPath(this.projectRoot, featureId, taskId);
+    await writeJson(filePath, session);
+  }
+
+  /**
+   * Load task agent session.
+   * @returns Session, or null if not found.
+   */
+  async loadTaskSession(featureId: string, taskId: string): Promise<TaskAgentSession | null> {
+    const filePath = paths.getTaskSessionPath(this.projectRoot, featureId, taskId);
+    return readJson<TaskAgentSession>(filePath);
+  }
+
+  /**
+   * Append a message to an existing task session.
+   * Creates session if it doesn't exist.
+   */
+  async appendSessionMessage(
+    featureId: string,
+    taskId: string,
+    message: TaskAgentMessage,
+    sessionDefaults?: Partial<TaskAgentSession>
+  ): Promise<void> {
+    let session = await this.loadTaskSession(featureId, taskId);
+    if (!session) {
+      session = {
+        taskId,
+        agentId: sessionDefaults?.agentId || 'unknown',
+        status: 'active',
+        startedAt: new Date().toISOString(),
+        messages: [],
+        ...sessionDefaults
+      };
+    }
+    session.messages.push(message);
+    await this.saveTaskSession(featureId, taskId, session);
   }
 
   /**

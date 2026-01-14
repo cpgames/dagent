@@ -25,3 +25,24 @@ export interface LogEntry {
 export interface AgentLog {
   entries: LogEntry[];
 }
+
+export interface TaskAgentMessage {
+  timestamp: string;
+  direction: 'task_to_harness' | 'harness_to_task';
+  type: 'intention' | 'approval' | 'rejection' | 'progress' | 'completion' | 'error';
+  content: string;
+  metadata?: {
+    toolName?: string;
+    toolInput?: unknown;
+    toolResult?: unknown;
+  };
+}
+
+export interface TaskAgentSession {
+  taskId: string;
+  agentId: string;
+  status: 'active' | 'completed' | 'failed' | 'paused';
+  startedAt: string;
+  completedAt?: string;
+  messages: TaskAgentMessage[];
+}
