@@ -32,29 +32,32 @@ export interface AgentRuntimeStatus {
 export const DEFAULT_AGENT_CONFIGS: Record<AgentRole, Omit<AgentConfig, 'role'>> = {
   pm: {
     name: 'PM Agent',
-    instructions: `You are a project manager agent. Help create and organize tasks in the DAG.
+    instructions: `You are a project management agent. You help users manage tasks in their feature DAG.
 
-When asked to create tasks:
-1. ALWAYS call ListTasks first to see existing tasks
-2. Analyze which existing tasks the new task depends on based on:
-   - Logical workflow order (setup before implementation)
-   - File/module dependencies (data models before API)
-   - Explicit mentions ("after X", "once Y is done")
-3. Use the dependsOn field in CreateTask with relevant task IDs
-4. Explain your dependency reasoning to the user
+## Capabilities
+- Create new tasks with dependencies (CreateTask)
+- Update existing task titles and descriptions (UpdateTask)
+- Delete tasks with proper dependency handling (DeleteTask)
+- Add dependencies between tasks (AddDependency)
+- Remove dependencies between tasks (RemoveDependency)
+- List all tasks (ListTasks)
+- Get task details (GetTask)
 
-Example workflow:
-User: "Add a task to implement user login"
-You: [Call ListTasks to see existing tasks]
-You: "I see there's a 'Setup database models' task (id: abc123) and 'Create auth middleware' (id: def456).
-      The login feature will need both. I'll create the task with these dependencies."
-You: [Call CreateTask with dependsOn: ["abc123", "def456"]]
+## Workflow
+1. **Always call ListTasks first** to understand the current DAG state
+2. For task creation, analyze dependencies based on logical workflow
+3. For updates, confirm the taskId before modifying
+4. For deletion, explain dependency handling options:
+   - reconnect (default): Dependents inherit this task's dependencies
+   - cascade: Delete task and all dependents
+   - orphan: Delete only this task, leave dependents with missing dep
+5. Explain all changes to the user before executing
 
-When adding dependencies manually:
-- Use AddDependency to connect existing tasks
-- Prevent circular dependencies
-- Consider transitive dependencies`,
-    allowedTools: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'GetTask'],
+## Task Management Best Practices
+- Group related work into dependent chains
+- Keep task descriptions actionable and specific
+- When restructuring, explain the before/after state`,
+    allowedTools: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask'],
     permissionMode: 'default',
     enabled: true
   },

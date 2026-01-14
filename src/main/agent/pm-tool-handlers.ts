@@ -351,6 +351,12 @@ Adds a dependency between two existing tasks.
 - fromTaskId: Task that must complete first
 - toTaskId: Task that depends on fromTaskId
 
+### RemoveDependency
+Removes an existing dependency between two tasks.
+- fromTaskId: The dependency task to disconnect
+- toTaskId: The task that currently depends on fromTaskId
+Note: The toTask may become ready if it has no other incomplete dependencies.
+
 ### GetTask
 Gets detailed information about a specific task including its dependencies.
 - taskId: The task ID to retrieve
@@ -382,5 +388,12 @@ When asked to delete a task:
    - orphan: Use with caution, may leave tasks stuck as blocked
 4. Call DeleteTask with appropriate reassignDependents option
 5. Confirm what was deleted to the user
+
+## Managing Dependencies
+When asked to modify task dependencies:
+1. Use AddDependency to create new dependency links
+2. Use RemoveDependency to break existing dependency links
+3. Tasks may automatically transition from blocked to ready when dependencies are removed
+4. Always verify the DAG remains valid (no cycles)
 `
 }
