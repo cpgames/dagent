@@ -10,7 +10,10 @@ import type {
   AgentLog,
   Task,
   AuthState,
-  HistoryState
+  HistoryState,
+  AgentConfig,
+  AgentRole,
+  AgentRuntimeStatus
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -1012,6 +1015,26 @@ export interface ElectronAPI {
    * SDK Agent API for Agent SDK streaming
    */
   sdkAgent: SdkAgentAPI
+
+  /**
+   * Load agent configurations from storage
+   */
+  agentLoadConfigs: () => Promise<Record<AgentRole, AgentConfig>>
+
+  /**
+   * Save agent configuration to storage
+   */
+  agentSaveConfig: (config: AgentConfig) => Promise<{ success: boolean }>
+
+  /**
+   * Reset agent configuration to defaults
+   */
+  agentResetConfig: (role: AgentRole) => Promise<AgentConfig>
+
+  /**
+   * Get runtime status for all agents from the pool
+   */
+  agentGetRuntimeStatus: () => Promise<Record<AgentRole, AgentRuntimeStatus>>
 }
 
 declare global {

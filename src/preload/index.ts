@@ -6,7 +6,10 @@ import type {
   AgentLog,
   Task,
   AuthState,
-  HistoryState
+  HistoryState,
+  AgentConfig,
+  AgentRole,
+  AgentRuntimeStatus
 } from '@shared/types'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
@@ -468,7 +471,17 @@ const electronAPI = {
       ipcRenderer.invoke('history:redo', featureId),
     getState: (featureId: string): Promise<HistoryState> =>
       ipcRenderer.invoke('history:getState', featureId)
-  }
+  },
+
+  // Agent Config API (agent roles, persistence)
+  agentLoadConfigs: (): Promise<Record<AgentRole, AgentConfig>> =>
+    ipcRenderer.invoke('agent:loadConfigs'),
+  agentSaveConfig: (config: AgentConfig): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('agent:saveConfig', config),
+  agentResetConfig: (role: AgentRole): Promise<AgentConfig> =>
+    ipcRenderer.invoke('agent:resetConfig', role),
+  agentGetRuntimeStatus: (): Promise<Record<AgentRole, AgentRuntimeStatus>> =>
+    ipcRenderer.invoke('agent:getRuntimeStatus')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
