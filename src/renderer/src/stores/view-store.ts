@@ -3,7 +3,7 @@ import { create } from 'zustand';
 /**
  * Available view types for the main application layout.
  */
-export type ViewType = 'kanban' | 'dag' | 'context';
+export type ViewType = 'kanban' | 'dag' | 'context' | 'agents';
 
 /**
  * Callback type for confirming discard of unsaved changes.
@@ -28,7 +28,7 @@ interface ViewState {
 
 /**
  * Zustand store for managing the active view in the application.
- * Controls which main view (Kanban, DAG, or Context) is currently displayed.
+ * Controls which main view (Kanban, DAG, Context, or Agents) is currently displayed.
  * Also tracks dirty state for context view to warn before losing changes.
  */
 export const useViewStore = create<ViewState>((set, get) => ({
