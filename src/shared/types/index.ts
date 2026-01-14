@@ -9,3 +9,4 @@ export * from './history';
 export * from './sdk-agent';
 export * from './agent-config';
 export * from './pm-tools';
+export * from './message';
