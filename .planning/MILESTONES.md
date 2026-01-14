@@ -1,5 +1,67 @@
 # Project Milestones: DAGent
 
+## v1.4 Agent System Overhaul (Shipped: 2026-01-14)
+
+**Delivered:** Complete agent system overhaul with centralized chat, PM Agent CRUD operations, feature deletion, and universal context access for all agents.
+
+**Phases completed:** 19-24 (11 plans total)
+
+**Key accomplishments:**
+
+- ChatPanel component with unified chat UI for all agent contexts
+- Agents View with agent configuration and status display
+- PM Agent with full task CRUD (Create, Update, Delete) via natural language
+- Intelligent dependency inference for new tasks
+- Batch operations and task reorganization tools
+- Safe feature deletion with full cleanup (worktrees, branches, storage, agents)
+- ContextService for comprehensive project/codebase context assembly
+- Universal context access - all agents receive project structure, CLAUDE.md, git history
+- Agent prompt builders with role-specific instructions (PM, Harness, Task, Merge)
+- autoContext option for automatic prompt injection in agent queries
+
+**Stats:**
+
+- 51 source files modified
+- ~6,410 lines of TypeScript added
+- 6 phases, 11 plans executed
+- Approximately 5 hours development time
+
+**Git range:** `feat(19-01)` -> `docs(24-02)`
+
+**What's next:** Project is feature-complete. Consider deployment packaging, testing, or new feature requests.
+
+---
+
+## v1.3 Claude Agent SDK Migration (Shipped: 2026-01-13)
+
+**Delivered:** Full migration to Claude Agent SDK for all AI operations with tool presets, streaming responses, and permission modes.
+
+**Phases completed:** 16-18 (8 plans total)
+
+**Key accomplishments:**
+
+- Claude Agent SDK (@anthropic-ai/claude-agent-sdk) integration
+- AgentService wrapper with streaming query support
+- Tool presets per agent type (featureChat, taskAgent, harnessAgent, mergeAgent, pmAgent)
+- ToolUsageDisplay component for streaming tool events
+- HarnessAgent SDK migration with intelligent intention review
+- TaskAgent SDK migration with progress streaming and auto git commits
+- MergeAgent SDK migration with conflict analysis
+- Automatic authentication via Claude CLI credentials
+- Permission modes (default, acceptEdits, bypassPermissions, plan)
+
+**Stats:**
+
+- 25+ source files modified
+- ~1,800 lines of TypeScript added
+- 3 phases, 8 plans executed
+
+**Git range:** `feat(16-01)` -> `docs(18-03)`
+
+**What's next:** v1.4 Agent System Overhaul
+
+---
+
 ## v1.2 UX Overhaul (Shipped: 2026-01-13)
 
 **Delivered:** Major UX restructure with vertical sidebar layout, project selection, working AI chat with persistence, git branch management, and layout polish.

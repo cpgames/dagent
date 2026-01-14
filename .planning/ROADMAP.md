@@ -10,24 +10,27 @@ None
 
 ## Milestones
 
-### v1.4 Agent System Overhaul (Complete)
+### Current Status
 
-Major overhaul of the agent system with unified chat UI, configurable agent roles, intelligent task management, and universal context access.
+All planned milestones complete. Project is feature-complete through v1.4.
 
-| Phase | Description | Plans | Status |
-|-------|-------------|-------|--------|
-| 19. Centralized Chat Component | Unified ChatPanel with agent name, clear button | 1/1 | Complete |
-| 20. Agents View | Sidebar view for agent configuration and status | 2/2 | Complete |
-| 21. Task Creation from Chat | PM Agent creates tasks with dependency inference | 2/2 | Complete |
-| 22. PM Agent CRUD Operations | Full task management via PM Agent | 2/2 | Complete |
-| 23. Feature Deletion | Safe deletion with cleanup | 1/1 | Complete |
-| 24. Universal Context Access | Codebase/project context for all agents | 2/2 | Complete |
+## Completed Milestones
+
+<details>
+<summary>v1.4 Agent System Overhaul (Phases 19-24) - SHIPPED 2026-01-14</summary>
+
+- [x] **Phase 19: Centralized Chat Component** - ChatPanel with agent name, clear button (1/1 plans)
+- [x] **Phase 20: Agents View** - Sidebar view for agent configuration and status (2/2 plans)
+- [x] **Phase 21: Task Creation from Chat** - PM Agent creates tasks with dependency inference (2/2 plans)
+- [x] **Phase 22: PM Agent CRUD Operations** - Full task management via PM Agent (2/2 plans)
+- [x] **Phase 23: Feature Deletion** - Safe deletion with cleanup (1/1 plans)
+- [x] **Phase 24: Universal Context Access** - Codebase/project context for all agents (2/2 plans)
 
 **Total:** 6 phases, 11 plans
 
 See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v1.3 Claude Agent SDK Migration (Phases 16-18) - SHIPPED 2026-01-13</summary>
@@ -81,6 +84,8 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
+**All milestones complete.** 24 phases, 52 plans shipped.
+
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-01-13 |
@@ -93,31 +98,14 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 8. Authentication Fixes | v1.1 | 3/3 | Complete | 2026-01-13 |
 | 9. Feature Creation | v1.1 | 3/3 | Complete | 2026-01-13 |
 | 10. UI Polish | v1.1 | 4/4 | Complete | 2026-01-13 |
-
-**v1.0 + v1.1 + v1.2 + v1.3 + v1.4 complete.** 24 phases, 52 plans shipped.
-
-## v1.3 Claude Agent SDK Migration (Complete)
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 16. Agent SDK Integration | v1.3 | 3/3 | Complete | 2026-01-13 |
-| 17. Agent Tools & Permissions | v1.3 | 2/2 | Complete | 2026-01-13 |
-| 18. Task Agent Migration | v1.3 | 3/3 | Complete | 2026-01-13 |
-
-## v1.2 UX Overhaul (Complete)
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
 | 11. Layout Restructure | v1.2 | 3/3 | Complete | 2026-01-13 |
 | 12. Project Selection | v1.2 | 3/3 | Complete | 2026-01-13 |
 | 13. Feature Chat | v1.2 | 3/3 | Complete | 2026-01-13 |
 | 14. Git Branch Management | v1.2 | 2/2 | Complete | 2026-01-13 |
 | 15. Alignment & Polish | v1.2 | 2/2 | Complete | 2026-01-13 |
-
-## v1.4 Agent System Overhaul (Complete)
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
+| 16. Agent SDK Integration | v1.3 | 3/3 | Complete | 2026-01-13 |
+| 17. Agent Tools & Permissions | v1.3 | 2/2 | Complete | 2026-01-13 |
+| 18. Task Agent Migration | v1.3 | 3/3 | Complete | 2026-01-13 |
 | 19. Centralized Chat Component | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 20. Agents View | v1.4 | 2/2 | Complete | 2026-01-14 |
 | 21. Task Creation from Chat | v1.4 | 2/2 | Complete | 2026-01-14 |

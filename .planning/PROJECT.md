@@ -8,12 +8,12 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v1.1 Critical Fixes)
+## Current State (v1.4 Agent System Overhaul)
 
-Shipped 2026-01-13. Critical issues from v1.0 testing fixed:
-- 94 source files, ~9,893 LOC TypeScript
-- 10 phases, 35 plans executed (v1.0: 25, v1.1: 10)
-- Auth initialization, feature creation, and UI polish complete
+Shipped 2026-01-14. Complete agent system with PM Agent, universal context, and feature management:
+- 110+ source files, ~16,000 LOC TypeScript
+- 24 phases, 52 plans executed across 4 milestones
+- All agents receive automatic project/codebase context
 
 ## Requirements
 
@@ -42,23 +42,30 @@ Shipped 2026-01-13. Critical issues from v1.0 testing fixed:
 - [x] Inline error display (DAGView, ContextView) - v1.1
 - [x] Dirty state tracking with unsaved changes warning - v1.1
 - [x] Proper flex layout for ContextView textarea - v1.1
-
-### Active (v1.2)
-
-- [ ] Vertical right sidebar for views (Kanban, DAG, Context)
-- [ ] Bottom status bar with auth and git info
-- [ ] Project selection on startup (open/create)
-- [ ] Feature chat with AI responses and persistence
-- [ ] Git branch display and switching in status bar
-- [ ] Fix ContextView textarea alignment
+- [x] Vertical right sidebar for views (Kanban, DAG, Context) - v1.2
+- [x] Bottom status bar with auth and git info - v1.2
+- [x] Project selection on startup (open/create) - v1.2
+- [x] Feature chat with AI responses and persistence - v1.2
+- [x] Git branch display and switching in status bar - v1.2
+- [x] Claude Agent SDK integration for all agents - v1.3
+- [x] Tool presets per agent type (PM, Task, Harness, Merge) - v1.3
+- [x] Streaming responses with tool usage display - v1.3
+- [x] Centralized ChatPanel component for all agent contexts - v1.4
+- [x] Agents View with configuration and status display - v1.4
+- [x] PM Agent with task CRUD operations via chat - v1.4
+- [x] Dependency inference for new tasks - v1.4
+- [x] Safe feature deletion with full cleanup - v1.4
+- [x] Universal context access for all agents - v1.4
+- [x] ContextService for project/codebase context assembly - v1.4
+- [x] Agent prompt builders with role-specific instructions - v1.4
 
 ### Backlog
 
 - [ ] Node-level chat (scoped AI for individual tasks)
 - [ ] Locking behavior for nodes and connections
 - [ ] Re-evaluate dependencies button functionality
-- [ ] Claude CLI credential auto-detection (complex)
 - [ ] Merge conflict resolution UI
+- [ ] Deployment packaging (Windows installer)
 
 ### Out of Scope
 
@@ -97,6 +104,10 @@ Key reference material:
 
 | view-store for dirty state | Cross-component communication | Good |
 | beforeunload for close protection | Browser native unsaved warning | Good |
+| Claude Agent SDK | Official SDK for agent queries | Good |
+| Tool presets per agent | Different capabilities per role | Good |
+| ContextService singleton | Centralized context assembly | Good |
+| autoContext option | Automatic prompt injection | Good |
 
 ---
-*Last updated: 2026-01-13 after v1.1 milestone*
+*Last updated: 2026-01-14 after v1.4 milestone*
