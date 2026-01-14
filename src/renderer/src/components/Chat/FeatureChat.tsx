@@ -11,10 +11,12 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
     messages,
     loadChat,
     addMessage,
-    sendToAI,
+    sendToAgent,
+    abortAgent,
     refreshContext,
     isLoading,
     isResponding,
+    streamingContent,
     contextLoaded
   } = useChatStore()
   const [inputValue, setInputValue] = useState('')
@@ -25,10 +27,10 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
     loadChat(featureId)
   }, [featureId, loadChat])
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change or streaming content updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, streamingContent])
 
   const handleSend = useCallback(async () => {
     const trimmedValue = inputValue.trim()
@@ -40,9 +42,9 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
     })
     setInputValue('')
 
-    // Trigger AI response
-    await sendToAI()
-  }, [inputValue, addMessage, sendToAI, isResponding])
+    // Trigger streaming AI response via Agent SDK
+    await sendToAgent()
+  }, [inputValue, addMessage, sendToAgent, isResponding])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -82,16 +84,35 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {isLoading ? (
           <div className="text-gray-400 text-center">Loading chat...</div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !streamingContent ? (
           <div className="text-gray-400 text-center text-sm">
             No messages yet. Start a conversation about this feature.
           </div>
         ) : (
           messages.map((m) => <ChatMessage key={m.id} message={m} />)
         )}
+        {/* Streaming response */}
+        {streamingContent && (
+          <div className="bg-gray-800 rounded-lg p-3">
+            <div className="text-sm text-gray-400 mb-1">Assistant</div>
+            <div className="text-gray-200 whitespace-pre-wrap">
+              {streamingContent}
+              <span className="animate-pulse text-blue-400">|</span>
+            </div>
+          </div>
+        )}
+        {/* Stop button during streaming */}
         {isResponding && (
-          <div className="text-gray-400 text-sm flex items-center gap-2">
-            <span className="animate-pulse">AI is thinking...</span>
+          <div className="flex items-center gap-2">
+            {!streamingContent && (
+              <span className="text-gray-400 text-sm animate-pulse">AI is thinking...</span>
+            )}
+            <button
+              onClick={abortAgent}
+              className="text-red-400 text-sm hover:text-red-300 underline"
+            >
+              Stop generating
+            </button>
           </div>
         )}
         <div ref={messagesEndRef} />
