@@ -7,3 +7,4 @@ export { useAuthStore } from './auth-store';
 export { useExecutionStore } from './execution-store';
 export { useGitStore } from './git-store';
 export { useProjectStore } from './project-store';
+export { useAgentStore } from './agent-store';
