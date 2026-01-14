@@ -1,19 +1,54 @@
 // src/main/agent/agent-service.ts
-import { query, type Query, type Options, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+// SDK types - defined locally to avoid static import issues with ES modules
+type SDKQuery = AsyncIterable<SDKMessage> & { interrupt: () => Promise<void> }
+type SDKMessage = {
+  type: string
+  subtype?: string
+  message?: {
+    content: Array<{ type: string; text?: string; name?: string; input?: unknown }>
+  }
+  result?: string
+  errors?: string[]
+}
+
 import type { AgentQueryOptions, AgentStreamEvent } from './types'
 import { getToolsForPreset } from './tool-config'
 
+// Dynamic import cache for ES module - use 'any' to avoid type conflicts with SDK
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let sdkModule: any = null
+
+async function getSDK(): Promise<{ query: (opts: unknown) => SDKQuery } | null> {
+  if (!sdkModule) {
+    try {
+      // Dynamic import for ES module compatibility
+      sdkModule = await import('@anthropic-ai/claude-agent-sdk')
+    } catch (error) {
+      console.error('Failed to load Claude Agent SDK:', error)
+      return null
+    }
+  }
+  return sdkModule
+}
+
 export class AgentService {
-  private activeQuery: Query | null = null
+  private activeQuery: SDKQuery | null = null
   private lastToolUse: { name: string; input: unknown } | null = null
 
   async *streamQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
     try {
+      // Dynamically import the SDK (ES module)
+      const sdk = await getSDK()
+      if (!sdk) {
+        yield { type: 'error', error: 'Claude Agent SDK not available' }
+        return
+      }
+
       // Resolve tools from preset or explicit list
       const tools =
         options.allowedTools || (options.toolPreset ? getToolsForPreset(options.toolPreset) : [])
 
-      const queryOptions: Options = {
+      const queryOptions: Record<string, unknown> = {
         cwd: options.cwd,
         allowedTools: tools,
         permissionMode: options.permissionMode || 'default'
@@ -24,7 +59,7 @@ export class AgentService {
         queryOptions.systemPrompt = options.systemPrompt
       }
 
-      this.activeQuery = query({
+      this.activeQuery = sdk.query({
         prompt: options.prompt,
         options: queryOptions
       })
@@ -49,15 +84,15 @@ export class AgentService {
 
   private convertMessage(sdkMessage: SDKMessage): AgentStreamEvent | null {
     // Handle assistant messages
-    if (sdkMessage.type === 'assistant') {
+    if (sdkMessage.type === 'assistant' && sdkMessage.message) {
       // Extract text content from the message
       const textParts: string[] = []
       let toolUseBlock: { name: string; input: unknown } | null = null
 
       for (const block of sdkMessage.message.content) {
-        if (block.type === 'text') {
+        if (block.type === 'text' && block.text) {
           textParts.push(block.text)
-        } else if (block.type === 'tool_use') {
+        } else if (block.type === 'tool_use' && block.name) {
           toolUseBlock = { name: block.name, input: block.input }
         }
       }
@@ -93,7 +128,7 @@ export class AgentService {
     }
 
     // Handle user messages (which include tool results)
-    if (sdkMessage.type === 'user') {
+    if (sdkMessage.type === 'user' && sdkMessage.message) {
       // Check if this is a tool result (user messages with tool_result content blocks)
       for (const block of sdkMessage.message.content) {
         // Block can be string or object - only check objects with type property
@@ -131,7 +166,7 @@ export class AgentService {
           type: 'message',
           message: {
             type: 'result',
-            content: sdkMessage.result,
+            content: sdkMessage.result || '',
             timestamp: new Date().toISOString()
           }
         }
