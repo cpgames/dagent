@@ -218,10 +218,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return
         }
         // Clear any active tool use when we get text content
-        set((state) => ({
-          streamingContent: state.streamingContent + event.message!.content,
+        // Replace (not append) streaming content - SDK sends accumulated text, not deltas
+        set({
+          streamingContent: event.message!.content,
           activeToolUse: null
-        }))
+        })
       } else if (event.type === 'tool_use' && event.message) {
         // Show tool usage in UI via activeToolUse state
         set({
