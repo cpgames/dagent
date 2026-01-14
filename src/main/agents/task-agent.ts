@@ -18,7 +18,6 @@ import type {
 import { DEFAULT_TASK_AGENT_STATE, DEFAULT_TASK_AGENT_CONFIG } from './task-types'
 import type { IntentionDecision } from './harness-types'
 import { getAgentPool } from './agent-pool'
-import { getHarnessAgent } from './harness-agent'
 import { getGitManager } from '../git'
 import { getAgentService } from '../agent'
 import { getFeatureStore } from '../ipc/storage-handlers'
@@ -115,11 +114,7 @@ export class TaskAgent extends EventEmitter {
     this.state.agentId = agentInfo.id
     pool.updateAgentStatus(agentInfo.id, 'busy', this.state.taskId)
 
-    // Register with harness
-    const harness = getHarnessAgent()
-    harness.registerTaskAssignment(this.state.taskId, agentInfo.id)
-
-    // Publish task_registered message (dual-write during migration)
+    // Publish task_registered message via MessageBus
     const bus = getMessageBus()
     bus.publish(
       createTaskToHarnessMessage(this.state.taskId, agentInfo.id, 'task_registered', {
@@ -257,7 +252,7 @@ export class TaskAgent extends EventEmitter {
     // Log intention to session
     await this.logToSession('task_to_harness', 'intention', intentionText)
 
-    // Publish intention_proposed message (dual-write during migration)
+    // Publish intention_proposed message via MessageBus
     const bus = getMessageBus()
     bus.publish(
       createTaskToHarnessMessage(this.state.taskId, this.state.agentId!, 'intention_proposed', {
@@ -265,10 +260,6 @@ export class TaskAgent extends EventEmitter {
         files: undefined
       })
     )
-
-    // Send to harness (backward compatibility - direct call still works)
-    const harness = getHarnessAgent()
-    harness.receiveIntention(this.state.agentId!, this.state.taskId, intentionText)
 
     this.state.status = 'awaiting_approval'
     this.emit('task-agent:intention-proposed', intentionText)
@@ -315,9 +306,13 @@ export class TaskAgent extends EventEmitter {
       this.state.status = 'approved'
       this.emit('task-agent:approved', decision)
 
-      // Update harness
-      const harness = getHarnessAgent()
-      harness.markTaskWorking(this.state.taskId)
+      // Publish task_working message via MessageBus
+      const bus = getMessageBus()
+      bus.publish(
+        createTaskToHarnessMessage(this.state.taskId, this.state.agentId!, 'task_working', {
+          startedAt: new Date().toISOString()
+        })
+      )
 
       if (this.config.autoExecute) {
         this.execute()
@@ -441,6 +436,15 @@ export class TaskAgent extends EventEmitter {
       await this.logToSession('task_to_harness', 'completion', completionSummary)
       await this.updateSessionStatus('completed')
 
+      // Publish task_completed message via MessageBus
+      const completionBus = getMessageBus()
+      completionBus.publish(
+        createTaskToHarnessMessage(this.state.taskId, this.state.agentId!, 'task_completed', {
+          summary: completionSummary,
+          commitHash: commitResult.commitHash
+        })
+      )
+
       const result: TaskExecutionResult = {
         success: true,
         taskId: this.state.taskId,
@@ -458,6 +462,14 @@ export class TaskAgent extends EventEmitter {
       // Log error and update session status
       await this.logToSession('task_to_harness', 'error', this.state.error)
       await this.updateSessionStatus('failed')
+
+      // Publish task_failed message via MessageBus
+      const failureBus = getMessageBus()
+      failureBus.publish(
+        createTaskToHarnessMessage(this.state.taskId, this.state.agentId!, 'task_failed', {
+          error: this.state.error
+        })
+      )
 
       const result: TaskExecutionResult = {
         success: false,

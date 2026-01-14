@@ -14,7 +14,7 @@ import type {
 import { DEFAULT_HARNESS_STATE } from './harness-types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
-import { getMessageBus } from './message-bus'
+import { getMessageBus, createHarnessToTaskMessage } from './message-bus'
 
 export class HarnessAgent extends EventEmitter {
   private state: HarnessState
@@ -436,14 +436,29 @@ export class HarnessAgent extends EventEmitter {
 
     const taskState = this.state.activeTasks.get(taskId)
 
+    // Send decision via MessageBus
+    const bus = getMessageBus()
     if (decision.approved) {
       if (taskState) {
         taskState.status = 'approved'
         taskState.approvalNotes = decision.notes
       }
       this.log('approval_sent', `Approved: ${decision.type}`, taskId, pending.agentId)
+
+      bus.publish(
+        createHarnessToTaskMessage(taskId, pending.agentId, 'intention_approved', {
+          type: decision.type,
+          notes: decision.notes
+        })
+      )
     } else {
       this.log('rejection_sent', `Rejected: ${decision.reason}`, taskId, pending.agentId)
+
+      bus.publish(
+        createHarnessToTaskMessage(taskId, pending.agentId, 'intention_rejected', {
+          reason: decision.reason
+        })
+      )
     }
 
     // Remove from pending
