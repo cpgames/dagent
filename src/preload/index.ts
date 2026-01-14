@@ -24,6 +24,11 @@ import type {
   RemoveDependencyInput,
   RemoveDependencyResult
 } from '@shared/types'
+import type {
+  ProjectContext,
+  ContextOptions,
+  FullContext
+} from '../main/context'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
 import type { TransitionResult } from '../main/dag-engine/state-machine'
 import type { CascadeResult } from '../main/dag-engine/cascade'
@@ -514,6 +519,30 @@ const electronAPI = {
       ipcRenderer.invoke('pm-tools:deleteTask', input),
     removeDependency: (input: RemoveDependencyInput): Promise<RemoveDependencyResult> =>
       ipcRenderer.invoke('pm-tools:removeDependency', input)
+  },
+
+  // Feature API (feature-level operations)
+  feature: {
+    delete: (
+      featureId: string,
+      options?: { deleteBranch?: boolean; force?: boolean }
+    ): Promise<{
+      success: boolean
+      deletedBranch?: boolean
+      deletedWorktrees?: number
+      terminatedAgents?: number
+      error?: string
+    }> => ipcRenderer.invoke('feature:delete', featureId, options)
+  },
+
+  // Context API (project/feature/task context for agents)
+  context: {
+    getProjectContext: (): Promise<ProjectContext | { error: string }> =>
+      ipcRenderer.invoke('context:getProjectContext'),
+    getFullContext: (options: ContextOptions): Promise<FullContext | { error: string }> =>
+      ipcRenderer.invoke('context:getFullContext', options),
+    getFormattedPrompt: (context: FullContext): Promise<string | { error: string }> =>
+      ipcRenderer.invoke('context:getFormattedPrompt', context)
   }
 }
 

@@ -1,0 +1,77 @@
+/**
+ * Context IPC handlers.
+ * Provides renderer access to ContextService for project/feature/task context.
+ */
+
+import { ipcMain } from 'electron'
+import {
+  getContextService,
+  initContextService as initService,
+  type ContextOptions,
+  type FullContext
+} from '../context'
+
+/**
+ * Initialize the context service with a project root.
+ * Called when a project is opened or created.
+ */
+export function initContextService(projectRoot: string): void {
+  initService(projectRoot)
+  console.log('[DAGent] Context service initialized for:', projectRoot)
+}
+
+/**
+ * Register all context-related IPC handlers.
+ */
+export function registerContextHandlers(): void {
+  /**
+   * Get project context (structure, CLAUDE.md, PROJECT.md, git history).
+   */
+  ipcMain.handle('context:getProjectContext', async () => {
+    const service = getContextService()
+    if (!service) {
+      return { error: 'Context service not initialized' }
+    }
+
+    try {
+      return await service.buildProjectContext()
+    } catch (error) {
+      console.error('[DAGent] Failed to get project context:', error)
+      return { error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  /**
+   * Get full context with optional feature and task context.
+   */
+  ipcMain.handle('context:getFullContext', async (_event, options: ContextOptions) => {
+    const service = getContextService()
+    if (!service) {
+      return { error: 'Context service not initialized' }
+    }
+
+    try {
+      return await service.buildFullContext(options)
+    } catch (error) {
+      console.error('[DAGent] Failed to get full context:', error)
+      return { error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  /**
+   * Get formatted prompt from full context.
+   */
+  ipcMain.handle('context:getFormattedPrompt', async (_event, context: FullContext) => {
+    const service = getContextService()
+    if (!service) {
+      return { error: 'Context service not initialized' }
+    }
+
+    try {
+      return service.formatContextAsPrompt(context)
+    } catch (error) {
+      console.error('[DAGent] Failed to format context prompt:', error)
+      return { error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+}

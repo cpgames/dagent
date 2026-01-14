@@ -85,6 +85,11 @@ import type {
   MergeIntention
 } from '../main/agents/merge-types'
 import type { AgentQueryOptions, AgentStreamEvent } from '../main/agent/types'
+import type {
+  ProjectContext,
+  ContextOptions,
+  FullContext
+} from '../main/context'
 
 /**
  * SDK availability status for Claude Agent SDK.
@@ -900,6 +905,62 @@ export interface SdkAgentAPI {
 }
 
 /**
+ * Options for deleting a feature.
+ */
+export interface FeatureDeleteOptions {
+  deleteBranch?: boolean
+  force?: boolean
+}
+
+/**
+ * Result of deleting a feature.
+ */
+export interface FeatureDeleteResult {
+  success: boolean
+  deletedBranch?: boolean
+  deletedWorktrees?: number
+  terminatedAgents?: number
+  error?: string
+}
+
+/**
+ * Feature API for feature-level operations.
+ * Handles feature deletion with comprehensive cleanup.
+ */
+export interface FeatureAPI {
+  /**
+   * Delete a feature with full cleanup:
+   * - Terminates agents working on the feature
+   * - Removes all task worktrees
+   * - Removes the feature worktree
+   * - Deletes the feature branch (if option is true)
+   * - Deletes feature storage
+   */
+  delete: (featureId: string, options?: FeatureDeleteOptions) => Promise<FeatureDeleteResult>
+}
+
+/**
+ * Context API for project/feature/task context.
+ * Enables agents to access comprehensive codebase context.
+ */
+export interface ContextAPI {
+  /**
+   * Get project context (structure, CLAUDE.md, PROJECT.md, git history).
+   */
+  getProjectContext: () => Promise<ProjectContext | { error: string }>
+
+  /**
+   * Get full context with optional feature and task context.
+   */
+  getFullContext: (options: ContextOptions) => Promise<FullContext | { error: string }>
+
+  /**
+   * Get formatted prompt from full context.
+   */
+  getFormattedPrompt: (context: FullContext) => Promise<string | { error: string }>
+}
+
+/**
  * PM Tools API for task management.
  * Enables PM Agent to create, read, update, and delete tasks with dependency inference.
  */
@@ -1110,6 +1171,16 @@ export interface ElectronAPI {
    * PM Tools API for task management
    */
   pmTools: PMToolsAPI
+
+  /**
+   * Feature API for feature-level operations
+   */
+  feature: FeatureAPI
+
+  /**
+   * Context API for project/feature/task context
+   */
+  context: ContextAPI
 }
 
 declare global {

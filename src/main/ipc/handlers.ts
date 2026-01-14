@@ -14,6 +14,8 @@ import { registerChatHandlers } from './chat-handlers'
 import { registerSdkAgentHandlers } from './sdk-agent-handlers'
 import { registerAgentConfigHandlers } from './agent-config-handlers'
 import { registerPMToolsHandlers } from './pm-tools-handlers'
+import { registerFeatureHandlers } from './feature-handlers'
+import { registerContextHandlers } from './context-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -22,6 +24,8 @@ import { registerPMToolsHandlers } from './pm-tools-handlers'
 export function registerIpcHandlers(): void {
   // Register storage handlers (feature, DAG, chat, log operations)
   registerStorageHandlers()
+  // Register feature handlers (feature deletion with cleanup)
+  registerFeatureHandlers()
   // Register DAG engine handlers (topological sort, analysis, ready tasks)
   registerDagHandlers()
   // Register execution orchestrator handlers
@@ -50,6 +54,8 @@ export function registerIpcHandlers(): void {
   registerAgentConfigHandlers()
   // Register PM tools handlers (task creation, listing)
   registerPMToolsHandlers()
+  // Register context handlers (project/feature/task context for agents)
+  registerContextHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'
@@ -88,7 +94,6 @@ export function registerIpcHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) {
       win.setTitle(title)
-      console.log('[DAGent] Window title set to:', title)
     } else {
       console.error('[DAGent] Could not find window to set title')
     }
