@@ -1,4 +1,17 @@
-export type LogEntryType = 'intention' | 'approval' | 'rejection' | 'modification' | 'action' | 'error' | 'pm-query' | 'pm-response';
+export type LogEntryType =
+  | 'intention'
+  | 'approval'
+  | 'rejection'
+  | 'modification'
+  | 'action'
+  | 'error'
+  | 'pm-query'
+  | 'pm-response'
+  | 'task_started'
+  | 'task_completed'
+  | 'task_failed'
+  | 'info'
+  | 'warning';
 export type AgentType = 'harness' | 'task' | 'merge' | 'pm';
 
 export interface LogEntry {

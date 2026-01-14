@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import type { DAGGraph } from '@shared/types'
+import type { DAGGraph, LogEntry, LogEntryType } from '@shared/types'
 import type { AgentInfo } from './types'
 import type {
   HarnessState,
@@ -499,6 +499,30 @@ export class HarnessAgent extends EventEmitter {
    */
   getMessageHistory(): HarnessMessage[] {
     return [...this.state.messageHistory]
+  }
+
+  /**
+   * Convert HarnessMessage to LogEntry for persistence.
+   */
+  static toLogEntry(msg: HarnessMessage): LogEntry {
+    const typeMap: Record<HarnessMessage['type'], LogEntryType> = {
+      intention_received: 'intention',
+      approval_sent: 'approval',
+      rejection_sent: 'rejection',
+      task_started: 'task_started',
+      task_completed: 'task_completed',
+      task_failed: 'task_failed',
+      info: 'info',
+      warning: 'warning',
+      error: 'error'
+    }
+    return {
+      timestamp: msg.timestamp,
+      type: typeMap[msg.type],
+      agent: 'harness',
+      taskId: msg.taskId,
+      content: msg.content
+    }
   }
 
   /**
