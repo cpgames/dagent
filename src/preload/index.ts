@@ -22,7 +22,8 @@ import type {
   DeleteTaskInput,
   DeleteTaskResult,
   RemoveDependencyInput,
-  RemoveDependencyResult
+  RemoveDependencyResult,
+  TaskAgentSession
 } from '@shared/types'
 import type {
   ProjectContext,
@@ -140,7 +141,13 @@ const electronAPI = {
 
     // Node deletion
     deleteNode: (featureId: string, nodeId: string): Promise<boolean> =>
-      ipcRenderer.invoke('storage:deleteNode', featureId, nodeId)
+      ipcRenderer.invoke('storage:deleteNode', featureId, nodeId),
+
+    // Task session operations
+    loadTaskSession: (featureId: string, taskId: string): Promise<TaskAgentSession | null> =>
+      ipcRenderer.invoke('storage:loadTaskSession', featureId, taskId),
+    listTaskSessions: (featureId: string): Promise<string[]> =>
+      ipcRenderer.invoke('storage:listTaskSessions', featureId)
   },
 
   // DAG Engine API

@@ -130,4 +130,16 @@ export function registerStorageHandlers(): void {
       return getStore().deleteNode(featureId, nodeId);
     }
   );
+
+  // Task session operations
+  ipcMain.handle(
+    'storage:loadTaskSession',
+    async (_event, featureId: string, taskId: string) => {
+      return getStore().loadTaskSession(featureId, taskId);
+    }
+  );
+
+  ipcMain.handle('storage:listTaskSessions', async (_event, featureId: string) => {
+    return getStore().listTaskSessions(featureId);
+  });
 }

@@ -210,6 +210,35 @@ export class FeatureStore {
   }
 
   /**
+   * List task IDs that have session.json files.
+   * @returns Array of task IDs with sessions.
+   */
+  async listTaskSessions(featureId: string): Promise<string[]> {
+    const { sep } = await import('path');
+    const nodesDir = paths.getNodeDir(this.projectRoot, featureId, '').replace(/[/\\]$/, '');
+    // nodesDir ends with /nodes/{empty}, so go up to /nodes
+    const nodesDirPath = nodesDir.substring(0, nodesDir.lastIndexOf(sep));
+    try {
+      const entries = await fs.readdir(nodesDirPath, { withFileTypes: true });
+      const taskIds: string[] = [];
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const sessionPath = paths.getTaskSessionPath(this.projectRoot, featureId, entry.name);
+          if (await exists(sessionPath)) {
+            taskIds.push(entry.name);
+          }
+        }
+      }
+      return taskIds;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Delete a node directory and all its data.
    * @returns true if deleted, false if node didn't exist.
    */

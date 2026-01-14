@@ -128,8 +128,21 @@ export class TaskAgent extends EventEmitter {
       return false
     }
 
-    // Log session initialization
-    await this.logToSession('task_to_harness', 'progress', 'Task agent initialized')
+    // Check for existing session to resume
+    const store = getFeatureStore()
+    if (store) {
+      const existingSession = await store.loadTaskSession(this.state.featureId, this.state.taskId)
+      if (existingSession && (existingSession.status === 'active' || existingSession.status === 'paused')) {
+        // Resume from existing session
+        await this.logToSession('task_to_harness', 'progress', 'Task agent resuming from existing session')
+      } else {
+        // Start fresh session
+        await this.logToSession('task_to_harness', 'progress', 'Task agent initialized')
+      }
+    } else {
+      // Log session initialization (no store available)
+      await this.logToSession('task_to_harness', 'progress', 'Task agent initialized')
+    }
 
     return true
   }
