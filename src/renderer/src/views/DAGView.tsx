@@ -24,7 +24,7 @@ import { useFeatureStore } from '../stores/feature-store'
 import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
 import { TaskNode, FeatureTabs, NodeDialog, ExecutionControls, type TaskNodeData } from '../components/DAG'
-import { FeatureChat } from '../components/Chat'
+import { FeatureChat, TaskChat } from '../components/Chat'
 import type { DAGGraph, Task } from '@shared/types'
 
 // Register custom node types
@@ -36,7 +36,8 @@ const nodeTypes = {
 function dagToNodes(
   dag: DAGGraph | null,
   onEdit: (taskId: string) => void,
-  onDelete: (taskId: string) => void
+  onDelete: (taskId: string) => void,
+  onChat: (taskId: string) => void
 ): Node[] {
   if (!dag) return []
 
@@ -47,7 +48,8 @@ function dagToNodes(
     data: {
       task,
       onEdit,
-      onDelete
+      onDelete,
+      onChat
     } as TaskNodeData
   }))
 }
@@ -81,7 +83,16 @@ export default function DAGView(): JSX.Element {
     undo,
     redo
   } = useDAGStore()
-  const { nodeDialogOpen, nodeDialogTaskId, openNodeDialog, closeNodeDialog } = useDialogStore()
+  const {
+    nodeDialogOpen,
+    nodeDialogTaskId,
+    openNodeDialog,
+    closeNodeDialog,
+    taskChatOpen,
+    taskChatTaskId,
+    taskChatFeatureId,
+    openTaskChat
+  } = useDialogStore()
 
   // Find the task for the open dialog
   const dialogTask = useMemo(() => {
@@ -114,10 +125,19 @@ export default function DAGView(): JSX.Element {
     [removeNode]
   )
 
+  const handleChatTask = useCallback(
+    (taskId: string) => {
+      if (activeFeatureId) {
+        openTaskChat(taskId, activeFeatureId)
+      }
+    },
+    [activeFeatureId, openTaskChat]
+  )
+
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
-    () => dagToNodes(dag, handleEditTask, handleDeleteTask),
-    [dag, handleEditTask, handleDeleteTask]
+    () => dagToNodes(dag, handleEditTask, handleDeleteTask, handleChatTask),
+    [dag, handleEditTask, handleDeleteTask, handleChatTask]
   )
   const initialEdges = useMemo(() => dagToEdges(dag), [dag])
 
@@ -126,9 +146,9 @@ export default function DAGView(): JSX.Element {
 
   // Update nodes/edges when DAG changes
   useEffect(() => {
-    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask))
+    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask, handleChatTask))
     setEdges(dagToEdges(dag))
-  }, [dag, handleEditTask, handleDeleteTask, setNodes, setEdges])
+  }, [dag, handleEditTask, handleDeleteTask, handleChatTask, setNodes, setEdges])
 
   // Load DAG when active feature changes
   useEffect(() => {
@@ -264,8 +284,15 @@ export default function DAGView(): JSX.Element {
           </div>
         </div>
 
-        {/* Feature Chat sidebar */}
-        {activeFeatureId && <FeatureChat featureId={activeFeatureId} />}
+        {/* Chat sidebar with overlay support */}
+        {activeFeatureId && (
+          <div className="relative w-80">
+            <FeatureChat featureId={activeFeatureId} />
+            {taskChatOpen && taskChatTaskId && taskChatFeatureId && (
+              <TaskChat taskId={taskChatTaskId} featureId={taskChatFeatureId} />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Node Dialog */}

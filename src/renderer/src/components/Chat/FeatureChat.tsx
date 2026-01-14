@@ -11,7 +11,7 @@ export function FeatureChat({ featureId }: FeatureChatProps): JSX.Element {
       agentName="Feature Chat"
       contextId={featureId}
       contextType="feature"
-      className="w-80"
+      className="h-full"
     />
   )
 }
