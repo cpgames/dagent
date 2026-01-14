@@ -1,4 +1,4 @@
-import type { DAGGraph } from '@shared/types'
+import type { DAGGraph, Task } from '@shared/types'
 import type {
   ExecutionState,
   ExecutionConfig,
@@ -12,6 +12,9 @@ import type { TaskStateChange } from './task-controller'
 import { transitionTask, createStateChangeRecord } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
 import { getReadyTasks } from './analyzer'
+import { createTaskAgent, registerTaskAgent } from '../agents'
+import { getFeatureStore } from '../ipc/storage-handlers'
+import { getContextService } from '../context'
 
 export class ExecutionOrchestrator {
   private state: ExecutionState
@@ -19,6 +22,8 @@ export class ExecutionOrchestrator {
   private assignments: Map<string, TaskAssignment>
   private history: TaskStateChange[]
   private events: ExecutionEvent[]
+  private loopInterval: NodeJS.Timeout | null = null
+  private readonly TICK_INTERVAL_MS = 1000
 
   constructor(config: Partial<ExecutionConfig> = {}) {
     this.config = { ...DEFAULT_EXECUTION_CONFIG, ...config }
@@ -70,6 +75,7 @@ export class ExecutionOrchestrator {
     this.state.error = null
 
     this.addEvent('started')
+    this.startLoop()
     return { success: true }
   }
 
@@ -84,6 +90,7 @@ export class ExecutionOrchestrator {
 
     this.state.status = 'paused'
     this.state.stoppedAt = new Date().toISOString()
+    this.stopLoop()
 
     this.addEvent('paused')
     return { success: true }
@@ -99,6 +106,7 @@ export class ExecutionOrchestrator {
 
     this.state.status = 'running'
     this.state.stoppedAt = null
+    this.startLoop()
 
     this.addEvent('resumed')
     return { success: true }
@@ -114,10 +122,130 @@ export class ExecutionOrchestrator {
 
     this.state.status = 'idle'
     this.state.stoppedAt = new Date().toISOString()
+    this.stopLoop()
     this.assignments.clear()
 
     this.addEvent('stopped')
     return { success: true }
+  }
+
+  /**
+   * Start the execution loop.
+   */
+  private startLoop(): void {
+    this.stopLoop() // Clear any existing interval
+    console.log('[Orchestrator] Starting execution loop')
+    this.loopInterval = setInterval(() => {
+      this.tick().catch((err) => console.error('[Orchestrator] tick error:', err))
+    }, this.TICK_INTERVAL_MS)
+  }
+
+  /**
+   * Stop the execution loop.
+   */
+  private stopLoop(): void {
+    if (this.loopInterval) {
+      clearInterval(this.loopInterval)
+      this.loopInterval = null
+      console.log('[Orchestrator] Stopped execution loop')
+    }
+  }
+
+  /**
+   * Core execution tick - called every TICK_INTERVAL_MS while running.
+   */
+  private async tick(): Promise<void> {
+    // Skip if not running
+    if (this.state.status !== 'running') {
+      this.stopLoop()
+      return
+    }
+
+    // Check for completion
+    if (this.checkAllTasksComplete()) {
+      this.state.status = 'completed'
+      this.state.stoppedAt = new Date().toISOString()
+      this.addEvent('completed')
+      this.stopLoop()
+      return
+    }
+
+    // Get ready tasks that can be assigned
+    const { available, canAssign } = this.getNextTasks()
+
+    // Log tick for debugging
+    console.log(`[Orchestrator] tick: ${available.length} available, can assign ${canAssign}`)
+
+    // Assign agents to available tasks
+    if (available.length > 0 && canAssign > 0) {
+      const tasksToAssign = available.slice(0, canAssign)
+      for (const task of tasksToAssign) {
+        await this.assignAgentToTask(task)
+      }
+    }
+
+    // Emit tick event for UI updates
+    this.addEvent('tick', {
+      availableCount: available.length,
+      canAssign
+    })
+  }
+
+  /**
+   * Assign an agent to a task - creates TaskAgent and transitions task to running.
+   */
+  private async assignAgentToTask(task: Task): Promise<void> {
+    if (!this.state.featureId || !this.state.graph) {
+      console.error('[Orchestrator] Cannot assign: no feature/graph')
+      return
+    }
+
+    try {
+      // Load feature for goal
+      const featureStore = getFeatureStore()
+      const feature = featureStore ? await featureStore.loadFeature(this.state.featureId) : null
+      const featureGoal = feature?.name || 'Complete tasks'
+
+      // Load CLAUDE.md (may not exist)
+      let claudeMd: string | undefined
+      const contextService = getContextService()
+      if (contextService) {
+        claudeMd = (await contextService.getClaudeMd()) || undefined
+      }
+
+      // Create and initialize task agent
+      const agent = createTaskAgent(this.state.featureId, task.id)
+      const initialized = await agent.initialize(task, this.state.graph, claudeMd, featureGoal)
+
+      if (!initialized) {
+        console.error('[Orchestrator] Failed to initialize agent for task:', task.id)
+        return
+      }
+
+      registerTaskAgent(agent)
+
+      // Update orchestrator state
+      const agentId = agent.getState().agentId || undefined
+      const result = this.assignTask(task.id, agentId)
+      if (result.success) {
+        console.log('[Orchestrator] Assigned agent to task:', task.id, 'agent:', agentId)
+        this.addEvent('agent_assigned', { taskId: task.id, agentId })
+      } else {
+        console.error('[Orchestrator] Failed to assign task:', result.error)
+      }
+    } catch (error) {
+      console.error('[Orchestrator] Error assigning agent:', error)
+    }
+  }
+
+  /**
+   * Check if all tasks are complete.
+   */
+  private checkAllTasksComplete(): boolean {
+    if (!this.state.graph || this.state.graph.nodes.length === 0) {
+      return true // Empty graph is considered complete
+    }
+    return this.state.graph.nodes.every((n) => n.status === 'completed')
   }
 
   /**
@@ -262,8 +390,7 @@ export class ExecutionOrchestrator {
       newStatus: result.newStatus
     })
 
-    // Check if all tasks complete
-    this.checkCompletion()
+    // Completion is now checked by the tick loop
 
     return { success: true, unblocked }
   }
@@ -300,21 +427,6 @@ export class ExecutionOrchestrator {
     })
 
     return { success: true }
-  }
-
-  /**
-   * Check if execution is complete (all tasks completed).
-   */
-  private checkCompletion(): void {
-    if (!this.state.graph) return
-
-    const allCompleted = this.state.graph.nodes.every((n) => n.status === 'completed')
-
-    if (allCompleted) {
-      this.state.status = 'completed'
-      this.state.stoppedAt = new Date().toISOString()
-      this.addEvent('completed')
-    }
   }
 
   /**

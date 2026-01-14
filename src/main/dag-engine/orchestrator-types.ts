@@ -35,9 +35,11 @@ export interface ExecutionEvent {
     | 'resumed'
     | 'stopped'
     | 'completed'
+    | 'tick'
     | 'task_started'
     | 'task_completed'
     | 'task_failed'
+    | 'agent_assigned'
     | 'error'
   timestamp: string
   data?: {
@@ -45,6 +47,9 @@ export interface ExecutionEvent {
     previousStatus?: TaskStatus
     newStatus?: TaskStatus
     error?: string
+    availableCount?: number
+    canAssign?: number
+    agentId?: string
   }
 }
 
