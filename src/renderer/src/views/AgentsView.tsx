@@ -10,12 +10,19 @@ const ROLE_ORDER: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
  * Agents View - Configure and monitor AI agents
  */
 export function AgentsView(): JSX.Element {
-  const { configs, runtimeStatus, selectedRole, selectRole, loadConfigs, isLoading } =
+  const { configs, runtimeStatus, selectedRole, selectRole, loadConfigs, loadRuntimeStatus, isLoading } =
     useAgentStore()
 
   useEffect(() => {
     loadConfigs()
   }, [loadConfigs])
+
+  // Poll runtime status every 2 seconds
+  useEffect(() => {
+    loadRuntimeStatus()
+    const interval = setInterval(loadRuntimeStatus, 2000)
+    return () => clearInterval(interval)
+  }, [loadRuntimeStatus])
 
   if (isLoading) {
     return (
