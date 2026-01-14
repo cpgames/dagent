@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 **Milestone:** v1.5 UI Polish & Task Chat
 **Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 29 of 30 - Connection Management ✓
-Plan: 1 of 1 complete in phase
-Status: Phase complete
-Last activity: 2026-01-14 - Completed 29-01-PLAN.md
+Phase: 30 of 30 - UI Layout Fixes
+Plan: 0 of 1 complete in phase
+Status: Planning complete
+Last activity: 2026-01-14 - Created 30-01-PLAN.md
 
 Progress: ██████████ 100% (v1.4) | █████░ 83% (v1.5)
 
-Next action: Plan Phase 30 (UI Layout Fixes)
+Next action: Execute 30-01-PLAN.md
 
 ## Performance Metrics
 
