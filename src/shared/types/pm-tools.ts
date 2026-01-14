@@ -80,3 +80,40 @@ export interface GetTaskResult {
   } | null
   error?: string
 }
+
+/**
+ * Input for updating a task
+ */
+export interface UpdateTaskInput {
+  taskId: string
+  title?: string // New title (optional)
+  description?: string // New description (optional)
+}
+
+/**
+ * Result of task update
+ */
+export interface UpdateTaskResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Input for deleting a task
+ */
+export interface DeleteTaskInput {
+  taskId: string
+  reassignDependents?: 'cascade' | 'orphan' | 'reconnect'
+  // cascade: Delete dependent tasks too
+  // orphan: Leave dependent tasks with missing dependency
+  // reconnect: Connect dependents to this task's dependencies (default)
+}
+
+/**
+ * Result of task deletion
+ */
+export interface DeleteTaskResult {
+  success: boolean
+  deletedTaskIds?: string[] // For cascade deletes
+  error?: string
+}
