@@ -1,8 +1,10 @@
 import type { JSX } from 'react'
-import { useEffect } from 'react'
-import { useAgentStore } from '../stores'
-import { AgentConfigPanel } from '../components/Agents'
+import { useEffect, useState } from 'react'
+import { useAgentStore, useFeatureStore } from '../stores'
+import { AgentConfigPanel, AgentLogsPanel } from '../components/Agents'
 import type { AgentRole } from '@shared/types'
+
+type TabType = 'config' | 'logs'
 
 const ROLE_ORDER: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
 
@@ -10,8 +12,10 @@ const ROLE_ORDER: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
  * Agents View - Configure and monitor AI agents
  */
 export function AgentsView(): JSX.Element {
+  const [activeTab, setActiveTab] = useState<TabType>('config')
   const { configs, runtimeStatus, selectedRole, selectRole, loadConfigs, loadRuntimeStatus, isLoading } =
     useAgentStore()
+  const { activeFeatureId } = useFeatureStore()
 
   useEffect(() => {
     loadConfigs()
@@ -39,59 +43,90 @@ export function AgentsView(): JSX.Element {
         <p className="text-sm text-gray-400">Configure AI agent roles and monitor activity</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ROLE_ORDER.map((role) => {
-          const config = configs[role]
-          const status = runtimeStatus[role]
-          const isSelected = selectedRole === role
-
-          return (
-            <div
-              key={role}
-              onClick={() => selectRole(isSelected ? null : role)}
-              className={`
-                p-4 rounded-lg border cursor-pointer transition-colors
-                ${
-                  isSelected
-                    ? 'bg-blue-900/30 border-blue-500'
-                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                }
-                ${!config.enabled ? 'opacity-50' : ''}
-              `}
-            >
-              {/* Header with name and status */}
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-white">{config.name}</h3>
-                <StatusIndicator status={status.status} />
-              </div>
-
-              {/* Description */}
-              <p className="text-sm text-gray-400 line-clamp-2 mb-2">
-                {config.instructions.slice(0, 100)}...
-              </p>
-
-              {/* Current task if busy */}
-              {status.status === 'busy' && status.currentTaskTitle && (
-                <div className="text-xs text-blue-400 truncate">
-                  Working on: {status.currentTaskTitle}
-                </div>
-              )}
-
-              {/* Enabled/disabled badge */}
-              {!config.enabled && <div className="text-xs text-gray-500 mt-1">Disabled</div>}
-            </div>
-          )
-        })}
+      {/* Tab buttons */}
+      <div className="flex gap-2 mb-4 border-b border-gray-700 pb-2">
+        <button
+          onClick={() => setActiveTab('config')}
+          className={`px-3 py-1.5 text-sm rounded-t transition-colors ${
+            activeTab === 'config'
+              ? 'bg-gray-700 text-white border-b-2 border-blue-500'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Configuration
+        </button>
+        <button
+          onClick={() => setActiveTab('logs')}
+          className={`px-3 py-1.5 text-sm rounded-t transition-colors ${
+            activeTab === 'logs'
+              ? 'bg-gray-700 text-white border-b-2 border-blue-500'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Logs
+        </button>
       </div>
 
-      {/* Selected agent configuration panel */}
-      {selectedRole && (
-        <div className="mt-4">
-          <AgentConfigPanel
-            role={selectedRole}
-            onClose={() => selectRole(null)}
-          />
-        </div>
+      {/* Tab content */}
+      {activeTab === 'config' ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ROLE_ORDER.map((role) => {
+              const config = configs[role]
+              const status = runtimeStatus[role]
+              const isSelected = selectedRole === role
+
+              return (
+                <div
+                  key={role}
+                  onClick={() => selectRole(isSelected ? null : role)}
+                  className={`
+                    p-4 rounded-lg border cursor-pointer transition-colors
+                    ${
+                      isSelected
+                        ? 'bg-blue-900/30 border-blue-500'
+                        : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                    }
+                    ${!config.enabled ? 'opacity-50' : ''}
+                  `}
+                >
+                  {/* Header with name and status */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-white">{config.name}</h3>
+                    <StatusIndicator status={status.status} />
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-sm text-gray-400 line-clamp-2 mb-2">
+                    {config.instructions.slice(0, 100)}...
+                  </p>
+
+                  {/* Current task if busy */}
+                  {status.status === 'busy' && status.currentTaskTitle && (
+                    <div className="text-xs text-blue-400 truncate">
+                      Working on: {status.currentTaskTitle}
+                    </div>
+                  )}
+
+                  {/* Enabled/disabled badge */}
+                  {!config.enabled && <div className="text-xs text-gray-500 mt-1">Disabled</div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Selected agent configuration panel */}
+          {selectedRole && (
+            <div className="mt-4">
+              <AgentConfigPanel
+                role={selectedRole}
+                onClose={() => selectRole(null)}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <AgentLogsPanel featureId={activeFeatureId} />
       )}
     </div>
   )
