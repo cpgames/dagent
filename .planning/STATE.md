@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 21 of 24 (v1.4) - Ready
-Plan: 0 of 2 in Phase 21
-Status: Phase 21 plans ready, awaiting execution
-Last activity: 2026-01-14 - Created 21-01-PLAN.md and 21-02-PLAN.md
+Phase: 21 of 24 (v1.4) - In Progress
+Plan: 1 of 2 in Phase 21
+Status: 21-01 complete, 21-02 ready for execution
+Last activity: 2026-01-14 - Completed Plan 21-01 (PM Agent Task Creation Tool)
 
-Progress (v1.4): ███░░░░░░░ 30%
+Progress (v1.4): ████░░░░░░ 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 45 (v1.0: 25, v1.1: 10, v1.2: 10)
+- Total plans completed: 46 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 5)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~220 min
+- Total execution time: ~230 min
 
 **By Phase:**
 
@@ -36,8 +36,8 @@ Progress (v1.4): ███░░░░░░░ 30%
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 18-03, 19-01, 20-01, 20-02
-- Trend: v1.4 in progress (Phase 20 complete)
+- Last 5 plans: 19-01, 20-01, 20-02, 21-01
+- Trend: v1.4 in progress (Phase 21 in progress)
 
 ## Accumulated Context
 
@@ -63,7 +63,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Created Phase 21 plans (21-01-PLAN.md, 21-02-PLAN.md)
+Stopped at: Completed Plan 21-01 (PM Agent Task Creation Tool)
 Resume file: None
 
 ## Completed Phases
@@ -194,6 +194,11 @@ All verification items passed. Milestone v1.3 Complete.
 
 - **20-01**: Agents View infrastructure (AgentsView, agent-store, AgentConfig types)
 - **20-02**: Agent configuration UI and persistence (AgentConfigPanel, IPC, storage)
+
+### Phase 21: Task Creation from Chat (In Progress)
+
+- **21-01**: PM Agent task creation tools (types, IPC, preload, pmAgent preset) ✓
+- **21-02**: Intelligent task placement with dependency inference (pending)
 
 ---
 
