@@ -312,6 +312,7 @@ export default function DAGView(): JSX.Element {
                   onEdgesChange={handleEdgesChange}
                   onConnect={handleConnect}
                   onPaneClick={handlePaneClick}
+                  onEdgeClick={(_event, edge) => handleSelectEdge(edge.id)}
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
                   fitView
