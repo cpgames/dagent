@@ -34,3 +34,12 @@ code {
 .animate-slide-in-right {
   animation: slide-in-right 0.2s ease-out;
 }
+
+/* Resize handle interaction */
+body.resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+body.resizing * {
+  cursor: col-resize !important;
+}
