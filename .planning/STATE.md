@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v1.2 UX Overhaul - COMPLETE
+**Current focus:** v1.3 Claude Agent SDK Migration
 
 ## Current Position
 
-Phase: 15 of 15 (v1.2) - Complete
-Plan: 2 of 2 in Phase 15
-Status: v1.2 milestone complete
-Last activity: 2026-01-13 - Completed 15-02-PLAN.md
+Phase: 16 of 18 (v1.3) - Planning
+Plan: 0 of 3 in Phase 16
+Status: Planning v1.3 milestone
+Last activity: 2026-01-13 - Created v1.3-ROADMAP.md
 
-Progress (v1.2): ██████████ 100%
+Progress (v1.3): ░░░░░░░░░░ 0%
 
 ## Performance Metrics
 

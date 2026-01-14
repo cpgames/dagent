@@ -10,7 +10,19 @@ None
 
 ## Milestones
 
-All milestones complete. See Completed Milestones section below.
+### v1.3 Claude Agent SDK Migration (Active)
+
+Migrate from raw Anthropic SDK to Claude Agent SDK for seamless authentication and built-in agent capabilities.
+
+| Phase | Description | Plans | Status |
+|-------|-------------|-------|--------|
+| 16. Agent SDK Integration | Install SDK, replace ChatService | 3 | Planned |
+| 17. Agent Tools & Permissions | Configure tools, permission callbacks | 2 | Planned |
+| 18. Task Agent Migration | Migrate harness/task/merge agents | 2-3 | Planned |
+
+**Total:** 3 phases, ~7 plans
+
+See [v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for details.
 
 ## Completed Milestones
 
