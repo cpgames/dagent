@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v1.5 Complete - Ready for v1.6
+**Current focus:** v1.7 Agent Logs - Log visibility for agent communications
 
 ## Current Position
 
-**Milestone:** v1.5 UI Polish & Task Chat (COMPLETE)
-**Roadmap:** .planning/v1.5-ROADMAP.md
+**Milestone:** v1.7 Agent Logs
+**Roadmap:** .planning/milestones/v1.7-ROADMAP.md
 
-Phase: 30 of 30 - UI Layout Fixes (COMPLETE)
-Plan: 1 of 1 complete in phase
-Status: Milestone complete
-Last activity: 2026-01-14 - Completed Phase 30, v1.5 milestone done
+Phase: 32 of 32 - Agent Logs
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-14 - Created v1.7 milestone for Agent Logs
 
-Progress: ██████████ 100% (v1.4) | ██████████ 100% (v1.5)
+Progress: ██████████ 100% (v1.6) | ░░░░░░░░░░ 0% (v1.7)
 
-Next action: Plan v1.6 roadmap or user-directed work
+Next action: /gsd:plan-phase 32
 
 ## Performance Metrics
 
@@ -248,6 +248,12 @@ All verification items passed. Milestone v1.4 Complete.
 
 All verification items passed. Milestone v1.5 Complete.
 
+### Phase 31: Task Selection Context ✓
+
+- **31-01**: Remove TaskChat overlay, pass selected task to PM agent context
+
+All verification items passed. Milestone v1.6 Complete.
+
 ---
 
 ## v1.4 Milestone Summary
@@ -278,6 +284,18 @@ UI Polish & Task Chat is complete. The application now has polished UI interacti
 4. **Task Agent Badges**: Visual indicators (Dev, QA, Merge) on task nodes
 5. **Connection Management**: Click-to-select edges with inline delete confirmation
 6. **UI Layout Fixes**: Renamed Play to Start, improved spacing throughout
+
+---
+
+## v1.6 Milestone Summary
+
+Task Selection Context is complete. The PM Agent now automatically knows which task is selected:
+
+1. **Removed TaskChat Overlay**: No more separate task chat - PM agent handles all task conversations
+2. **Node Selection**: Clicking a task node in the DAG view selects it
+3. **Context Passing**: Selected task ID is passed to PM agent via autoContext
+4. **PM Agent Awareness**: Agent recognizes "this task" and "the task" as the selected task
+5. **Simplified UI**: Removed chat button from TaskNode, cleaner interface
 
 ---
 
