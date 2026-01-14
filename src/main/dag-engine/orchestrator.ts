@@ -27,6 +27,11 @@ export class ExecutionOrchestrator {
   private events: ExecutionEvent[]
   private loopInterval: NodeJS.Timeout | null = null
   private readonly TICK_INTERVAL_MS = 1000
+  // Track tasks that failed initialization this tick to prevent retry spam
+  private failedThisTick: Set<string> = new Set()
+  // Track persistent failures (context loading, etc.) with retry counts
+  private initFailureCounts: Map<string, number> = new Map()
+  private readonly MAX_INIT_RETRIES = 3
 
   constructor(config: Partial<ExecutionConfig> = {}) {
     this.config = { ...DEFAULT_EXECUTION_CONFIG, ...config }
@@ -41,6 +46,8 @@ export class ExecutionOrchestrator {
     this.assignments = new Map()
     this.history = []
     this.events = []
+    this.failedThisTick = new Set()
+    this.initFailureCounts = new Map()
   }
 
   /**
@@ -54,6 +61,8 @@ export class ExecutionOrchestrator {
     this.assignments.clear()
     this.history = []
     this.events = []
+    this.failedThisTick.clear()
+    this.initFailureCounts.clear()
 
     // Recalculate all task statuses based on dependencies
     const { changes } = recalculateAllStatuses(graph)
@@ -178,6 +187,8 @@ export class ExecutionOrchestrator {
     this.state.stoppedAt = new Date().toISOString()
     this.stopLoop()
     this.assignments.clear()
+    this.failedThisTick.clear()
+    this.initFailureCounts.clear()
 
     // Stop and reset harness agent
     const harness = getHarnessAgent()
@@ -225,6 +236,9 @@ export class ExecutionOrchestrator {
       this.stopLoop()
       return
     }
+
+    // Clear per-tick failure tracking (allows retry next tick)
+    this.failedThisTick.clear()
 
     // Check for completion
     if (this.checkAllTasksComplete()) {
@@ -364,9 +378,28 @@ export class ExecutionOrchestrator {
       const initialized = await agent.initialize(task, this.state.graph, claudeMd, featureGoal)
 
       if (!initialized) {
-        console.error('[Orchestrator] Failed to initialize agent for task:', task.id)
+        // Track failure for this tick to prevent immediate retry
+        this.failedThisTick.add(task.id)
+
+        // Track persistent failures
+        const failCount = (this.initFailureCounts.get(task.id) || 0) + 1
+        this.initFailureCounts.set(task.id, failCount)
+
+        const reason = agent.getState().error || 'unknown reason'
+        console.warn(
+          `[Orchestrator] Failed to initialize agent for task ${task.id} (attempt ${failCount}/${this.MAX_INIT_RETRIES}): ${reason}`
+        )
+
+        // If max retries exceeded, mark task as failed
+        if (failCount >= this.MAX_INIT_RETRIES) {
+          console.error(`[Orchestrator] Task ${task.id} exceeded max init retries, marking as failed`)
+          this.failTask(task.id, `Failed to initialize after ${failCount} attempts: ${reason}`)
+        }
         return
       }
+
+      // Clear failure count on successful init
+      this.initFailureCounts.delete(task.id)
 
       registerTaskAgent(agent)
 
@@ -408,9 +441,16 @@ export class ExecutionOrchestrator {
     // Get all ready tasks
     const ready = getReadyTasks(this.state.graph)
 
-    // Filter out already assigned tasks
+    // Filter out already assigned tasks, tasks that failed this tick,
+    // and tasks that exceeded max init retries
     const assignedIds = new Set(this.assignments.keys())
-    const available = ready.filter((t) => !assignedIds.has(t.id))
+    const available = ready.filter((t) => {
+      if (assignedIds.has(t.id)) return false
+      if (this.failedThisTick.has(t.id)) return false
+      const failCount = this.initFailureCounts.get(t.id) || 0
+      if (failCount >= this.MAX_INIT_RETRIES) return false
+      return true
+    })
 
     // Calculate how many more can be assigned
     const currentRunning = this.state.graph.nodes.filter((n) => n.status === 'running').length
