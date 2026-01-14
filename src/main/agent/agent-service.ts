@@ -1,6 +1,6 @@
 // src/main/agent/agent-service.ts
 import { query, type Query, type Options, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { AgentQueryOptions, AgentStreamEvent, AgentMessage } from './types'
+import type { AgentQueryOptions, AgentStreamEvent } from './types'
 
 export class AgentService {
   private activeQuery: Query | null = null
@@ -45,10 +45,18 @@ export class AgentService {
     // Handle assistant messages
     if (sdkMessage.type === 'assistant') {
       // Extract text content from the message
-      const content = sdkMessage.message.content
-        .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
-        .map((block) => block.text)
-        .join('')
+      const textParts: string[] = []
+      let toolUseBlock: { name: string; input: unknown } | null = null
+
+      for (const block of sdkMessage.message.content) {
+        if (block.type === 'text') {
+          textParts.push(block.text)
+        } else if (block.type === 'tool_use') {
+          toolUseBlock = { name: block.name, input: block.input }
+        }
+      }
+
+      const content = textParts.join('')
 
       if (content) {
         return {
@@ -61,22 +69,16 @@ export class AgentService {
         }
       }
 
-      // Check for tool use blocks
-      const toolUseBlocks = sdkMessage.message.content.filter(
-        (block): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
-          block.type === 'tool_use'
-      )
-
-      if (toolUseBlocks.length > 0) {
-        const toolBlock = toolUseBlocks[0]
+      // Return tool use event if found
+      if (toolUseBlock) {
         return {
           type: 'tool_use',
           message: {
             type: 'assistant',
-            content: `Using tool: ${toolBlock.name}`,
+            content: `Using tool: ${toolUseBlock.name}`,
             timestamp: new Date().toISOString(),
-            toolName: toolBlock.name,
-            toolInput: toolBlock.input
+            toolName: toolUseBlock.name,
+            toolInput: toolUseBlock.input
           }
         }
       }
