@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v1.7 Agent Logs - Log visibility for agent communications
+**Current focus:** v1.8 DAG Execution - Clicking Start runs the dependency-aware task execution
 
 ## Current Position
 
-**Milestone:** v1.7 Agent Logs - COMPLETE
-**Roadmap:** .planning/milestones/v1.7-ROADMAP.md
+**Milestone:** v1.8 DAG Execution
+**Roadmap:** .planning/milestones/v1.8-ROADMAP.md
 
-Phase: 32 of 32 - Agent Logs ✓
-Plan: 02 of 02 ✓
-Status: Complete
-Last activity: 2026-01-14 - Completed Phase 32 (Agent Logs)
+Phase: 33 of 36 - Execution Orchestration
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-14 - Created v1.8 milestone for DAG Execution
 
-Progress: ██████████ 100% (v1.7)
+Progress: ░░░░░░░░░░ 0% (v1.8)
 
-Next action: Milestone complete
+Next action: /gsd:plan-phase 33
 
 ## Performance Metrics
 

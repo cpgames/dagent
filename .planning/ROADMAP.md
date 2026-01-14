@@ -10,9 +10,16 @@ None
 
 ## Milestones
 
-### Current Status
+### Current Milestone: v1.8 DAG Execution
 
-All planned milestones complete. Project is feature-complete through v1.7.
+Implement the core DAG execution engine where clicking Start runs the dependency-aware task execution.
+
+- [ ] **Phase 33: Execution Orchestration** - Wire Start button to execution loop, ready task identification
+- [ ] **Phase 34: Agent Assignment** - PM assigns agents to ready tasks, task agent spawning
+- [ ] **Phase 35: Intention-Approval Workflow** - Task agents propose intentions, PM approves/modifies/rejects
+- [ ] **Phase 36: Communication Logging** - Log all agent communications to harness_log.json
+
+See [v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) for details.
 
 ## Completed Milestones
 
