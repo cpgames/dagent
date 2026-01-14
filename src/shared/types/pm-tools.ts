@@ -117,3 +117,20 @@ export interface DeleteTaskResult {
   deletedTaskIds?: string[] // For cascade deletes
   error?: string
 }
+
+/**
+ * Input for removing a dependency between tasks
+ */
+export interface RemoveDependencyInput {
+  fromTaskId: string
+  toTaskId: string
+}
+
+/**
+ * Result of dependency removal
+ */
+export interface RemoveDependencyResult {
+  success: boolean
+  statusChanged?: boolean // True if toTask status changed (blocked → ready)
+  error?: string
+}

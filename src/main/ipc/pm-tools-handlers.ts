@@ -13,6 +13,8 @@ import type {
   UpdateTaskResult,
   DeleteTaskInput,
   DeleteTaskResult,
+  RemoveDependencyInput,
+  RemoveDependencyResult,
   Task,
   TaskStatus,
   DAGGraph
@@ -451,6 +453,79 @@ export function registerPMToolsHandlers(): void {
 
         await storage.saveDag(currentFeatureId, dag)
         return { success: true, deletedTaskIds }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+      }
+    }
+  )
+
+  // Remove a dependency between two tasks
+  ipcMain.handle(
+    'pm-tools:removeDependency',
+    async (_event, input: RemoveDependencyInput): Promise<RemoveDependencyResult> => {
+      if (!currentFeatureId) {
+        return { success: false, error: 'No feature selected' }
+      }
+
+      try {
+        const storage = getFeatureStore()
+        if (!storage) {
+          return { success: false, error: 'Storage not initialized' }
+        }
+
+        const dag = await storage.loadDag(currentFeatureId)
+        if (!dag) {
+          return { success: false, error: 'DAG not found' }
+        }
+
+        // Verify both tasks exist
+        const fromTask = dag.nodes.find((n) => n.id === input.fromTaskId)
+        const toTask = dag.nodes.find((n) => n.id === input.toTaskId)
+
+        if (!fromTask) {
+          return { success: false, error: `Task ${input.fromTaskId} not found` }
+        }
+        if (!toTask) {
+          return { success: false, error: `Task ${input.toTaskId} not found` }
+        }
+
+        // Find the connection
+        const connectionIndex = dag.connections.findIndex(
+          (c) => c.from === input.fromTaskId && c.to === input.toTaskId
+        )
+        if (connectionIndex < 0) {
+          return { success: false, error: 'Dependency does not exist' }
+        }
+
+        // Remove the connection
+        dag.connections.splice(connectionIndex, 1)
+
+        // Check if toTask should become ready
+        let statusChanged = false
+        if (toTask.status === 'blocked') {
+          // Check remaining dependencies
+          const remainingDeps = dag.connections
+            .filter((c) => c.to === input.toTaskId)
+            .map((c) => c.from)
+
+          // Check if all remaining deps are completed
+          const allRemainingComplete = remainingDeps.every((depId) => {
+            const dep = dag.nodes.find((n) => n.id === depId)
+            return dep && dep.status === 'completed'
+          })
+
+          // If no remaining deps or all complete, set to ready
+          if (remainingDeps.length === 0 || allRemainingComplete) {
+            const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
+            if (toIndex >= 0) {
+              dag.nodes[toIndex].status = 'ready'
+              statusChanged = true
+            }
+          }
+        }
+
+        await storage.saveDag(currentFeatureId, dag)
+        return { success: true, statusChanged }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
       }
