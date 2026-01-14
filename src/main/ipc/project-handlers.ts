@@ -71,16 +71,51 @@ export function registerProjectHandlers(): void {
       try {
         // Check if this is a git repository
         const gitManager = getGitManager()
-        const isGitRepo = await gitManager.isGitRepo(projectRoot)
+        let isGitRepo = await gitManager.isGitRepo(projectRoot)
+
+        // If not a git repo, initialize one
+        if (!isGitRepo) {
+          console.log('[DAGent] Project is not a git repository, initializing...')
+          const initResult = await gitManager.initRepo(projectRoot)
+          if (initResult.success) {
+            isGitRepo = true
+            console.log('[DAGent] Git repository initialized')
+          } else {
+            console.warn('[DAGent] Failed to initialize git repo:', initResult.error)
+          }
+        }
 
         // Initialize git manager if it's a git repo
         if (isGitRepo) {
           const gitResult = await gitManager.initialize(projectRoot)
           if (!gitResult.success) {
             console.log('[DAGent] Git initialization failed:', gitResult.error)
+          } else {
+            // Check if there are any commits - if not, create initial commit
+            const hasCommits = await gitManager.hasCommits()
+            if (!hasCommits) {
+              console.log('[DAGent] No commits found, creating initial commit...')
+              try {
+                const simpleGit = (await import('simple-git')).default
+                const git = simpleGit({ baseDir: projectRoot })
+
+                // Create a .gitignore file if it doesn't exist
+                const gitignorePath = path.join(projectRoot, '.gitignore')
+                try {
+                  await stat(gitignorePath)
+                } catch {
+                  await writeFile(gitignorePath, '# DAGent worktrees\n.dagent-worktrees/\n')
+                }
+
+                // Stage all files and create initial commit
+                await git.add('.')
+                await git.commit('Initial commit - DAGent project')
+                console.log('[DAGent] Initial commit created')
+              } catch (error) {
+                console.warn('[DAGent] Failed to create initial commit:', error)
+              }
+            }
           }
-        } else {
-          console.log('[DAGent] Project is not a git repository')
         }
 
         // Initialize storage, history, agent config, and context for the new project
