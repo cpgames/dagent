@@ -5,19 +5,22 @@
  */
 
 import { EventEmitter } from 'events'
+import { simpleGit } from 'simple-git'
 import type { Task, DAGGraph } from '@shared/types'
 import type {
   TaskAgentState,
   TaskAgentStatus,
   DependencyContextEntry,
   TaskAgentConfig,
-  TaskExecutionResult
+  TaskExecutionResult,
+  TaskProgressEvent
 } from './task-types'
 import { DEFAULT_TASK_AGENT_STATE, DEFAULT_TASK_AGENT_CONFIG } from './task-types'
 import type { IntentionDecision } from './harness-types'
 import { getAgentPool } from './agent-pool'
 import { getHarnessAgent } from './harness-agent'
 import { getGitManager } from '../git'
+import { getAgentService } from '../agent'
 
 export class TaskAgent extends EventEmitter {
   private state: TaskAgentState
@@ -233,8 +236,7 @@ export class TaskAgent extends EventEmitter {
   }
 
   /**
-   * Execute the approved task.
-   * In full implementation, this would invoke Claude API.
+   * Execute the approved task using Claude Agent SDK.
    */
   async execute(): Promise<TaskExecutionResult> {
     if (this.state.status !== 'approved') {
@@ -249,14 +251,60 @@ export class TaskAgent extends EventEmitter {
     this.emit('task-agent:executing')
 
     try {
-      // In full implementation, this would:
-      // 1. Call Claude API with context
-      // 2. Apply changes to worktree
-      // 3. Commit changes
-      // For now, simulate completion
+      // Build execution prompt from context
+      const prompt = this.buildExecutionPrompt()
 
-      // Simulate work delay
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Execute via SDK in the task worktree
+      const agentService = getAgentService()
+      let summary = ''
+
+      for await (const event of agentService.streamQuery({
+        prompt,
+        toolPreset: 'taskAgent',
+        permissionMode: 'bypassPermissions',
+        cwd: this.state.worktreePath!
+      })) {
+        // Emit progress events
+        if (event.type === 'message' && event.message?.type === 'assistant') {
+          const progressEvent: TaskProgressEvent = {
+            type: 'progress',
+            content: event.message.content
+          }
+          this.emit('task-agent:progress', progressEvent)
+          summary = event.message.content
+        }
+
+        if (event.type === 'tool_use' && event.message) {
+          const progressEvent: TaskProgressEvent = {
+            type: 'tool_use',
+            content: `Using tool: ${event.message.toolName}`,
+            toolName: event.message.toolName,
+            toolInput: event.message.toolInput
+          }
+          this.emit('task-agent:tool-use', progressEvent)
+        }
+
+        if (event.type === 'tool_result' && event.message) {
+          const progressEvent: TaskProgressEvent = {
+            type: 'tool_result',
+            content: event.message.content,
+            toolName: event.message.toolName,
+            toolResult: event.message.toolResult
+          }
+          this.emit('task-agent:tool-result', progressEvent)
+        }
+
+        if (event.type === 'message' && event.message?.type === 'result') {
+          summary = event.message.content
+        }
+
+        if (event.type === 'error') {
+          throw new Error(event.error)
+        }
+      }
+
+      // Commit changes after successful execution
+      const commitResult = await this.commitChanges()
 
       this.state.status = 'completed'
       this.state.completedAt = new Date().toISOString()
@@ -264,7 +312,9 @@ export class TaskAgent extends EventEmitter {
       const result: TaskExecutionResult = {
         success: true,
         taskId: this.state.taskId,
-        summary: `Completed: ${this.state.task?.title}`
+        summary: summary || `Completed: ${this.state.task?.title}`,
+        commitHash: commitResult.commitHash,
+        filesChanged: commitResult.filesChanged
       }
 
       this.emit('task-agent:completed', result)
@@ -281,6 +331,108 @@ export class TaskAgent extends EventEmitter {
 
       this.emit('task-agent:failed', result)
       return result
+    }
+  }
+
+  /**
+   * Build execution prompt from task context.
+   */
+  private buildExecutionPrompt(): string {
+    const context = this.state.context!
+    const task = this.state.task!
+    const approval = this.state.approval
+
+    const parts: string[] = ['# Task Implementation Request', '']
+
+    if (context.claudeMd) {
+      parts.push('## Project Guidelines (CLAUDE.md)', context.claudeMd, '')
+    }
+
+    if (context.featureGoal) {
+      parts.push('## Feature Goal', context.featureGoal, '')
+    }
+
+    parts.push(
+      '## Task to Implement',
+      `**Title:** ${task.title}`,
+      `**Description:** ${task.description || 'No additional description'}`,
+      ''
+    )
+
+    if (context.dependencyContext.length > 0) {
+      parts.push(
+        '## Context from Completed Dependencies',
+        ...context.dependencyContext.map(
+          (d) => `### ${d.taskTitle}\n${d.summary}${d.keyFiles ? `\nKey files: ${d.keyFiles.join(', ')}` : ''}`
+        ),
+        ''
+      )
+    }
+
+    if (approval?.notes) {
+      parts.push('## Approval Notes', approval.notes, '')
+    }
+
+    parts.push(
+      '## Instructions',
+      '1. Implement the task as described above',
+      '2. Follow the project guidelines from CLAUDE.md',
+      '3. Build on completed dependency work where applicable',
+      '4. Make all necessary file changes to complete this task',
+      ''
+    )
+
+    return parts.join('\n')
+  }
+
+  /**
+   * Commit changes to the task branch after execution.
+   */
+  private async commitChanges(): Promise<{ commitHash?: string; filesChanged?: number }> {
+    if (!this.state.worktreePath) {
+      return {}
+    }
+
+    try {
+      // Create a git instance for the task worktree
+      const git = simpleGit({ baseDir: this.state.worktreePath })
+
+      // Check for changes
+      const status = await git.status()
+      if (!status.modified.length && !status.staged.length && !status.not_added.length) {
+        return { filesChanged: 0 }
+      }
+
+      const filesChanged = status.modified.length + status.staged.length + status.not_added.length
+
+      // Stage all changes
+      await git.add('-A')
+
+      // Commit with task info
+      const taskId = this.state.taskId
+      const taskTitle = this.state.task?.title || 'task'
+      const commitMessage = `feat(${taskId}): ${taskTitle}`
+
+      const commitResult = await git.commit(commitMessage)
+
+      return { commitHash: commitResult.commit, filesChanged }
+    } catch (error) {
+      // Log but don't fail - changes were made even if commit fails
+      console.error('Failed to commit task changes:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Abort the current execution.
+   */
+  abort(): void {
+    if (this.state.status === 'working') {
+      const agentService = getAgentService()
+      agentService.abort()
+      this.state.status = 'failed'
+      this.state.error = 'Execution aborted'
+      this.emit('task-agent:aborted')
     }
   }
 

@@ -68,6 +68,16 @@ export interface TaskExecutionResult {
   filesModified?: string[]
   summary?: string
   error?: string
+  commitHash?: string
+  filesChanged?: number
+}
+
+export interface TaskProgressEvent {
+  type: 'progress' | 'tool_use' | 'tool_result'
+  content: string
+  toolName?: string
+  toolInput?: unknown
+  toolResult?: string
 }
 
 export const DEFAULT_TASK_AGENT_CONFIG: TaskAgentConfig = {
