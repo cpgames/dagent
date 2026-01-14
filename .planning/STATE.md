@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 **Milestone:** v1.5 UI Polish & Task Chat
 **Roadmap:** .planning/v1.5-ROADMAP.md
 
-Phase: 29 of 30 - Connection Management
-Plan: 0 of 1 complete in phase
-Status: Planning complete
-Last activity: 2026-01-14 - Created 29-01-PLAN.md
+Phase: 29 of 30 - Connection Management ✓
+Plan: 1 of 1 complete in phase
+Status: Phase complete
+Last activity: 2026-01-14 - Completed 29-01-PLAN.md
 
-Progress: ██████████ 100% (v1.4) | █████░ 80% (v1.5)
+Progress: ██████████ 100% (v1.4) | █████░ 83% (v1.5)
 
-Next action: Execute 29-01-PLAN.md
+Next action: Plan Phase 30 (UI Layout Fixes)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 56 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 4)
+- Total plans completed: 57 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 5)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~270 min
 
@@ -41,8 +41,8 @@ Next action: Execute 29-01-PLAN.md
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 25-01, 26-01, 27-01, 28-01
-- Trend: v1.5 in progress (4/6 phases complete)
+- Last 5 plans: 26-01, 27-01, 28-01, 29-01
+- Trend: v1.5 in progress (5/6 phases complete)
 
 ## Accumulated Context
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 28
+Stopped at: Completed Phase 29
 Resume file: None
-Next action: Plan Phase 29 (Connection Management)
+Next action: Plan Phase 30 (UI Layout Fixes)
 
 ## Completed Phases
 
@@ -237,6 +237,10 @@ All verification items passed. Milestone v1.4 Complete.
 ### Phase 28: Task Agent Badges ✓
 
 - **28-01**: Agent badges (Dev, QA, Merge) on TaskNode with tooltips
+
+### Phase 29: Connection Management ✓
+
+- **29-01**: Edge selection with highlighting, delete button, confirmation dialog
 
 ---
 
