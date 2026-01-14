@@ -126,6 +126,30 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
         </div>
       </div>
 
+      {/* Agent badges */}
+      <div className="px-3 py-1 flex gap-1">
+        <span
+          className="text-xs px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-400"
+          title="Developer Agent: Implements task code"
+        >
+          Dev
+        </span>
+        <span
+          className="text-xs px-1.5 py-0.5 rounded font-medium bg-teal-500/20 text-teal-400"
+          title="QA Agent: Verifies implementation"
+        >
+          QA
+        </span>
+        {task.status === 'merging' && (
+          <span
+            className="text-xs px-1.5 py-0.5 rounded font-medium bg-green-500/20 text-green-400"
+            title="Merge Agent: Handles branch integration"
+          >
+            Merge
+          </span>
+        )}
+      </div>
+
       {/* Status indicator */}
       <div className="px-3 py-2">
         <span className="text-xs text-gray-400 capitalize">{task.status}</span>
