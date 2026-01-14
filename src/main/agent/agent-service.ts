@@ -13,6 +13,7 @@ type SDKMessage = {
 
 import type { AgentQueryOptions, AgentStreamEvent } from './types'
 import { getToolsForPreset } from './tool-config'
+import { buildAgentPrompt } from './prompt-builders'
 
 // Dynamic import cache for ES module - use 'any' to avoid type conflicts with SDK
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,9 +55,24 @@ export class AgentService {
         permissionMode: options.permissionMode || 'default'
       }
 
-      // Add system prompt if provided
-      if (options.systemPrompt) {
-        queryOptions.systemPrompt = options.systemPrompt
+      // Build system prompt: autoContext takes priority over explicit systemPrompt
+      let systemPrompt = options.systemPrompt
+      if (options.autoContext && options.agentType) {
+        try {
+          systemPrompt = await buildAgentPrompt({
+            featureId: options.featureId,
+            taskId: options.taskId,
+            agentType: options.agentType
+          })
+        } catch (error) {
+          console.error('[AgentService] Failed to build auto context prompt:', error)
+          // Fall back to provided systemPrompt or undefined
+        }
+      }
+
+      // Add system prompt if we have one
+      if (systemPrompt) {
+        queryOptions.systemPrompt = systemPrompt
       }
 
       this.activeQuery = sdk.query({

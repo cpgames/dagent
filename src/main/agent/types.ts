@@ -23,6 +23,11 @@ export interface AgentQueryOptions {
   toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'pmAgent' | 'none'
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
   cwd?: string // Working directory for file operations
+  // Context options for autoContext
+  featureId?: string
+  taskId?: string
+  agentType?: 'pm' | 'harness' | 'task' | 'merge'
+  autoContext?: boolean // If true, auto-build context prompt using buildAgentPrompt()
 }
 
 export interface AgentStreamEvent {
