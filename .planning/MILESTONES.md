@@ -1,5 +1,39 @@
 # Project Milestones: DAGent
 
+## v1.9 Agent Communication Architecture (Shipped: 2026-01-14)
+
+**Delivered:** Full message-based communication architecture between agents. Task agents now have per-task session files for conversation history, and all inter-agent communication flows through a central MessageBus using publish/subscribe patterns.
+
+**Phases completed:** 37-40 (8 plans total)
+
+**Key accomplishments:**
+
+- TaskAgentSession and TaskAgentMessage types for per-task conversation history
+- Per-task session storage at `.dagent/nodes/{taskId}/session.json`
+- Bidirectional message tracking (task_to_harness/harness_to_task)
+- TaskAgent automatic session lifecycle logging
+- Session resume detection for interrupted tasks
+- InterAgentMessage types with 7 message types for full agent communication
+- MessageBus singleton with publish/subscribe and multi-channel emission
+- Factory functions for typed message construction
+- HarnessAgent message routing by type (task_registered, intention_proposed, etc.)
+- Complete migration from direct method calls to message-based communication
+- SessionLogDialog with conversation-style UI for viewing task-harness sessions
+- Direction-based styling (blue outgoing, purple incoming)
+- Real-time session polling during task execution
+
+**Stats:**
+
+- 4 phases, 8 plans executed
+- 12 source files modified/created
+- Full migration from direct calls to message-based communication
+
+**Git range:** `feat(37-01)` -> `docs(40-01)`
+
+**What's next:** Consider additional agent types, parallel execution, or deployment packaging.
+
+---
+
 ## v1.4 Agent System Overhaul (Shipped: 2026-01-14)
 
 **Delivered:** Complete agent system overhaul with centralized chat, PM Agent CRUD operations, feature deletion, and universal context access for all agents.

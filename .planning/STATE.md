@@ -5,28 +5,28 @@
 See: .planning/PROJECT.md (updated 2026-01-14)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v1.9 Agent Communication Architecture
+**Current focus:** None (between milestones)
 
 ## Current Position
 
-**Milestone:** v1.9 Agent Communication Architecture
+**Milestone:** None (v1.9 shipped)
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 40 of 40 (Log UI Integration) - COMPLETE
-Plan: 40-01-PLAN.md (Session Log Dialog) - COMPLETE
-Status: Milestone Complete
-Last activity: 2026-01-14 - Completed Phase 40-01
+Phase: N/A
+Plan: N/A
+Status: Between milestones
+Last activity: 2026-01-14 - Shipped v1.9 Agent Communication Architecture
 
-Progress: ██████████ 100%
+Progress: N/A
 
-Next action: /gsd:complete-milestone
+Next action: /gsd:new-milestone
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 73 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8)
+- Total plans completed: 81 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~280 min
+- Total execution time: ~310 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: /gsd:complete-milestone
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 38-02, 39-01, 39-02, 40-01
-- Trend: All milestones shipped (v1.0-v1.9), v1.9 at 100%
+- Last 5 plans: 39-01, 39-02, 40-01
+- Trend: All milestones shipped (v1.0-v1.9)
 
 ## Accumulated Context
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 40 (Log UI Integration)
+Stopped at: Shipped v1.9 Agent Communication Architecture
 Resume file: None
-Next action: /gsd:complete-milestone
+Next action: /gsd:new-milestone
 
 ## Completed Phases
 
@@ -260,6 +260,74 @@ All verification items passed. Milestone v1.6 Complete.
 - **32-02**: Log buttons on TaskNode and ChatPanel, wiring in DAGView
 
 All verification items passed. Milestone v1.7 Complete.
+
+### Phase 33: Execution Orchestration ✓
+
+- **33-01**: Wire Start button to execution loop, ready task identification
+
+### Phase 34: Agent Assignment ✓
+
+- **34-01**: PM assigns agents to ready tasks, task agent spawning
+
+### Phase 35: Intention-Approval Workflow ✓
+
+- **35-01**: Task agents propose intentions, PM approves/modifies/rejects
+
+### Phase 36: Communication Logging ✓
+
+- **36-01**: Log all agent communications to harness_log.json
+
+All verification items passed. Milestone v1.8 Complete.
+
+### Phase 37: Task Agent Sessions ✓
+
+- **37-01**: TaskAgentSession and TaskAgentMessage types with storage methods
+- **37-02**: TaskAgent session lifecycle integration
+- **37-03**: Session resume detection and IPC handlers
+
+### Phase 38: Message Queue ✓
+
+- **38-01**: InterAgentMessage types and MessageBus singleton
+- **38-02**: TaskAgent migration to MessageBus
+
+### Phase 39: Harness Router ✓
+
+- **39-01**: HarnessAgent MessageBus subscription
+- **39-02**: Full MessageBus migration, remove direct method calls
+
+### Phase 40: Log UI Integration ✓
+
+- **40-01**: SessionLogDialog component with conversation-style display
+
+All verification items passed. Milestone v1.9 Complete.
+
+---
+
+## v1.9 Milestone Summary
+
+Agent Communication Architecture is complete. All inter-agent communication now flows through MessageBus:
+
+1. **TaskAgentSession**: Per-task session files for conversation history
+2. **MessageBus**: Publish/subscribe pattern for all agent messages
+3. **HarnessAgent Router**: Receives and routes messages by type
+4. **SessionLogDialog**: Conversation-style UI for viewing sessions
+
+The application now provides:
+- Per-task session storage at `.dagent/nodes/{taskId}/session.json`
+- Bidirectional message tracking (task_to_harness/harness_to_task)
+- Full message lifecycle: task_registered → intention_proposed → approved/rejected → task_working → task_completed/failed
+- Real-time session polling in UI during task execution
+
+---
+
+## v1.8 Milestone Summary
+
+DAG Execution is complete. The Start button now triggers full DAG execution:
+
+1. **Execution Orchestration**: Wire Start to execution loop
+2. **Agent Assignment**: PM assigns task agents to ready tasks
+3. **Intention-Approval Workflow**: Task agents propose intentions, PM reviews
+4. **Communication Logging**: All communications logged to harness_log.json
 
 ---
 

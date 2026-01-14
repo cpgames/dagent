@@ -10,66 +10,25 @@ None
 
 ## Milestones
 
-### Current Milestone: v1.9 Agent Communication Architecture - COMPLETE
+### Current Milestone: None
 
-Refactor agent communication from direct method calls to message-based sessions.
+No active milestone. Use `/gsd:new-milestone` to define the next milestone.
 
-- [x] **Phase 37: Task Agent Sessions** - Per-task log files for conversation history with harness (2/2 plans)
+## Completed Milestones
+
+<details>
+<summary>v1.9 Agent Communication Architecture (Phases 37-40) - SHIPPED 2026-01-14</summary>
+
+- [x] **Phase 37: Task Agent Sessions** - Per-task log files for conversation history with harness (3/3 plans)
 - [x] **Phase 38: Message Queue** - Replace direct method calls with message passing (2/2 plans)
 - [x] **Phase 39: Harness Router** - Harness receives and routes messages by taskId (2/2 plans)
 - [x] **Phase 40: Log UI Integration** - Update LogDialog to show per-task conversation history (1/1 plans)
 
-## Phase Details
+**Total:** 4 phases, 8 plans
 
-### Phase 37: Task Agent Sessions
-**Goal**: Each task agent gets its own log file/session for conversation history with harness
-**Depends on**: v1.8 (Communication Logging)
-**Research**: Unlikely (internal file/type patterns)
-**Plans**: TBD
+See [v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md) for details.
 
-Scope:
-- Per-task log file: `.dagent/tasks/{taskId}/agent_log.json`
-- TaskAgentSession type with message history
-- Session lifecycle: create on task start, persist on messages, close on complete
-- Load existing session on task resume
-
-### Phase 38: Message Queue
-**Goal**: Replace direct method calls with message passing between agents
-**Depends on**: Phase 37
-**Research**: Unlikely (event emitter patterns already in codebase)
-**Plans**: TBD
-
-Scope:
-- AgentMessage type with from/to/type/payload
-- MessageBus singleton for routing messages
-- Task agent sends messages instead of calling harness methods
-- Harness subscribes to task messages
-
-### Phase 39: Harness Router
-**Goal**: Harness receives and routes messages from all task agents by taskId
-**Depends on**: Phase 38
-**Research**: Unlikely (existing harness patterns)
-**Plans**: TBD
-
-Scope:
-- Harness message handler for incoming task messages
-- Route by taskId to appropriate handler (intention, action, completion)
-- Send responses back through MessageBus
-- Single harness session receiving all task communications
-
-### Phase 40: Log UI Integration
-**Goal**: Update LogDialog to show per-task conversation history
-**Depends on**: Phase 39
-**Research**: Unlikely (existing LogDialog patterns)
-**Plans**: TBD
-
-Scope:
-- Load task-specific logs from per-task files
-- Show conversation thread between task agent and harness
-- Filter by message type (intention, approval, action)
-- Real-time updates during execution
-
-## Completed Milestones
+</details>
 
 <details>
 <summary>v1.8 DAG Execution (Phases 33-36) - SHIPPED 2026-01-14</summary>
@@ -187,7 +146,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**v1.9 complete.** 40 phases complete.
+**All milestones complete.** 40 phases complete (81 plans total).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -227,7 +186,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 34. Agent Assignment | v1.8 | 1/1 | Complete | 2026-01-14 |
 | 35. Intention-Approval Workflow | v1.8 | 1/1 | Complete | 2026-01-14 |
 | 36. Communication Logging | v1.8 | 1/1 | Complete | 2026-01-14 |
-| 37. Task Agent Sessions | v1.9 | 2/2 | Complete | 2026-01-14 |
+| 37. Task Agent Sessions | v1.9 | 3/3 | Complete | 2026-01-14 |
 | 38. Message Queue | v1.9 | 2/2 | Complete | 2026-01-14 |
 | 39. Harness Router | v1.9 | 2/2 | Complete | 2026-01-14 |
 | 40. Log UI Integration | v1.9 | 1/1 | Complete | 2026-01-14 |
