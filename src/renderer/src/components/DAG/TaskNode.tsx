@@ -29,6 +29,16 @@ const statusBgColors: Record<TaskStatus, string> = {
   failed: 'bg-red-500/10'
 }
 
+// State badge configuration for active execution states
+const stateBadgeConfig: Partial<
+  Record<TaskStatus, { label: string; bgColor: string; textColor: string }>
+> = {
+  dev: { label: 'DEV', bgColor: 'bg-blue-500/20', textColor: 'text-blue-400' },
+  qa: { label: 'QA', bgColor: 'bg-yellow-500/20', textColor: 'text-yellow-400' },
+  merging: { label: 'MERGE', bgColor: 'bg-purple-500/20', textColor: 'text-purple-400' },
+  failed: { label: 'FAILED', bgColor: 'bg-red-500/20', textColor: 'text-red-400' }
+}
+
 function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   const nodeData = data as TaskNodeData
   const { task, onEdit, onDelete, onLog } = nodeData
@@ -128,29 +138,17 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
         </div>
       </div>
 
-      {/* Agent badges */}
-      <div className="px-3 py-1 flex gap-1">
-        <span
-          className="text-xs px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-400"
-          title="Developer Agent: Implements task code"
-        >
-          Dev
-        </span>
-        <span
-          className="text-xs px-1.5 py-0.5 rounded font-medium bg-teal-500/20 text-teal-400"
-          title="QA Agent: Verifies implementation"
-        >
-          QA
-        </span>
-        {task.status === 'merging' && (
+      {/* Dynamic state badge - only shows for active execution states */}
+      {stateBadgeConfig[task.status] && (
+        <div className="px-3 py-1">
           <span
-            className="text-xs px-1.5 py-0.5 rounded font-medium bg-green-500/20 text-green-400"
-            title="Merge Agent: Handles branch integration"
+            className={`text-xs px-1.5 py-0.5 rounded font-medium ${stateBadgeConfig[task.status]!.bgColor} ${stateBadgeConfig[task.status]!.textColor}`}
+            title={`State: ${stateBadgeConfig[task.status]!.label}${task.assignedAgentId ? `\nAgent: ${task.assignedAgentId}` : ''}`}
           >
-            Merge
+            {stateBadgeConfig[task.status]!.label}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Status indicator */}
       <div className="px-3 py-2">

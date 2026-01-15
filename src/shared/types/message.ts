@@ -14,7 +14,8 @@ export type InterAgentMessageType =
   | 'intention_approved' // Harness approves intention
   | 'intention_rejected' // Harness rejects intention
   | 'task_working' // Task agent started work
-  | 'task_completed' // Task agent completed
+  | 'task_ready_for_merge' // Task execution done, commit done, ready for merge
+  | 'task_completed' // Task agent completed (after merge)
   | 'task_failed' // Task agent failed
 
 // Agent identifier with type and ID

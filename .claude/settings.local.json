@@ -25,7 +25,13 @@
       "Skill(gsd:create-roadmap:*)",
       "Bash(npx tsc:*)",
       "Skill(gsd:new-milestone)",
-      "Skill(gsd:new-milestone:*)"
+      "Skill(gsd:new-milestone:*)",
+      "Bash(git worktree:*)",
+      "Bash(node:*)",
+      "Bash(git branch:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(tree:*)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -13,4 +13,5 @@ export interface Task {
   locked: boolean;
   position: TaskPosition;
   qaFeedback?: string; // Feedback from QA agent when task fails QA
+  assignedAgentId?: string; // ID of agent currently working on this task
 }

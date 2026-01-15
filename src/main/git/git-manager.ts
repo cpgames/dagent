@@ -264,7 +264,8 @@ export class GitManager {
 
       // Check if worktree already exists
       const worktrees = await this.listWorktrees()
-      if (worktrees.some((w) => w.path === worktreePath)) {
+      const normalizedWorktreePath = path.normalize(worktreePath)
+      if (worktrees.some((w) => path.normalize(w.path) === normalizedWorktreePath)) {
         return {
           success: false,
           error: `Worktree already exists at ${worktreePath}`
@@ -310,13 +311,34 @@ export class GitManager {
       const worktreeName = getTaskWorktreeName(featureId, taskId)
       const worktreePath = path.join(this.config.worktreesDir, worktreeName)
 
-      // Check if worktree already exists
+      // Check if worktree already exists (orphaned from previous failed run)
       const worktrees = await this.listWorktrees()
-      if (worktrees.some((w) => w.path === worktreePath)) {
-        return {
-          success: false,
-          error: `Worktree already exists at ${worktreePath}`
+      const normalizedWorktreePath = path.normalize(worktreePath)
+      const existingWorktree = worktrees.find((w) => path.normalize(w.path) === normalizedWorktreePath)
+      if (existingWorktree) {
+        console.log(`[GitManager] Worktree already exists at ${worktreePath}, removing orphaned worktree...`)
+        try {
+          // Force remove the orphaned worktree
+          await this.git.raw(['worktree', 'remove', existingWorktree.path, '--force'])
+          // Also prune to clean up any stale entries
+          await this.git.raw(['worktree', 'prune'])
+        } catch (removeError) {
+          console.warn(`[GitManager] Could not remove orphaned worktree: ${removeError}`)
+          return {
+            success: false,
+            error: `Worktree already exists at ${worktreePath} and could not be removed`
+          }
         }
+      }
+
+      // Check if directory exists but isn't a registered worktree (orphaned directory)
+      try {
+        await fs.access(worktreePath)
+        // Directory exists but isn't a registered worktree - remove it
+        console.log(`[GitManager] Orphaned directory exists at ${worktreePath}, removing...`)
+        await fs.rm(worktreePath, { recursive: true, force: true })
+      } catch {
+        // Directory doesn't exist, which is expected - continue
       }
 
       // Create feature branch if it doesn't exist (auto-recovery for failed feature setup)
@@ -328,7 +350,21 @@ export class GitManager {
         await this.git.branch([featureBranchName, currentBranch || 'HEAD'])
       }
 
+      // Check if task branch already exists (orphaned from previous failed run)
+      const taskBranchExists = await this.branchExists(taskBranchName)
+      if (taskBranchExists) {
+        console.log(`[GitManager] Task branch ${taskBranchName} already exists, deleting orphaned branch...`)
+        // Force delete the orphaned branch so we can create fresh
+        try {
+          await this.git.branch(['-D', taskBranchName])
+        } catch (deleteError) {
+          console.warn(`[GitManager] Could not delete orphaned branch: ${deleteError}`)
+          // Continue anyway - the worktree add might still work if branch was already merged
+        }
+      }
+
       // Create task branch from feature branch and worktree
+      console.log(`[GitManager] Creating worktree at ${worktreePath} with branch ${taskBranchName} from ${featureBranchName}`)
       await this.git.raw([
         'worktree',
         'add',
@@ -337,6 +373,16 @@ export class GitManager {
         worktreePath,
         featureBranchName
       ])
+
+      // Verify worktree was created successfully
+      const gitFile = path.join(worktreePath, '.git')
+      try {
+        await fs.access(gitFile)
+        console.log(`[GitManager] Worktree created successfully at ${worktreePath}`)
+      } catch {
+        console.error(`[GitManager] Worktree creation failed - .git file not found at ${gitFile}`)
+        return { success: false, error: 'Worktree creation failed - .git file not found' }
+      }
 
       return {
         success: true,
@@ -359,14 +405,15 @@ export class GitManager {
     try {
       // Get worktree info first
       const worktrees = await this.listWorktrees()
-      const worktree = worktrees.find((w) => w.path === worktreePath)
+      const normalizedWorktreePath = path.normalize(worktreePath)
+      const worktree = worktrees.find((w) => path.normalize(w.path) === normalizedWorktreePath)
 
       if (!worktree) {
         return { success: false, error: `Worktree not found at ${worktreePath}` }
       }
 
-      // Remove worktree
-      await this.git.raw(['worktree', 'remove', worktreePath, '--force'])
+      // Remove worktree (use the path as git knows it)
+      await this.git.raw(['worktree', 'remove', worktree.path, '--force'])
 
       // Delete branch if requested
       if (deleteBranch && worktree.branch && worktree.branch !== 'HEAD') {
@@ -384,7 +431,9 @@ export class GitManager {
    */
   async getWorktree(worktreePath: string): Promise<WorktreeInfo | null> {
     const worktrees = await this.listWorktrees()
-    return worktrees.find((w) => w.path === worktreePath) || null
+    // Normalize paths for comparison (git uses forward slashes, Node.js on Windows uses backslashes)
+    const normalizedPath = path.normalize(worktreePath)
+    return worktrees.find((w) => path.normalize(w.path) === normalizedPath) || null
   }
 
   /**
@@ -530,6 +579,13 @@ export class GitManager {
   /**
    * Merge a task branch into its feature branch.
    * This is the main operation for completing a task.
+   *
+   * The merge is performed inside the task worktree:
+   * 1. Checkout the feature branch in the task worktree
+   * 2. Merge the task branch into the feature branch
+   * 3. Optionally remove the worktree and delete the task branch
+   *
+   * This approach doesn't affect the main repo's working directory.
    */
   async mergeTaskIntoFeature(
     featureId: string,
@@ -538,26 +594,13 @@ export class GitManager {
   ): Promise<TaskMergeResult> {
     this.ensureInitialized()
     try {
+      const featureBranchName = getFeatureBranchName(featureId)
       const taskBranchName = getTaskBranchName(featureId, taskId)
-      const featureWorktreeName = getFeatureWorktreeName(featureId)
       const taskWorktreeName = getTaskWorktreeName(featureId, taskId)
-      const featureWorktreePath = path.join(this.config.worktreesDir, featureWorktreeName)
       const taskWorktreePath = path.join(this.config.worktreesDir, taskWorktreeName)
 
-      // Verify both worktrees exist
-      const featureWorktree = await this.getWorktree(featureWorktreePath)
+      // Verify task worktree exists
       const taskWorktree = await this.getWorktree(taskWorktreePath)
-
-      if (!featureWorktree) {
-        return {
-          success: false,
-          merged: false,
-          worktreeRemoved: false,
-          branchDeleted: false,
-          error: `Feature worktree not found at ${featureWorktreePath}`
-        }
-      }
-
       if (!taskWorktree) {
         return {
           success: false,
@@ -568,17 +611,43 @@ export class GitManager {
         }
       }
 
-      // Create a git instance for the feature worktree
-      const featureGit = simpleGit({ baseDir: featureWorktreePath })
+      // Create a git instance for the task worktree
+      const taskGit = simpleGit({ baseDir: taskWorktreePath })
 
-      // Perform merge in the feature worktree
+      // Ensure all changes in task worktree are committed
+      const status = await taskGit.status()
+      if (status.modified.length > 0 || status.not_added.length > 0 || status.staged.length > 0) {
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: 'Task worktree has uncommitted changes'
+        }
+      }
+
+      // Checkout the feature branch in the task worktree
+      // This switches the worktree from task branch to feature branch
+      try {
+        await taskGit.checkout(featureBranchName)
+      } catch (error) {
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: `Failed to checkout feature branch: ${(error as Error).message}`
+        }
+      }
+
+      // Perform merge of task branch into feature branch (now checked out)
       const mergeMessage = `Merge task ${taskId} into feature ${featureId}`
       let mergeResult: MergeResult
 
       try {
-        await featureGit.merge([taskBranchName, '--no-ff', '-m', mergeMessage])
+        await taskGit.merge([taskBranchName, '--no-ff', '-m', mergeMessage])
         // Get the commit hash after successful merge
-        const log = await featureGit.log({ maxCount: 1 })
+        const log = await taskGit.log({ maxCount: 1 })
         mergeResult = {
           success: true,
           merged: true,
@@ -588,12 +657,26 @@ export class GitManager {
         const errorMsg = (error as Error).message
 
         if (errorMsg.includes('CONFLICT') || errorMsg.includes('Automatic merge failed')) {
-          // Get conflicts from feature worktree
-          const status = await featureGit.status()
-          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+          // Get conflicts
+          const mergeStatus = await taskGit.status()
+          const conflicts: MergeConflict[] = mergeStatus.conflicted.map((file) => ({
             file,
             type: 'both_modified' as const
           }))
+
+          // Abort the merge to clean up
+          try {
+            await taskGit.merge(['--abort'])
+          } catch {
+            // Ignore abort errors
+          }
+
+          // Switch back to task branch so worktree can be removed
+          try {
+            await taskGit.checkout(taskBranchName)
+          } catch {
+            // Ignore checkout errors
+          }
 
           return {
             success: false,
@@ -603,6 +686,13 @@ export class GitManager {
             branchDeleted: false,
             error: 'Merge conflicts detected'
           }
+        }
+
+        // Switch back to task branch on other errors
+        try {
+          await taskGit.checkout(taskBranchName)
+        } catch {
+          // Ignore checkout errors
         }
 
         return {
@@ -619,9 +709,28 @@ export class GitManager {
       let branchDeleted = false
 
       if (removeWorktreeOnSuccess && mergeResult.merged) {
-        const removeResult = await this.removeWorktree(taskWorktreePath, true)
+        // Before removing worktree, we need to detach HEAD or checkout a different branch
+        // since the worktree is now on the feature branch which we want to keep
+        // Detach HEAD so the feature branch ref is free
+        try {
+          await taskGit.raw(['checkout', '--detach'])
+        } catch {
+          // Ignore detach errors - worktree removal might still work
+        }
+
+        const removeResult = await this.removeWorktree(taskWorktreePath, false) // Don't delete feature branch!
         worktreeRemoved = removeResult.success
-        branchDeleted = removeResult.success
+
+        // Now delete the task branch (it's been merged)
+        if (worktreeRemoved) {
+          try {
+            await this.git.branch(['-d', taskBranchName])
+            branchDeleted = true
+          } catch {
+            // Task branch might already be deleted or have issues, continue anyway
+            console.warn(`[GitManager] Could not delete task branch ${taskBranchName}`)
+          }
+        }
       }
 
       return {

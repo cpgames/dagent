@@ -17,7 +17,6 @@ export interface MergeAgentState {
   agentId: string | null
   featureId: string
   taskId: string
-  featureWorktreePath: string | null
   taskWorktreePath: string | null
   featureBranch: string | null
   taskBranch: string | null
@@ -70,7 +69,6 @@ export interface ConflictAnalysis {
 export const DEFAULT_MERGE_AGENT_STATE: Omit<MergeAgentState, 'featureId' | 'taskId'> = {
   status: 'initializing',
   agentId: null,
-  featureWorktreePath: null,
   taskWorktreePath: null,
   featureBranch: null,
   taskBranch: null,

@@ -19,7 +19,7 @@ Major architectural overhaul for scalable parallel execution:
 - [x] **Phase 43: Pool-Based Task Management** - Tasks organized by state for efficient assignment (1/1 plans)
 - [x] **Phase 44: QA Agent Implementation** - Code quality verification with dev feedback loop (2/2 plans)
 - [x] **Phase 45: Agent Communication Refactor** - Only dev talks to harness, QA/merge autonomous (1/1 plans)
-- [ ] **Phase 46: DAG View Status Badges** - Visual state indicators on task nodes
+- [x] **Phase 46: DAG View Status Badges** - Visual state indicators on task nodes (1/1 plans)
 
 **Total:** 6 phases, ~9 plans
 
@@ -157,7 +157,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.0 Request Manager & Task Pipeline (5/6 phases complete)
+**Current milestone:** v2.0 Request Manager & Task Pipeline (6/6 phases complete)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -206,4 +206,4 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 43. Pool-Based Task Management | v2.0 | 1/1 | Complete | 2026-01-15 |
 | 44. QA Agent Implementation | v2.0 | 2/2 | Complete | 2026-01-15 |
 | 45. Agent Communication Refactor | v2.0 | 1/1 | Complete | 2026-01-15 |
-| 46. DAG View Status Badges | v2.0 | 0/1 | Pending | - |
+| 46. DAG View Status Badges | v2.0 | 1/1 | Complete | 2026-01-15 |
