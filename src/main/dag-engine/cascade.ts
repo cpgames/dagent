@@ -112,8 +112,8 @@ export function recalculateAllStatuses(graph: DAGGraph): CascadeResult {
   const errors: Array<{ taskId: string; error: string }> = []
 
   for (const task of graph.nodes) {
-    // Skip terminal states
-    if (['running', 'merging', 'completed'].includes(task.status)) {
+    // Skip active and terminal states
+    if (['dev', 'qa', 'merging', 'completed'].includes(task.status)) {
       continue
     }
 
