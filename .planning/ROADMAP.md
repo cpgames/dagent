@@ -10,19 +10,24 @@ None
 
 ## Milestones
 
-### Current Milestone: v2.1 Kanban Board Improvements (Phases 47-49)
+### Current Milestone: Planning next milestone
 
-Improve Kanban board to reflect execution state and add quick-start capability:
+No active milestone. Use `/gsd:discuss-milestone` or `/gsd:new-milestone` to define the next work.
+
+## Completed Milestones
+
+<details>
+<summary>v2.1 Kanban Board Improvements (Phases 47-49) - SHIPPED 2026-01-15</summary>
 
 - [x] **Phase 47: Kanban Feature Status** - Move features to columns based on task states (1/1 plans)
 - [x] **Phase 48: Feature Start Button** - Start execution from Kanban card (1/1 plans)
 - [x] **Phase 49: Kanban UI Polish** - Fix padding and spacing issues (1/1 plans)
 
-**Total:** 3 phases, ~4 plans
+**Total:** 3 phases, 3 plans
 
 See [v2.1-ROADMAP.md](milestones/v2.1-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v2.0 Request Manager & Task Pipeline (Phases 41-46) - SHIPPED 2026-01-15</summary>
@@ -170,7 +175,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.1 Kanban Board Improvements (3/3 phases complete)
+**Current milestone:** None (planning next milestone)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|

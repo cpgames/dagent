@@ -8,12 +8,13 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v1.8 DAG Execution)
+## Current State (v2.1 Kanban Board Improvements)
 
-Shipped 2026-01-14. Full DAG execution engine operational:
-- 115+ source files, ~21,000 LOC TypeScript
-- 36 phases, 65 plans executed across 8 milestones
-- Clicking Start runs dependency-aware task execution with agents
+Shipped 2026-01-15. Full Kanban-driven execution flow:
+- 115+ source files, ~21,800 LOC TypeScript
+- 49 phases, 93 plans executed across 12 milestones
+- Kanban columns reflect task execution state automatically
+- Start execution directly from Kanban cards
 
 ## Requirements
 
@@ -73,6 +74,9 @@ Shipped 2026-01-14. Full DAG execution engine operational:
 - [x] Automatic agent assignment to ready tasks - v1.8
 - [x] Intention-approval workflow wired in orchestrator - v1.8
 - [x] Real-time communication logging to harness_log.json - v1.8
+- [x] Automatic feature status from task states - v2.1
+- [x] Start execution from Kanban card - v2.1
+- [x] Polished Kanban UI with consistent spacing - v2.1
 
 ### Backlog
 
@@ -126,5 +130,8 @@ Key reference material:
 | LogService with cache | Efficient log persistence | Good |
 | Event-driven logging | Subscribe to harness:message events | Good |
 
+| Webkit scrollbar styling | Tailwind v4 lacks scrollbar utilities | Good |
+| Feature status from tasks | Priority rules for column placement | Good |
+
 ---
-*Last updated: 2026-01-14 after v1.8 milestone*
+*Last updated: 2026-01-15 after v2.1 milestone*
