@@ -9,10 +9,10 @@ import {
   getGitManager,
   getFeatureBranchName,
   getTaskBranchName,
-  getFeatureWorktreeName,
   getTaskWorktreeName
 } from '../git'
 import { getAgentService } from '../agent'
+import { RequestPriority } from '../agent/request-types'
 import * as path from 'path'
 
 export class MergeAgent extends EventEmitter {
@@ -59,13 +59,9 @@ export class MergeAgent extends EventEmitter {
     this.state.featureBranch = getFeatureBranchName(this.state.featureId)
     this.state.taskBranch = getTaskBranchName(this.state.featureId, this.state.taskId)
 
-    // Set up worktree paths
+    // Set up task worktree path (no feature worktree needed - merge happens in task worktree)
     const gitManager = getGitManager()
     const config = gitManager.getConfig()
-    this.state.featureWorktreePath = path.join(
-      config.worktreesDir,
-      getFeatureWorktreeName(this.state.featureId)
-    )
     this.state.taskWorktreePath = path.join(
       config.worktreesDir,
       getTaskWorktreeName(this.state.featureId, this.state.taskId)
@@ -81,6 +77,7 @@ export class MergeAgent extends EventEmitter {
 
   /**
    * Check branches and detect potential conflicts.
+   * Only requires task worktree to exist (no feature worktree needed).
    */
   async checkBranches(): Promise<boolean> {
     this.state.status = 'checking_branches'
@@ -88,18 +85,19 @@ export class MergeAgent extends EventEmitter {
     try {
       const gitManager = getGitManager()
 
-      // Verify worktrees exist
-      const featureWorktree = await gitManager.getWorktree(this.state.featureWorktreePath!)
+      // Verify task worktree exists (feature worktree not needed - merge happens in task worktree)
       const taskWorktree = await gitManager.getWorktree(this.state.taskWorktreePath!)
 
-      if (!featureWorktree) {
-        this.state.error = 'Feature worktree not found'
+      if (!taskWorktree) {
+        this.state.error = 'Task worktree not found'
         this.state.status = 'failed'
         return false
       }
 
-      if (!taskWorktree) {
-        this.state.error = 'Task worktree not found'
+      // Verify feature branch exists
+      const featureBranchExists = await gitManager.branchExists(this.state.featureBranch!)
+      if (!featureBranchExists) {
+        this.state.error = `Feature branch ${this.state.featureBranch} not found`
         this.state.status = 'failed'
         return false
       }
@@ -176,9 +174,13 @@ export class MergeAgent extends EventEmitter {
 
   /**
    * Receive approval decision from harness.
+   * Can be called after checkBranches() for auto-approval without intention phase,
+   * or after proposeIntention() for full approval workflow.
    */
   receiveApproval(decision: IntentionDecision): void {
-    if (this.state.status !== 'awaiting_approval') {
+    // Allow approval after branch check (auto-approve) or after intention proposal
+    if (this.state.status !== 'awaiting_approval' && this.state.status !== 'checking_branches') {
+      console.warn(`[MergeAgent] receiveApproval called in unexpected state: ${this.state.status}`)
       return
     }
 
@@ -295,7 +297,7 @@ export class MergeAgent extends EventEmitter {
    * Analyze conflicts using Claude Agent SDK for intelligent resolution suggestions.
    */
   async analyzeConflicts(conflicts: MergeConflict[]): Promise<ConflictAnalysis | null> {
-    if (!this.state.featureWorktreePath || conflicts.length === 0) {
+    if (!this.state.taskWorktreePath || conflicts.length === 0) {
       return null
     }
 
@@ -308,7 +310,11 @@ export class MergeAgent extends EventEmitter {
         prompt,
         toolPreset: 'mergeAgent',
         permissionMode: 'acceptEdits',
-        cwd: this.state.featureWorktreePath
+        cwd: this.state.taskWorktreePath,
+        agentType: 'merge',
+        agentId: `merge-${this.state.taskId}`,
+        taskId: this.state.taskId,
+        priority: RequestPriority.MERGE
       })) {
         if (event.type === 'message' && event.message?.type === 'assistant') {
           responseText += event.message.content

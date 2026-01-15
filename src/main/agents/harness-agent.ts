@@ -14,6 +14,7 @@ import type {
 import { DEFAULT_HARNESS_STATE } from './harness-types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
+import { RequestPriority } from '../agent/request-types'
 import { getMessageBus, createHarnessToTaskMessage } from './message-bus'
 
 export class HarnessAgent extends EventEmitter {
@@ -41,14 +42,21 @@ export class HarnessAgent extends EventEmitter {
     claudeMd?: string,
     projectRoot?: string
   ): Promise<boolean> {
+    console.log(`[HarnessAgent] Initializing for feature ${featureId}, current status: ${this.state.status}`)
+
     if (this.state.status !== 'idle') {
+      console.warn(`[HarnessAgent] Cannot initialize - harness not idle (status: ${this.state.status})`)
       this.log('warning', 'Cannot initialize - harness not idle')
       return false
     }
 
     // Register harness agent in pool
     const pool = getAgentPool()
-    if (!pool.canSpawn('harness')) {
+    const canSpawn = pool.canSpawn('harness')
+    console.log(`[HarnessAgent] Can spawn harness: ${canSpawn}, pool status:`, pool.getStatus())
+
+    if (!canSpawn) {
+      console.error('[HarnessAgent] Cannot spawn harness - pool limit reached')
       this.log('error', 'Cannot spawn harness - pool limit reached')
       return false
     }
@@ -286,7 +294,9 @@ export class HarnessAgent extends EventEmitter {
         prompt,
         toolPreset: 'harnessAgent',
         permissionMode: 'acceptEdits',
-        cwd: this.state.projectRoot
+        cwd: this.state.projectRoot,
+        agentType: 'harness',
+        priority: RequestPriority.HARNESS_DEV // Default, specific routing handled in Phase 45
       })) {
         if (event.type === 'message' && event.message?.type === 'assistant') {
           responseText += event.message.content
