@@ -10,9 +10,14 @@ None
 
 ## Milestones
 
-### Current Milestone: v2.0 Request Manager & Task Pipeline (Phases 41-46)
+### Current Milestone: None (planning next milestone)
 
-Major architectural overhaul for scalable parallel execution:
+All phases complete. Ready for next milestone planning.
+
+## Completed Milestones
+
+<details>
+<summary>v2.0 Request Manager & Task Pipeline (Phases 41-46) - SHIPPED 2026-01-15</summary>
 
 - [x] **Phase 41: Request Manager Infrastructure** - Centralized request queue with priority levels (2/2 plans)
 - [x] **Phase 42: Task State Machine Refactor** - Granular states (blocked/ready/dev/qa/merging/completed/failed) (2/2 plans)
@@ -21,11 +26,11 @@ Major architectural overhaul for scalable parallel execution:
 - [x] **Phase 45: Agent Communication Refactor** - Only dev talks to harness, QA/merge autonomous (1/1 plans)
 - [x] **Phase 46: DAG View Status Badges** - Visual state indicators on task nodes (1/1 plans)
 
-**Total:** 6 phases, ~9 plans
+**Total:** 6 phases, 9 plans
 
 See [v2.0-ROADMAP.md](milestones/v2.0-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v1.9 Agent Communication Architecture (Phases 37-40) - SHIPPED 2026-01-14</summary>
@@ -157,7 +162,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.0 Request Manager & Task Pipeline (6/6 phases complete)
+**Current milestone:** None (v2.0 complete, planning next)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|

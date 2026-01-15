@@ -1,5 +1,33 @@
 # Project Milestones: DAGent
 
+## v2.0 Request Manager & Task Pipeline (Shipped: 2026-01-15)
+
+**Delivered:** Major architectural overhaul for scalable parallel execution with centralized request management, granular task states, QA agent implementation, and simplified agent communication model.
+
+**Phases completed:** 41-46 (9 plans total)
+
+**Key accomplishments:**
+
+- RequestManager with 6-level priority queue (PM > HARNESS_MERGE > MERGE > QA > HARNESS_DEV > DEV)
+- Task state machine refactored with dev→qa→merging pipeline and QA feedback loop
+- TaskPoolManager with O(1) lookups for efficient task assignment by status
+- QA Agent implementation with autonomous code review capability
+- Simplified communication model - only dev talks to harness, QA/merge autonomous
+- Dynamic state badges on TaskNode showing active execution state (DEV/QA/MERGE/FAILED)
+
+**Stats:**
+
+- 49 files modified
+- +3,679 lines of TypeScript (21,589 total)
+- 6 phases, 9 plans executed
+- 2 days development time (2026-01-13 → 2026-01-15)
+
+**Git range:** `feat(41-01)` → `feat(46-01)`
+
+**What's next:** Consider testing, deployment packaging, or next milestone planning.
+
+---
+
 ## v1.9 Agent Communication Architecture (Shipped: 2026-01-14)
 
 **Delivered:** Full message-based communication architecture between agents. Task agents now have per-task session files for conversation history, and all inter-agent communication flows through a central MessageBus using publish/subscribe patterns.
