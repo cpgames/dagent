@@ -10,9 +10,54 @@ None
 
 ## Milestones
 
-### Current Milestone: None
+### Current Milestone: v2.3 Feature-to-Main Merge
 
-No active milestone. Run `/gsd:new-milestone` to create the next milestone.
+- 🚧 **v2.3 Feature-to-Main Merge** - Phases 52-55 (in progress)
+
+### 🚧 v2.3 Feature-to-Main Merge (In Progress)
+
+**Milestone Goal:** Enable merging completed features to the working branch via AI-assisted merge or PR creation.
+
+#### Phase 52: Merge Button UI
+
+**Goal**: Add "Merge" button to completed features in Kanban with AI Merge / Create PR options
+**Depends on**: Previous milestone complete
+**Research**: Unlikely (internal UI patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 52-01: TBD (run /gsd:plan-phase 52 to break down)
+
+#### Phase 53: Feature Merge Agent
+
+**Goal**: Extend MergeAgent to handle feature-to-main branch merges with conflict resolution
+**Depends on**: Phase 52
+**Research**: Unlikely (existing MergeAgent patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 53-01: TBD
+
+#### Phase 54: GitHub PR Integration
+
+**Goal**: Add GitHub API integration for PR creation via `gh` CLI
+**Depends on**: Phase 53
+**Research**: Likely (external GitHub API)
+**Research topics**: GitHub CLI (`gh`) commands for PR creation, authentication, API patterns
+**Plans**: TBD
+
+Plans:
+- [ ] 54-01: TBD
+
+#### Phase 55: Merge Workflow Integration
+
+**Goal**: Wire up full merge workflow - button → dialog → agent → completion feedback
+**Depends on**: Phase 54
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 55-01: TBD
 
 ## Completed Milestones
 
@@ -187,10 +232,14 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.2 Task Pipeline Refactor (Phases 50-51)
+**Current milestone:** v2.3 Feature-to-Main Merge (Phases 52-55)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 52. Merge Button UI | v2.3 | 0/? | Not started | - |
+| 53. Feature Merge Agent | v2.3 | 0/? | Not started | - |
+| 54. GitHub PR Integration | v2.3 | 0/? | Not started | - |
+| 55. Merge Workflow Integration | v2.3 | 0/? | Not started | - |
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-01-13 |
 | 2. Data Model & Storage | v1.0 | 3/3 | Complete | 2026-01-13 |
 | 3. DAG Engine | v1.0 | 3/3 | Complete | 2026-01-13 |
