@@ -16,7 +16,7 @@ Major architectural overhaul for scalable parallel execution:
 
 - [x] **Phase 41: Request Manager Infrastructure** - Centralized request queue with priority levels (2/2 plans)
 - [x] **Phase 42: Task State Machine Refactor** - Granular states (blocked/ready/dev/qa/merging/completed/failed) (2/2 plans)
-- [ ] **Phase 43: Pool-Based Task Management** - Tasks organized by state for efficient assignment
+- [x] **Phase 43: Pool-Based Task Management** - Tasks organized by state for efficient assignment (1/1 plans)
 - [ ] **Phase 44: QA Agent Implementation** - Code quality verification with dev feedback loop
 - [ ] **Phase 45: Agent Communication Refactor** - Only dev talks to harness, QA/merge autonomous
 - [ ] **Phase 46: DAG View Status Badges** - Visual state indicators on task nodes
@@ -157,7 +157,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.0 Request Manager & Task Pipeline (2/6 phases complete)
+**Current milestone:** v2.0 Request Manager & Task Pipeline (3/6 phases complete)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -203,7 +203,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 40. Log UI Integration | v1.9 | 1/1 | Complete | 2026-01-14 |
 | 41. Request Manager Infrastructure | v2.0 | 2/2 | Complete | 2026-01-14 |
 | 42. Task State Machine Refactor | v2.0 | 2/2 | Complete | 2026-01-15 |
-| 43. Pool-Based Task Management | v2.0 | 0/1 | Pending | - |
+| 43. Pool-Based Task Management | v2.0 | 1/1 | Complete | 2026-01-15 |
 | 44. QA Agent Implementation | v2.0 | 0/2 | Pending | - |
 | 45. Agent Communication Refactor | v2.0 | 0/1 | Pending | - |
 | 46. DAG View Status Badges | v2.0 | 0/1 | Pending | - |
