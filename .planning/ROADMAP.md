@@ -10,9 +10,16 @@ None
 
 ## Milestones
 
-### Current Milestone: Planning next milestone
+### Current Milestone: v2.2 Task Pipeline Refactor (Phases 50-51)
 
-No active milestone. Use `/gsd:discuss-milestone` or `/gsd:new-milestone` to define the next work.
+Refactor task management to use queue-based pools as single source of truth, and move commit responsibility from dev to QA.
+
+- [ ] **Phase 50: Queue-Based Pool Refactor** - Pools as workflow queues, orchestrator owns movements (~2 plans)
+- [ ] **Phase 51: QA Commits** - Dev doesn't commit, QA commits on successful review (~2 plans)
+
+**Total:** 2 phases, ~4 plans
+
+See [v2.2-ROADMAP.md](milestones/v2.2-ROADMAP.md) for details.
 
 ## Completed Milestones
 
@@ -175,7 +182,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** None (planning next milestone)
+**Current milestone:** v2.2 Task Pipeline Refactor (Phases 50-51)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|

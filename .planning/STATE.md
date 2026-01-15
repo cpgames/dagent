@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 
 ## Current Position
 
-**Milestone:** None (planning next)
+**Milestone:** v2.2 Task Pipeline Refactor
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: N/A
+Phase: 50 - Queue-Based Pool Refactor
 Plan: N/A
 Status: Ready to plan
-Last activity: 2026-01-15 - Shipped v2.1 Kanban Board Improvements
+Last activity: 2026-01-15 - Created v2.2 milestone
 
 Progress: 12 milestones shipped (v1.0-v2.1)
 
-Next action: /gsd:discuss-milestone or /gsd:new-milestone
+Next action: /gsd:plan-phase 50
 
 ## Performance Metrics
 
