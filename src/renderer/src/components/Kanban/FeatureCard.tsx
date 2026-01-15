@@ -115,7 +115,7 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
 
   return (
     <div
-      className="group bg-gray-800 rounded-lg p-4 cursor-pointer transition-all hover:ring-1 hover:ring-gray-600"
+      className="group bg-gray-800 rounded-lg p-3 cursor-pointer transition-all hover:ring-1 hover:ring-gray-600 hover:shadow-lg hover:shadow-black/20"
       style={{ borderLeft: `4px solid ${borderColor}` }}
       onClick={handleClick}
       role="button"
@@ -163,8 +163,9 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
         </div>
       </div>
 
-      <div className="flex items-center justify-end mt-2">
-        {feature.status === 'completed' && onArchive && (
+      {/* Archive button - only shown for completed features */}
+      {feature.status === 'completed' && onArchive && (
+        <div className="flex items-center justify-end mt-2">
           <button
             className="text-sm text-gray-400 hover:text-white transition-colors"
             onClick={handleArchive}
@@ -172,8 +173,8 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
           >
             Archive
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
