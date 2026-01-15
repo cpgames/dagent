@@ -86,6 +86,14 @@ export function getTaskSessionPath(projectRoot: string, featureId: string, taskI
 }
 
 /**
+ * Get the path to plan.json for a specific task.
+ * Location: {projectRoot}/.dagent-worktrees/{featureId}/.dagent/nodes/{taskId}/plan.json
+ */
+export function getTaskPlanPath(projectRoot: string, featureId: string, taskId: string): string {
+  return path.join(getNodeDir(projectRoot, featureId, taskId), 'plan.json');
+}
+
+/**
  * Get the root directory for archived features.
  * Location: {projectRoot}/.dagent-archived/
  */
