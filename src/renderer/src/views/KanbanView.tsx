@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
 import { useExecutionStore } from '../stores/execution-store';
-import { KanbanColumn } from '../components/Kanban';
+import { KanbanColumn, type MergeType } from '../components/Kanban';
 import { DeleteFeatureDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
 
@@ -90,6 +90,12 @@ export default function KanbanView() {
     }
   };
 
+  // Handle merge feature
+  const handleMergeFeature = (featureId: string, mergeType: MergeType) => {
+    console.log(`Merge feature ${featureId} with type: ${mergeType}`);
+    // TODO: Wire to actual merge workflow in Phase 55
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -113,6 +119,7 @@ export default function KanbanView() {
               onArchiveFeature={handleArchiveFeature}
               onDeleteFeature={handleDeleteFeature}
               onStartFeature={handleStartFeature}
+              onMergeFeature={handleMergeFeature}
               startingFeatureId={startingFeatureId}
             />
           ))}

@@ -1,5 +1,5 @@
 import type { Feature, FeatureStatus } from '@shared/types';
-import FeatureCard from './FeatureCard';
+import FeatureCard, { type MergeType } from './FeatureCard';
 
 interface KanbanColumnProps {
   title: string;
@@ -9,6 +9,7 @@ interface KanbanColumnProps {
   onArchiveFeature: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
   onStartFeature?: (featureId: string) => void;
+  onMergeFeature?: (featureId: string, mergeType: MergeType) => void;
   startingFeatureId?: string | null;
 }
 
@@ -34,6 +35,7 @@ export default function KanbanColumn({
   onArchiveFeature,
   onDeleteFeature,
   onStartFeature,
+  onMergeFeature,
   startingFeatureId,
 }: KanbanColumnProps) {
   const titleColor = statusColors[status];
@@ -69,6 +71,7 @@ export default function KanbanColumn({
               onArchive={status === 'completed' ? onArchiveFeature : undefined}
               onDelete={onDeleteFeature}
               onStart={onStartFeature}
+              onMerge={status === 'completed' ? onMergeFeature : undefined}
               isStarting={feature.id === startingFeatureId}
             />
           ))
