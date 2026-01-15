@@ -93,6 +93,9 @@ export class QAAgent extends EventEmitter {
       // Query SDK for code review
       const agentService = getAgentService()
       let responseText = ''
+      let eventCount = 0
+
+      console.log(`[QAAgent ${this.state.taskId}] Starting SDK stream...`)
 
       for await (const event of agentService.streamQuery({
         prompt,
@@ -104,6 +107,15 @@ export class QAAgent extends EventEmitter {
         taskId: this.state.taskId,
         priority: RequestPriority.QA
       })) {
+        eventCount++
+
+        // Log all events for debugging
+        if (event.type === 'message') {
+          console.log(`[QAAgent ${this.state.taskId}] Event ${eventCount}: type=${event.type}, msgType=${event.message?.type}`)
+        } else if (event.type === 'error') {
+          console.log(`[QAAgent ${this.state.taskId}] Event ${eventCount}: ERROR - ${event.error}`)
+        }
+
         if (event.type === 'message' && event.message?.type === 'assistant') {
           responseText += event.message.content
         }
@@ -111,6 +123,8 @@ export class QAAgent extends EventEmitter {
           responseText = event.message.content
         }
       }
+
+      console.log(`[QAAgent ${this.state.taskId}] Stream finished, ${eventCount} events received`)
 
       // Log response for debugging
       console.log(`[QAAgent ${this.state.taskId}] Raw response length: ${responseText.length}`)

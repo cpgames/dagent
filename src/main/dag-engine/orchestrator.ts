@@ -42,6 +42,8 @@ export class ExecutionOrchestrator extends EventEmitter {
   private readonly MAX_INIT_RETRIES = 3
   // Track current feature status to detect changes
   private currentFeatureStatus: FeatureStatus = 'not_started'
+  // Track intentions currently being processed to prevent duplicate processing
+  private processingIntentions: Set<string> = new Set()
 
   constructor(config: Partial<ExecutionConfig> = {}) {
     super()
@@ -365,15 +367,29 @@ export class ExecutionOrchestrator extends EventEmitter {
     // Process each pending intention
     for (const pending of harnessState.pendingIntentions) {
       const taskId = pending.taskId
-      const decision = await harness.processIntention(taskId)
 
-      if (decision) {
-        // Send decision back to task agent
-        const taskAgent = getTaskAgent(taskId)
-        if (taskAgent) {
-          taskAgent.receiveApproval(decision)
-          console.log('[Orchestrator] Sent approval to task:', taskId, 'decision:', decision.type)
+      // Skip if already being processed (prevents duplicate processing during async review)
+      if (this.processingIntentions.has(taskId)) {
+        continue
+      }
+
+      // Mark as being processed
+      this.processingIntentions.add(taskId)
+
+      try {
+        const decision = await harness.processIntention(taskId)
+
+        if (decision) {
+          // Send decision back to task agent
+          const taskAgent = getTaskAgent(taskId)
+          if (taskAgent) {
+            taskAgent.receiveApproval(decision)
+            console.log('[Orchestrator] Sent approval to task:', taskId, 'decision:', decision.type)
+          }
         }
+      } finally {
+        // Remove from processing set when done
+        this.processingIntentions.delete(taskId)
       }
     }
   }
@@ -387,7 +403,6 @@ export class ExecutionOrchestrator extends EventEmitter {
 
     for (const agent of taskAgents) {
       const agentState = agent.getState()
-      console.log(`[Orchestrator] Checking task ${agentState.taskId} status: ${agentState.status}`)
 
       // Check for ready_for_merge - task has finished execution and committed, ready for merge
       if (agentState.status === 'ready_for_merge') {
