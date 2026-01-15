@@ -80,6 +80,21 @@ export class QAAgent extends EventEmitter {
       }
     }
 
+    // Check if worktree path exists
+    const fs = await import('fs')
+    if (!fs.existsSync(this.state.worktreePath)) {
+      console.error(`[QAAgent ${this.state.taskId}] Worktree path does not exist: ${this.state.worktreePath}`)
+      return {
+        passed: false,
+        feedback: `Worktree path does not exist: ${this.state.worktreePath}`,
+        filesReviewed: []
+      }
+    }
+
+    console.log(`[QAAgent ${this.state.taskId}] Worktree path exists: ${this.state.worktreePath}`)
+    console.log(`[QAAgent ${this.state.taskId}] Current PATH: ${process.env.PATH}`)
+    console.log(`[QAAgent ${this.state.taskId}] ELECTRON_RUN_AS_NODE: ${process.env.ELECTRON_RUN_AS_NODE || '(not set)'}`)
+
     this.state.status = 'loading_context'
     this.emit('qa-agent:loading-context')
 

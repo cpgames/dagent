@@ -70,6 +70,14 @@ function fixNodePath(): void {
 // Apply PATH fix early
 fixNodePath()
 
+// Clear ELECTRON_RUN_AS_NODE which breaks subprocess spawning
+// This env var is set by VS Code and some Electron tools and causes
+// the Claude Agent SDK to fail when spawning Claude Code
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  console.log('[DAGent] Clearing ELECTRON_RUN_AS_NODE environment variable')
+  delete process.env.ELECTRON_RUN_AS_NODE
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.whenReady().then(async () => {

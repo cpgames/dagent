@@ -94,6 +94,11 @@ export class AgentService {
    * Execute the actual SDK query. Called by RequestManager when a slot is available.
    */
   private async *executeSDKQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
+    // Clear ELECTRON_RUN_AS_NODE which breaks Claude Code subprocess spawning
+    // This env var is set by VS Code and some Electron tools
+    const savedElectronRunAsNode = process.env.ELECTRON_RUN_AS_NODE
+    delete process.env.ELECTRON_RUN_AS_NODE
+
     try {
       // Dynamically import the SDK (ES module)
       const sdk = await getSDK()
@@ -190,6 +195,10 @@ export class AgentService {
       }
     } finally {
       this.activeQuery = null
+      // Restore ELECTRON_RUN_AS_NODE if it was set
+      if (savedElectronRunAsNode !== undefined) {
+        process.env.ELECTRON_RUN_AS_NODE = savedElectronRunAsNode
+      }
     }
   }
 
