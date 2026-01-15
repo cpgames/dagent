@@ -151,6 +151,24 @@ export class QAAgent extends EventEmitter {
 
       // Parse the review response
       const result = this.parseReviewResponse(responseText)
+
+      // If review passed, commit the changes
+      if (result.passed) {
+        console.log(`[QAAgent ${this.state.taskId}] Review passed, committing changes...`)
+        const commitResult = await this.commitChanges()
+
+        if (commitResult.error) {
+          // Commit failed - mark review as failed
+          console.error(`[QAAgent ${this.state.taskId}] Commit failed: ${commitResult.error}`)
+          result.passed = false
+          result.feedback = `QA passed but commit failed: ${commitResult.error}`
+        } else {
+          result.commitHash = commitResult.commitHash
+          result.filesChanged = commitResult.filesChanged
+          console.log(`[QAAgent ${this.state.taskId}] Commit successful: ${commitResult.commitHash}`)
+        }
+      }
+
       this.state.reviewResult = result
       this.state.status = 'completed'
       this.state.completedAt = new Date().toISOString()
@@ -326,6 +344,54 @@ export class QAAgent extends EventEmitter {
       passed,
       feedback,
       filesReviewed
+    }
+  }
+
+  /**
+   * Commit changes after successful QA review.
+   * Uses the task worktree for committing.
+   */
+  private async commitChanges(): Promise<{ commitHash?: string; filesChanged?: number; error?: string }> {
+    if (!this.state.worktreePath) {
+      return { error: 'No worktree path' }
+    }
+
+    try {
+      const { simpleGit } = await import('simple-git')
+      const git = simpleGit({ baseDir: this.state.worktreePath })
+
+      // Verify git repository
+      const isRepo = await git.checkIsRepo()
+      if (!isRepo) {
+        return { error: 'Not a git repository' }
+      }
+
+      // Stage all changes
+      await git.add('.')
+      const status = await git.status()
+
+      const stagedCount = status.staged.length + status.created.length
+      const hasChanges = stagedCount > 0 || status.modified.length > 0 || status.not_added.length > 0
+
+      if (!hasChanges) {
+        console.log(`[QAAgent ${this.state.taskId}] No changes to commit`)
+        return { filesChanged: 0 }
+      }
+
+      const filesChanged = stagedCount || status.modified.length + status.not_added.length
+
+      // Commit with task info (QA-approved)
+      const commitMessage = `feat(${this.state.taskId}): ${this.taskTitle}\n\nQA-approved`
+      console.log(`[QAAgent ${this.state.taskId}] Committing ${filesChanged} files: ${commitMessage}`)
+
+      const commitResult = await git.commit(commitMessage)
+      console.log(`[QAAgent ${this.state.taskId}] Committed: ${commitResult.commit}`)
+
+      return { commitHash: commitResult.commit, filesChanged }
+    } catch (error) {
+      const errorMsg = (error as Error).message
+      console.error('[QAAgent] Failed to commit:', errorMsg)
+      return { error: errorMsg }
     }
   }
 

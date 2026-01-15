@@ -41,6 +41,8 @@ export interface QAReviewResult {
   passed: boolean
   feedback?: string // Only present when !passed
   filesReviewed: string[]
+  commitHash?: string // Commit hash if QA passed and committed
+  filesChanged?: number // Number of files in commit
 }
 
 /**

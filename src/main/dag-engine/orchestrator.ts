@@ -447,7 +447,7 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Handle QA reviews for tasks in qa state.
+   * Handle QA reviews for tasks in ready_for_qa state.
    * Spawns QA agents to review code changes.
    */
   private async handleQATasks(): Promise<void> {
@@ -456,7 +456,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     }
 
     const poolManager = getTaskPoolManager()
-    const qaTasks = poolManager.getPool('qa')
+    const qaTasks = poolManager.getPool('ready_for_qa')
 
     for (const taskId of qaTasks) {
       // Skip if QA agent already exists for this task
@@ -505,36 +505,45 @@ export class ExecutionOrchestrator extends EventEmitter {
     if (!task) return
 
     console.log(`[Orchestrator] QA result for ${taskId}: ${result.passed ? 'PASSED' : 'FAILED'}`)
+    if (result.passed && result.commitHash) {
+      console.log(`[Orchestrator] QA passed for ${taskId}, commit: ${result.commitHash}`)
+    }
 
     const poolManager = getTaskPoolManager()
 
     if (result.passed) {
-      // QA passed → transition to merging
+      // QA passed → transition to ready_for_merge
       const transitionResult = transitionTask(task, 'QA_PASSED')
       if (transitionResult.success) {
-        poolManager.moveTask(taskId, 'qa', 'merging')
-        this.history.push(createStateChangeRecord(taskId, 'qa', 'merging', 'QA_PASSED'))
+        poolManager.moveTask(taskId, 'in_progress', 'ready_for_merge')
+        this.history.push(createStateChangeRecord(taskId, 'in_progress', 'ready_for_merge', 'QA_PASSED'))
         this.addEvent('qa_passed', { taskId })
 
         // Update feature status
         this.updateFeatureStatus()
 
-        // Execute merge
-        this.executeMerge(taskId).then((mergeSuccess) => {
-          if (mergeSuccess) {
-            this.completeMerge(taskId)
-          }
-        })
+        // Start merge (transition to in_progress for merge)
+        const mergeTransition = transitionTask(task, 'MERGE_STARTED')
+        if (mergeTransition.success) {
+          poolManager.moveTask(taskId, 'ready_for_merge', 'in_progress')
+
+          // Execute merge
+          this.executeMerge(taskId).then((mergeSuccess) => {
+            if (mergeSuccess) {
+              this.completeMerge(taskId)
+            }
+          })
+        }
       }
     } else {
-      // QA failed → store feedback and transition back to dev
+      // QA failed → store feedback and stay in_progress (dev rework)
       task.qaFeedback = result.feedback
       const transitionResult = transitionTask(task, 'QA_FAILED')
       if (transitionResult.success) {
-        poolManager.moveTask(taskId, 'qa', 'dev')
-        this.history.push(createStateChangeRecord(taskId, 'qa', 'dev', 'QA_FAILED'))
+        // QA_FAILED keeps task in_progress (dev rework), no pool move needed
+        this.history.push(createStateChangeRecord(taskId, 'in_progress', 'in_progress', 'QA_FAILED'))
         this.addEvent('qa_failed', { taskId, feedback: result.feedback })
-        console.log(`[Orchestrator] Task ${taskId} returned to dev with feedback: ${result.feedback}`)
+        console.log(`[Orchestrator] Task ${taskId} returned to dev (in_progress) with feedback: ${result.feedback}`)
 
         // Update feature status
         this.updateFeatureStatus()
@@ -699,7 +708,7 @@ export class ExecutionOrchestrator extends EventEmitter {
 
     // Get ready task IDs from pool (O(1) lookup)
     const poolManager = getTaskPoolManager()
-    const readyIds = poolManager.getPool('ready')
+    const readyIds = poolManager.getPool('ready_for_dev')
 
     // Map IDs to Task objects
     const ready = readyIds
@@ -719,7 +728,8 @@ export class ExecutionOrchestrator extends EventEmitter {
 
     // Calculate how many more can be assigned using pool counts
     const counts = poolManager.getCounts()
-    const currentActive = counts.dev + counts.qa + counts.merging
+    // in_progress tracks all active work (dev, qa, merge combined)
+    const currentActive = counts.in_progress
     const canAssignTasks = this.config.maxConcurrentTasks - currentActive
     const canAssign = Math.max(0, canAssignTasks)
 
@@ -743,8 +753,8 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: 'Task not found' }
     }
 
-    if (task.status !== 'ready') {
-      return { success: false, error: `Task not ready (status: ${task.status})` }
+    if (task.status !== 'ready_for_dev') {
+      return { success: false, error: `Task not ready_for_dev (status: ${task.status})` }
     }
 
     // Check concurrent limit
@@ -782,7 +792,7 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Mark a task as having completed its code (ready for merge).
+   * Mark a task as having completed its dev work (ready for QA).
    */
   completeTaskCode(taskId: string): { success: boolean; error?: string } {
     if (!this.state.graph) {
@@ -794,8 +804,8 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: 'Task not found' }
     }
 
-    if (task.status !== 'dev') {
-      return { success: false, error: `Task not in dev (status: ${task.status})` }
+    if (task.status !== 'in_progress') {
+      return { success: false, error: `Task not in_progress (status: ${task.status})` }
     }
 
     const result = transitionTask(task, 'DEV_COMPLETE')
@@ -830,8 +840,8 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, unblocked: [], error: 'Task not found' }
     }
 
-    if (task.status !== 'merging') {
-      return { success: false, unblocked: [], error: `Task not merging (status: ${task.status})` }
+    if (task.status !== 'in_progress') {
+      return { success: false, unblocked: [], error: `Task not in_progress (status: ${task.status})` }
     }
 
     const result = transitionTask(task, 'MERGE_SUCCESS')
@@ -888,7 +898,10 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: 'Task not found' }
     }
 
-    const event = task.status === 'merging' ? 'MERGE_FAILED' : 'TASK_FAILED'
+    // Determine event based on context - MERGE_FAILED vs TASK_FAILED
+    // Since we're in in_progress, use TASK_FAILED for general failures
+    // MERGE_FAILED should only be used during merge operations (handled elsewhere)
+    const event = 'TASK_FAILED'
     const result = transitionTask(task, event)
     if (!result.success) {
       return { success: false, error: result.error }
