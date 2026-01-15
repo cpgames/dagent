@@ -10,18 +10,23 @@ None
 
 ## Milestones
 
-### Current Milestone: v2.2 Task Pipeline Refactor (Phases 50-51)
+### Current Milestone: None
 
-Refactor task management to use queue-based pools as single source of truth, and move commit responsibility from dev to QA.
+No active milestone. Run `/gsd:new-milestone` to create the next milestone.
 
-- [ ] **Phase 50: Queue-Based Pool Refactor** - Pools as workflow queues, orchestrator owns movements (~2 plans)
-- [ ] **Phase 51: QA Commits** - Dev doesn't commit, QA commits on successful review (~2 plans)
+## Completed Milestones
 
-**Total:** 2 phases, ~4 plans
+<details>
+<summary>v2.2 Task Pipeline Refactor (Phases 50-51) - SHIPPED 2026-01-15</summary>
+
+- [x] **Phase 50: Queue-Based Pool Refactor** - Pools as workflow queues, orchestrator owns movements (2/2 plans)
+- [x] **Phase 51: QA Commits** - Dev doesn't commit, QA commits on successful review (2/2 plans)
+
+**Total:** 2 phases, 4 plans
 
 See [v2.2-ROADMAP.md](milestones/v2.2-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v2.1 Kanban Board Improvements (Phases 47-49) - SHIPPED 2026-01-15</summary>
@@ -235,3 +240,5 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 47. Kanban Feature Status | v2.1 | 1/1 | Complete | 2026-01-15 |
 | 48. Feature Start Button | v2.1 | 1/1 | Complete | 2026-01-15 |
 | 49. Kanban UI Polish | v2.1 | 1/1 | Complete | 2026-01-15 |
+| 50. Queue-Based Pool Refactor | v2.2 | 2/2 | Complete | 2026-01-15 |
+| 51. QA Commits | v2.2 | 2/2 | Complete | 2026-01-15 |

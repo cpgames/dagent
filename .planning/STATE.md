@@ -9,7 +9,7 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 
 ## Current Position
 
-**Milestone:** v2.2 Task Pipeline Refactor
+**Milestone:** v2.2 Task Pipeline Refactor - COMPLETE
 **Roadmap:** .planning/ROADMAP.md
 
 Phase: 51 - QA Commits
@@ -17,9 +17,9 @@ Plan: 02/02 complete
 Status: Complete
 Last activity: 2026-01-15 - Completed 51-02 (add git commit to QA agent)
 
-Progress: 12 milestones shipped (v1.0-v2.1), Phases 50-51 complete
+Progress: 13 milestones shipped (v1.0-v2.2)
 
-Next action: /gsd:progress
+Next action: /gsd:new-milestone
 
 ## Performance Metrics
 
