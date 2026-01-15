@@ -11,12 +11,7 @@ import { promisify } from 'util'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import type { ChecklistStatus } from './task-plan-types'
-import type {
-  VerificationCheck,
-  VerificationResult,
-  VerificationCheckId,
-  CommandResult
-} from './verification-types'
+import type { VerificationCheck, VerificationResult, CommandResult } from './verification-types'
 import {
   DEFAULT_VERIFICATION_CHECKS,
   MAX_OUTPUT_LENGTH,
