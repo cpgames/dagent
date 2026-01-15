@@ -30,13 +30,13 @@ Plans:
 
 #### Phase 53: Feature Merge Agent
 
-**Goal**: Extend MergeAgent to handle feature-to-main branch merges with conflict resolution
+**Goal**: Create FeatureMergeAgent to handle feature-to-main branch merges with conflict resolution
 **Depends on**: Phase 52
 **Research**: Unlikely (existing MergeAgent patterns)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 53-01: TBD
+- [ ] 53-01: Create FeatureMergeAgent class with types and GitManager.mergeFeatureIntoMain
 
 #### Phase 54: GitHub PR Integration
 
@@ -237,7 +237,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 52. Merge Button UI | v2.3 | 1/1 | Complete | 2026-01-15 |
-| 53. Feature Merge Agent | v2.3 | 0/? | Not started | - |
+| 53. Feature Merge Agent | v2.3 | 0/1 | Planned | - |
 | 54. GitHub PR Integration | v2.3 | 0/? | Not started | - |
 | 55. Merge Workflow Integration | v2.3 | 0/? | Not started | - |
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-01-13 |
