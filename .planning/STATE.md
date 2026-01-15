@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.1 Kanban Board Improvements (Phases 47-49)
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 48 - Feature Start Button
+Phase: 49 - Kanban UI Polish
 Plan: 01 complete
-Status: Phase complete
-Last activity: 2026-01-15 - Completed 48-01 (Start Execution from Kanban Card)
+Status: Phase complete, Milestone complete
+Last activity: 2026-01-15 - Completed 49-01 (Kanban UI Polish)
 
-Progress: 2/3 phases complete
+Progress: 3/3 phases complete
 
-Next action: /gsd:plan-phase 49
+Next action: /gsd:complete-milestone
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 92 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 2)
+- Total plans completed: 93 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~310 min
 
@@ -41,7 +41,7 @@ Next action: /gsd:plan-phase 49
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 45-01, 46-01, 47-01, 48-01
+- Last 5 plans: 46-01, 47-01, 48-01, 49-01
 - Trend: All milestones shipped (v1.0-v2.0)
 
 ## Accumulated Context
@@ -335,6 +335,12 @@ All verification items passed. Milestone v1.9 Complete.
 ### Phase 48: Feature Start Button ✓
 
 - **48-01**: Start button on Kanban cards triggers execution directly
+
+### Phase 49: Kanban UI Polish ✓
+
+- **49-01**: Polished padding, scrollbars, column backgrounds, empty states
+
+All verification items passed. Milestone v2.1 Complete.
 
 ---
 
