@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Planning next milestone
+**Current focus:** v2.1 Kanban Board Improvements
 
 ## Current Position
 
-**Milestone:** v2.0 Complete (Phases 41-46 shipped)
+**Milestone:** v2.1 Kanban Board Improvements (Phases 47-49)
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: None - ready for next milestone
-Plan: None
-Status: Milestone shipped
-Last activity: 2026-01-15 - Shipped v2.0 Request Manager & Task Pipeline
+Phase: 47 - Kanban Feature Status
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-15 - Created v2.1 milestone
 
-Progress: 90 plans completed across 46 phases (v1.0-v2.0)
+Progress: 0/3 phases complete
 
-Next action: /gsd:discuss-milestone (plan v2.1 or v3.0)
+Next action: /gsd:plan-phase 47
 
 ## Performance Metrics
 
