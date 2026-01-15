@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-14)
 **Milestone:** v2.0 Request Manager & Task Pipeline (Phases 41-46)
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 41 - Request Manager Infrastructure (COMPLETE)
-Plan: 41-01 complete, 41-02 complete
-Status: Phase complete
-Last activity: 2026-01-14 - Completed Phase 41 (Request Manager Infrastructure)
+Phase: 42 - Task State Machine Refactor (PLANNED)
+Plan: 42-01 pending, 42-02 pending
+Status: Ready to execute
+Last activity: 2026-01-14 - Planned Phase 42 (Task State Machine Refactor)
 
 Progress: 1/6 phases complete
 
-Next action: /gsd:plan-phase 42
+Next action: /gsd:execute-plan 42-01
 
 ## Performance Metrics
 
