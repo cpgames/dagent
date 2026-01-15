@@ -4,7 +4,6 @@ import type { MergeAgentState, MergeAgentStatus, ConflictAnalysis } from './merg
 import { DEFAULT_MERGE_AGENT_STATE } from './merge-types'
 import type { IntentionDecision } from './harness-types'
 import { getAgentPool } from './agent-pool'
-import { getHarnessAgent } from './harness-agent'
 import {
   getGitManager,
   getFeatureBranchName,
@@ -67,9 +66,8 @@ export class MergeAgent extends EventEmitter {
       getTaskWorktreeName(this.state.featureId, this.state.taskId)
     )
 
-    // Notify harness about merge starting
-    const harness = getHarnessAgent()
-    harness.markTaskMerging(this.state.taskId)
+    // MergeAgent is autonomous - no harness notification needed
+    // Orchestrator tracks merge state via task status and events
 
     this.emit('merge-agent:initialized', this.getState())
     return true
@@ -162,9 +160,8 @@ export class MergeAgent extends EventEmitter {
 
     this.state.intention = intentionText
 
-    // Send to harness
-    const harness = getHarnessAgent()
-    harness.receiveIntention(this.state.agentId!, this.state.taskId, intentionText)
+    // MergeAgent is autonomous - emit event instead of harness call
+    // Orchestrator auto-approves merges via receiveApproval()
 
     this.state.status = 'awaiting_approval'
     this.emit('merge-agent:intention-proposed', intentionText)
@@ -228,9 +225,8 @@ export class MergeAgent extends EventEmitter {
         this.state.status = 'completed'
         this.state.completedAt = new Date().toISOString()
 
-        // Notify harness of completion
-        const harness = getHarnessAgent()
-        harness.completeTask(this.state.taskId)
+        // MergeAgent is autonomous - emit event for orchestrator
+        // Orchestrator handles task status transition and cascade
 
         this.emit('merge-agent:completed', result)
       } else if (result.conflicts && result.conflicts.length > 0) {
@@ -250,9 +246,8 @@ export class MergeAgent extends EventEmitter {
         this.state.status = 'failed'
         this.state.error = result.error || 'Merge failed'
 
-        // Notify harness of failure
-        const harness = getHarnessAgent()
-        harness.failTask(this.state.taskId, this.state.error)
+        // MergeAgent is autonomous - emit event for orchestrator
+        // Orchestrator handles task status transition
 
         this.emit('merge-agent:failed', result)
       }
@@ -263,9 +258,8 @@ export class MergeAgent extends EventEmitter {
       this.state.status = 'failed'
       this.state.error = errorMsg
 
-      // Notify harness of failure
-      const harness = getHarnessAgent()
-      harness.failTask(this.state.taskId, errorMsg)
+      // MergeAgent is autonomous - emit event for orchestrator
+      // Orchestrator handles task status transition
 
       const result: TaskMergeResult = {
         success: false,
