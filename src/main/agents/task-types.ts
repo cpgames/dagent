@@ -3,11 +3,30 @@
  * Defines state, context, and configuration for task agents.
  * Task agents implement individual tasks in isolated worktrees
  * with harness oversight via intention-approval workflow.
+ *
+ * State Mapping (TaskAgentStatus → TaskStatus):
+ * - TaskAgentStatus is internal to the agent lifecycle
+ * - TaskStatus is the DAG node status visible in the UI
+ *
+ * When TaskAgentStatus is:
+ *   initializing → Task.status = 'dev'
+ *   loading_context → Task.status = 'dev'
+ *   proposing_intention → Task.status = 'dev'
+ *   awaiting_approval → Task.status = 'dev'
+ *   approved → Task.status = 'dev'
+ *   working → Task.status = 'dev'
+ *   ready_for_merge → Task.status = 'qa' (after DEV_COMPLETE event)
+ *   completed → Task.status = 'completed' (after merge)
+ *   failed → Task.status = 'failed' (or back to 'dev' for rework)
  */
 
 import type { Task } from '@shared/types'
 import type { IntentionDecision } from './harness-types'
 
+/**
+ * Internal task agent status for tracking agent lifecycle.
+ * See module comment for mapping to TaskStatus.
+ */
 export type TaskAgentStatus =
   | 'initializing'
   | 'loading_context'
@@ -15,6 +34,7 @@ export type TaskAgentStatus =
   | 'awaiting_approval'
   | 'approved'
   | 'working'
+  | 'ready_for_merge' // SDK done, commit done, waiting for QA review
   | 'completed'
   | 'failed'
 

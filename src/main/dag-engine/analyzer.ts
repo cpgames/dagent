@@ -3,7 +3,7 @@ import type { DAGAnalysis, TaskDependencies } from './types'
 import { topologicalSort, getTaskDependencies, getTaskDependents } from './topological-sort'
 
 const COMPLETED_STATUSES: TaskStatus[] = ['completed']
-const RUNNING_STATUSES: TaskStatus[] = ['running', 'merging']
+const ACTIVE_STATUSES: TaskStatus[] = ['dev', 'qa', 'merging']
 
 /**
  * Analyzes a DAG to determine task dependencies and ready/blocked states.
@@ -44,7 +44,7 @@ export function analyzeDAG(graph: DAGGraph): DAGAnalysis {
   for (const node of nodes) {
     if (COMPLETED_STATUSES.includes(node.status)) {
       completedTasks.push(node.id)
-    } else if (RUNNING_STATUSES.includes(node.status)) {
+    } else if (ACTIVE_STATUSES.includes(node.status)) {
       runningTasks.push(node.id)
     } else {
       // Check if all dependencies are completed
@@ -83,8 +83,8 @@ export function isTaskReady(taskId: string, graph: DAGGraph): boolean {
   const task = graph.nodes.find((n) => n.id === taskId)
   if (!task) return false
 
-  // Already running or completed
-  if (['running', 'merging', 'completed'].includes(task.status)) {
+  // Already active or completed
+  if (['dev', 'qa', 'merging', 'completed'].includes(task.status)) {
     return false
   }
 

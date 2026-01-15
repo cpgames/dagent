@@ -141,14 +141,14 @@ export class RequestManager {
               throw error
             }
           },
-          async return?(value?: AgentStreamEvent): Promise<IteratorResult<AgentStreamEvent>> {
+          async return(value?: AgentStreamEvent): Promise<IteratorResult<AgentStreamEvent>> {
             self.onRequestComplete()
             if (iterator.return) {
               return iterator.return(value)
             }
             return { done: true, value: value as AgentStreamEvent }
           },
-          async throw?(error?: Error): Promise<IteratorResult<AgentStreamEvent>> {
+          async throw(error?: Error): Promise<IteratorResult<AgentStreamEvent>> {
             self.onRequestComplete()
             if (iterator.throw) {
               return iterator.throw(error)

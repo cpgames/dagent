@@ -7,7 +7,8 @@ const statusConfig: Record<Status, { color: string; bg: string; label: string }>
   // Task statuses
   blocked: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Blocked' },
   ready: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Ready' },
-  running: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Running' },
+  dev: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Dev' },
+  qa: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'QA' },
   merging: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Merging' },
   completed: { color: 'text-green-400', bg: 'bg-green-500/20', label: 'Completed' },
   failed: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed' },
@@ -48,7 +49,7 @@ export default function StatusBadge({
     >
       <span
         className={`${dotSizes[size]} rounded-full ${
-          status === 'running' || status === 'merging' || status === 'in_progress'
+          status === 'dev' || status === 'qa' || status === 'merging' || status === 'in_progress'
             ? 'animate-pulse bg-current'
             : 'bg-current'
         }`}

@@ -12,4 +12,5 @@ export interface Task {
   status: TaskStatus;
   locked: boolean;
   position: TaskPosition;
+  qaFeedback?: string; // Feedback from QA agent when task fails QA
 }
