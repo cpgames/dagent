@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Feature } from '@shared/types';
+import type { Feature, FeatureStatus } from '@shared/types';
 import { toast } from './toast-store';
 
 interface FeatureState {
@@ -22,6 +22,37 @@ interface FeatureState {
   saveFeature: (feature: Feature) => Promise<void>;
   createFeature: (name: string) => Promise<Feature | null>;
   deleteFeature: (featureId: string, deleteBranch?: boolean) => Promise<boolean>;
+}
+
+// Track the cleanup function for status change listener
+let statusChangeCleanup: (() => void) | null = null;
+
+/**
+ * Subscribe to feature status changes from the orchestrator.
+ * Call this when the app initializes to enable real-time Kanban updates.
+ */
+export function subscribeToFeatureStatusChanges(): void {
+  // Avoid duplicate subscriptions
+  if (statusChangeCleanup) {
+    return;
+  }
+
+  statusChangeCleanup = window.electronAPI.feature.onStatusChanged((data) => {
+    const store = useFeatureStore.getState();
+    store.updateFeature(data.featureId, { status: data.status as FeatureStatus });
+    console.log(`[FeatureStore] Status changed for ${data.featureId}: ${data.status}`);
+  });
+}
+
+/**
+ * Unsubscribe from feature status changes.
+ * Call this when cleaning up (e.g., changing projects).
+ */
+export function unsubscribeFromFeatureStatusChanges(): void {
+  if (statusChangeCleanup) {
+    statusChangeCleanup();
+    statusChangeCleanup = null;
+  }
 }
 
 export const useFeatureStore = create<FeatureState>((set, get) => ({

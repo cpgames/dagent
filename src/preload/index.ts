@@ -539,7 +539,19 @@ const electronAPI = {
       deletedWorktrees?: number
       terminatedAgents?: number
       error?: string
-    }> => ipcRenderer.invoke('feature:delete', featureId, options)
+    }> => ipcRenderer.invoke('feature:delete', featureId, options),
+
+    // Listen for feature status changes from orchestrator
+    onStatusChanged: (
+      callback: (data: { featureId: string; status: string }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; status: string }
+      ): void => callback(data)
+      ipcRenderer.on('feature:status-changed', handler)
+      return () => ipcRenderer.removeListener('feature:status-changed', handler)
+    }
   },
 
   // Context API (project/feature/task context for agents)

@@ -928,6 +928,14 @@ export interface FeatureDeleteResult {
 }
 
 /**
+ * Feature status change event data.
+ */
+export interface FeatureStatusChangeEvent {
+  featureId: string
+  status: string
+}
+
+/**
  * Feature API for feature-level operations.
  * Handles feature deletion with comprehensive cleanup.
  */
@@ -941,6 +949,12 @@ export interface FeatureAPI {
    * - Deletes feature storage
    */
   delete: (featureId: string, options?: FeatureDeleteOptions) => Promise<FeatureDeleteResult>
+
+  /**
+   * Subscribe to feature status changes from the orchestrator.
+   * Returns an unsubscribe function.
+   */
+  onStatusChanged: (callback: (data: FeatureStatusChangeEvent) => void) => () => void
 }
 
 /**

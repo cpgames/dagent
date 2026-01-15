@@ -1,7 +1,20 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import type { DAGGraph } from '@shared/types'
+import type { FeatureStatus } from '@shared/types/feature'
 import type { ExecutionConfig } from '../dag-engine/orchestrator-types'
 import { getOrchestrator, resetOrchestrator } from '../dag-engine/orchestrator'
+
+/**
+ * Send feature status change event to all renderer windows.
+ */
+function broadcastFeatureStatusChange(featureId: string, status: FeatureStatus): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('feature:status-changed', { featureId, status })
+    }
+  }
+}
 
 /**
  * Execution IPC Handlers
@@ -15,6 +28,11 @@ import { getOrchestrator, resetOrchestrator } from '../dag-engine/orchestrator'
  * The orchestrator manages task assignments and state transitions.
  */
 export function registerExecutionHandlers(): void {
+  // Subscribe to orchestrator feature status changes
+  const orchestrator = getOrchestrator()
+  orchestrator.on('feature_status_changed', (event: { featureId: string; status: FeatureStatus }) => {
+    broadcastFeatureStatusChange(event.featureId, event.status)
+  })
   ipcMain.handle(
     'execution:initialize',
     async (_event, featureId: string, graph: DAGGraph) => {
