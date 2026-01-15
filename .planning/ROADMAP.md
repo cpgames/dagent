@@ -10,9 +10,20 @@ None
 
 ## Milestones
 
-### Current Milestone: None
+### Current Milestone: v2.4 Ralph Loop Integration (Phases 56-61)
 
-All milestones complete. Ready for next milestone definition.
+Implement iterative task execution with fresh context windows and automated verification.
+
+- [x] **Phase 56: Task Plan Infrastructure** - TaskPlan schema, checklist storage in worktree (1/1 plans)
+- [ ] **Phase 57: Verification Runner** - Automated build/lint/test checks
+- [ ] **Phase 58: Task Controller** - Iteration loop manager for DevAgent
+- [ ] **Phase 59: DevAgent Integration** - Plan-aware execution mode
+- [ ] **Phase 60: Orchestrator Integration** - Wire TaskController into execution flow
+- [ ] **Phase 61: Loop Status UI** - Iteration counter, checklist display, abort button
+
+**Total:** 6 phases
+
+See [v2.4-ROADMAP.md](milestones/v2.4-ROADMAP.md) for details.
 
 ## Completed Milestones
 
@@ -199,7 +210,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.3 Feature-to-Main Merge (Phases 52-55)
+**Current milestone:** v2.4 Ralph Loop Integration (Phases 56-61)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -258,3 +269,4 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 49. Kanban UI Polish | v2.1 | 1/1 | Complete | 2026-01-15 |
 | 50. Queue-Based Pool Refactor | v2.2 | 2/2 | Complete | 2026-01-15 |
 | 51. QA Commits | v2.2 | 2/2 | Complete | 2026-01-15 |
+| 56. Task Plan Infrastructure | v2.4 | 1/1 | Complete | 2026-01-15 |
