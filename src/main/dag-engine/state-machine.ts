@@ -1,14 +1,17 @@
 import type { TaskStatus } from '@shared/types'
 
 /**
- * Valid state transitions per DAGENT_SPEC section 6.4:
+ * Valid state transitions for task pipeline:
  *
  * blocked → ready     (all dependencies completed)
- * ready → running     (agent assigned)
- * running → merging   (code complete)
+ * ready → dev         (agent assigned)
+ * dev → qa            (dev work complete, ready for QA)
+ * dev → failed        (dev failure)
+ * qa → merging        (QA passed)
+ * qa → dev            (QA failed, rework needed)
+ * qa → failed         (QA error)
  * merging → completed (merge success)
  * merging → failed    (merge failure)
- * running → failed    (task failure)
  *
  * Additionally:
  * any → blocked       (reset on retry or dependency change)
@@ -17,11 +20,13 @@ import type { TaskStatus } from '@shared/types'
 
 export type StateTransitionEvent =
   | 'DEPENDENCIES_MET' // blocked → ready
-  | 'AGENT_ASSIGNED' // ready → running
-  | 'CODE_COMPLETE' // running → merging
+  | 'AGENT_ASSIGNED' // ready → dev
+  | 'DEV_COMPLETE' // dev → qa
+  | 'QA_PASSED' // qa → merging
+  | 'QA_FAILED' // qa → dev (with feedback)
   | 'MERGE_SUCCESS' // merging → completed
   | 'MERGE_FAILED' // merging → failed
-  | 'TASK_FAILED' // running → failed
+  | 'TASK_FAILED' // dev/qa → failed
   | 'RETRY' // failed → ready (if dependencies met)
   | 'DEPENDENCY_CHANGED' // any incomplete → blocked
   | 'RESET' // any → blocked (manual reset)
@@ -34,18 +39,26 @@ export interface StateTransition {
 
 // All valid transitions
 export const VALID_TRANSITIONS: StateTransition[] = [
+  // Main pipeline flow
   { from: 'blocked', to: 'ready', event: 'DEPENDENCIES_MET' },
-  { from: 'ready', to: 'running', event: 'AGENT_ASSIGNED' },
-  { from: 'running', to: 'merging', event: 'CODE_COMPLETE' },
+  { from: 'ready', to: 'dev', event: 'AGENT_ASSIGNED' },
+  { from: 'dev', to: 'qa', event: 'DEV_COMPLETE' },
+  { from: 'qa', to: 'merging', event: 'QA_PASSED' },
+  { from: 'qa', to: 'dev', event: 'QA_FAILED' },
   { from: 'merging', to: 'completed', event: 'MERGE_SUCCESS' },
+  // Failure transitions
+  { from: 'dev', to: 'failed', event: 'TASK_FAILED' },
+  { from: 'qa', to: 'failed', event: 'TASK_FAILED' },
   { from: 'merging', to: 'failed', event: 'MERGE_FAILED' },
-  { from: 'running', to: 'failed', event: 'TASK_FAILED' },
+  // Recovery and retry
   { from: 'failed', to: 'ready', event: 'RETRY' },
   { from: 'failed', to: 'blocked', event: 'DEPENDENCY_CHANGED' },
   { from: 'ready', to: 'blocked', event: 'DEPENDENCY_CHANGED' },
+  // Reset transitions (any state → blocked)
   { from: 'blocked', to: 'blocked', event: 'RESET' },
   { from: 'ready', to: 'blocked', event: 'RESET' },
-  { from: 'running', to: 'blocked', event: 'RESET' },
+  { from: 'dev', to: 'blocked', event: 'RESET' },
+  { from: 'qa', to: 'blocked', event: 'RESET' },
   { from: 'merging', to: 'blocked', event: 'RESET' },
   { from: 'failed', to: 'blocked', event: 'RESET' },
   { from: 'completed', to: 'blocked', event: 'RESET' }
