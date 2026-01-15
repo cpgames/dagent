@@ -94,8 +94,8 @@ export function getTasksForEvent(graph: DAGGraph, event: StateTransitionEvent): 
  */
 export function initializeTaskStatuses(graph: DAGGraph): void {
   for (const task of graph.nodes) {
-    // Skip already completed/running tasks
-    if (['completed', 'running', 'merging'].includes(task.status)) {
+    // Skip active and terminal states
+    if (['completed', 'dev', 'qa', 'merging'].includes(task.status)) {
       continue
     }
 
