@@ -73,6 +73,8 @@ import type {
   TaskExecutionResult
 } from '../main/agents/task-types'
 import type { MergeAgentState, MergeAgentStatus } from '../main/agents/merge-types'
+import type { CreatePRRequest, CreatePRResult, GhCliStatus } from '../main/github'
+import type { FeatureMergeAgentState, FeatureMergeResult } from '../main/agents/feature-merge-types'
 
 /**
  * Preload script for DAGent.
@@ -179,7 +181,19 @@ const electronAPI = {
     resetTask: (taskId: string, graph: DAGGraph): Promise<CascadeResult> =>
       ipcRenderer.invoke('dag:reset-task', taskId, graph),
     recalculateStatuses: (graph: DAGGraph): Promise<CascadeResult> =>
-      ipcRenderer.invoke('dag:recalculate-statuses', graph)
+      ipcRenderer.invoke('dag:recalculate-statuses', graph),
+
+    // Listen for DAG updates from orchestrator
+    onUpdated: (
+      callback: (data: { featureId: string; graph: DAGGraph }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; graph: DAGGraph }
+      ): void => callback(data)
+      ipcRenderer.on('dag:updated', handler)
+      return () => ipcRenderer.removeListener('dag:updated', handler)
+    }
   },
 
   // Execution Orchestrator API
@@ -562,6 +576,27 @@ const electronAPI = {
       ipcRenderer.invoke('context:getFullContext', options),
     getFormattedPrompt: (context: FullContext): Promise<string | { error: string }> =>
       ipcRenderer.invoke('context:getFormattedPrompt', context)
+  },
+
+  // PR API (GitHub PR operations via gh CLI)
+  pr: {
+    checkGhCli: (): Promise<GhCliStatus> => ipcRenderer.invoke('pr:check-gh-cli'),
+    create: (request: CreatePRRequest): Promise<CreatePRResult> =>
+      ipcRenderer.invoke('pr:create', request)
+  },
+
+  // Feature Merge API (merging completed features into main)
+  featureMerge: {
+    create: (featureId: string, targetBranch?: string): Promise<{ success: boolean; state: FeatureMergeAgentState }> =>
+      ipcRenderer.invoke('feature-merge:create', featureId, targetBranch),
+    getState: (featureId: string): Promise<FeatureMergeAgentState | null> =>
+      ipcRenderer.invoke('feature-merge:get-state', featureId),
+    checkBranches: (featureId: string): Promise<{ success: boolean; state?: FeatureMergeAgentState; error?: string }> =>
+      ipcRenderer.invoke('feature-merge:check-branches', featureId),
+    execute: (featureId: string, deleteBranchOnSuccess?: boolean): Promise<FeatureMergeResult> =>
+      ipcRenderer.invoke('feature-merge:execute', featureId, deleteBranchOnSuccess),
+    cleanup: (featureId: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('feature-merge:cleanup', featureId)
   }
 }
 

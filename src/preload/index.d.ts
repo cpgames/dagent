@@ -91,6 +91,15 @@ import type {
   ContextOptions,
   FullContext
 } from '../main/context'
+import type {
+  CreatePRRequest,
+  CreatePRResult,
+  GhCliStatus
+} from '../main/github'
+import type {
+  FeatureMergeAgentState,
+  FeatureMergeResult
+} from '../main/agents/feature-merge-types'
 
 /**
  * SDK availability status for Claude Agent SDK.
@@ -218,6 +227,12 @@ export interface DagAPI {
    * Recalculate all task statuses based on dependencies
    */
   recalculateStatuses: (graph: DAGGraph) => Promise<CascadeResult>
+
+  /**
+   * Subscribe to DAG updates from the orchestrator.
+   * Returns an unsubscribe function.
+   */
+  onUpdated: (callback: (data: { featureId: string; graph: DAGGraph }) => void) => () => void
 }
 
 /**
@@ -979,6 +994,70 @@ export interface ContextAPI {
 }
 
 /**
+ * PR API for GitHub pull request operations.
+ * Uses the gh CLI for PR creation.
+ */
+export interface PRAPI {
+  /**
+   * Check if gh CLI is installed and authenticated.
+   */
+  checkGhCli: () => Promise<GhCliStatus>
+
+  /**
+   * Create a pull request on GitHub.
+   */
+  create: (request: CreatePRRequest) => Promise<CreatePRResult>
+}
+
+/**
+ * Result from creating a FeatureMergeAgent.
+ */
+export interface FeatureMergeCreateResult {
+  success: boolean
+  state: FeatureMergeAgentState
+}
+
+/**
+ * Result from checking branches for merge.
+ */
+export interface FeatureMergeBranchCheckResult {
+  success: boolean
+  state?: FeatureMergeAgentState
+  error?: string
+}
+
+/**
+ * Feature Merge API for merging completed features into main branch.
+ * Uses FeatureMergeAgent for AI-assisted merge or PR creation.
+ */
+export interface FeatureMergeAPI {
+  /**
+   * Create and initialize a feature merge agent.
+   */
+  create: (featureId: string, targetBranch?: string) => Promise<FeatureMergeCreateResult>
+
+  /**
+   * Get current state of a feature merge agent.
+   */
+  getState: (featureId: string) => Promise<FeatureMergeAgentState | null>
+
+  /**
+   * Check that feature and target branches exist.
+   */
+  checkBranches: (featureId: string) => Promise<FeatureMergeBranchCheckResult>
+
+  /**
+   * Execute the merge (auto-approves and merges).
+   */
+  execute: (featureId: string, deleteBranchOnSuccess?: boolean) => Promise<FeatureMergeResult>
+
+  /**
+   * Cleanup merge agent resources.
+   */
+  cleanup: (featureId: string) => Promise<{ success: boolean }>
+}
+
+/**
  * PM Tools API for task management.
  * Enables PM Agent to create, read, update, and delete tasks with dependency inference.
  */
@@ -1199,6 +1278,16 @@ export interface ElectronAPI {
    * Context API for project/feature/task context
    */
   context: ContextAPI
+
+  /**
+   * PR API for GitHub pull request operations
+   */
+  pr: PRAPI
+
+  /**
+   * Feature Merge API for merging completed features into main
+   */
+  featureMerge: FeatureMergeAPI
 }
 
 declare global {
