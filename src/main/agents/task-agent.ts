@@ -5,7 +5,6 @@
  */
 
 import { EventEmitter } from 'events'
-import { simpleGit } from 'simple-git'
 import type { Task, DAGGraph, TaskAgentMessage } from '@shared/types'
 import type {
   TaskAgentState,
@@ -460,21 +459,12 @@ export class TaskAgent extends EventEmitter {
         }
       }
 
-      // Commit changes after successful execution
-      console.log(`[TaskAgent ${this.state.taskId}] SDK stream finished, starting commit...`)
-      const commitResult = await this.commitChanges()
-      console.log(`[TaskAgent ${this.state.taskId}] Commit finished:`, commitResult)
+      // Dev work complete - changes remain uncommitted for QA review
+      // Note: QA agent will commit changes if review passes
+      console.log(`[TaskAgent ${this.state.taskId}] SDK stream finished, dev work complete`)
 
-      // Verify commit succeeded if there were changes or if there was an error
-      if (commitResult.error) {
-        throw new Error(`Task commit failed: ${commitResult.error}`)
-      }
-      if (commitResult.filesChanged && commitResult.filesChanged > 0 && !commitResult.commitHash) {
-        throw new Error('Task made changes but commit failed - work not saved')
-      }
-
-      // Set status to ready_for_merge - orchestrator will handle merge and then call markCompleted()
-      console.log(`[TaskAgent ${this.state.taskId}] Setting status to ready_for_merge`)
+      // Set status to ready_for_merge - orchestrator will handle QA and then merge
+      console.log(`[TaskAgent ${this.state.taskId}] Setting status to ready_for_qa`)
       this.state.status = 'ready_for_merge'
 
       const completionSummary = summary || `Completed: ${this.state.task?.title}`
@@ -483,20 +473,18 @@ export class TaskAgent extends EventEmitter {
       await this.logToSession('task_to_harness', 'completion', completionSummary)
 
       // Publish task_ready_for_merge message via MessageBus
+      // Note: No commitHash - QA will commit if review passes
       const completionBus = getMessageBus()
       completionBus.publish(
         createTaskToHarnessMessage(this.state.taskId, this.state.agentId!, 'task_ready_for_merge', {
-          summary: completionSummary,
-          commitHash: commitResult.commitHash
+          summary: completionSummary
         })
       )
 
       const result: TaskExecutionResult = {
         success: true,
         taskId: this.state.taskId,
-        summary: completionSummary,
-        commitHash: commitResult.commitHash,
-        filesChanged: commitResult.filesChanged
+        summary: completionSummary
       }
 
       // Emit ready_for_merge event - orchestrator subscribes to this
@@ -594,92 +582,6 @@ export class TaskAgent extends EventEmitter {
     return parts.join('\n')
   }
 
-  /**
-   * Commit changes to the task branch after execution.
-   */
-  private async commitChanges(): Promise<{ commitHash?: string; filesChanged?: number; error?: string }> {
-    if (!this.state.worktreePath) {
-      console.warn('[TaskAgent] No worktree path set, cannot commit')
-      return { error: 'No worktree path' }
-    }
-
-    try {
-      // Create a git instance for the task worktree
-      const git = simpleGit({ baseDir: this.state.worktreePath })
-
-      // First verify this is a valid git repository
-      const isRepo = await git.checkIsRepo()
-      if (!isRepo) {
-        console.error(`[TaskAgent] ${this.state.worktreePath} is not a valid git repository`)
-        return { error: 'Not a git repository' }
-      }
-
-      // Retry logic: SDK file writes may not be fully flushed to disk yet
-      // We retry up to 5 times with increasing delays to wait for files
-      const maxRetries = 5
-      const delays = [50, 100, 200, 500, 1000] // ms - increasing backoff
-
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        // Small delay before checking to allow file system to sync
-        const delay = delays[attempt] || 1000
-        if (attempt === 0) {
-          // Initial delay to let file system sync
-          await new Promise((resolve) => setTimeout(resolve, delay))
-        } else {
-          console.log(
-            `[TaskAgent ${this.state.taskId}] Retry ${attempt}/${maxRetries - 1}: waiting ${delay}ms for files to appear...`
-          )
-          await new Promise((resolve) => setTimeout(resolve, delay))
-        }
-
-        // Stage all changes first (including untracked files)
-        // Using '.' instead of '-A' to ensure we catch all new files
-        await git.add('.')
-
-        // Now check status after staging
-        const status = await git.status()
-        console.log(
-          `[TaskAgent ${this.state.taskId}] Git status (attempt ${attempt + 1}): modified=${status.modified.length}, staged=${status.staged.length}, not_added=${status.not_added.length}, created=${status.created.length}`
-        )
-
-        // Check if there's anything staged to commit
-        const stagedCount = status.staged.length + status.created.length
-        const hasChanges =
-          stagedCount > 0 || status.modified.length > 0 || status.not_added.length > 0
-
-        if (!hasChanges) {
-          // No changes found yet - if this is not the last attempt, retry
-          if (attempt < maxRetries - 1) {
-            continue
-          }
-          // Last attempt - no changes to commit
-          console.log(`[TaskAgent ${this.state.taskId}] No changes to commit after ${maxRetries} attempts`)
-          return { filesChanged: 0 }
-        }
-
-        // We have changes - commit them
-        const filesChanged = stagedCount || status.modified.length + status.not_added.length
-
-        // Commit with task info
-        const taskId = this.state.taskId
-        const taskTitle = this.state.task?.title || 'task'
-        const commitMessage = `feat(${taskId}): ${taskTitle}`
-
-        console.log(`[TaskAgent ${this.state.taskId}] Committing ${filesChanged} files: ${commitMessage}`)
-        const commitResult = await git.commit(commitMessage)
-
-        console.log(`[TaskAgent ${this.state.taskId}] Committed: ${commitResult.commit}`)
-        return { commitHash: commitResult.commit, filesChanged }
-      }
-
-      // Should not reach here, but just in case
-      return { filesChanged: 0 }
-    } catch (error) {
-      const errorMsg = (error as Error).message
-      console.error('[TaskAgent] Failed to commit task changes:', errorMsg)
-      return { filesChanged: undefined, error: errorMsg }
-    }
-  }
 
   /**
    * Mark task as completed after successful merge.
