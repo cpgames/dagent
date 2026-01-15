@@ -1,4 +1,6 @@
+import { EventEmitter } from 'events'
 import type { DAGGraph, Task } from '@shared/types'
+import type { FeatureStatus } from '@shared/types/feature'
 import type {
   ExecutionState,
   ExecutionConfig,
@@ -22,9 +24,10 @@ import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
 import { getLogService } from '../storage/log-service'
 import { getGitManager, getTaskWorktreeName } from '../git'
+import { computeFeatureStatus } from './feature-status'
 import * as path from 'path'
 
-export class ExecutionOrchestrator {
+export class ExecutionOrchestrator extends EventEmitter {
   private state: ExecutionState
   private config: ExecutionConfig
   private assignments: Map<string, TaskAssignment>
@@ -37,8 +40,11 @@ export class ExecutionOrchestrator {
   // Track persistent failures (context loading, etc.) with retry counts
   private initFailureCounts: Map<string, number> = new Map()
   private readonly MAX_INIT_RETRIES = 3
+  // Track current feature status to detect changes
+  private currentFeatureStatus: FeatureStatus = 'not_started'
 
   constructor(config: Partial<ExecutionConfig> = {}) {
+    super()
     this.config = { ...DEFAULT_EXECUTION_CONFIG, ...config }
     this.state = {
       status: 'idle',
@@ -53,6 +59,7 @@ export class ExecutionOrchestrator {
     this.events = []
     this.failedThisTick = new Set()
     this.initFailureCounts = new Map()
+    this.currentFeatureStatus = 'not_started'
   }
 
   /**
@@ -508,6 +515,9 @@ export class ExecutionOrchestrator {
         this.history.push(createStateChangeRecord(taskId, 'qa', 'merging', 'QA_PASSED'))
         this.addEvent('qa_passed', { taskId })
 
+        // Update feature status
+        this.updateFeatureStatus()
+
         // Execute merge
         this.executeMerge(taskId).then((mergeSuccess) => {
           if (mergeSuccess) {
@@ -524,6 +534,9 @@ export class ExecutionOrchestrator {
         this.history.push(createStateChangeRecord(taskId, 'qa', 'dev', 'QA_FAILED'))
         this.addEvent('qa_failed', { taskId, feedback: result.feedback })
         console.log(`[Orchestrator] Task ${taskId} returned to dev with feedback: ${result.feedback}`)
+
+        // Update feature status
+        this.updateFeatureStatus()
       }
     }
 
@@ -760,6 +773,10 @@ export class ExecutionOrchestrator {
     )
 
     this.addEvent('task_started', { taskId })
+
+    // Update feature status
+    this.updateFeatureStatus()
+
     return { success: true }
   }
 
@@ -791,6 +808,9 @@ export class ExecutionOrchestrator {
     this.history.push(
       createStateChangeRecord(taskId, result.previousStatus, result.newStatus, 'DEV_COMPLETE')
     )
+
+    // Update feature status
+    this.updateFeatureStatus()
 
     return { success: true }
   }
@@ -848,6 +868,9 @@ export class ExecutionOrchestrator {
 
     // Completion is now checked by the tick loop
 
+    // Update feature status
+    this.updateFeatureStatus()
+
     return { success: true, unblocked }
   }
 
@@ -885,6 +908,9 @@ export class ExecutionOrchestrator {
       error
     })
 
+    // Update feature status
+    this.updateFeatureStatus()
+
     return { success: true }
   }
 
@@ -918,6 +944,41 @@ export class ExecutionOrchestrator {
       assignments: Array.from(this.assignments.values()),
       history: [...this.history],
       events: [...this.events]
+    }
+  }
+
+  /**
+   * Update feature status based on current task states.
+   * If status has changed, persists to storage and emits event.
+   */
+  private async updateFeatureStatus(): Promise<void> {
+    if (!this.state.featureId || !this.state.graph) {
+      return
+    }
+
+    const newStatus = computeFeatureStatus(this.state.graph.nodes)
+
+    // Only update if status actually changed
+    if (newStatus !== this.currentFeatureStatus) {
+      const featureStore = getFeatureStore()
+      if (featureStore) {
+        const feature = await featureStore.loadFeature(this.state.featureId)
+        if (feature) {
+          feature.status = newStatus
+          feature.updatedAt = new Date().toISOString()
+          await featureStore.saveFeature(feature)
+          console.log(`[Orchestrator] Feature status changed: ${this.currentFeatureStatus} → ${newStatus}`)
+        }
+      }
+
+      // Emit event for IPC handlers to forward to renderer
+      this.emit('feature_status_changed', {
+        featureId: this.state.featureId,
+        status: newStatus,
+        previousStatus: this.currentFeatureStatus
+      })
+
+      this.currentFeatureStatus = newStatus
     }
   }
 
