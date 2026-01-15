@@ -15,7 +15,7 @@ None
 Major architectural overhaul for scalable parallel execution:
 
 - [x] **Phase 41: Request Manager Infrastructure** - Centralized request queue with priority levels (2/2 plans)
-- [ ] **Phase 42: Task State Machine Refactor** - Granular states (blocked/ready/dev/qa/merging/completed/failed)
+- [ ] **Phase 42: Task State Machine Refactor** - Granular states (blocked/ready/dev/qa/merging/completed/failed) (1/2 plans)
 - [ ] **Phase 43: Pool-Based Task Management** - Tasks organized by state for efficient assignment
 - [ ] **Phase 44: QA Agent Implementation** - Code quality verification with dev feedback loop
 - [ ] **Phase 45: Agent Communication Refactor** - Only dev talks to harness, QA/merge autonomous
@@ -202,7 +202,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 39. Harness Router | v1.9 | 2/2 | Complete | 2026-01-14 |
 | 40. Log UI Integration | v1.9 | 1/1 | Complete | 2026-01-14 |
 | 41. Request Manager Infrastructure | v2.0 | 2/2 | Complete | 2026-01-14 |
-| 42. Task State Machine Refactor | v2.0 | 0/2 | Pending | - |
+| 42. Task State Machine Refactor | v2.0 | 1/2 | In Progress | - |
 | 43. Pool-Based Task Management | v2.0 | 0/1 | Pending | - |
 | 44. QA Agent Implementation | v2.0 | 0/2 | Pending | - |
 | 45. Agent Communication Refactor | v2.0 | 0/1 | Pending | - |
