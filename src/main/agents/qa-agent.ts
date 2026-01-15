@@ -112,6 +112,14 @@ export class QAAgent extends EventEmitter {
         }
       }
 
+      // Log response for debugging
+      console.log(`[QAAgent ${this.state.taskId}] Raw response length: ${responseText.length}`)
+      if (responseText.length < 500) {
+        console.log(`[QAAgent ${this.state.taskId}] Response: ${responseText}`)
+      } else {
+        console.log(`[QAAgent ${this.state.taskId}] Response (truncated): ${responseText.substring(0, 500)}...`)
+      }
+
       // Parse the review response
       const result = this.parseReviewResponse(responseText)
       this.state.reviewResult = result
@@ -183,12 +191,49 @@ export class QAAgent extends EventEmitter {
 
   /**
    * Parse SDK response to extract review result.
+   * Handles various response formats the agent might use.
    */
   private parseReviewResponse(response: string): QAReviewResult {
+    // Handle empty response
+    if (!response || response.trim().length === 0) {
+      return {
+        passed: false,
+        feedback: 'QA review failed - no response received from agent',
+        filesReviewed: []
+      }
+    }
+
     const upperResponse = response.toUpperCase()
 
-    // Determine pass/fail
-    const passed = upperResponse.includes('QA_RESULT: PASSED')
+    // Determine pass/fail - check multiple variations
+    const passedPatterns = [
+      'QA_RESULT: PASSED',
+      'QA_RESULT:PASSED',
+      'RESULT: PASSED',
+      'REVIEW: PASSED',
+      'STATUS: PASSED',
+      '**PASSED**',
+      'VERDICT: PASS',
+      'LGTM', // Looks Good To Me
+      'CODE LOOKS GOOD',
+      'APPROVED'
+    ]
+
+    const failedPatterns = [
+      'QA_RESULT: FAILED',
+      'QA_RESULT:FAILED',
+      'RESULT: FAILED',
+      'REVIEW: FAILED',
+      'STATUS: FAILED',
+      '**FAILED**',
+      'VERDICT: FAIL',
+      'NEEDS CHANGES',
+      'REJECTED'
+    ]
+
+    // Check for explicit pass
+    const passed = passedPatterns.some((p) => upperResponse.includes(p)) &&
+      !failedPatterns.some((p) => upperResponse.includes(p))
 
     // Extract files reviewed
     const filesMatch = response.match(/FILES_REVIEWED:\s*(.+?)(?=\n|FEEDBACK:|$)/is)
@@ -205,19 +250,48 @@ export class QAAgent extends EventEmitter {
     // Extract feedback if failed
     let feedback: string | undefined
     if (!passed) {
-      const feedbackMatch = response.match(/FEEDBACK:\s*([\s\S]*?)$/i)
-      if (feedbackMatch) {
-        const feedbackText = feedbackMatch[1].trim()
-        if (feedbackText && feedbackText.toLowerCase() !== 'n/a') {
-          feedback = feedbackText
+      // Try multiple patterns to extract feedback
+      const feedbackPatterns = [
+        /FEEDBACK:\s*([\s\S]*?)$/i,
+        /ISSUES?:\s*([\s\S]*?)$/i,
+        /PROBLEMS?:\s*([\s\S]*?)$/i,
+        /CHANGES NEEDED:\s*([\s\S]*?)$/i
+      ]
+
+      for (const pattern of feedbackPatterns) {
+        const match = response.match(pattern)
+        if (match) {
+          const feedbackText = match[1].trim()
+          if (feedbackText && feedbackText.toLowerCase() !== 'n/a' && feedbackText.length > 5) {
+            feedback = feedbackText
+            break
+          }
         }
       }
 
-      // If we couldn't parse feedback, provide a default message
+      // If no structured feedback, look for bullet points as feedback
       if (!feedback) {
-        feedback = 'QA review failed - unable to parse specific feedback from response'
+        const bulletMatch = response.match(/(?:^|\n)\s*[-*]\s+(.+)/gm)
+        if (bulletMatch && bulletMatch.length > 0) {
+          feedback = bulletMatch.join('\n').trim()
+        }
+      }
+
+      // If still no feedback, use last paragraph as feedback
+      if (!feedback) {
+        const paragraphs = response.split(/\n\n+/).filter((p) => p.trim().length > 10)
+        if (paragraphs.length > 0) {
+          feedback = paragraphs[paragraphs.length - 1].trim()
+        }
+      }
+
+      // Final fallback with more context
+      if (!feedback) {
+        feedback = `QA review failed - response did not contain structured feedback. Response preview: "${response.substring(0, 200).replace(/\n/g, ' ')}..."`
       }
     }
+
+    console.log(`[QAAgent] Parse result: passed=${passed}, filesReviewed=${filesReviewed.length}, hasFeedback=${!!feedback}`)
 
     return {
       passed,

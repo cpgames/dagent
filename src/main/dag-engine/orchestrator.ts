@@ -331,9 +331,6 @@ export class ExecutionOrchestrator extends EventEmitter {
     // Get ready tasks that can be assigned
     const { available, canAssign } = this.getNextTasks()
 
-    // Log tick for debugging
-    console.log(`[Orchestrator] tick: ${available.length} available, can assign ${canAssign}`)
-
     // Assign agents to available tasks
     if (available.length > 0 && canAssign > 0) {
       const tasksToAssign = available.slice(0, canAssign)
