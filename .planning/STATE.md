@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-14)
 **Milestone:** v2.0 Request Manager & Task Pipeline (Phases 41-46)
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 42 - Task State Machine Refactor (IN PROGRESS)
-Plan: 42-01 complete, 42-02 pending
-Status: In progress
-Last activity: 2026-01-15 - Completed 42-01 (Task State Type and Transition Rules)
+Phase: 42 - Task State Machine Refactor (COMPLETE)
+Plan: 42-01 complete, 42-02 complete
+Status: Complete
+Last activity: 2026-01-15 - Completed 42-02 (Agent Status Updates and QA Feedback)
 
-Progress: 1/6 phases complete
+Progress: 2/6 phases complete
 
-Next action: /gsd:execute-plan 42-02
+Next action: /gsd:plan-phase 43
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 84 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 3)
+- Total plans completed: 85 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 4)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~310 min
 
@@ -41,7 +41,7 @@ Next action: /gsd:execute-plan 42-02
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 40-01, 41-01, 41-02
+- Last 5 plans: 41-01, 41-02, 42-01, 42-02
 - Trend: All milestones shipped (v1.0-v1.9), v2.0 in progress
 
 ## Accumulated Context
@@ -300,6 +300,16 @@ All verification items passed. Milestone v1.8 Complete.
 - **40-01**: SessionLogDialog component with conversation-style display
 
 All verification items passed. Milestone v1.9 Complete.
+
+### Phase 41: Request Manager ✓
+
+- **41-01**: RequestManager with queue and concurrency control
+- **41-02**: Integration with AgentService and PM agent
+
+### Phase 42: Task State Machine Refactor ✓
+
+- **42-01**: TaskStatus type with dev/qa states, new transition events
+- **42-02**: Agent status updates, qaFeedback field, UI component updates
 
 ---
 
