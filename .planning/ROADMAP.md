@@ -26,7 +26,7 @@ None
 **Plans**: TBD
 
 Plans:
-- [ ] 52-01: TBD (run /gsd:plan-phase 52 to break down)
+- [ ] 52-01: Add Merge button with dropdown to completed features
 
 #### Phase 53: Feature Merge Agent
 
@@ -236,7 +236,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 52. Merge Button UI | v2.3 | 0/? | Not started | - |
+| 52. Merge Button UI | v2.3 | 0/1 | Not started | - |
 | 53. Feature Merge Agent | v2.3 | 0/? | Not started | - |
 | 54. GitHub PR Integration | v2.3 | 0/? | Not started | - |
 | 55. Merge Workflow Integration | v2.3 | 0/? | Not started | - |

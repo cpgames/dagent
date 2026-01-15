@@ -13,13 +13,13 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Roadmap:** .planning/ROADMAP.md
 
 Phase: 52 of 55 (Merge Button UI)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-15 - Milestone v2.3 created
+Plan: 01/01 ready
+Status: Ready to execute
+Last activity: 2026-01-15 - Phase 52 planned
 
 Progress: 13 milestones shipped (v1.0-v2.2), v2.3 in progress
 
-Next action: /gsd:plan-phase 52
+Next action: /gsd:execute-plan .planning/phases/52-merge-button-ui/52-01-PLAN.md
 
 ## Performance Metrics
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Milestone v2.3 initialization
+Stopped at: Phase 52 planned
 Resume file: None
-Next action: /gsd:plan-phase 52
+Next action: /gsd:execute-plan .planning/phases/52-merge-button-ui/52-01-PLAN.md
 
 ## Completed Phases
 
