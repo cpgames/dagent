@@ -15,6 +15,7 @@ import type { AgentQueryOptions, AgentStreamEvent } from './types'
 import { getToolsForPreset } from './tool-config'
 import { buildAgentPrompt } from './prompt-builders'
 import { createPMMcpServer, getPMToolNamesForAllowedTools } from './pm-mcp-server'
+import { getRequestManager, RequestPriority } from './request-manager'
 
 // Dynamic import cache for ES module - use 'any' to avoid type conflicts with SDK
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,6 +42,56 @@ export class AgentService {
   private pmMcpServer: any = null
 
   async *streamQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
+    // Determine priority from options or infer from agentType
+    let priority: RequestPriority
+    if (options.priority !== undefined) {
+      priority = options.priority
+    } else if (options.agentType === 'pm') {
+      priority = RequestPriority.PM
+    } else if (options.agentType === 'harness') {
+      priority = RequestPriority.HARNESS_DEV // Default for harness, specific routing handled later
+    } else if (options.agentType === 'merge') {
+      priority = RequestPriority.MERGE
+    } else {
+      priority = RequestPriority.DEV // Default for task agents
+    }
+
+    // Determine agentId from options or construct from context
+    let agentId: string
+    if (options.agentId) {
+      agentId = options.agentId
+    } else if (options.taskId) {
+      agentId = `${options.agentType || 'task'}-${options.taskId}`
+    } else {
+      agentId = options.agentType || 'unknown'
+    }
+
+    try {
+      // Use RequestManager to control concurrency
+      const requestManager = getRequestManager()
+      const stream = await requestManager.enqueue(
+        priority,
+        agentId,
+        () => this.executeSDKQuery(options),
+        options.taskId
+      )
+
+      // Yield events from the stream
+      for await (const event of stream) {
+        yield event
+      }
+    } catch (error) {
+      yield {
+        type: 'error',
+        error: error instanceof Error ? error.message : 'Agent query failed'
+      }
+    }
+  }
+
+  /**
+   * Execute the actual SDK query. Called by RequestManager when a slot is available.
+   */
+  private async *executeSDKQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
     try {
       // Dynamically import the SDK (ES module)
       const sdk = await getSDK()
