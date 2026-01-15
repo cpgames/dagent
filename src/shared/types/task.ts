@@ -1,4 +1,4 @@
-export type TaskStatus = 'blocked' | 'ready' | 'running' | 'merging' | 'completed' | 'failed';
+export type TaskStatus = 'blocked' | 'ready' | 'dev' | 'qa' | 'merging' | 'completed' | 'failed';
 
 export interface TaskPosition {
   x: number;
