@@ -13,18 +13,18 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Roadmap:** .planning/ROADMAP.md
 
 Phase: 51 - QA Commits
-Plan: 01/02 complete
-Status: In progress
-Last activity: 2026-01-15 - Completed 51-01 (remove git commit from TaskAgent)
+Plan: 02/02 complete
+Status: Complete
+Last activity: 2026-01-15 - Completed 51-02 (add git commit to QA agent)
 
-Progress: 12 milestones shipped (v1.0-v2.1), Phase 50 complete, 51-01 complete
+Progress: 12 milestones shipped (v1.0-v2.1), Phases 50-51 complete
 
-Next action: /gsd:execute-plan 51-02
+Next action: /gsd:progress
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 96 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 3)
+- Total plans completed: 97 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~310 min
 
@@ -341,6 +341,16 @@ All verification items passed. Milestone v1.9 Complete.
 - **49-01**: Polished padding, scrollbars, column backgrounds, empty states
 
 All verification items passed. Milestone v2.1 Complete.
+
+### Phase 50: Queue-Based Pool Refactor ✓
+
+- **50-01**: Refactor task pools to use queue-based model with assignment queue
+- **50-02**: Integrate with orchestrator for O(1) ready task retrieval
+
+### Phase 51: QA Commits ✓
+
+- **51-01**: Remove git commit from TaskAgent (dev codes but doesn't commit)
+- **51-02**: Add git commit to QA agent (only QA-approved code committed)
 
 ---
 
