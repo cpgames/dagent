@@ -404,39 +404,28 @@ export class ExecutionOrchestrator extends EventEmitter {
     for (const agent of taskAgents) {
       const agentState = agent.getState()
 
-      // Check for ready_for_merge - task has finished execution and committed, ready for merge
+      // Check for ready_for_merge - task has finished dev work and committed, ready for QA
       if (agentState.status === 'ready_for_merge') {
         const taskId = agentState.taskId
-        console.log('[Orchestrator] Task ready for merge:', taskId)
+        console.log('[Orchestrator] Task dev complete, moving to QA:', taskId)
 
-        // Transition task: running → merging
+        // Transition task: dev → qa (NOT merge - QA must pass first)
         const codeResult = this.completeTaskCode(taskId)
         if (codeResult.success) {
-          // Execute merge via merge agent
-          const mergeSuccess = await this.executeMerge(taskId)
-          if (mergeSuccess) {
-            // Mark task agent as completed after successful merge
-            await agent.markCompleted()
-
-            // Transition: merging → completed (done by completeMerge)
-            const mergeResult = this.completeMerge(taskId)
-            if (mergeResult.success) {
-              console.log('[Orchestrator] Task completed:', taskId, 'unblocked:', mergeResult.unblocked)
-            }
-          } else {
-            // Merge failed - task remains in failed state (already handled by executeMerge)
-            console.log('[Orchestrator] Task merge failed:', taskId)
-          }
+          console.log('[Orchestrator] Task moved to QA state:', taskId)
+          // Don't merge yet - QA agent will be spawned by handleQATasks
+          // When QA passes, handleQAResult will trigger the merge
         }
 
-        // Notify harness
+        // Notify harness that dev work is done
         harness.completeTask(taskId)
 
-        // Cleanup task agent
-        await agent.cleanup()
+        // Cleanup task agent (but keep worktree for QA!)
+        // Note: Don't call agent.cleanup() here - QA needs the worktree
+        await agent.markCompleted()
         removeTaskAgent(taskId)
 
-        this.addEvent('task_finished', { taskId })
+        this.addEvent('task_started', { taskId }) // Dev complete, now in QA
       } else if (agentState.status === 'failed') {
         const taskId = agentState.taskId
         const errorMsg = agentState.error || 'Unknown error'
