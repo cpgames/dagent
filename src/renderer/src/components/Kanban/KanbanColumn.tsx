@@ -40,9 +40,9 @@ export default function KanbanColumn({
   const count = features.length;
 
   return (
-    <div className="flex-1 min-w-[250px] max-w-[350px] flex flex-col">
+    <div className="flex-1 min-w-[250px] max-w-[350px] flex flex-col bg-gray-900/30 rounded-lg p-3">
       {/* Column Header */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-3">
         <h3
           className="text-sm font-medium uppercase tracking-wide"
           style={{ color: titleColor }}
@@ -55,11 +55,11 @@ export default function KanbanColumn({
       </div>
 
       {/* Cards Container */}
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="flex-1 space-y-2 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
         {features.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
-            No features
-          </p>
+          <div className="flex-1 flex items-center justify-center border border-dashed border-gray-700 rounded-lg min-h-[100px]">
+            <p className="text-sm text-gray-500">No features</p>
+          </div>
         ) : (
           features.map((feature) => (
             <FeatureCard
