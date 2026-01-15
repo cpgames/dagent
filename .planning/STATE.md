@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 
 ## Current Position
 
-**Milestone:** v2.3 Feature-to-Main Merge
+**Milestone:** v2.3 Feature-to-Main Merge - COMPLETE
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 53 of 55 (Feature Merge Agent) - PLANNED
-Plan: 53-01 ready for execution
-Status: Phase 53 planned, ready for execution
-Last activity: 2026-01-15 - Phase 53 planned
+Phase: 55 of 55 (Merge Workflow Integration) - COMPLETE
+Plan: 55-01 complete
+Status: Milestone v2.3 complete - all 4 phases shipped
+Last activity: 2026-01-15 - Phase 55-01 executed
 
-Progress: 13 milestones shipped (v1.0-v2.2), v2.3 in progress (1/4 phases done)
+Progress: 14 milestones shipped (v1.0-v2.3)
 
-Next action: /gsd:execute-phase 53
+Next action: /gsd:complete-milestone
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 98 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 1)
+- Total plans completed: 101 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~315 min
 
@@ -41,8 +41,8 @@ Next action: /gsd:execute-phase 53
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 50-01, 50-02, 51-01, 51-02, 52-01
-- Trend: All milestones shipped (v1.0-v2.2), v2.3 in progress (1/4 phases)
+- Last 5 plans: 52-01, 53-01, 54-01, 55-01
+- Trend: v2.3 Feature-to-Main Merge milestone complete (4/4 phases)
 
 ## Accumulated Context
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Phase 52 complete
+Stopped at: Phase 54 complete
 Resume file: None
-Next action: /gsd:plan-phase 53
+Next action: /gsd:plan-phase 55
 
 ## Completed Phases
 
@@ -355,6 +355,39 @@ All verification items passed. Milestone v2.1 Complete.
 ### Phase 52: Merge Button UI ✓
 
 - **52-01**: Merge button with dropdown in FeatureCard, wired through KanbanColumn/KanbanView
+
+### Phase 53: Feature Merge Agent ✓
+
+- **53-01**: FeatureMergeAgent class with types and GitManager.mergeFeatureIntoMain
+
+### Phase 54: GitHub PR Integration ✓
+
+- **54-01**: PRService with gh CLI wrapper, types, IPC handlers, and preload API
+
+### Phase 55: Merge Workflow Integration ✓
+
+- **55-01**: FeatureMergeDialog component, IPC handlers, preload API, KanbanView wiring
+
+All verification items passed. Milestone v2.3 Complete.
+
+---
+
+## v2.3 Milestone Summary
+
+Feature-to-Main Merge is complete. Users can now merge completed features into the main branch:
+
+1. **Merge Button UI**: Dropdown button on completed feature cards with AI Merge and Create PR options
+2. **FeatureMergeAgent**: Agent for executing merges with branch validation and conflict detection
+3. **GitHub PR Integration**: PRService with gh CLI wrapper for creating pull requests
+4. **Merge Workflow Integration**: FeatureMergeDialog component with full merge workflow UI
+
+The application now provides:
+- Merge button with dropdown on completed feature cards
+- AI Merge flow: create agent -> check branches -> execute merge with conflict handling
+- Create PR flow: validate gh CLI -> create PR with customizable title/body
+- Progress indicators during merge operations
+- Success/error feedback with clear messaging
+- Option to delete feature branch after successful merge
 
 ---
 
