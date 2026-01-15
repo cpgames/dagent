@@ -34,7 +34,7 @@ export function FeatureMergeDialog({
       setError(null)
       setPrUrl(null)
       setPrTitle(`Merge feature: ${feature.name}`)
-      setPrBody(`## Summary\nMerge completed feature "${feature.name}" into main branch.\n\n## Changes\n- ${feature.goal || 'Feature implementation'}`)
+      setPrBody(`## Summary\nMerge completed feature "${feature.name}" into main branch.\n\n## Changes\n- Feature implementation`)
     }
   }, [isOpen, feature])
 

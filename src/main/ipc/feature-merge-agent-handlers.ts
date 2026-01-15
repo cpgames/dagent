@@ -5,7 +5,6 @@ import {
   getFeatureMergeAgent,
   removeFeatureMergeAgent
 } from '../agents/feature-merge-agent'
-import type { FeatureMergeAgentState, FeatureMergeResult } from '../agents/feature-merge-types'
 
 export function registerFeatureMergeAgentHandlers(): void {
   // Create and initialize merge agent
@@ -38,7 +37,7 @@ export function registerFeatureMergeAgentHandlers(): void {
     if (!agent) return { success: false, error: 'Agent not found' }
 
     // Auto-approve for AI merge
-    agent.receiveApproval({ approved: true })
+    agent.receiveApproval({ approved: true, type: 'approved' })
 
     // Execute the merge
     const result = await agent.executeMerge(deleteBranchOnSuccess)
