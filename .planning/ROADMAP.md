@@ -10,9 +10,20 @@ None
 
 ## Milestones
 
-### Current Milestone: None
+### Current Milestone: v2.0 Request Manager & Task Pipeline (Phases 41-46)
 
-No active milestone. Use `/gsd:new-milestone` to define the next milestone.
+Major architectural overhaul for scalable parallel execution:
+
+- [ ] **Phase 41: Request Manager Infrastructure** - Centralized request queue with priority levels
+- [ ] **Phase 42: Task State Machine Refactor** - Granular states (blocked/ready/dev/qa/merging/completed/failed)
+- [ ] **Phase 43: Pool-Based Task Management** - Tasks organized by state for efficient assignment
+- [ ] **Phase 44: QA Agent Implementation** - Code quality verification with dev feedback loop
+- [ ] **Phase 45: Agent Communication Refactor** - Only dev talks to harness, QA/merge autonomous
+- [ ] **Phase 46: DAG View Status Badges** - Visual state indicators on task nodes
+
+**Total:** 6 phases, ~9 plans
+
+See [v2.0-ROADMAP.md](milestones/v2.0-ROADMAP.md) for details.
 
 ## Completed Milestones
 
@@ -146,7 +157,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**All milestones complete.** 40 phases complete (81 plans total).
+**Current milestone:** v2.0 Request Manager & Task Pipeline (1/6 phases in progress)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -190,3 +201,9 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 38. Message Queue | v1.9 | 2/2 | Complete | 2026-01-14 |
 | 39. Harness Router | v1.9 | 2/2 | Complete | 2026-01-14 |
 | 40. Log UI Integration | v1.9 | 1/1 | Complete | 2026-01-14 |
+| 41. Request Manager Infrastructure | v2.0 | 1/2 | In Progress | - |
+| 42. Task State Machine Refactor | v2.0 | 0/2 | Pending | - |
+| 43. Pool-Based Task Management | v2.0 | 0/1 | Pending | - |
+| 44. QA Agent Implementation | v2.0 | 0/2 | Pending | - |
+| 45. Agent Communication Refactor | v2.0 | 0/1 | Pending | - |
+| 46. DAG View Status Badges | v2.0 | 0/1 | Pending | - |
