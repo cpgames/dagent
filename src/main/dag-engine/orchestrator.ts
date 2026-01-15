@@ -11,7 +11,7 @@ import { DEFAULT_EXECUTION_CONFIG } from './orchestrator-types'
 import type { TaskStateChange } from './task-controller'
 import { transitionTask, createStateChangeRecord } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
-import { getReadyTasks } from './analyzer'
+import { getTaskPoolManager, resetTaskPoolManager } from './task-pool'
 import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent, getAgentPool } from '../agents'
 import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
 import { createMergeAgent, registerMergeAgent, removeMergeAgent } from '../agents/merge-agent'
@@ -69,6 +69,9 @@ export class ExecutionOrchestrator {
     // Recalculate all task statuses based on dependencies
     const { changes } = recalculateAllStatuses(graph)
     this.history.push(...changes)
+
+    // Initialize task pools from graph state
+    getTaskPoolManager().initializeFromGraph(graph)
   }
 
   /**
@@ -256,6 +259,9 @@ export class ExecutionOrchestrator {
     if (this.state.featureId) {
       getLogService().clearCache(this.state.featureId)
     }
+
+    // Reset task pools
+    resetTaskPoolManager()
 
     this.addEvent('stopped')
     return { success: true }
@@ -567,8 +573,14 @@ export class ExecutionOrchestrator {
       return { ready: [], available: [], canAssign: 0 }
     }
 
-    // Get all ready tasks
-    const ready = getReadyTasks(this.state.graph)
+    // Get ready task IDs from pool (O(1) lookup)
+    const poolManager = getTaskPoolManager()
+    const readyIds = poolManager.getPool('ready')
+
+    // Map IDs to Task objects
+    const ready = readyIds
+      .map((id) => this.state.graph!.nodes.find((n) => n.id === id))
+      .filter((t): t is Task => t !== undefined)
 
     // Filter out already assigned tasks, tasks that failed this tick,
     // and tasks that exceeded max init retries
@@ -581,8 +593,9 @@ export class ExecutionOrchestrator {
       return true
     })
 
-    // Calculate how many more can be assigned
-    const currentActive = this.state.graph.nodes.filter((n) => ['dev', 'qa', 'merging'].includes(n.status)).length
+    // Calculate how many more can be assigned using pool counts
+    const counts = poolManager.getCounts()
+    const currentActive = counts.dev + counts.qa + counts.merging
     const canAssignTasks = this.config.maxConcurrentTasks - currentActive
     const canAssign = Math.max(0, canAssignTasks)
 
@@ -622,6 +635,9 @@ export class ExecutionOrchestrator {
       return { success: false, error: result.error }
     }
 
+    // Update pools
+    getTaskPoolManager().moveTask(taskId, result.previousStatus, result.newStatus)
+
     // Record assignment
     this.assignments.set(taskId, {
       taskId,
@@ -659,6 +675,9 @@ export class ExecutionOrchestrator {
       return { success: false, error: result.error }
     }
 
+    // Update pools
+    getTaskPoolManager().moveTask(taskId, result.previousStatus, result.newStatus)
+
     this.history.push(
       createStateChangeRecord(taskId, result.previousStatus, result.newStatus, 'DEV_COMPLETE')
     )
@@ -689,6 +708,10 @@ export class ExecutionOrchestrator {
       return { success: false, unblocked: [], error: result.error }
     }
 
+    // Update pools for completed task
+    const poolManager = getTaskPoolManager()
+    poolManager.moveTask(taskId, result.previousStatus, result.newStatus)
+
     this.history.push(
       createStateChangeRecord(taskId, result.previousStatus, result.newStatus, 'MERGE_SUCCESS')
     )
@@ -699,6 +722,11 @@ export class ExecutionOrchestrator {
     // Cascade to unblock dependents
     const cascade = cascadeTaskCompletion(taskId, this.state.graph)
     this.history.push(...cascade.changes)
+
+    // Update pools for unblocked tasks (blocked → ready)
+    for (const change of cascade.changes) {
+      poolManager.moveTask(change.taskId, change.previousStatus, change.newStatus)
+    }
 
     const unblocked = cascade.changes.map((c) => c.taskId)
 
@@ -731,6 +759,9 @@ export class ExecutionOrchestrator {
     if (!result.success) {
       return { success: false, error: result.error }
     }
+
+    // Update pools
+    getTaskPoolManager().moveTask(taskId, result.previousStatus, result.newStatus)
 
     this.history.push(
       createStateChangeRecord(taskId, result.previousStatus, result.newStatus, event)
