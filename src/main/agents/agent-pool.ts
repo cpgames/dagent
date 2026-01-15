@@ -87,6 +87,11 @@ export class AgentPool extends EventEmitter {
       return activeTasks < this.config.maxTaskAgents
     }
 
+    if (type === 'qa') {
+      const activeQA = activeAgents.filter((a) => a.type === 'qa' && a.status === 'busy').length
+      return activeQA < this.config.maxQAAgents
+    }
+
     return false
   }
 
@@ -108,6 +113,11 @@ export class AgentPool extends EventEmitter {
       const activeTasks = activeAgents.filter((a) => a.type === 'task' && a.status === 'busy')
         .length
       return Math.max(0, this.config.maxTaskAgents - activeTasks)
+    }
+
+    if (type === 'qa') {
+      const activeQA = activeAgents.filter((a) => a.type === 'qa' && a.status === 'busy').length
+      return Math.max(0, this.config.maxQAAgents - activeQA)
     }
 
     return 0
@@ -212,6 +222,7 @@ export class AgentPool extends EventEmitter {
     hasHarness: boolean
     taskAgents: number
     mergeAgents: number
+    qaAgents: number
   } {
     const agents = Array.from(this.agents.values())
     return {
@@ -223,7 +234,8 @@ export class AgentPool extends EventEmitter {
       hasHarness:
         this.harnessId !== null && this.agents.get(this.harnessId!)?.status !== 'terminated',
       taskAgents: agents.filter((a) => a.type === 'task' && a.status === 'busy').length,
-      mergeAgents: agents.filter((a) => a.type === 'merge' && a.status === 'busy').length
+      mergeAgents: agents.filter((a) => a.type === 'merge' && a.status === 'busy').length,
+      qaAgents: agents.filter((a) => a.type === 'qa' && a.status === 'busy').length
     }
   }
 }

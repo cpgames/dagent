@@ -1,6 +1,6 @@
 import type { ChildProcess } from 'child_process'
 
-export type AgentType = 'harness' | 'task' | 'merge'
+export type AgentType = 'harness' | 'task' | 'merge' | 'qa'
 
 export type AgentStatus = 'idle' | 'busy' | 'terminated'
 
@@ -15,9 +15,10 @@ export interface AgentInfo {
 }
 
 export interface AgentPoolConfig {
-  maxAgents: number // Total pool size (default: 4)
-  maxTaskAgents: number // Max concurrent task agents (default: 2)
+  maxAgents: number // Total pool size (default: 5)
+  maxTaskAgents: number // Max concurrent task agents (default: 3)
   maxMergeAgents: number // Max concurrent merge agents (default: 1)
+  maxQAAgents: number // Max concurrent QA agents (default: 1)
   // Note: 1 agent always reserved for harness
 }
 
@@ -60,7 +61,8 @@ export interface ApprovalMessage {
 }
 
 export const DEFAULT_POOL_CONFIG: AgentPoolConfig = {
-  maxAgents: 5,
+  maxAgents: 6,
   maxTaskAgents: 3,
-  maxMergeAgents: 1
+  maxMergeAgents: 1,
+  maxQAAgents: 1
 }

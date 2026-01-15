@@ -12,13 +12,13 @@ import { getPMToolInstructions } from './pm-tool-handlers'
 export interface AgentPromptOptions {
   featureId?: string
   taskId?: string
-  agentType: 'pm' | 'harness' | 'task' | 'merge'
+  agentType: 'pm' | 'harness' | 'task' | 'merge' | 'qa'
 }
 
 /**
  * Agent type union for type safety.
  */
-export type AgentType = 'pm' | 'harness' | 'task' | 'merge'
+export type AgentType = 'pm' | 'harness' | 'task' | 'merge' | 'qa'
 
 /**
  * Build a system prompt for an agent with full context.
@@ -92,6 +92,12 @@ Work within your assigned worktree and commit your changes when complete.`
       return `You are a Merge Agent handling branch integration.
 Your role is to merge completed task branches, resolve conflicts, and ensure clean integration.
 Analyze conflicts carefully and preserve intended changes from both sides.`
+
+    case 'qa':
+      return `You are a QA Agent reviewing code changes.
+Your role is to review code changes against task specifications and provide pass/fail feedback.
+Check for: spec compliance, obvious bugs, reasonable patterns.
+Keep feedback brief and actionable.`
 
     default:
       return 'You are an AI assistant helping with software development.'

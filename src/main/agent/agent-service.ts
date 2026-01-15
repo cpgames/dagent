@@ -52,6 +52,8 @@ export class AgentService {
       priority = RequestPriority.HARNESS_DEV // Default for harness, specific routing handled later
     } else if (options.agentType === 'merge') {
       priority = RequestPriority.MERGE
+    } else if (options.agentType === 'qa') {
+      priority = RequestPriority.QA
     } else {
       priority = RequestPriority.DEV // Default for task agents
     }
