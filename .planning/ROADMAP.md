@@ -14,7 +14,7 @@ None
 
 Improve Kanban board to reflect execution state and add quick-start capability:
 
-- [ ] **Phase 47: Kanban Feature Status** - Move features to columns based on task states
+- [x] **Phase 47: Kanban Feature Status** - Move features to columns based on task states (1/1 plans)
 - [ ] **Phase 48: Feature Start Button** - Start execution from Kanban card
 - [ ] **Phase 49: Kanban UI Polish** - Fix padding and spacing issues
 
@@ -170,7 +170,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.1 Kanban Board Improvements (0/3 phases complete)
+**Current milestone:** v2.1 Kanban Board Improvements (1/3 phases complete)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -220,6 +220,6 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 44. QA Agent Implementation | v2.0 | 2/2 | Complete | 2026-01-15 |
 | 45. Agent Communication Refactor | v2.0 | 1/1 | Complete | 2026-01-15 |
 | 46. DAG View Status Badges | v2.0 | 1/1 | Complete | 2026-01-15 |
-| 47. Kanban Feature Status | v2.1 | 0/2 | Pending | - |
+| 47. Kanban Feature Status | v2.1 | 1/1 | Complete | 2026-01-15 |
 | 48. Feature Start Button | v2.1 | 0/1 | Pending | - |
 | 49. Kanban UI Polish | v2.1 | 0/1 | Pending | - |
