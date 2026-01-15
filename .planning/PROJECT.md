@@ -8,13 +8,13 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v2.1 Kanban Board Improvements)
+## Current State (v2.3 Feature-to-Main Merge)
 
-Shipped 2026-01-15. Full Kanban-driven execution flow:
-- 115+ source files, ~21,800 LOC TypeScript
-- 49 phases, 93 plans executed across 12 milestones
-- Kanban columns reflect task execution state automatically
-- Start execution directly from Kanban cards
+Shipped 2026-01-15. Complete feature lifecycle from creation to merge:
+- 160 source files, ~23,654 LOC TypeScript
+- 55 phases, 101 plans executed across 15 milestones
+- AI-assisted merge or GitHub PR creation for completed features
+- Full merge workflow with branch cleanup and conflict detection
 
 ## Requirements
 
@@ -77,6 +77,12 @@ Shipped 2026-01-15. Full Kanban-driven execution flow:
 - [x] Automatic feature status from task states - v2.1
 - [x] Start execution from Kanban card - v2.1
 - [x] Polished Kanban UI with consistent spacing - v2.1
+- [x] QA agent commits on review success (dev doesn't commit) - v2.2
+- [x] Queue-based pool architecture for task pipeline - v2.2
+- [x] Merge button on completed features (AI Merge / Create PR) - v2.3
+- [x] FeatureMergeAgent with conflict detection - v2.3
+- [x] GitHub PR creation via gh CLI - v2.3
+- [x] FeatureMergeDialog with progress and error handling - v2.3
 
 ### Backlog
 
@@ -134,4 +140,4 @@ Key reference material:
 | Feature status from tasks | Priority rules for column placement | Good |
 
 ---
-*Last updated: 2026-01-15 after v2.1 milestone*
+*Last updated: 2026-01-15 after v2.3 milestone*

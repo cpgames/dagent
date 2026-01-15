@@ -1,5 +1,81 @@
 # Project Milestones: DAGent
 
+## v2.3 Feature-to-Main Merge (Shipped: 2026-01-15)
+
+**Delivered:** Complete feature-to-main merge workflow enabling users to merge completed features back to the working branch via AI-assisted merge or GitHub PR creation.
+
+**Phases completed:** 52-55 (4 plans total)
+
+**Key accomplishments:**
+
+- Merge button with dropdown (AI Merge / Create PR) on completed feature cards
+- FeatureMergeAgent class with state machine for merge workflow orchestration
+- GitManager.mergeFeatureIntoMain() for automated branch merging with conflict detection
+- PRService wrapping GitHub CLI (`gh`) for PR creation
+- FeatureMergeDialog component with progress indicators and error handling
+- Full IPC wiring from UI through preload API to main process agents
+- Delete branch option after successful merge (feature + task branches)
+
+**Stats:**
+
+- 8 new files created
+- ~1,300 lines of TypeScript added (23,654 total)
+- 4 phases, 4 plans executed
+- 160 source files total
+
+**Git range:** `de493a1` → `7500f9e`
+
+**What's next:** Consider E2E testing, error scenario handling, or next milestone planning.
+
+---
+
+## v2.2 Task Pipeline Refactor (Shipped: 2026-01-15)
+
+**Delivered:** Refactored task execution pipeline so development agents don't commit (QA handles commits after review), with queue-based pool architecture.
+
+**Phases completed:** 50-51 (4 plans total)
+
+**Key accomplishments:**
+
+- Queue-based pool refactor where pools represent workflow stages
+- Orchestrator owns all task state transitions
+- QA agent commits on successful review instead of dev agent
+- Cleaner separation of concerns between agents
+
+**Stats:**
+
+- 2 phases, 4 plans executed
+- Pipeline architecture simplified
+
+**Git range:** `f78ffe3` → `44df9ae`
+
+**What's next:** v2.3 Feature-to-Main Merge
+
+---
+
+## v2.1 Kanban Board Improvements (Shipped: 2026-01-15)
+
+**Delivered:** Kanban-driven execution flow with automatic feature status from task states, start execution from cards, and UI polish.
+
+**Phases completed:** 47-49 (3 plans total)
+
+**Key accomplishments:**
+
+- Automatic feature status derived from task execution states
+- Start button on Kanban cards for direct execution
+- Polished Kanban UI with consistent spacing and layout
+
+**Stats:**
+
+- 3 phases, 3 plans executed
+- Kanban becomes primary execution interface
+
+**Git range:** `6420cb4` → `ae9914d`
+
+**What's next:** v2.2 Task Pipeline Refactor
+
+---
+
 ## v2.0 Request Manager & Task Pipeline (Shipped: 2026-01-15)
 
 **Delivered:** Major architectural overhaul for scalable parallel execution with centralized request management, granular task states, QA agent implementation, and simplified agent communication model.
