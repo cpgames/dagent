@@ -65,6 +65,9 @@ export interface TaskContext {
   // Dependency context (from completed parent tasks)
   dependencyContext: DependencyContextEntry[]
 
+  // QA feedback (if reworking after QA failure)
+  qaFeedback?: string
+
   // Working directory
   worktreePath: string
 }

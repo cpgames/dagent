@@ -208,6 +208,7 @@ export class TaskAgent extends EventEmitter {
         taskTitle: task.title,
         taskDescription: task.description,
         dependencyContext,
+        qaFeedback: task.qaFeedback || undefined,
         worktreePath: worktreeResult.worktreePath
       }
 
@@ -569,12 +570,24 @@ export class TaskAgent extends EventEmitter {
       parts.push('## Approval Notes', approval.notes, '')
     }
 
+    // Include QA feedback if this is a rework cycle
+    if (context.qaFeedback) {
+      parts.push(
+        '## QA Feedback (IMPORTANT - Fix these issues)',
+        'This task failed QA review. You MUST address these issues:',
+        '',
+        context.qaFeedback,
+        ''
+      )
+    }
+
     parts.push(
       '## Instructions',
       '1. Implement the task as described above',
       '2. Follow the project guidelines from CLAUDE.md',
       '3. Build on completed dependency work where applicable',
       '4. Make all necessary file changes to complete this task',
+      context.qaFeedback ? '5. Address ALL QA feedback items before committing' : '',
       ''
     )
 

@@ -15,11 +15,14 @@ import { getTaskPoolManager, resetTaskPoolManager } from './task-pool'
 import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent, getAgentPool } from '../agents'
 import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
 import { createMergeAgent, registerMergeAgent, removeMergeAgent } from '../agents/merge-agent'
+import { createQAAgent, registerQAAgent, getQAAgent, removeQAAgent, getAllQAAgents, clearQAAgents } from '../agents/qa-agent'
+import type { QAReviewResult } from '../agents/qa-types'
 import type { HarnessMessage } from '../agents/harness-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
 import { getLogService } from '../storage/log-service'
-import { getGitManager } from '../git'
+import { getGitManager, getTaskWorktreeName } from '../git'
+import * as path from 'path'
 
 export class ExecutionOrchestrator {
   private state: ExecutionState
@@ -248,6 +251,13 @@ export class ExecutionOrchestrator {
     harness.reset()
     console.log('[Orchestrator] Harness agent stopped and reset')
 
+    // Cleanup QA agents
+    for (const agent of getAllQAAgents()) {
+      agent.cleanup()
+    }
+    clearQAAgents()
+    console.log('[Orchestrator] QA agents cleaned up')
+
     // Cleanup terminated agents from pool
     const pool = getAgentPool()
     const cleaned = pool.cleanup()
@@ -330,6 +340,9 @@ export class ExecutionOrchestrator {
 
     // Handle completed task agents
     await this.handleCompletedTasks()
+
+    // Handle QA reviews
+    await this.handleQATasks()
 
     // Emit tick event for UI updates
     this.addEvent('tick', {
@@ -422,6 +435,103 @@ export class ExecutionOrchestrator {
 
         this.addEvent('task_failed', { taskId, error: errorMsg })
       }
+    }
+  }
+
+  /**
+   * Handle QA reviews for tasks in qa state.
+   * Spawns QA agents to review code changes.
+   */
+  private async handleQATasks(): Promise<void> {
+    if (!this.state.featureId || !this.state.graph) {
+      return
+    }
+
+    const poolManager = getTaskPoolManager()
+    const qaTasks = poolManager.getPool('qa')
+
+    for (const taskId of qaTasks) {
+      // Skip if QA agent already exists for this task
+      if (getQAAgent(taskId)) continue
+
+      const task = this.state.graph.nodes.find((n) => n.id === taskId)
+      if (!task) continue
+
+      // Get worktree path from task agent (if still exists) or construct it
+      const taskAgent = getTaskAgent(taskId)
+      let worktreePath = taskAgent?.getState().worktreePath
+
+      if (!worktreePath) {
+        // Task agent already cleaned up, construct path
+        const gitManager = getGitManager()
+        const config = gitManager.getConfig()
+        const worktreeName = getTaskWorktreeName(this.state.featureId, taskId)
+        worktreePath = path.join(config.worktreesDir, worktreeName)
+      }
+
+      // Spawn QA agent
+      const qaAgent = createQAAgent(this.state.featureId, taskId)
+      const initialized = await qaAgent.initialize(task.title, task.description, worktreePath)
+
+      if (initialized) {
+        registerQAAgent(qaAgent)
+        console.log(`[Orchestrator] QA agent spawned for task ${taskId}`)
+
+        // Execute review (non-blocking)
+        qaAgent.execute().then((result) => this.handleQAResult(taskId, result))
+      } else {
+        console.warn(`[Orchestrator] Failed to initialize QA agent for task ${taskId}`)
+      }
+    }
+  }
+
+  /**
+   * Handle QA review result.
+   * On pass: transition to merging
+   * On fail: store feedback and transition back to dev
+   */
+  private handleQAResult(taskId: string, result: QAReviewResult): void {
+    if (!this.state.graph) return
+
+    const task = this.state.graph.nodes.find((n) => n.id === taskId)
+    if (!task) return
+
+    console.log(`[Orchestrator] QA result for ${taskId}: ${result.passed ? 'PASSED' : 'FAILED'}`)
+
+    const poolManager = getTaskPoolManager()
+
+    if (result.passed) {
+      // QA passed → transition to merging
+      const transitionResult = transitionTask(task, 'QA_PASSED')
+      if (transitionResult.success) {
+        poolManager.moveTask(taskId, 'qa', 'merging')
+        this.history.push(createStateChangeRecord(taskId, 'qa', 'merging', 'QA_PASSED'))
+        this.addEvent('qa_passed', { taskId })
+
+        // Execute merge
+        this.executeMerge(taskId).then((mergeSuccess) => {
+          if (mergeSuccess) {
+            this.completeMerge(taskId)
+          }
+        })
+      }
+    } else {
+      // QA failed → store feedback and transition back to dev
+      task.qaFeedback = result.feedback
+      const transitionResult = transitionTask(task, 'QA_FAILED')
+      if (transitionResult.success) {
+        poolManager.moveTask(taskId, 'qa', 'dev')
+        this.history.push(createStateChangeRecord(taskId, 'qa', 'dev', 'QA_FAILED'))
+        this.addEvent('qa_failed', { taskId, feedback: result.feedback })
+        console.log(`[Orchestrator] Task ${taskId} returned to dev with feedback: ${result.feedback}`)
+      }
+    }
+
+    // Cleanup QA agent
+    const qaAgent = getQAAgent(taskId)
+    if (qaAgent) {
+      qaAgent.cleanup()
+      removeQAAgent(taskId)
     }
   }
 

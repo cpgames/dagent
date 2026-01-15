@@ -41,6 +41,8 @@ export interface ExecutionEvent {
     | 'task_finished'
     | 'task_failed'
     | 'agent_assigned'
+    | 'qa_passed'
+    | 'qa_failed'
     | 'error'
   timestamp: string
   data?: {
@@ -51,6 +53,7 @@ export interface ExecutionEvent {
     availableCount?: number
     canAssign?: number
     agentId?: string
+    feedback?: string // QA feedback when qa_failed
   }
 }
 
