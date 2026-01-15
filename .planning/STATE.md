@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Phase 54 complete
+Stopped at: Milestone v2.3 complete
 Resume file: None
-Next action: /gsd:plan-phase 55
+Next action: /gsd:complete-milestone or /gsd:new-milestone
 
 ## Completed Phases
 

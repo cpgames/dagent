@@ -10,56 +10,23 @@ None
 
 ## Milestones
 
-### Current Milestone: v2.3 Feature-to-Main Merge
+### Current Milestone: None
 
-- 🚧 **v2.3 Feature-to-Main Merge** - Phases 52-55 (in progress)
-
-### 🚧 v2.3 Feature-to-Main Merge (In Progress)
-
-**Milestone Goal:** Enable merging completed features to the working branch via AI-assisted merge or PR creation.
-
-#### Phase 52: Merge Button UI
-
-**Goal**: Add "Merge" button to completed features in Kanban with AI Merge / Create PR options
-**Depends on**: Previous milestone complete
-**Research**: Unlikely (internal UI patterns)
-**Plans**: TBD
-
-Plans:
-- [x] 52-01: Add Merge button with dropdown to completed features
-
-#### Phase 53: Feature Merge Agent
-
-**Goal**: Create FeatureMergeAgent to handle feature-to-main branch merges with conflict resolution
-**Depends on**: Phase 52
-**Research**: Unlikely (existing MergeAgent patterns)
-**Plans**: 1
-
-Plans:
-- [ ] 53-01: Create FeatureMergeAgent class with types and GitManager.mergeFeatureIntoMain
-
-#### Phase 54: GitHub PR Integration
-
-**Goal**: Add GitHub API integration for PR creation via `gh` CLI
-**Depends on**: Phase 53
-**Research**: Likely (external GitHub API)
-**Research topics**: GitHub CLI (`gh`) commands for PR creation, authentication, API patterns
-**Plans**: TBD
-
-Plans:
-- [ ] 54-01: TBD
-
-#### Phase 55: Merge Workflow Integration
-
-**Goal**: Wire up full merge workflow - button → dialog → agent → completion feedback
-**Depends on**: Phase 54
-**Research**: Unlikely (internal patterns)
-**Plans**: TBD
-
-Plans:
-- [ ] 55-01: TBD
+All milestones complete. Ready for next milestone definition.
 
 ## Completed Milestones
+
+<details>
+<summary>v2.3 Feature-to-Main Merge (Phases 52-55) - SHIPPED 2026-01-15</summary>
+
+- [x] **Phase 52: Merge Button UI** - Add Merge button with dropdown to completed features (1/1 plans)
+- [x] **Phase 53: Feature Merge Agent** - FeatureMergeAgent class with types and GitManager.mergeFeatureIntoMain (1/1 plans)
+- [x] **Phase 54: GitHub PR Integration** - PRService with gh CLI wrapper, types, IPC handlers (1/1 plans)
+- [x] **Phase 55: Merge Workflow Integration** - FeatureMergeDialog, IPC handlers, KanbanView wiring (1/1 plans)
+
+**Total:** 4 phases, 4 plans
+
+</details>
 
 <details>
 <summary>v2.2 Task Pipeline Refactor (Phases 50-51) - SHIPPED 2026-01-15</summary>
@@ -237,9 +204,9 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 52. Merge Button UI | v2.3 | 1/1 | Complete | 2026-01-15 |
-| 53. Feature Merge Agent | v2.3 | 0/1 | Planned | - |
-| 54. GitHub PR Integration | v2.3 | 0/? | Not started | - |
-| 55. Merge Workflow Integration | v2.3 | 0/? | Not started | - |
+| 53. Feature Merge Agent | v2.3 | 1/1 | Complete | 2026-01-15 |
+| 54. GitHub PR Integration | v2.3 | 1/1 | Complete | 2026-01-15 |
+| 55. Merge Workflow Integration | v2.3 | 1/1 | Complete | 2026-01-15 |
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-01-13 |
 | 2. Data Model & Storage | v1.0 | 3/3 | Complete | 2026-01-13 |
 | 3. DAG Engine | v1.0 | 3/3 | Complete | 2026-01-13 |
