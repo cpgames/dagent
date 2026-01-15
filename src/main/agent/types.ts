@@ -1,5 +1,7 @@
 // src/main/agent/types.ts
 
+import type { RequestPriority } from './request-types'
+
 // Message types from SDK
 export type AgentMessageType =
   | 'assistant' // AI text response
@@ -28,6 +30,9 @@ export interface AgentQueryOptions {
   taskId?: string
   agentType?: 'pm' | 'harness' | 'task' | 'merge'
   autoContext?: boolean // If true, auto-build context prompt using buildAgentPrompt()
+  // Request priority options for RequestManager
+  priority?: RequestPriority // Priority level (defaults to DEV if not specified)
+  agentId?: string // Agent identifier (e.g., 'pm', 'dev-task1', 'qa-task2' - defaults to agentType if not specified)
 }
 
 export interface AgentStreamEvent {
