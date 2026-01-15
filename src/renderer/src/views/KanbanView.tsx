@@ -3,7 +3,7 @@ import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
 import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
-import { DeleteFeatureDialog } from '../components/Feature';
+import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
 
 /**
@@ -32,6 +32,11 @@ export default function KanbanView() {
 
   // Start execution state
   const [startingFeatureId, setStartingFeatureId] = useState<string | null>(null);
+
+  // Merge dialog state
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [featureToMerge, setFeatureToMerge] = useState<Feature | null>(null);
+  const [mergeType, setMergeType] = useState<MergeType | null>(null);
 
   // Group features by status
   const featuresByStatus = useMemo(() => {
@@ -90,10 +95,14 @@ export default function KanbanView() {
     }
   };
 
-  // Handle merge feature
-  const handleMergeFeature = (featureId: string, mergeType: MergeType) => {
-    console.log(`Merge feature ${featureId} with type: ${mergeType}`);
-    // TODO: Wire to actual merge workflow in Phase 55
+  // Handle merge feature - opens merge dialog
+  const handleMergeFeature = (featureId: string, type: MergeType) => {
+    const feature = features.find((f) => f.id === featureId);
+    if (feature) {
+      setFeatureToMerge(feature);
+      setMergeType(type);
+      setMergeDialogOpen(true);
+    }
   };
 
   // Loading state
@@ -133,6 +142,16 @@ export default function KanbanView() {
         }}
         feature={featureToDelete}
         onConfirm={handleConfirmDelete}
+      />
+      <FeatureMergeDialog
+        isOpen={mergeDialogOpen}
+        onClose={() => {
+          setMergeDialogOpen(false);
+          setFeatureToMerge(null);
+          setMergeType(null);
+        }}
+        feature={featureToMerge}
+        mergeType={mergeType}
       />
     </>
   );
