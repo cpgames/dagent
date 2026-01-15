@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
+import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn } from '../components/Kanban';
 import { DeleteFeatureDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
@@ -23,10 +24,14 @@ const columns: { title: string; status: FeatureStatus }[] = [
 export default function KanbanView() {
   const { features, isLoading, setActiveFeature, removeFeature, deleteFeature } = useFeatureStore();
   const setView = useViewStore((state) => state.setView);
+  const { start: startExecution } = useExecutionStore();
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
+
+  // Start execution state
+  const [startingFeatureId, setStartingFeatureId] = useState<string | null>(null);
 
   // Group features by status
   const featuresByStatus = useMemo(() => {
@@ -75,6 +80,16 @@ export default function KanbanView() {
     }
   };
 
+  // Handle start execution
+  const handleStartFeature = async (featureId: string) => {
+    setStartingFeatureId(featureId);
+    try {
+      await startExecution(featureId);
+    } finally {
+      setStartingFeatureId(null);
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -97,6 +112,8 @@ export default function KanbanView() {
               onSelectFeature={handleSelectFeature}
               onArchiveFeature={handleArchiveFeature}
               onDeleteFeature={handleDeleteFeature}
+              onStartFeature={handleStartFeature}
+              startingFeatureId={startingFeatureId}
             />
           ))}
         </div>
