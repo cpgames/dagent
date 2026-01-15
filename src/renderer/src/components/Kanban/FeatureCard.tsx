@@ -1,4 +1,7 @@
+import { useState, useEffect } from 'react';
 import type { Feature, FeatureStatus } from '@shared/types';
+
+export type MergeType = 'ai' | 'pr';
 
 interface FeatureCardProps {
   feature: Feature;
@@ -6,6 +9,7 @@ interface FeatureCardProps {
   onArchive?: (featureId: string) => void;
   onDelete?: (featureId: string) => void;
   onStart?: (featureId: string) => void;
+  onMerge?: (featureId: string, mergeType: MergeType) => void;
   isStarting?: boolean;
 }
 
@@ -83,14 +87,38 @@ function SpinnerIcon(): React.JSX.Element {
 }
 
 /**
+ * Merge icon SVG component (git merge - two branches joining)
+ */
+function MergeIcon(): React.JSX.Element {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M8 7H6a2 2 0 00-2 2v8a2 2 0 002 2h2"
+      />
+    </svg>
+  );
+}
+
+/**
  * FeatureCard - Displays a single feature in the Kanban board.
  * Shows feature name, task progress placeholder, archive button for completed features,
- * and delete button on hover (except for in_progress features).
+ * merge button with dropdown for completed features, and delete button on hover.
  */
-export default function FeatureCard({ feature, onSelect, onArchive, onDelete, onStart, isStarting }: FeatureCardProps) {
+export default function FeatureCard({ feature, onSelect, onArchive, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
   const borderColor = statusColors[feature.status];
-  const canDelete = feature.status !== 'in_progress';
   const canStart = feature.status === 'not_started' || feature.status === 'needs_attention';
+  const [showMergeDropdown, setShowMergeDropdown] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showMergeDropdown) return;
+    const handleClickOutside = () => setShowMergeDropdown(false);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showMergeDropdown]);
 
   const handleClick = () => {
     onSelect(feature.id);
@@ -111,6 +139,17 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
     if (!isStarting) {
       onStart?.(feature.id);
     }
+  };
+
+  const handleMergeClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering onSelect
+    setShowMergeDropdown(!showMergeDropdown);
+  };
+
+  const handleMergeOption = (e: React.MouseEvent, mergeType: MergeType) => {
+    e.stopPropagation(); // Prevent triggering onSelect
+    onMerge?.(feature.id, mergeType);
+    setShowMergeDropdown(false);
   };
 
   return (
@@ -149,8 +188,8 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
             </button>
           )}
 
-          {/* Delete button - shown on hover, hidden for in_progress features */}
-          {canDelete && onDelete && (
+          {/* Delete button - shown on hover for all features */}
+          {onDelete && (
             <button
               className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1 -m-1"
               onClick={handleDelete}
@@ -163,16 +202,49 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
         </div>
       </div>
 
-      {/* Archive button - only shown for completed features */}
-      {feature.status === 'completed' && onArchive && (
-        <div className="flex items-center justify-end mt-2">
-          <button
-            className="text-sm text-gray-400 hover:text-white transition-colors"
-            onClick={handleArchive}
-            aria-label={`Archive ${feature.name}`}
-          >
-            Archive
-          </button>
+      {/* Merge and Archive buttons - only shown for completed features */}
+      {feature.status === 'completed' && (onMerge || onArchive) && (
+        <div className="flex items-center justify-end gap-3 mt-2">
+          {/* Merge button with dropdown */}
+          {onMerge && (
+            <div className="relative">
+              <button
+                className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                onClick={handleMergeClick}
+                aria-label={`Merge ${feature.name}`}
+              >
+                <MergeIcon />
+                Merge
+              </button>
+              {/* Dropdown menu */}
+              {showMergeDropdown && (
+                <div className="absolute right-0 top-full mt-1 bg-gray-700 rounded-md shadow-lg py-1 z-10 min-w-[120px]">
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-600 transition-colors"
+                    onClick={(e) => handleMergeOption(e, 'ai')}
+                  >
+                    AI Merge
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-600 transition-colors"
+                    onClick={(e) => handleMergeOption(e, 'pr')}
+                  >
+                    Create PR
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Archive button */}
+          {onArchive && (
+            <button
+              className="text-sm text-gray-400 hover:text-white transition-colors"
+              onClick={handleArchive}
+              aria-label={`Archive ${feature.name}`}
+            >
+              Archive
+            </button>
+          )}
         </div>
       )}
     </div>
