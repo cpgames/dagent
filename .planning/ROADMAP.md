@@ -12,28 +12,46 @@ None
 
 ### Current Milestone
 
-**v2.6 Synthwave UI Redesign (Phases 70-81)**
+**v2.7 Canvas Background System (Phases 83-89)**
 
-Complete visual redesign with synthwave aesthetic and decoupled theming system.
+Unify all background rendering into a single canvas layer with enhanced visual effects.
+
+- [ ] **Phase 83: Canvas Infrastructure** - useAnimationFrame hook, base canvas component, layer interface
+- [ ] **Phase 84: Sky & Starfield Layers** - Sky gradient and starfield layers (replace CSS)
+- [ ] **Phase 85: Horizon Glow Layer** - Horizon glow with pulsing animation
+- [ ] **Phase 86: Grid Layer Integration** - Integrate SynthwaveGrid into unified canvas
+- [ ] **Phase 87: Shooting Stars Layer** - Shooting stars with trails system
+- [ ] **Phase 88: Terrain Silhouettes** - Parallax mountain/city silhouettes
+- [ ] **Phase 89: Integration & Cleanup** - Final integration, CSS cleanup, performance optimization
+
+**Total:** 7 phases
+
+See [v2.7-ROADMAP.md](milestones/v2.7-ROADMAP.md) for details.
+
+## Completed Milestones
+
+<details>
+<summary>v2.6 Synthwave UI Redesign (Phases 70-82) - SHIPPED 2026-01-16</summary>
 
 - [x] **Phase 70: Theme Infrastructure** - CSS custom properties, ThemeContext, theme persistence (1/1 plans)
 - [x] **Phase 71: Base UI - Buttons & Inputs** - Reusable Button, Input, Textarea components (1/1 plans)
-- [ ] **Phase 72: Base UI - Controls** - Checkbox, Radio, Toggle, Slider, Select (1 plan)
-- [ ] **Phase 73: Base UI - Layout** - Card, Dialog, Badge, Tabs, Tooltip (1 plan)
-- [ ] **Phase 74: Background System** - Synthwave background with starfield and horizon (1 plan)
-- [ ] **Phase 75: Migrate Layout Components** - ViewSidebar, StatusBar, ResizeHandle (1 plan)
-- [ ] **Phase 76: Migrate Kanban View** - KanbanView, KanbanColumn, FeatureCard (1 plan)
-- [ ] **Phase 77: Migrate DAG View** - TaskNode, SelectableEdge, ExecutionControls (1 plan)
-- [ ] **Phase 78: Migrate Dialogs** - NodeDialog, NewFeatureDialog, DeleteFeatureDialog, etc. (1 plan)
-- [ ] **Phase 79: Migrate Chat & Views** - ChatPanel, ChatMessage, ContextView, AgentsView (1 plan)
-- [ ] **Phase 80: Migrate Project & Auth** - ProjectSelector, AuthDialog, etc. (1 plan)
-- [ ] **Phase 81: Polish & Accessibility** - Hover/focus states, keyboard nav, reduced motion (1 plan)
+- [x] **Phase 72: Base UI - Controls** - Checkbox, Radio, Toggle, Slider, Select (1/1 plans)
+- [x] **Phase 73: Base UI - Layout** - Card, Dialog, Badge, Tabs, Tooltip (1/1 plans)
+- [x] **Phase 74: Background System** - Synthwave background with starfield and horizon (1/1 plans)
+- [x] **Phase 75: Migrate Layout Components** - ViewSidebar, StatusBar, ResizeHandle (1/1 plans)
+- [x] **Phase 76: Migrate Kanban View** - KanbanView, KanbanColumn, FeatureCard (1/1 plans)
+- [x] **Phase 77: Migrate DAG View** - TaskNode, SelectableEdge, ExecutionControls (1/1 plans)
+- [x] **Phase 78: Migrate Dialogs** - NodeDialog, NewFeatureDialog, DeleteFeatureDialog, etc. (2/2 plans)
+- [x] **Phase 79: Migrate Chat & Views** - ChatPanel, ChatMessage, ContextView, AgentsView (1/1 plans)
+- [x] **Phase 80: Migrate Project & Auth** - ProjectSelector, AuthDialog, etc. (1/1 plans)
+- [x] **Phase 81: Polish & Accessibility** - Hover/focus states, keyboard nav, reduced motion (2/2 plans)
+- [x] **Phase 82: Canvas Synthwave Grid** - Canvas-based grid with curved lines (1/1 plans)
 
-**Total:** 12 phases, 12 plans
+**Total:** 13 phases, 14 plans
 
 See [v2.6-ROADMAP.md](milestones/v2.6-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v2.5 Intelligent Task Scoping & Context Management (Phases 62-68) - SHIPPED 2026-01-15</summary>
@@ -323,3 +341,6 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 66. Spec-Aware QA | v2.5 | 1/1 | Complete | 2026-01-15 |
 | 67. Context-Aware Checkpointing | v2.5 | 1/1 | Complete | 2026-01-15 |
 | 68. UI Simplification | v2.5 | 1/1 | Complete | 2026-01-15 |
+| 70. Theme Infrastructure | v2.6 | 1/1 | Complete | 2026-01-16 |
+| 71. Base UI - Buttons & Inputs | v2.6 | 1/1 | Complete | 2026-01-16 |
+| 72. Base UI - Controls | v2.6 | 1/1 | Complete | 2026-01-16 |
