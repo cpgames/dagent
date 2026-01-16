@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useFeatureStore, useViewStore, useAuthStore, useProjectStore } from './stores'
 import { KanbanView, DAGView, ContextView, AgentsView } from './views'
 import { ToastContainer } from './components/Toast'
@@ -12,6 +12,16 @@ import {
   GitInitDialog
 } from './components/Project'
 import { ViewSidebar, StatusBar } from './components/Layout'
+import {
+  UnifiedCanvas,
+  SkyLayer,
+  StarsLayer,
+  HorizonGlowLayer,
+  TerrainLayer,
+  GridLayer,
+  ShootingStarsLayer
+} from './components/Background'
+import { Button } from './components/UI'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 /**
@@ -116,19 +126,30 @@ function App(): React.JSX.Element {
     }
   }
 
+  // Instantiate background layers (back to front)
+  const backgroundLayers = useMemo(() => [
+    new SkyLayer(),
+    new StarsLayer(),
+    new HorizonGlowLayer(),
+    new TerrainLayer(),
+    new GridLayer(),
+    new ShootingStarsLayer()
+  ], []);
+
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
+        <UnifiedCanvas layers={backgroundLayers} />
+        <div className="h-screen text-white flex flex-col overflow-hidden relative z-0">
           {/* Header */}
-          <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-gray-700">
+          <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
             <ProjectSelector onOpenFullDialog={() => setProjectSelectionDialogOpen(true)} />
-            <button
+            <Button
+              variant="primary"
               onClick={() => setNewFeatureDialogOpen(true)}
-              className="shrink-0 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded transition-colors"
             >
               + New Feature
-            </button>
+            </Button>
           </header>
 
           {/* Main content area with sidebar */}
