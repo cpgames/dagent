@@ -1,0 +1,191 @@
+/**
+ * FeatureSpecViewer Styles
+ * Feature specification viewer with collapsible sections
+ */
+
+/* Container */
+.spec-viewer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+/* Header */
+.spec-viewer__header {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.spec-viewer__header-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.spec-viewer__header-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--accent-primary);
+}
+
+.spec-viewer__header-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.spec-viewer__feature-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sections */
+.spec-viewer__section {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.spec-viewer__section:last-child {
+  border-bottom: none;
+}
+
+.spec-viewer__section-header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.spec-viewer__section-header:hover {
+  background: var(--bg-hover);
+}
+
+.spec-viewer__section-header:focus {
+  outline: none;
+}
+
+.spec-viewer__section-header:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+.spec-viewer__section-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.spec-viewer__section-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.spec-viewer__section-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.spec-viewer__section-chevron {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.spec-viewer__section-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Section content */
+.spec-viewer__section-content {
+  padding: 0 var(--space-md) var(--space-sm);
+}
+
+/* Lists */
+.spec-viewer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* List items */
+.spec-viewer__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Bullets */
+.spec-viewer__item-bullet {
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.spec-viewer__item-bullet--goal {
+  color: var(--accent-primary);
+}
+
+.spec-viewer__item-bullet--constraint {
+  color: var(--color-warning);
+}
+
+/* Checkmarks */
+.spec-viewer__item-check {
+  flex-shrink: 0;
+}
+
+.spec-viewer__item-check--complete {
+  color: var(--color-success);
+}
+
+.spec-viewer__item-check--pending {
+  color: var(--text-muted);
+}
+
+/* Item text */
+.spec-viewer__item-text {
+  color: var(--text-secondary);
+}
+
+.spec-viewer__item-text--complete {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Progress text */
+.spec-viewer__progress {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+/* Empty state */
+.spec-viewer__empty {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Loading state */
+.spec-viewer__loading {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
