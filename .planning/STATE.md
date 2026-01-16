@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.5 Intelligent Task Scoping & Context Management
 **Roadmap:** .planning/ROADMAP.md
 
-Status: v2.5 in progress - Phases 62-67 complete, Phase 68 planned
-Last activity: 2026-01-15 - Phase 68 (UI Simplification) planned
+Status: v2.5 COMPLETE - All 7 phases complete
+Last activity: 2026-01-15 - Phase 68 (UI Simplification) completed
 
-Progress: 16 milestones shipped (v1.0-v2.4), v2.5 in progress (6/7 phases complete, 1 planned)
+Progress: 17 milestones shipped (v1.0-v2.5)
 
-Next action: Execute Phase 68
+Next action: /gsd:complete-milestone
 
 ## Performance Metrics
 
@@ -413,6 +413,16 @@ All verification items passed. Milestone v2.3 Complete.
 ### Phase 66: Spec-Aware QA ✓
 
 - **66-01**: QA agent receives featureSpec, includes acceptance criteria in review prompts, references spec items in feedback
+
+### Phase 67: Context-Aware Checkpointing ✓
+
+- **67-01**: Token usage tracking in AgentService, context-aware checkpointing in TaskController based on cumulative tokens
+
+### Phase 68: UI Simplification ✓
+
+- **68-01**: Removed loop iteration badge from TaskNode, created FeatureSpecViewer component, integrated spec viewer into DAGView chat sidebar
+
+All verification items passed. Milestone v2.5 Complete.
 
 ---
 
