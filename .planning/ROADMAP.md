@@ -12,7 +12,26 @@ None
 
 ### Current Milestone
 
-None (planning next)
+**v2.6 Synthwave UI Redesign (Phases 70-81)**
+
+Complete visual redesign with synthwave aesthetic and decoupled theming system.
+
+- [ ] **Phase 70: Theme Infrastructure** - CSS custom properties, ThemeContext, theme persistence (1 plan)
+- [ ] **Phase 71: Base UI - Buttons & Inputs** - Reusable Button, Input, Textarea components (1 plan)
+- [ ] **Phase 72: Base UI - Controls** - Checkbox, Radio, Toggle, Slider, Select (1 plan)
+- [ ] **Phase 73: Base UI - Layout** - Card, Dialog, Badge, Tabs, Tooltip (1 plan)
+- [ ] **Phase 74: Background System** - Synthwave background with starfield and horizon (1 plan)
+- [ ] **Phase 75: Migrate Layout Components** - ViewSidebar, StatusBar, ResizeHandle (1 plan)
+- [ ] **Phase 76: Migrate Kanban View** - KanbanView, KanbanColumn, FeatureCard (1 plan)
+- [ ] **Phase 77: Migrate DAG View** - TaskNode, SelectableEdge, ExecutionControls (1 plan)
+- [ ] **Phase 78: Migrate Dialogs** - NodeDialog, NewFeatureDialog, DeleteFeatureDialog, etc. (1 plan)
+- [ ] **Phase 79: Migrate Chat & Views** - ChatPanel, ChatMessage, ContextView, AgentsView (1 plan)
+- [ ] **Phase 80: Migrate Project & Auth** - ProjectSelector, AuthDialog, etc. (1 plan)
+- [ ] **Phase 81: Polish & Accessibility** - Hover/focus states, keyboard nav, reduced motion (1 plan)
+
+**Total:** 12 phases, 12 plans
+
+See [v2.6-ROADMAP.md](milestones/v2.6-ROADMAP.md) for details.
 
 ## Completed Milestones
 
