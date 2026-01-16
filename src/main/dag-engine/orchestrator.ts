@@ -7,14 +7,15 @@ import type {
   TaskAssignment,
   ExecutionEvent,
   ExecutionSnapshot,
-  NextTasksResult
+  NextTasksResult,
+  TaskLoopStatus
 } from './orchestrator-types'
 import { DEFAULT_EXECUTION_CONFIG } from './orchestrator-types'
-import type { TaskStateChange } from './task-controller'
-import { transitionTask, createStateChangeRecord } from './task-controller'
+import type { TaskStateChange, TaskControllerState } from './task-controller'
+import { transitionTask, createStateChangeRecord, createTaskController, TaskController } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
 import { getTaskPoolManager, resetTaskPoolManager } from './task-pool'
-import { createTaskAgent, registerTaskAgent, getTaskAgent, getAllTaskAgents, removeTaskAgent, getAgentPool } from '../agents'
+import { getDevAgent, getAllDevAgents, removeDevAgent, getAgentPool } from '../agents'
 import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
 import { createMergeAgent, registerMergeAgent, removeMergeAgent } from '../agents/merge-agent'
 import { createQAAgent, registerQAAgent, getQAAgent, removeQAAgent, getAllQAAgents, clearQAAgents } from '../agents/qa-agent'
@@ -22,6 +23,7 @@ import type { QAReviewResult } from '../agents/qa-types'
 import type { HarnessMessage } from '../agents/harness-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
+import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import { getLogService } from '../storage/log-service'
 import { getGitManager, getTaskWorktreeName } from '../git'
 import { computeFeatureStatus } from './feature-status'
@@ -42,8 +44,8 @@ export class ExecutionOrchestrator extends EventEmitter {
   private readonly MAX_INIT_RETRIES = 3
   // Track current feature status to detect changes
   private currentFeatureStatus: FeatureStatus = 'not_started'
-  // Track intentions currently being processed to prevent duplicate processing
-  private processingIntentions: Set<string> = new Set()
+  // Track TaskController instances for Ralph Loop execution
+  private taskControllers: Map<string, TaskController> = new Map()
 
   constructor(config: Partial<ExecutionConfig> = {}) {
     super()
@@ -254,6 +256,13 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.failedThisTick.clear()
     this.initFailureCounts.clear()
 
+    // Abort all running TaskControllers
+    for (const controller of this.taskControllers.values()) {
+      controller.abort()
+    }
+    this.taskControllers.clear()
+    console.log('[Orchestrator] TaskControllers aborted and cleared')
+
     // Stop and reset harness agent
     const harness = getHarnessAgent()
     harness.stop()
@@ -341,10 +350,10 @@ export class ExecutionOrchestrator extends EventEmitter {
       }
     }
 
-    // Process pending intentions
-    await this.processPendingIntentions()
+    // Note: processPendingIntentions() removed - TaskController handles its own
+    // iteration cycle without the intention-approval workflow
 
-    // Handle completed task agents
+    // Handle completed task agents (legacy DevAgent path, kept for compatibility)
     await this.handleCompletedTasks()
 
     // Handle QA reviews
@@ -358,50 +367,14 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Process pending intentions from task agents.
-   */
-  private async processPendingIntentions(): Promise<void> {
-    const harness = getHarnessAgent()
-    const harnessState = harness.getState()
-
-    // Process each pending intention
-    for (const pending of harnessState.pendingIntentions) {
-      const taskId = pending.taskId
-
-      // Skip if already being processed (prevents duplicate processing during async review)
-      if (this.processingIntentions.has(taskId)) {
-        continue
-      }
-
-      // Mark as being processed
-      this.processingIntentions.add(taskId)
-
-      try {
-        const decision = await harness.processIntention(taskId)
-
-        if (decision) {
-          // Send decision back to task agent
-          const taskAgent = getTaskAgent(taskId)
-          if (taskAgent) {
-            taskAgent.receiveApproval(decision)
-            console.log('[Orchestrator] Sent approval to task:', taskId, 'decision:', decision.type)
-          }
-        }
-      } finally {
-        // Remove from processing set when done
-        this.processingIntentions.delete(taskId)
-      }
-    }
-  }
-
-  /**
-   * Handle completed task agents - update orchestrator state and cleanup.
+   * Handle completed dev agents - update orchestrator state and cleanup.
+   * Note: This handles legacy DevAgent paths. TaskController manages its own completion.
    */
   private async handleCompletedTasks(): Promise<void> {
-    const taskAgents = getAllTaskAgents()
+    const devAgents = getAllDevAgents()
     const harness = getHarnessAgent()
 
-    for (const agent of taskAgents) {
+    for (const agent of devAgents) {
       const agentState = agent.getState()
 
       // Check for ready_for_merge - task has finished dev work and committed, ready for QA
@@ -420,10 +393,10 @@ export class ExecutionOrchestrator extends EventEmitter {
         // Notify harness that dev work is done
         harness.completeTask(taskId)
 
-        // Cleanup task agent (but keep worktree for QA!)
+        // Cleanup dev agent (but keep worktree for QA!)
         // Note: Don't call agent.cleanup() here - QA needs the worktree
         await agent.markCompleted()
-        removeTaskAgent(taskId)
+        removeDevAgent(taskId)
 
         this.addEvent('task_started', { taskId }) // Dev complete, now in QA
       } else if (agentState.status === 'failed') {
@@ -439,7 +412,7 @@ export class ExecutionOrchestrator extends EventEmitter {
 
         // Cleanup agent
         await agent.cleanup()
-        removeTaskAgent(taskId)
+        removeDevAgent(taskId)
 
         this.addEvent('task_failed', { taskId, error: errorMsg })
       }
@@ -458,6 +431,12 @@ export class ExecutionOrchestrator extends EventEmitter {
     const poolManager = getTaskPoolManager()
     const qaTasks = poolManager.getPool('ready_for_qa')
 
+    // Load feature spec once for all QA tasks in this feature
+    const contextService = getContextService()
+    const projectRoot = contextService?.getProjectRoot() || process.cwd()
+    const specStore = getFeatureSpecStore(projectRoot)
+    const featureSpec = await specStore.loadSpec(this.state.featureId)
+
     for (const taskId of qaTasks) {
       // Skip if QA agent already exists for this task
       if (getQAAgent(taskId)) continue
@@ -465,9 +444,9 @@ export class ExecutionOrchestrator extends EventEmitter {
       const task = this.state.graph.nodes.find((n) => n.id === taskId)
       if (!task) continue
 
-      // Get worktree path from task agent (if still exists) or construct it
-      const taskAgent = getTaskAgent(taskId)
-      let worktreePath = taskAgent?.getState().worktreePath
+      // Get worktree path from dev agent (if still exists) or construct it
+      const devAgent = getDevAgent(taskId)
+      let worktreePath = devAgent?.getState().worktreePath
 
       if (!worktreePath) {
         // Task agent already cleaned up, construct path
@@ -477,9 +456,14 @@ export class ExecutionOrchestrator extends EventEmitter {
         worktreePath = path.join(config.worktreesDir, worktreeName)
       }
 
-      // Spawn QA agent
+      // Spawn QA agent with feature spec for spec-aware review
       const qaAgent = createQAAgent(this.state.featureId, taskId)
-      const initialized = await qaAgent.initialize(task.title, task.description, worktreePath)
+      const initialized = await qaAgent.initialize(
+        task.title,
+        task.description,
+        worktreePath,
+        featureSpec || undefined
+      )
 
       if (initialized) {
         registerQAAgent(qaAgent)
@@ -515,8 +499,9 @@ export class ExecutionOrchestrator extends EventEmitter {
       // QA passed → transition to ready_for_merge
       const transitionResult = transitionTask(task, 'QA_PASSED')
       if (transitionResult.success) {
-        poolManager.moveTask(taskId, 'in_progress', 'ready_for_merge')
-        this.history.push(createStateChangeRecord(taskId, 'in_progress', 'ready_for_merge', 'QA_PASSED'))
+        // Task is in ready_for_qa pool, move to ready_for_merge
+        poolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_merge')
+        this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_merge', 'QA_PASSED'))
         this.addEvent('qa_passed', { taskId })
 
         // Update feature status
@@ -536,14 +521,15 @@ export class ExecutionOrchestrator extends EventEmitter {
         }
       }
     } else {
-      // QA failed → store feedback and stay in_progress (dev rework)
+      // QA failed → store feedback and move back to ready_for_dev
       task.qaFeedback = result.feedback
       const transitionResult = transitionTask(task, 'QA_FAILED')
       if (transitionResult.success) {
-        // QA_FAILED keeps task in_progress (dev rework), no pool move needed
-        this.history.push(createStateChangeRecord(taskId, 'in_progress', 'in_progress', 'QA_FAILED'))
+        // Move from ready_for_qa back to ready_for_dev for dev rework
+        poolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_dev')
+        this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_dev', 'QA_FAILED'))
         this.addEvent('qa_failed', { taskId, feedback: result.feedback })
-        console.log(`[Orchestrator] Task ${taskId} returned to dev (in_progress) with feedback: ${result.feedback}`)
+        console.log(`[Orchestrator] Task ${taskId} returned to dev (ready_for_dev) with feedback: ${result.feedback}`)
 
         // Update feature status
         this.updateFeatureStatus()
@@ -620,7 +606,7 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Assign an agent to a task - creates TaskAgent and transitions task to running.
+   * Assign an agent to a task - creates TaskController for Ralph Loop execution.
    */
   private async assignAgentToTask(task: Task): Promise<void> {
     if (!this.state.featureId || !this.state.graph) {
@@ -641,51 +627,101 @@ export class ExecutionOrchestrator extends EventEmitter {
         claudeMd = (await contextService.getClaudeMd()) || undefined
       }
 
-      // Create and initialize task agent
-      const agent = createTaskAgent(this.state.featureId, task.id)
-      const initialized = await agent.initialize(task, this.state.graph, claudeMd, featureGoal)
+      // Get project root from context service
+      const projectRoot = contextService?.getProjectRoot() || process.cwd()
 
-      if (!initialized) {
-        // Track failure for this tick to prevent immediate retry
-        this.failedThisTick.add(task.id)
-
-        // Track persistent failures
-        const failCount = (this.initFailureCounts.get(task.id) || 0) + 1
-        this.initFailureCounts.set(task.id, failCount)
-
-        const reason = agent.getState().error || 'unknown reason'
-        console.warn(
-          `[Orchestrator] Failed to initialize agent for task ${task.id} (attempt ${failCount}/${this.MAX_INIT_RETRIES}): ${reason}`
-        )
-
-        // If max retries exceeded, mark task as failed
-        if (failCount >= this.MAX_INIT_RETRIES) {
-          console.error(`[Orchestrator] Task ${task.id} exceeded max init retries, marking as failed`)
-          this.failTask(task.id, `Failed to initialize after ${failCount} attempts: ${reason}`)
+      // Create TaskController with loop config from orchestrator config
+      const controller = createTaskController(
+        this.state.featureId,
+        task.id,
+        projectRoot,
+        {
+          maxIterations: this.config.maxIterations ?? 10,
+          runBuild: this.config.runBuild ?? true,
+          runLint: this.config.runLint ?? true,
+          runTests: this.config.runTests ?? false,
+          continueOnLintFail: this.config.continueOnLintFail ?? true
         }
-        return
-      }
+      )
 
-      // Clear failure count on successful init
-      this.initFailureCounts.delete(task.id)
+      // Track controller
+      this.taskControllers.set(task.id, controller)
 
-      registerTaskAgent(agent)
+      // Subscribe to events
+      controller.on('loop:start', () => {
+        console.log(`[Orchestrator] Task ${task.id} loop started`)
+      })
 
-      // Propose intention to harness
-      await agent.proposeIntention()
+      controller.on('iteration:complete', (result) => {
+        console.log(`[Orchestrator] Task ${task.id} iteration ${result.iteration} complete`)
+        this.emit('task_loop_update', this.getLoopStatus(task.id))
+      })
+
+      controller.on('loop:complete', async (state: TaskControllerState) => {
+        console.log(`[Orchestrator] Task ${task.id} loop complete: ${state.exitReason}`)
+        await this.handleControllerComplete(task.id, state)
+      })
 
       // Update orchestrator state
-      const agentId = agent.getState().agentId || undefined
-      const result = this.assignTask(task.id, agentId)
+      const result = this.assignTask(task.id, `controller-${task.id}`)
       if (result.success) {
-        console.log('[Orchestrator] Assigned agent to task:', task.id, 'agent:', agentId)
-        this.addEvent('agent_assigned', { taskId: task.id, agentId })
-      } else {
-        console.error('[Orchestrator] Failed to assign task:', result.error)
+        console.log('[Orchestrator] Assigned TaskController to task:', task.id)
+        this.addEvent('agent_assigned', { taskId: task.id, agentId: `controller-${task.id}` })
+
+        // Start the loop (non-blocking)
+        controller.start(task, this.state.graph!, claudeMd, featureGoal)
+          .catch(err => console.error(`[Orchestrator] TaskController error for ${task.id}:`, err))
       }
     } catch (error) {
-      console.error('[Orchestrator] Error assigning agent:', error)
+      console.error('[Orchestrator] Error assigning TaskController:', error)
     }
+  }
+
+  /**
+   * Handle TaskController completion - transitions task based on loop result.
+   */
+  private async handleControllerComplete(
+    taskId: string,
+    state: TaskControllerState
+  ): Promise<void> {
+    // Build final status before removing controller
+    const finalStatus: TaskLoopStatus = {
+      taskId,
+      status: state.exitReason === 'all_checks_passed' ? 'completed' : 'failed',
+      currentIteration: state.currentIteration,
+      maxIterations: state.maxIterations,
+      worktreePath: state.worktreePath,
+      checklistSnapshot: {},
+      exitReason: state.exitReason,
+      error: state.error
+    }
+
+    // Build checklist snapshot from last iteration
+    if (state.iterationResults.length > 0) {
+      const lastResult = state.iterationResults[state.iterationResults.length - 1]
+      finalStatus.checklistSnapshot.implement = lastResult.devAgentSuccess ? 'pass' : 'fail'
+      for (const vr of lastResult.verificationResults) {
+        finalStatus.checklistSnapshot[vr.checkId] = vr.passed ? 'pass' : 'fail'
+      }
+    }
+
+    // Remove from tracking
+    this.taskControllers.delete(taskId)
+
+    if (state.exitReason === 'all_checks_passed') {
+      // Task successfully completed all verification
+      // Now transition to QA (keeping existing QA flow)
+      const codeResult = this.completeTaskCode(taskId)
+      if (codeResult.success) {
+        console.log('[Orchestrator] Task completed verification, moving to QA:', taskId)
+        // handleQATasks will spawn QA agent in next tick
+      }
+    } else {
+      // Task failed (max iterations, error, aborted)
+      this.failTask(taskId, state.error || `Loop failed: ${state.exitReason}`)
+    }
+
+    this.emit('task_loop_update', finalStatus)
   }
 
   /**
@@ -962,27 +998,100 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
+   * Get loop status for a specific task.
+   */
+  getLoopStatus(taskId: string): TaskLoopStatus | null {
+    const controller = this.taskControllers.get(taskId)
+    if (!controller) return null
+
+    const state = controller.getState()
+
+    // Get checklist snapshot from the last iteration result
+    let checklistSnapshot: Record<string, 'pending' | 'pass' | 'fail' | 'skipped'> = {}
+    if (state.iterationResults.length > 0) {
+      const lastResult = state.iterationResults[state.iterationResults.length - 1]
+      // Build snapshot from verification results
+      checklistSnapshot.implement = lastResult.devAgentSuccess ? 'pass' : 'fail'
+      for (const vr of lastResult.verificationResults) {
+        checklistSnapshot[vr.checkId] = vr.passed ? 'pass' : 'fail'
+      }
+    }
+
+    return {
+      taskId,
+      status: state.status,
+      currentIteration: state.currentIteration,
+      maxIterations: state.maxIterations,
+      worktreePath: state.worktreePath,
+      checklistSnapshot,
+      exitReason: state.exitReason,
+      error: state.error
+    }
+  }
+
+  /**
+   * Get loop statuses for all running TaskControllers.
+   */
+  getAllLoopStatuses(): TaskLoopStatus[] {
+    const statuses: TaskLoopStatus[] = []
+    for (const taskId of this.taskControllers.keys()) {
+      const status = this.getLoopStatus(taskId)
+      if (status) statuses.push(status)
+    }
+    return statuses
+  }
+
+  /**
+   * Abort a task's iteration loop.
+   */
+  abortLoop(taskId: string): { success: boolean; error?: string } {
+    const controller = this.taskControllers.get(taskId)
+    if (!controller) {
+      return { success: false, error: 'No active loop for this task' }
+    }
+
+    controller.abort()
+    console.log(`[Orchestrator] Aborted loop for task ${taskId}`)
+    this.emit('task_loop_update', this.getLoopStatus(taskId))
+    return { success: true }
+  }
+
+  /**
    * Update feature status based on current task states.
-   * If status has changed, persists to storage and emits event.
+   * Persists DAG graph and feature status to storage, emits events.
    */
   private async updateFeatureStatus(): Promise<void> {
     if (!this.state.featureId || !this.state.graph) {
       return
     }
 
+    const featureStore = getFeatureStore()
+    if (!featureStore) {
+      return
+    }
+
+    // Always save the DAG graph to persist task status changes
+    const taskStatuses = this.state.graph.nodes.map(n => `${n.id}:${n.status}`).join(', ')
+    console.log(`[Orchestrator] Saving DAG with task statuses: ${taskStatuses}`)
+    await featureStore.saveDag(this.state.featureId, this.state.graph)
+    console.log(`[Orchestrator] DAG saved successfully`)
+
+    // Emit graph_updated event for UI to refresh
+    this.emit('graph_updated', {
+      featureId: this.state.featureId,
+      graph: this.state.graph
+    })
+
     const newStatus = computeFeatureStatus(this.state.graph.nodes)
 
-    // Only update if status actually changed
+    // Only update feature if status actually changed
     if (newStatus !== this.currentFeatureStatus) {
-      const featureStore = getFeatureStore()
-      if (featureStore) {
-        const feature = await featureStore.loadFeature(this.state.featureId)
-        if (feature) {
-          feature.status = newStatus
-          feature.updatedAt = new Date().toISOString()
-          await featureStore.saveFeature(feature)
-          console.log(`[Orchestrator] Feature status changed: ${this.currentFeatureStatus} → ${newStatus}`)
-        }
+      const feature = await featureStore.loadFeature(this.state.featureId)
+      if (feature) {
+        feature.status = newStatus
+        feature.updatedAt = new Date().toISOString()
+        await featureStore.saveFeature(feature)
+        console.log(`[Orchestrator] Feature status changed: ${this.currentFeatureStatus} → ${newStatus}`)
       }
 
       // Emit event for IPC handlers to forward to renderer
