@@ -8,6 +8,7 @@
 import { EventEmitter } from 'events'
 import type { QAAgentState, QAAgentStatus, QAReviewResult } from './qa-types'
 import { DEFAULT_QA_AGENT_STATE } from './qa-types'
+import type { FeatureSpec } from './feature-spec-types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-manager'
@@ -16,6 +17,7 @@ export class QAAgent extends EventEmitter {
   private state: QAAgentState
   private taskTitle: string = ''
   private taskDescription: string = ''
+  private featureSpec: FeatureSpec | null = null
 
   constructor(featureId: string, taskId: string) {
     super()
@@ -31,11 +33,13 @@ export class QAAgent extends EventEmitter {
    * @param taskTitle - Task title for context
    * @param taskDescription - Task description for spec comparison
    * @param worktreePath - Path to task worktree for code review
+   * @param featureSpec - Optional feature specification for acceptance criteria validation
    */
   async initialize(
     taskTitle: string,
     taskDescription: string,
-    worktreePath: string
+    worktreePath: string,
+    featureSpec?: FeatureSpec
   ): Promise<boolean> {
     if (this.state.status !== 'initializing') {
       return false
@@ -45,6 +49,8 @@ export class QAAgent extends EventEmitter {
     this.taskTitle = taskTitle
     this.taskDescription = taskDescription
     this.state.worktreePath = worktreePath
+    this.featureSpec = featureSpec || null
+    this.state.featureSpec = featureSpec || null
 
     // Register with agent pool (QA has priority over dev)
     const pool = getAgentPool()
@@ -192,44 +198,98 @@ export class QAAgent extends EventEmitter {
 
   /**
    * Build the code review prompt.
+   * Includes feature spec acceptance criteria when available.
    */
   private buildReviewPrompt(): string {
-    const parts: string[] = [
-      '# Code Review Request',
-      '',
-      '## Task Specification',
-      `**Title:** ${this.taskTitle}`,
-      `**Description:** ${this.taskDescription}`,
-      '',
-      '## Your Review Criteria',
-      '1. Does the code implement what the task specified?',
-      '2. Are there any obvious bugs or issues?',
-      '3. Does the code follow reasonable patterns?',
-      '',
-      '## Instructions',
-      'Use `git diff` to see what changed in this worktree, then respond:',
-      '- PASSED if code meets spec and has no obvious issues',
-      '- FAILED with brief, actionable feedback if issues found',
-      '',
-      '## Response Format',
-      'You MUST respond in exactly this format:',
-      '',
-      'QA_RESULT: [PASSED|FAILED]',
-      'FILES_REVIEWED: [comma-separated list of files you reviewed]',
-      'FEEDBACK: [only if FAILED - 1-3 bullet points of specific issues]',
-      '',
-      '## Example PASSED Response',
-      'QA_RESULT: PASSED',
-      'FILES_REVIEWED: src/utils/helper.ts, src/components/Button.tsx',
-      'FEEDBACK: N/A',
-      '',
-      '## Example FAILED Response',
-      'QA_RESULT: FAILED',
-      'FILES_REVIEWED: src/api/client.ts',
-      'FEEDBACK:',
-      '- Missing error handling in fetchData() - network errors will crash',
-      '- API endpoint URL is hardcoded, should use config'
-    ]
+    const parts: string[] = ['# Code Review Request', '']
+
+    // Include feature spec if available
+    if (this.featureSpec) {
+      parts.push('## Feature Specification')
+      parts.push(`**Feature:** ${this.featureSpec.featureName}`)
+      parts.push('')
+
+      if (this.featureSpec.goals.length > 0) {
+        parts.push('### Goals')
+        for (const goal of this.featureSpec.goals) {
+          parts.push(`- ${goal}`)
+        }
+        parts.push('')
+      }
+
+      if (this.featureSpec.acceptanceCriteria.length > 0) {
+        parts.push('### Acceptance Criteria')
+        for (const ac of this.featureSpec.acceptanceCriteria) {
+          const status = ac.passed ? '✓' : '○'
+          parts.push(`- ${ac.id}: ${ac.description} [${status}]`)
+        }
+        parts.push('')
+      }
+    }
+
+    // Task being reviewed
+    parts.push('## Task Being Reviewed')
+    parts.push(`**Title:** ${this.taskTitle}`)
+    parts.push(`**Description:** ${this.taskDescription}`)
+    parts.push('')
+
+    // Review criteria - spec-aware when available
+    parts.push('## Review Criteria')
+    parts.push('1. Does the code implement what the task specified?')
+    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
+      parts.push('2. Does the code satisfy the acceptance criteria listed above?')
+      parts.push('3. Are there any obvious bugs or issues?')
+      parts.push('4. Does the code follow reasonable patterns?')
+    } else {
+      parts.push('2. Are there any obvious bugs or issues?')
+      parts.push('3. Does the code follow reasonable patterns?')
+    }
+    parts.push('')
+
+    // Instructions
+    parts.push('## Instructions')
+    parts.push('Use `git diff` to see what changed in this worktree, then respond:')
+    parts.push('- PASSED if code meets spec and has no obvious issues')
+    parts.push('- FAILED with brief, actionable feedback if issues found')
+    parts.push('')
+
+    // Response format
+    parts.push('## Response Format')
+    parts.push('You MUST respond in exactly this format:')
+    parts.push('')
+    parts.push('QA_RESULT: [PASSED|FAILED]')
+    parts.push('FILES_REVIEWED: [comma-separated list of files you reviewed]')
+    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
+      parts.push(
+        'CRITERIA_STATUS: [list which AC-XXX items pass/fail, e.g., "AC-001: PASS, AC-002: FAIL"]'
+      )
+    }
+    parts.push('FEEDBACK: [only if FAILED - 1-3 bullet points of specific issues]')
+    parts.push('')
+
+    // Examples
+    parts.push('## Example PASSED Response')
+    parts.push('QA_RESULT: PASSED')
+    parts.push('FILES_REVIEWED: src/utils/helper.ts, src/components/Button.tsx')
+    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
+      parts.push('CRITERIA_STATUS: AC-001: PASS, AC-002: PASS')
+    }
+    parts.push('FEEDBACK: N/A')
+    parts.push('')
+
+    parts.push('## Example FAILED Response')
+    parts.push('QA_RESULT: FAILED')
+    parts.push('FILES_REVIEWED: src/api/client.ts')
+    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
+      parts.push('CRITERIA_STATUS: AC-001: PASS, AC-002: FAIL')
+    }
+    parts.push('FEEDBACK:')
+    parts.push('- Missing error handling in fetchData() - network errors will crash')
+    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
+      parts.push('- AC-002 not satisfied: validation logic not implemented')
+    } else {
+      parts.push('- API endpoint URL is hardcoded, should use config')
+    }
 
     return parts.join('\n')
   }
