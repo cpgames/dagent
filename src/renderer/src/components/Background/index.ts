@@ -1,9 +1,15 @@
 /**
  * Background Components
  *
- * Synthwave-themed background system with animated starfield and horizon glow.
+ * Synthwave-themed background system with unified canvas rendering.
  */
 
-export { SynthwaveBackground, type SynthwaveBackgroundProps } from './SynthwaveBackground';
-export { Starfield, type StarfieldProps } from './Starfield';
-export { Horizon, type HorizonProps } from './Horizon';
+export { UnifiedCanvas } from './UnifiedCanvas';
+export {
+  GridLayer,
+  HorizonGlowLayer,
+  ShootingStarsLayer,
+  SkyLayer,
+  StarsLayer,
+  TerrainLayer
+} from './layers';
