@@ -142,3 +142,80 @@ export function createEmptySpec(featureId: string, featureName: string): Feature
     updatedAt: now
   }
 }
+
+// =============================================================================
+// PM Spec Operation Types
+// =============================================================================
+
+/**
+ * Input for creating a new feature specification.
+ */
+export interface CreateSpecInput {
+  /** Feature ID to associate spec with */
+  featureId: string
+  /** Human-readable name for the feature */
+  featureName: string
+  /** Initial goals to add */
+  initialGoals?: string[]
+  /** Initial requirements to add */
+  initialRequirements?: string[]
+  /** Initial constraints to add */
+  initialConstraints?: string[]
+  /** Initial acceptance criteria to add */
+  initialAcceptanceCriteria?: string[]
+}
+
+/**
+ * Result of creating a feature specification.
+ */
+export interface CreateSpecResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Input for updating an existing feature specification.
+ */
+export interface UpdateSpecInput {
+  /** Feature ID of spec to update */
+  featureId: string
+  /** Goals to add */
+  addGoals?: string[]
+  /** Requirements to add */
+  addRequirements?: string[]
+  /** Constraints to add */
+  addConstraints?: string[]
+  /** Acceptance criteria to add */
+  addAcceptanceCriteria?: string[]
+  /** Note about what changed (for history) */
+  historyNote?: string
+}
+
+/**
+ * Result of updating a feature specification.
+ */
+export interface UpdateSpecResult {
+  success: boolean
+  error?: string
+  /** IDs of newly added requirements */
+  addedRequirementIds?: string[]
+  /** IDs of newly added acceptance criteria */
+  addedCriterionIds?: string[]
+}
+
+/**
+ * Input for getting a feature specification.
+ */
+export interface GetSpecInput {
+  /** Feature ID of spec to retrieve */
+  featureId: string
+}
+
+/**
+ * Result of getting a feature specification.
+ */
+export interface GetSpecResult {
+  /** The spec, or null if not found */
+  spec: FeatureSpec | null
+  error?: string
+}

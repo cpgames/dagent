@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import type { DAGGraph, Task, Connection, HistoryState } from '@shared/types'
+import type { TaskLoopStatus } from '../../../main/dag-engine/orchestrator-types'
 import { toast } from './toast-store'
+
+// Track if we've already subscribed to DAG updates
+let dagUpdateUnsubscribe: (() => void) | null = null
+// Track if we've already subscribed to loop status updates
+let loopStatusUnsubscribe: (() => void) | null = null
 
 interface DAGStoreState {
   // Current DAG (for active feature)
@@ -19,6 +25,9 @@ interface DAGStoreState {
 
   // History state
   historyState: HistoryState
+
+  // Loop status tracking (Ralph Loop)
+  loopStatuses: Record<string, TaskLoopStatus>
 
   // Actions
   setDag: (dag: DAGGraph | null) => void
@@ -43,6 +52,9 @@ interface DAGStoreState {
   loadHistoryState: (featureId: string) => Promise<void>
   undo: () => Promise<void>
   redo: () => Promise<void>
+
+  // Loop status actions
+  loadLoopStatuses: () => Promise<void>
 }
 
 export const useDAGStore = create<DAGStoreState>((set, get) => ({
@@ -60,6 +72,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     currentVersion: 0,
     totalVersions: 0
   },
+  loopStatuses: {},
 
   setDag: (dag) => set({ dag }),
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
@@ -233,6 +246,32 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       set({ dag: dag || { nodes: [], connections: [] }, isLoading: false })
       // Load history state after DAG is loaded
       await get().loadHistoryState(featureId)
+
+      // Subscribe to DAG updates from orchestrator (only once)
+      if (dagUpdateUnsubscribe) {
+        dagUpdateUnsubscribe()
+      }
+      dagUpdateUnsubscribe = window.electronAPI.dag.onUpdated((data) => {
+        const { currentFeatureId } = get()
+        // Only update if it's for the current feature
+        if (data.featureId === currentFeatureId) {
+          console.log('[DAGStore] Received DAG update from orchestrator')
+          set({ dag: data.graph })
+        }
+      })
+
+      // Subscribe to loop status updates
+      if (loopStatusUnsubscribe) {
+        loopStatusUnsubscribe()
+      }
+      loopStatusUnsubscribe = window.electronAPI.execution.onLoopStatusUpdated((status) => {
+        const { loopStatuses } = get()
+        console.log('[DAGStore] Received loop status update:', status.taskId, status.status)
+        set({ loopStatuses: { ...loopStatuses, [status.taskId]: status } })
+      })
+
+      // Load initial loop statuses
+      await get().loadLoopStatuses()
     } catch (error) {
       const message = (error as Error).message
       set({ error: message, isLoading: false })
@@ -302,6 +341,15 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       console.error('Redo failed:', error)
     } finally {
       set({ isRedoing: false })
+    }
+  },
+
+  loadLoopStatuses: async () => {
+    try {
+      const statuses = await window.electronAPI.execution.getAllLoopStatuses()
+      set({ loopStatuses: statuses })
+    } catch (error) {
+      console.error('Failed to load loop statuses:', error)
     }
   }
 }))

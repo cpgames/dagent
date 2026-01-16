@@ -1,7 +1,23 @@
 import type { Task, DAGGraph, TaskStatus } from '@shared/types'
 import type { TaskStateChange } from './task-controller'
+import type { LoopExitReason } from './task-controller-types'
 
 export type ExecutionStatus = 'idle' | 'running' | 'paused' | 'completed' | 'failed'
+
+/**
+ * Loop status for a task being executed by TaskController.
+ * Exposed via IPC for UI to display iteration progress.
+ */
+export interface TaskLoopStatus {
+  taskId: string
+  status: 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'aborted'
+  currentIteration: number
+  maxIterations: number
+  worktreePath: string | null
+  checklistSnapshot: Record<string, 'pending' | 'pass' | 'fail' | 'skipped'>
+  exitReason: LoopExitReason | null
+  error: string | null
+}
 
 export interface ExecutionState {
   status: ExecutionStatus
@@ -15,11 +31,23 @@ export interface ExecutionState {
 export interface ExecutionConfig {
   maxConcurrentTasks: number // Max tasks running simultaneously
   maxConcurrentMerges: number // Max merge operations simultaneously
+  // Ralph Loop settings
+  maxIterations: number // Max iterations per task before failure
+  runBuild: boolean // Run build check after each iteration
+  runLint: boolean // Run lint check after each iteration
+  runTests: boolean // Run tests after each iteration
+  continueOnLintFail: boolean // Continue iterations even if lint fails
 }
 
 export const DEFAULT_EXECUTION_CONFIG: ExecutionConfig = {
   maxConcurrentTasks: 3,
-  maxConcurrentMerges: 1
+  maxConcurrentMerges: 1,
+  // Ralph Loop defaults
+  maxIterations: 10,
+  runBuild: true,
+  runLint: true,
+  runTests: false,
+  continueOnLintFail: true
 }
 
 export interface TaskAssignment {

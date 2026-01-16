@@ -1,0 +1,33 @@
+/**
+ * ResizeHandle Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.5rem;
+  cursor: col-resize;
+  z-index: 20;
+  background: var(--border-subtle);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.resize-handle--left {
+  left: -0.25rem;
+}
+
+.resize-handle--right {
+  right: -0.25rem;
+}
+
+.resize-handle:hover {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+.resize-handle:active {
+  background: var(--accent-secondary);
+  box-shadow: 0 0 12px var(--accent-secondary);
+}

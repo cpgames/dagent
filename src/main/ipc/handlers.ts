@@ -5,7 +5,7 @@ import { registerExecutionHandlers } from './execution-handlers'
 import { registerGitHandlers } from './git-handlers'
 import { registerAgentHandlers } from './agent-handlers'
 import { registerHarnessHandlers } from './harness-handlers'
-import { registerTaskAgentHandlers } from './task-agent-handlers'
+import { registerDevAgentHandlers } from './dev-agent-handlers'
 import { registerMergeAgentHandlers } from './merge-agent-handlers'
 import { registerAuthHandlers } from './auth-handlers'
 import { registerHistoryHandlers } from './history-handlers'
@@ -18,6 +18,7 @@ import { registerFeatureHandlers } from './feature-handlers'
 import { registerContextHandlers } from './context-handlers'
 import { registerPRHandlers } from './pr-handlers'
 import { registerFeatureMergeAgentHandlers } from './feature-merge-agent-handlers'
+import { registerPMSpecHandlers } from './pm-spec-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -38,8 +39,8 @@ export function registerIpcHandlers(): void {
   registerAgentHandlers()
   // Register harness agent handlers (intention-approval workflow)
   registerHarnessHandlers()
-  // Register task agent handlers (task execution lifecycle)
-  registerTaskAgentHandlers()
+  // Register dev agent handlers (task execution lifecycle)
+  registerDevAgentHandlers()
   // Register merge agent handlers (branch integration)
   registerMergeAgentHandlers()
   // Register auth handlers (credential management)
@@ -62,6 +63,8 @@ export function registerIpcHandlers(): void {
   registerPRHandlers()
   // Register feature merge agent handlers (merging features into main)
   registerFeatureMergeAgentHandlers()
+  // Register PM spec handlers (feature specification management)
+  registerPMSpecHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

@@ -27,7 +27,7 @@ import type {
   DeleteTaskResult,
   RemoveDependencyInput,
   RemoveDependencyResult,
-  TaskAgentSession
+  DevAgentSession
 } from '@shared/types'
 import type {
   TopologicalResult,
@@ -40,7 +40,8 @@ import type {
   ExecutionState,
   ExecutionConfig,
   ExecutionSnapshot,
-  NextTasksResult
+  NextTasksResult,
+  TaskLoopStatus
 } from '../main/dag-engine/orchestrator-types'
 import type {
   GitManagerConfig,
@@ -71,13 +72,13 @@ import type {
   IntentionDecision
 } from '../main/agents/harness-types'
 import type {
-  TaskAgentState,
-  TaskAgentStatus,
-  TaskAgentConfig,
+  DevAgentState,
+  DevAgentStatus,
+  DevAgentConfig,
   TaskContext,
   DependencyContextEntry,
   TaskExecutionResult
-} from '../main/agents/task-types'
+} from '../main/agents/dev-types'
 import type {
   MergeAgentState,
   MergeAgentStatus,
@@ -100,6 +101,14 @@ import type {
   FeatureMergeAgentState,
   FeatureMergeResult
 } from '../main/agents/feature-merge-types'
+import type {
+  CreateSpecInput,
+  CreateSpecResult,
+  UpdateSpecInput,
+  UpdateSpecResult,
+  GetSpecInput,
+  GetSpecResult
+} from '../main/agents/feature-spec-types'
 
 /**
  * SDK availability status for Claude Agent SDK.
@@ -153,7 +162,7 @@ export interface StorageAPI {
   deleteNode: (featureId: string, nodeId: string) => Promise<boolean>
 
   // Task session operations
-  loadTaskSession: (featureId: string, taskId: string) => Promise<TaskAgentSession | null>
+  loadTaskSession: (featureId: string, taskId: string) => Promise<DevAgentSession | null>
 }
 
 /**
@@ -309,6 +318,26 @@ export interface ExecutionAPI {
    * Reset orchestrator to initial state
    */
   reset: () => Promise<{ success: boolean }>
+
+  /**
+   * Get loop status for a specific task
+   */
+  getLoopStatus: (taskId: string) => Promise<TaskLoopStatus | null>
+
+  /**
+   * Get all active loop statuses
+   */
+  getAllLoopStatuses: () => Promise<Record<string, TaskLoopStatus>>
+
+  /**
+   * Abort a task's loop
+   */
+  abortLoop: (taskId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Subscribe to loop status updates
+   */
+  onLoopStatusUpdated: (callback: (status: TaskLoopStatus) => void) => () => void
 }
 
 /**
@@ -649,11 +678,11 @@ export interface HarnessAPI {
 }
 
 /**
- * Task agent creation result.
+ * Dev agent creation result.
  */
-export interface TaskAgentCreateResult {
+export interface DevAgentCreateResult {
   success: boolean
-  state: TaskAgentState
+  state: DevAgentState
 }
 
 /**
@@ -665,12 +694,12 @@ export interface MergeAgentCreateResult {
 }
 
 /**
- * Task Agent API for executing individual tasks.
+ * Dev Agent API for executing individual tasks.
  * Implements intention-approval workflow with harness oversight.
  */
-export interface TaskAgentAPI {
+export interface DevAgentAPI {
   /**
-   * Create and initialize a task agent
+   * Create and initialize a dev agent
    */
   create: (
     featureId: string,
@@ -679,23 +708,23 @@ export interface TaskAgentAPI {
     graph: DAGGraph,
     claudeMd?: string,
     featureGoal?: string,
-    config?: Partial<TaskAgentConfig>
-  ) => Promise<TaskAgentCreateResult>
+    config?: Partial<DevAgentConfig>
+  ) => Promise<DevAgentCreateResult>
 
   /**
-   * Get task agent state by task ID
+   * Get dev agent state by task ID
    */
-  getState: (taskId: string) => Promise<TaskAgentState | null>
+  getState: (taskId: string) => Promise<DevAgentState | null>
 
   /**
-   * Get task agent status by task ID
+   * Get dev agent status by task ID
    */
-  getStatus: (taskId: string) => Promise<TaskAgentStatus | null>
+  getStatus: (taskId: string) => Promise<DevAgentStatus | null>
 
   /**
-   * Get all active task agents
+   * Get all active dev agents
    */
-  getAll: () => Promise<TaskAgentState[]>
+  getAll: () => Promise<DevAgentState[]>
 
   /**
    * Propose an intention to the harness
@@ -713,12 +742,12 @@ export interface TaskAgentAPI {
   execute: (taskId: string) => Promise<TaskExecutionResult>
 
   /**
-   * Clean up task agent resources
+   * Clean up dev agent resources
    */
   cleanup: (taskId: string, removeWorktree?: boolean) => Promise<boolean>
 
   /**
-   * Clear all task agents
+   * Clear all dev agents
    */
   clearAll: () => Promise<boolean>
 }
@@ -1058,6 +1087,27 @@ export interface FeatureMergeAPI {
 }
 
 /**
+ * PM Spec API for feature specification management.
+ * Enables PM Agent to create and manage feature specs that capture user intent.
+ */
+export interface PMSpecAPI {
+  /**
+   * Create a new feature specification.
+   */
+  createSpec: (input: CreateSpecInput) => Promise<CreateSpecResult>
+
+  /**
+   * Update an existing feature specification.
+   */
+  updateSpec: (input: UpdateSpecInput) => Promise<UpdateSpecResult>
+
+  /**
+   * Get a feature specification.
+   */
+  getSpec: (input: GetSpecInput) => Promise<GetSpecResult>
+}
+
+/**
  * PM Tools API for task management.
  * Enables PM Agent to create, read, update, and delete tasks with dependency inference.
  */
@@ -1210,9 +1260,9 @@ export interface ElectronAPI {
   harness: HarnessAPI
 
   /**
-   * Task Agent API for executing individual tasks
+   * Dev Agent API for executing individual tasks
    */
-  taskAgent: TaskAgentAPI
+  devAgent: DevAgentAPI
 
   /**
    * Merge Agent API for branch integration
@@ -1288,6 +1338,11 @@ export interface ElectronAPI {
    * Feature Merge API for merging completed features into main
    */
   featureMerge: FeatureMergeAPI
+
+  /**
+   * PM Spec API for feature specification management
+   */
+  pmSpec: PMSpecAPI
 }
 
 declare global {

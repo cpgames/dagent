@@ -10,7 +10,7 @@ export interface CascadeResult {
 
 /**
  * When a task completes, check and update dependent tasks.
- * Dependents may transition from 'blocked' to 'ready'.
+ * Dependents may transition from 'blocked' to 'ready_for_dev'.
  */
 export function cascadeTaskCompletion(completedTaskId: string, graph: DAGGraph): CascadeResult {
   const changes: TaskStateChange[] = []
@@ -113,7 +113,7 @@ export function recalculateAllStatuses(graph: DAGGraph): CascadeResult {
 
   for (const task of graph.nodes) {
     // Skip active and terminal states
-    if (['dev', 'qa', 'merging', 'completed'].includes(task.status)) {
+    if (['in_progress', 'ready_for_qa', 'ready_for_merge', 'completed'].includes(task.status)) {
       continue
     }
 
@@ -127,7 +127,7 @@ export function recalculateAllStatuses(graph: DAGGraph): CascadeResult {
         return depTask?.status === 'completed'
       })
 
-    const targetStatus: TaskStatus = allMet ? 'ready' : 'blocked'
+    const targetStatus: TaskStatus = allMet ? 'ready_for_dev' : 'blocked'
 
     if (task.status !== targetStatus && task.status !== 'failed') {
       const previousStatus = task.status

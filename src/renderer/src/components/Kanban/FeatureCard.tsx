@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Feature, FeatureStatus } from '@shared/types';
+import type { Feature } from '@shared/types';
+import './FeatureCard.css';
 
 export type MergeType = 'ai' | 'pr';
 
@@ -14,22 +15,12 @@ interface FeatureCardProps {
 }
 
 /**
- * Status color mapping per DAGENT_SPEC 11.1
- */
-const statusColors: Record<FeatureStatus, string> = {
-  not_started: '#3B82F6',    // Blue
-  in_progress: '#F59E0B',    // Yellow
-  needs_attention: '#EF4444', // Red
-  completed: '#22C55E',       // Green
-};
-
-/**
  * Trash icon SVG component
  */
 function TrashIcon(): React.JSX.Element {
   return (
     <svg
-      className="w-4 h-4"
+      className="feature-card__icon"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -50,7 +41,7 @@ function TrashIcon(): React.JSX.Element {
 function PlayIcon(): React.JSX.Element {
   return (
     <svg
-      className="w-4 h-4"
+      className="feature-card__icon"
       fill="currentColor"
       viewBox="0 0 24 24"
     >
@@ -65,7 +56,7 @@ function PlayIcon(): React.JSX.Element {
 function SpinnerIcon(): React.JSX.Element {
   return (
     <svg
-      className="w-4 h-4 animate-spin"
+      className="feature-card__icon animate-spin"
       fill="none"
       viewBox="0 0 24 24"
     >
@@ -91,7 +82,7 @@ function SpinnerIcon(): React.JSX.Element {
  */
 function MergeIcon(): React.JSX.Element {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="feature-card__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -108,7 +99,6 @@ function MergeIcon(): React.JSX.Element {
  * merge button with dropdown for completed features, and delete button on hover.
  */
 export default function FeatureCard({ feature, onSelect, onArchive, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
-  const borderColor = statusColors[feature.status];
   const canStart = feature.status === 'not_started' || feature.status === 'needs_attention';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
@@ -152,10 +142,12 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
     setShowMergeDropdown(false);
   };
 
+  const cardClasses = `feature-card feature-card--${feature.status}`;
+  const startBtnClasses = `feature-card__action-btn feature-card__action-btn--start${isStarting ? ' feature-card__action-btn--loading' : ''}`;
+
   return (
     <div
-      className="group bg-gray-800 rounded-lg p-3 cursor-pointer transition-all hover:ring-1 hover:ring-gray-600 hover:shadow-lg hover:shadow-black/20"
-      style={{ borderLeft: `4px solid ${borderColor}` }}
+      className={cardClasses}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -165,20 +157,16 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
         }
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-white font-medium truncate flex-1" title={feature.name}>
+      <div className="feature-card__header">
+        <h3 className="feature-card__title" title={feature.name}>
           {feature.name}
         </h3>
 
-        <div className="flex items-center gap-1">
+        <div className="feature-card__actions">
           {/* Start button - shown on hover for not_started/needs_attention features */}
           {canStart && onStart && (
             <button
-              className={`opacity-0 group-hover:opacity-100 transition-all p-1 -m-1 ${
-                isStarting
-                  ? 'text-green-400 cursor-wait'
-                  : 'text-gray-500 hover:text-green-400'
-              }`}
+              className={startBtnClasses}
               onClick={handleStart}
               disabled={isStarting}
               aria-label={`Start ${feature.name}`}
@@ -191,7 +179,7 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
           {/* Delete button - shown on hover for all features */}
           {onDelete && (
             <button
-              className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1 -m-1"
+              className="feature-card__action-btn feature-card__action-btn--delete"
               onClick={handleDelete}
               aria-label={`Delete ${feature.name}`}
               title="Delete feature"
@@ -204,12 +192,12 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
 
       {/* Merge and Archive buttons - only shown for completed features */}
       {feature.status === 'completed' && (onMerge || onArchive) && (
-        <div className="flex items-center justify-end gap-3 mt-2">
+        <div className="feature-card__footer">
           {/* Merge button with dropdown */}
           {onMerge && (
             <div className="relative">
               <button
-                className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                className="feature-card__merge-btn"
                 onClick={handleMergeClick}
                 aria-label={`Merge ${feature.name}`}
               >
@@ -218,15 +206,15 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
               </button>
               {/* Dropdown menu */}
               {showMergeDropdown && (
-                <div className="absolute right-0 top-full mt-1 bg-gray-700 rounded-md shadow-lg py-1 z-10 min-w-[120px]">
+                <div className="feature-card__dropdown">
                   <button
-                    className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-600 transition-colors"
+                    className="feature-card__dropdown-item"
                     onClick={(e) => handleMergeOption(e, 'ai')}
                   >
                     AI Merge
                   </button>
                   <button
-                    className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-600 transition-colors"
+                    className="feature-card__dropdown-item"
                     onClick={(e) => handleMergeOption(e, 'pr')}
                   >
                     Create PR
@@ -238,7 +226,7 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
           {/* Archive button */}
           {onArchive && (
             <button
-              className="text-sm text-gray-400 hover:text-white transition-colors"
+              className="feature-card__archive-btn"
               onClick={handleArchive}
               aria-label={`Archive ${feature.name}`}
             >

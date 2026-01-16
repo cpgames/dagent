@@ -6,15 +6,14 @@ type Status = TaskStatus | FeatureStatus;
 const statusConfig: Record<Status, { color: string; bg: string; label: string }> = {
   // Task statuses
   blocked: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Blocked' },
-  ready: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Ready' },
-  dev: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Dev' },
-  qa: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'QA' },
-  merging: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Merging' },
+  ready_for_dev: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Ready' },
+  in_progress: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'In Progress' },
+  ready_for_qa: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'QA Ready' },
+  ready_for_merge: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Merge Ready' },
   completed: { color: 'text-green-400', bg: 'bg-green-500/20', label: 'Completed' },
   failed: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed' },
   // Feature statuses
   not_started: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Not Started' },
-  in_progress: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'In Progress' },
   needs_attention: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Needs Attention' }
 };
 
@@ -49,7 +48,7 @@ export default function StatusBadge({
     >
       <span
         className={`${dotSizes[size]} rounded-full ${
-          status === 'dev' || status === 'qa' || status === 'merging' || status === 'in_progress'
+          status === 'in_progress' || status === 'ready_for_qa' || status === 'ready_for_merge'
             ? 'animate-pulse bg-current'
             : 'bg-current'
         }`}

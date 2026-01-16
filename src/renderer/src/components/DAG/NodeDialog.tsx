@@ -1,23 +1,55 @@
 import { useState, useEffect, type JSX, type FormEvent } from 'react';
-import type { Task, TaskStatus } from '@shared/types';
+import type { Task } from '@shared/types';
+import type { TaskLoopStatus } from '../../../../main/dag-engine/orchestrator-types';
+import { getTaskStatusLabel } from '@shared/types/task';
+import { Dialog, DialogHeader, DialogBody, DialogFooter, Input, Textarea, Button } from '../UI';
+import './NodeDialog.css';
 
 export interface NodeDialogProps {
   task: Task;
+  loopStatus?: TaskLoopStatus | null;
   onSave: (updates: Partial<Task>) => void;
   onClose: () => void;
+  onAbortLoop?: (taskId: string) => void;
 }
 
-const statusBadgeColors: Record<TaskStatus, string> = {
-  blocked: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
-  ready: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
-  dev: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
-  qa: 'bg-purple-500/20 text-purple-400 border-purple-500/50',
-  merging: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
-  completed: 'bg-green-500/20 text-green-400 border-green-500/50',
-  failed: 'bg-red-500/20 text-red-400 border-red-500/50',
+// Helper to get loop status CSS class
+const getLoopStatusClass = (status: string): string => {
+  switch (status) {
+    case 'running': return 'node-dialog__loop-status--running';
+    case 'completed': return 'node-dialog__loop-status--completed';
+    case 'failed': return 'node-dialog__loop-status--failed';
+    case 'aborted': return 'node-dialog__loop-status--aborted';
+    default: return '';
+  }
 };
 
-export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): JSX.Element {
+// Helper to get checklist icon CSS class
+const getChecklistIconClass = (status: string): string => {
+  switch (status) {
+    case 'pass': return 'node-dialog__checklist-icon--pass';
+    case 'fail': return 'node-dialog__checklist-icon--fail';
+    case 'pending': return 'node-dialog__checklist-icon--pending';
+    case 'skipped': return 'node-dialog__checklist-icon--skipped';
+    default: return 'node-dialog__checklist-icon--pending';
+  }
+};
+
+// Checklist status icons
+const checklistIcons: Record<string, string> = {
+  pass: '\u2713',
+  fail: '\u2717',
+  pending: '\u25CB',
+  skipped: '\u2014',
+};
+
+export default function NodeDialog({
+  task,
+  loopStatus,
+  onSave,
+  onClose,
+  onAbortLoop,
+}: NodeDialogProps): JSX.Element {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [locked, setLocked] = useState(task.locked);
@@ -39,112 +71,124 @@ export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): 
     onClose();
   };
 
-  const handleOverlayClick = (e: React.MouseEvent): void => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={handleOverlayClick}
-    >
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-          <h2 className="text-lg font-semibold text-white">Edit Task</h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+    <Dialog open={true} onClose={onClose} size="lg">
+      <DialogHeader title="Edit Task" />
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="px-6 py-6" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <form onSubmit={handleSubmit}>
+        <DialogBody>
+          <div className="node-dialog__form">
             {/* Name field */}
-            <div>
-              <label htmlFor="task-title" className="block text-sm font-medium text-gray-300 mb-1">
+            <div className="node-dialog__field">
+              <label htmlFor="task-title" className="node-dialog__label">
                 Name
               </label>
-              <input
+              <Input
                 id="task-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Task name"
                 required
               />
             </div>
 
             {/* Description field */}
-            <div>
-              <label
-                htmlFor="task-description"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
+            <div className="node-dialog__field">
+              <label htmlFor="task-description" className="node-dialog__label">
                 Description
               </label>
-              <textarea
+              <Textarea
                 id="task-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 placeholder="Task description"
               />
             </div>
 
             {/* Status display (read-only) */}
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-300">Status</label>
-              <span
-                className={`inline-block px-3 py-1 text-sm font-medium rounded-full border capitalize ${statusBadgeColors[task.status]}`}
-              >
-                {task.status}
+            <div className="node-dialog__status-row">
+              <span className="node-dialog__status-label">Status</span>
+              <span className={`node-dialog__status-badge node-dialog__status-badge--${task.status}`}>
+                {getTaskStatusLabel(task.status)}
               </span>
             </div>
 
+            {/* Loop Status Section */}
+            {loopStatus && (
+              <div className="node-dialog__loop-section">
+                <div className="node-dialog__loop-header">
+                  <span className="node-dialog__loop-label">Loop Progress</span>
+                  <span className={`node-dialog__loop-status ${getLoopStatusClass(loopStatus.status)}`}>
+                    {loopStatus.status.toUpperCase()} - Iteration{' '}
+                    {loopStatus.currentIteration}/{loopStatus.maxIterations}
+                  </span>
+                </div>
+
+                {/* Checklist items */}
+                <div className="node-dialog__checklist">
+                  {Object.entries(loopStatus.checklistSnapshot).map(([key, status]) => {
+                    const icon = checklistIcons[status] || checklistIcons.pending;
+                    return (
+                      <div key={key} className="node-dialog__checklist-item">
+                        <span className={`node-dialog__checklist-icon ${getChecklistIconClass(status)}`}>
+                          {icon}
+                        </span>
+                        <span className="node-dialog__checklist-label">{key}</span>
+                        <span className={`node-dialog__checklist-status ${getChecklistIconClass(status)}`}>
+                          ({status})
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Abort button - only show if running */}
+                {loopStatus.status === 'running' && onAbortLoop && (
+                  <button
+                    type="button"
+                    onClick={() => onAbortLoop(task.id)}
+                    className="node-dialog__abort-btn"
+                  >
+                    <svg className="node-dialog__abort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Abort Loop
+                  </button>
+                )}
+
+                {/* Error message if failed */}
+                {loopStatus.error && (
+                  <div className="node-dialog__loop-error">
+                    {loopStatus.error}
+                  </div>
+                )}
+
+                {/* Exit reason if completed/failed */}
+                {loopStatus.exitReason && (
+                  <div className="node-dialog__loop-exit">
+                    Exit reason: {loopStatus.exitReason}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Lock toggle and Chat button row */}
-            <div className="flex items-center gap-4">
+            <div className="node-dialog__controls-row">
               {/* Lock toggle */}
               <button
                 type="button"
                 onClick={() => setLocked(!locked)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md border transition-colors ${
-                  locked
-                    ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
-                    : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
-                }`}
+                className={`node-dialog__lock-btn ${locked ? 'node-dialog__lock-btn--locked' : ''}`}
               >
                 {locked ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
+                  <svg className="node-dialog__lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"
-                    />
+                  <svg className="node-dialog__lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                   </svg>
                 )}
                 <span>{locked ? 'Locked' : 'Unlocked'}</span>
@@ -154,43 +198,27 @@ export default function NodeDialog({ task, onSave, onClose }: NodeDialogProps): 
               <button
                 type="button"
                 disabled
-                className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-gray-400 cursor-not-allowed opacity-60"
+                className="node-dialog__chat-btn"
                 title="Coming soon: Chat with AI about this task"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
+                <svg className="node-dialog__chat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span className="flex items-center gap-1">
-                  Chat
-                  <span className="text-xs">(Soon)</span>
-                </span>
+                <span>Chat <span style={{ fontSize: '0.75rem' }}>(Soon)</span></span>
               </button>
             </div>
           </div>
+        </DialogBody>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary">
+            Save
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
   );
 }

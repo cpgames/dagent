@@ -4,6 +4,7 @@ import { getAgentPool } from '../agents/agent-pool'
 import { getFeatureStore } from './storage-handlers'
 import { getFeatureWorktreeName, getFeatureBranchName } from '../git/types'
 import * as path from 'path'
+import * as fs from 'fs/promises'
 
 export interface FeatureDeleteOptions {
   deleteBranch?: boolean
@@ -38,7 +39,7 @@ export function registerFeatureHandlers(): void {
       featureId: string,
       options: FeatureDeleteOptions = {}
     ): Promise<FeatureDeleteResult> => {
-      const { deleteBranch = true, force = false } = options
+      const { deleteBranch = true } = options
       const errors: string[] = []
       let deletedWorktrees = 0
       let terminatedAgents = 0
@@ -107,11 +108,12 @@ export function registerFeatureHandlers(): void {
           }
 
           // Step 4: Delete the feature branch (if option is true)
+          // Always force delete since user explicitly chose to delete the feature
           if (deleteBranch) {
             try {
               const branchExists = await gitManager.branchExists(featureBranchName)
               if (branchExists) {
-                const result = await gitManager.deleteBranch(featureBranchName, force)
+                const result = await gitManager.deleteBranch(featureBranchName, true)
                 if (result.success) {
                   deletedBranchSuccess = true
                 } else if (result.error) {
@@ -123,6 +125,29 @@ export function registerFeatureHandlers(): void {
             } catch (err) {
               errors.push(`Branch deletion: ${(err as Error).message}`)
             }
+          }
+
+          // Step 4b: Clean up any remaining worktree directories on disk
+          // (handles cases where git worktree remove left empty folders or worktrees weren't registered)
+          try {
+            const worktreesDir = config.worktreesDir
+            const dirEntries = await fs.readdir(worktreesDir, { withFileTypes: true })
+            for (const entry of dirEntries) {
+              if (entry.isDirectory()) {
+                // Check if directory belongs to this feature (featureId--task-* or feature/{featureId}/*)
+                if (entry.name.startsWith(`${featureId}--`) || entry.name === getFeatureWorktreeName(featureId)) {
+                  const dirPath = path.join(worktreesDir, entry.name)
+                  try {
+                    await fs.rm(dirPath, { recursive: true, force: true })
+                    console.log(`[FeatureDelete] Cleaned up leftover directory: ${dirPath}`)
+                  } catch {
+                    // Ignore cleanup errors
+                  }
+                }
+              }
+            }
+          } catch {
+            // Ignore errors reading worktrees directory
           }
         }
 

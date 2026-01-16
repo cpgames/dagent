@@ -14,6 +14,7 @@ import type {
   MergeResult,
   MergeConflict,
   TaskMergeResult,
+  FeatureMergeResult,
   CommitInfo,
   DiffSummary
 } from './types'
@@ -141,6 +142,26 @@ export class GitManager {
     this.ensureInitialized()
     const status = await this.git.status()
     return status.current || ''
+  }
+
+  /**
+   * Get the default/primary branch name (main or master).
+   * Checks for 'main' first, then 'master', then falls back to current branch.
+   */
+  async getDefaultBranch(): Promise<string> {
+    this.ensureInitialized()
+    const branches = await this.git.branchLocal()
+
+    // Prefer 'main' over 'master'
+    if (branches.all.includes('main')) {
+      return 'main'
+    }
+    if (branches.all.includes('master')) {
+      return 'master'
+    }
+
+    // Fallback to current branch
+    return branches.current || 'main'
   }
 
   /**
@@ -414,6 +435,13 @@ export class GitManager {
 
       // Remove worktree (use the path as git knows it)
       await this.git.raw(['worktree', 'remove', worktree.path, '--force'])
+
+      // Clean up any remaining empty directory (git worktree remove sometimes leaves them)
+      try {
+        await fs.rm(normalizedWorktreePath, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors - directory might already be gone
+      }
 
       // Delete branch if requested
       if (deleteBranch && worktree.branch && worktree.branch !== 'HEAD') {
@@ -721,10 +749,11 @@ export class GitManager {
         const removeResult = await this.removeWorktree(taskWorktreePath, false) // Don't delete feature branch!
         worktreeRemoved = removeResult.success
 
-        // Now delete the task branch (it's been merged)
+        // Now delete the task branch (it's been merged into feature branch)
+        // Use -D (force) because -d checks against current HEAD (master), not feature branch
         if (worktreeRemoved) {
           try {
-            await this.git.branch(['-d', taskBranchName])
+            await this.git.branch(['-D', taskBranchName])
             branchDeleted = true
           } catch {
             // Task branch might already be deleted or have issues, continue anyway
@@ -796,6 +825,178 @@ export class GitManager {
       }
     } catch {
       return { files: 0, insertions: 0, deletions: 0, changed: [] }
+    }
+  }
+
+  /**
+   * Merge a feature branch into the main/working branch.
+   * This is used when completing a feature and merging all its work to main.
+   *
+   * Unlike task merges (which use worktrees), this operates on the main repo:
+   * 1. Ensure we're on the target branch (or checkout)
+   * 2. Merge feature branch into target
+   * 3. Optionally delete the feature branch after successful merge
+   */
+  async mergeFeatureIntoMain(
+    featureId: string,
+    deleteBranchOnSuccess: boolean = false,
+    targetBranch: string = 'main',
+    featureBranchOverride?: string
+  ): Promise<FeatureMergeResult> {
+    this.ensureInitialized()
+    // Use provided branch name if available (for legacy features), otherwise compute from ID
+    const featureBranchName = featureBranchOverride || getFeatureBranchName(featureId)
+    let originalBranch: string | null = null
+
+    try {
+      // Verify feature branch exists
+      const featureBranchExists = await this.branchExists(featureBranchName)
+      if (!featureBranchExists) {
+        return {
+          success: false,
+          merged: false,
+          branchDeleted: false,
+          error: `Feature branch ${featureBranchName} not found`
+        }
+      }
+
+      // Verify target branch exists
+      const targetBranchExists = await this.branchExists(targetBranch)
+      if (!targetBranchExists) {
+        return {
+          success: false,
+          merged: false,
+          branchDeleted: false,
+          error: `Target branch ${targetBranch} not found`
+        }
+      }
+
+      // Check for uncommitted changes (require clean working directory)
+      const status = await this.git.status()
+      if (!status.isClean()) {
+        return {
+          success: false,
+          merged: false,
+          branchDeleted: false,
+          error: 'Working directory has uncommitted changes. Please commit or stash changes first.'
+        }
+      }
+
+      // Get current branch and switch to target if needed
+      const currentBranch = await this.getCurrentBranch()
+      if (currentBranch !== targetBranch) {
+        originalBranch = currentBranch
+        await this.git.checkout(targetBranch)
+      }
+
+      // Perform the merge with no-fast-forward to preserve branch history
+      const mergeMessage = `Merge feature '${featureId}' into ${targetBranch}`
+      try {
+        await this.git.merge([featureBranchName, '--no-ff', '-m', mergeMessage])
+      } catch (error) {
+        const errorMsg = (error as Error).message
+
+        // Check for merge conflicts
+        if (errorMsg.includes('CONFLICT') || errorMsg.includes('Automatic merge failed')) {
+          const conflicts = await this.getConflicts()
+
+          // Don't abort - let caller decide how to handle conflicts
+          // Return to original branch if we switched
+          if (originalBranch) {
+            try {
+              await this.git.merge(['--abort'])
+              await this.git.checkout(originalBranch)
+            } catch {
+              // Ignore cleanup errors
+            }
+          }
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            branchDeleted: false,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        // Return to original branch on other errors
+        if (originalBranch) {
+          try {
+            await this.git.checkout(originalBranch)
+          } catch {
+            // Ignore checkout errors
+          }
+        }
+
+        return {
+          success: false,
+          merged: false,
+          branchDeleted: false,
+          error: errorMsg
+        }
+      }
+
+      // Get commit hash after successful merge
+      const log = await this.git.log({ maxCount: 1 })
+      const commitHash = log.latest?.hash
+
+      // Optionally delete feature branch and all task branches
+      let branchDeleted = false
+      if (deleteBranchOnSuccess) {
+        try {
+          // Delete the feature branch
+          await this.git.branch(['-D', featureBranchName])
+          branchDeleted = true
+
+          // Also clean up any leftover task branches for this feature
+          const featurePrefix = `feature/${featureId.replace(/^feature-/, '')}/`
+          const branches = await this.listBranches()
+          for (const branch of branches) {
+            if (branch.name.startsWith(featurePrefix) && branch.name !== featureBranchName) {
+              try {
+                await this.git.branch(['-D', branch.name])
+              } catch {
+                // Ignore errors deleting task branches
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`[GitManager] Could not delete feature branch: ${(error as Error).message}`)
+        }
+      }
+
+      // Return to original branch if we switched
+      if (originalBranch) {
+        try {
+          await this.git.checkout(originalBranch)
+        } catch {
+          // Ignore checkout errors - merge was successful
+        }
+      }
+
+      return {
+        success: true,
+        merged: true,
+        commitHash,
+        branchDeleted
+      }
+    } catch (error) {
+      // Return to original branch on unexpected errors
+      if (originalBranch) {
+        try {
+          await this.git.checkout(originalBranch)
+        } catch {
+          // Ignore checkout errors
+        }
+      }
+
+      return {
+        success: false,
+        merged: false,
+        branchDeleted: false,
+        error: (error as Error).message
+      }
     }
   }
 

@@ -16,7 +16,7 @@ export interface AgentInfo {
 
 export interface AgentPoolConfig {
   maxAgents: number // Total pool size (default: 5)
-  maxTaskAgents: number // Max concurrent task agents (default: 3)
+  maxDevAgents: number // Max concurrent dev agents (default: 3)
   maxMergeAgents: number // Max concurrent merge agents (default: 1)
   maxQAAgents: number // Max concurrent QA agents (default: 1)
   // Note: 1 agent always reserved for harness
@@ -61,8 +61,8 @@ export interface ApprovalMessage {
 }
 
 export const DEFAULT_POOL_CONFIG: AgentPoolConfig = {
-  maxAgents: 6,
-  maxTaskAgents: 3,
-  maxMergeAgents: 1,
-  maxQAAgents: 1
+  maxAgents: Infinity,
+  maxDevAgents: Infinity,
+  maxMergeAgents: Infinity,
+  maxQAAgents: Infinity
 }

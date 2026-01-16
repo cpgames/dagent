@@ -1,0 +1,153 @@
+/**
+ * Dialog Component Styles
+ * Modal with backdrop blur and synthwave styling
+ */
+
+/* Backdrop */
+.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  animation: ui-dialog-backdrop-in var(--transition-fast) ease-out;
+}
+
+@keyframes ui-dialog-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Dialog panel */
+.ui-dialog {
+  position: relative;
+  background: var(--dialog-bg);
+  border: 1px solid var(--dialog-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl), var(--glow-border-secondary);
+  max-height: calc(100vh - 2 * var(--space-lg));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: ui-dialog-in var(--transition-fast) ease-out;
+}
+
+@keyframes ui-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Size variants */
+.ui-dialog--sm {
+  width: 100%;
+  max-width: 400px;
+}
+
+.ui-dialog--md {
+  width: 100%;
+  max-width: 500px;
+}
+
+.ui-dialog--lg {
+  width: 100%;
+  max-width: 700px;
+}
+
+.ui-dialog--full {
+  width: 90vw;
+  max-width: 90vw;
+  height: 90vh;
+  max-height: 90vh;
+}
+
+/* Close button */
+.ui-dialog__close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 1;
+}
+
+.ui-dialog__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ui-dialog__close:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.ui-dialog__close-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Header */
+.ui-dialog__header {
+  padding: var(--space-lg);
+  padding-right: calc(var(--space-lg) + 2.5rem); /* Space for close button */
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ui-dialog__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ui-dialog__description {
+  margin: var(--space-xs) 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Body */
+.ui-dialog__body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Footer */
+.ui-dialog__footer {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+/* Full size dialog adjustments */
+.ui-dialog--full .ui-dialog__body {
+  flex: 1;
+}

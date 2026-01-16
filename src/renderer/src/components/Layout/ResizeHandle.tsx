@@ -1,4 +1,5 @@
 import { useCallback, useRef, type JSX } from 'react'
+import './ResizeHandle.css'
 
 interface ResizeHandleProps {
   /** Called during drag with horizontal delta in pixels */
@@ -48,9 +49,7 @@ export function ResizeHandle({
 
   return (
     <div
-      className={`absolute top-0 bottom-0 w-2 cursor-col-resize z-20
-        bg-gray-700 hover:bg-blue-500 active:bg-blue-600 transition-colors
-        ${position === 'left' ? '-left-1' : '-right-1'}`}
+      className={`resize-handle ${position === 'left' ? 'resize-handle--left' : 'resize-handle--right'}`}
       onMouseDown={handleMouseDown}
       role="separator"
       aria-orientation="vertical"

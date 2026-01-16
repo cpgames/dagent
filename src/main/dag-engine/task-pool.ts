@@ -4,25 +4,25 @@ import type { TaskStatus } from '@shared/types/task'
 /**
  * TaskPoolManager - Organizes tasks by status into pools for O(1) lookups.
  *
- * Pool structure:
- * - blocked: Tasks waiting on dependencies
- * - ready: Tasks ready for assignment (priority pool for new work)
- * - dev: Tasks being developed (active)
- * - qa: Tasks being QA verified (active)
- * - merging: Tasks being merged (active, highest priority)
- * - completed: Done tasks
- * - failed: Error tasks
+ * Pool structure (queue-based):
+ * - blocked: Tasks waiting on dependencies (tracking)
+ * - ready_for_dev: Tasks ready for dev agent assignment (assignment queue)
+ * - in_progress: Tasks being worked on - dev, qa, or merge (tracking)
+ * - ready_for_qa: Tasks ready for QA review (assignment queue)
+ * - ready_for_merge: Tasks that passed QA, ready for merge (assignment queue)
+ * - completed: Done tasks (terminal)
+ * - failed: Error tasks (terminal)
  *
- * Assignment Priority: merging > qa > ready
- * (Unblocks dependents fastest by prioritizing merging)
+ * Assignment Priority: ready_for_merge > ready_for_qa > ready_for_dev
+ * (Unblocks dependents fastest by prioritizing merge)
  */
 export class TaskPoolManager {
   private pools: Map<TaskStatus, Set<string>> = new Map([
     ['blocked', new Set()],
-    ['ready', new Set()],
-    ['dev', new Set()],
-    ['qa', new Set()],
-    ['merging', new Set()],
+    ['ready_for_dev', new Set()],
+    ['in_progress', new Set()],
+    ['ready_for_qa', new Set()],
+    ['ready_for_merge', new Set()],
     ['completed', new Set()],
     ['failed', new Set()]
   ])
@@ -79,14 +79,14 @@ export class TaskPoolManager {
 
   /**
    * Get the next task to assign based on priority.
-   * Priority order: merging > qa > ready
+   * Priority order: ready_for_merge > ready_for_qa > ready_for_dev
    *
    * Returns the first task from the highest priority non-empty pool,
    * or null if no tasks are available for assignment.
    */
   getNextTask(): string | null {
-    // Priority order: merging, qa, ready
-    const priorityOrder: TaskStatus[] = ['merging', 'qa', 'ready']
+    // Priority order: ready_for_merge, ready_for_qa, ready_for_dev
+    const priorityOrder: TaskStatus[] = ['ready_for_merge', 'ready_for_qa', 'ready_for_dev']
 
     for (const status of priorityOrder) {
       const pool = this.pools.get(status)
@@ -109,10 +109,10 @@ export class TaskPoolManager {
   getCounts(): Record<TaskStatus, number> {
     const counts: Record<TaskStatus, number> = {
       blocked: 0,
-      ready: 0,
-      dev: 0,
-      qa: 0,
-      merging: 0,
+      ready_for_dev: 0,
+      in_progress: 0,
+      ready_for_qa: 0,
+      ready_for_merge: 0,
       completed: 0,
       failed: 0
     }

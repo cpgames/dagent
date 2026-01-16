@@ -1,0 +1,162 @@
+/**
+ * SessionLogDialog Component Styles
+ * Task session viewer with conversation-style messages
+ */
+
+.session-dialog__header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.session-dialog__status-badge {
+  padding: 0.125rem var(--space-sm);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.session-dialog__status-badge--active { background: var(--accent-primary); }
+.session-dialog__status-badge--completed { background: var(--color-success); }
+.session-dialog__status-badge--failed { background: var(--color-error); }
+.session-dialog__status-badge--paused { background: var(--color-warning); }
+
+/* Filter bar */
+.session-dialog__filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.session-dialog__filter-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.session-dialog__filter-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.session-dialog__filter-btn {
+  padding: 0.25rem var(--space-sm);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-transform: capitalize;
+}
+
+.session-dialog__filter-btn--inactive {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.session-dialog__filter-btn--inactive:hover {
+  background: var(--bg-active);
+}
+
+.session-dialog__filter-btn--active {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+.session-dialog__count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Messages container */
+.session-dialog__messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+.session-dialog__empty {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+}
+
+/* Message row */
+.session-dialog__message-row {
+  display: flex;
+  margin-bottom: 0.25rem;
+}
+
+.session-dialog__message-row--outgoing {
+  justify-content: flex-end;
+}
+
+.session-dialog__message-row--incoming {
+  justify-content: flex-start;
+}
+
+/* Message bubble */
+.session-dialog__message {
+  max-width: 80%;
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.session-dialog__message--outgoing {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+.session-dialog__message--incoming {
+  background: var(--accent-secondary);
+  color: var(--text-primary);
+}
+
+.session-dialog__message-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.session-dialog__direction {
+  font-weight: 500;
+}
+
+.session-dialog__type-badge {
+  padding: 0.125rem var(--space-sm);
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+}
+
+.session-dialog__type-badge--outgoing {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.session-dialog__type-badge--incoming {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.session-dialog__timestamp {
+  margin-left: auto;
+  font-family: monospace;
+}
+
+.session-dialog__message-content {
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+}
+
+.session-dialog__metadata {
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}

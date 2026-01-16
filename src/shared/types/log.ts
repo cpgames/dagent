@@ -26,7 +26,7 @@ export interface AgentLog {
   entries: LogEntry[];
 }
 
-export interface TaskAgentMessage {
+export interface DevAgentMessage {
   timestamp: string;
   direction: 'task_to_harness' | 'harness_to_task';
   type: 'intention' | 'approval' | 'rejection' | 'progress' | 'completion' | 'error';
@@ -38,11 +38,11 @@ export interface TaskAgentMessage {
   };
 }
 
-export interface TaskAgentSession {
+export interface DevAgentSession {
   taskId: string;
   agentId: string;
   status: 'active' | 'completed' | 'failed' | 'paused';
   startedAt: string;
   completedAt?: string;
-  messages: TaskAgentMessage[];
+  messages: DevAgentMessage[];
 }

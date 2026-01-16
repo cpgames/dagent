@@ -1,0 +1,90 @@
+/**
+ * Badge Component Styles
+ * Status indicators with semantic colors
+ */
+
+/* Base badge styles */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Size variants */
+.ui-badge--sm {
+  height: 1.25rem;
+  padding: 0 var(--space-sm);
+  font-size: 0.625rem;
+}
+
+.ui-badge--md {
+  height: 1.5rem;
+  padding: 0 var(--space-md);
+  font-size: 0.75rem;
+}
+
+/* Variant: default */
+.ui-badge--default {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+/* Variant: success */
+.ui-badge--success {
+  background: var(--badge-success-bg);
+  color: var(--badge-success-text);
+}
+
+/* Variant: warning */
+.ui-badge--warning {
+  background: var(--badge-progress-bg);
+  color: var(--badge-progress-text);
+}
+
+/* Variant: error */
+.ui-badge--error {
+  background: var(--badge-error-bg);
+  color: var(--badge-error-text);
+}
+
+/* Variant: info */
+.ui-badge--info {
+  background: var(--badge-blocked-bg);
+  color: var(--badge-blocked-text);
+}
+
+/* Dot indicator */
+.ui-badge__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.ui-badge--sm .ui-badge__dot {
+  width: 0.3125rem;
+  height: 0.3125rem;
+}
+
+/* Icon support */
+.ui-badge__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ui-badge--sm .ui-badge__icon {
+  font-size: 0.625rem;
+}
+
+.ui-badge--md .ui-badge__icon {
+  font-size: 0.75rem;
+}

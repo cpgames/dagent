@@ -123,3 +123,10 @@ export interface TaskMergeResult extends GitOperationResult {
   worktreeRemoved: boolean
   branchDeleted: boolean
 }
+
+export interface FeatureMergeResult extends GitOperationResult {
+  merged: boolean
+  conflicts?: MergeConflict[]
+  commitHash?: string
+  branchDeleted: boolean
+}

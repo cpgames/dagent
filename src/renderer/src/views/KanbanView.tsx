@@ -109,7 +109,7 @@ export default function KanbanView() {
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-gray-400">Loading features...</p>
+        <p className="text-[var(--text-muted)]">Loading features...</p>
       </div>
     );
   }
@@ -117,7 +117,7 @@ export default function KanbanView() {
   return (
     <>
       <div className="h-full p-6 pb-4">
-        <div className="flex gap-3 h-full overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className="flex gap-3 h-full overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-[var(--border-default)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
           {columns.map((column) => (
             <KanbanColumn
               key={column.status}

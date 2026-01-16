@@ -1,0 +1,39 @@
+/**
+ * StatusBar Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+.status-bar {
+  height: 2rem;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-md);
+  font-size: 0.75rem;
+  overflow: hidden;
+}
+
+.status-bar__left {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.status-bar__path {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16rem;
+}
+
+.status-bar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}

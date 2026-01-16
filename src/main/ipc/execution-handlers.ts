@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import type { DAGGraph } from '@shared/types'
 import type { FeatureStatus } from '@shared/types/feature'
-import type { ExecutionConfig } from '../dag-engine/orchestrator-types'
+import type { ExecutionConfig, TaskLoopStatus } from '../dag-engine/orchestrator-types'
 import { getOrchestrator, resetOrchestrator } from '../dag-engine/orchestrator'
 
 /**
@@ -12,6 +12,30 @@ function broadcastFeatureStatusChange(featureId: string, status: FeatureStatus):
   for (const win of windows) {
     if (!win.isDestroyed()) {
       win.webContents.send('feature:status-changed', { featureId, status })
+    }
+  }
+}
+
+/**
+ * Send DAG graph update event to all renderer windows.
+ */
+function broadcastGraphUpdate(featureId: string, graph: DAGGraph): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('dag:updated', { featureId, graph })
+    }
+  }
+}
+
+/**
+ * Send loop status update event to all renderer windows.
+ */
+function broadcastLoopStatusUpdate(status: TaskLoopStatus): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('task:loop-status-updated', status)
     }
   }
 }
@@ -28,11 +52,23 @@ function broadcastFeatureStatusChange(featureId: string, status: FeatureStatus):
  * The orchestrator manages task assignments and state transitions.
  */
 export function registerExecutionHandlers(): void {
-  // Subscribe to orchestrator feature status changes
+  // Subscribe to orchestrator events
   const orchestrator = getOrchestrator()
+
   orchestrator.on('feature_status_changed', (event: { featureId: string; status: FeatureStatus }) => {
     broadcastFeatureStatusChange(event.featureId, event.status)
   })
+
+  orchestrator.on('graph_updated', (event: { featureId: string; graph: DAGGraph }) => {
+    console.log(`[ExecutionHandlers] Broadcasting graph update for feature ${event.featureId}`)
+    broadcastGraphUpdate(event.featureId, event.graph)
+  })
+
+  orchestrator.on('task_loop_update', (status: TaskLoopStatus) => {
+    console.log(`[ExecutionHandlers] Broadcasting loop status update for task ${status.taskId}`)
+    broadcastLoopStatusUpdate(status)
+  })
+
   ipcMain.handle(
     'execution:initialize',
     async (_event, featureId: string, graph: DAGGraph) => {
@@ -106,5 +142,21 @@ export function registerExecutionHandlers(): void {
   ipcMain.handle('execution:reset', async () => {
     resetOrchestrator()
     return { success: true }
+  })
+
+  // Loop status handlers for Ralph Loop UI
+  ipcMain.handle('execution:get-loop-status', async (_event, taskId: string) => {
+    const orchestrator = getOrchestrator()
+    return orchestrator.getLoopStatus(taskId)
+  })
+
+  ipcMain.handle('execution:get-all-loop-statuses', async () => {
+    const orchestrator = getOrchestrator()
+    return orchestrator.getAllLoopStatuses()
+  })
+
+  ipcMain.handle('execution:abort-loop', async (_event, taskId: string) => {
+    const orchestrator = getOrchestrator()
+    return orchestrator.abortLoop(taskId)
   })
 }

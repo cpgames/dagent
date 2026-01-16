@@ -116,18 +116,16 @@ export function registerPMToolsHandlers(): void {
       const position = calculatePosition(dag, input)
 
       // Determine initial status based on dependencies
-      let status: TaskStatus = 'ready'
+      let status: TaskStatus = 'ready_for_dev'
       if (input.dependsOn && input.dependsOn.length > 0) {
         // Check if all dependencies are completed
         const allDepsCompleted = input.dependsOn.every((depId) => {
           const dep = dag.nodes.find((n) => n.id === depId)
           return dep && dep.status === 'completed'
         })
-        status = allDepsCompleted ? 'ready' : 'blocked'
-      } else if (dag.nodes.length > 0) {
-        // No explicit deps but other tasks exist - default blocked
-        status = 'blocked'
+        status = allDepsCompleted ? 'ready_for_dev' : 'blocked'
       }
+      // No dependencies = ready_for_dev (task can start immediately)
 
       // Create new task
       const newTask: Task = {
@@ -250,7 +248,7 @@ export function registerPMToolsHandlers(): void {
         // Update toTask status if fromTask not completed
         if (fromTask.status !== 'completed') {
           const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
-          if (toIndex >= 0 && dag.nodes[toIndex].status === 'ready') {
+          if (toIndex >= 0 && dag.nodes[toIndex].status === 'ready_for_dev') {
             dag.nodes[toIndex].status = 'blocked'
           }
         }
@@ -446,7 +444,7 @@ export function registerPMToolsHandlers(): void {
             })
             // If no dependencies or all complete, set to ready
             if (nodeDeps.length === 0 || allDepsComplete) {
-              node.status = 'ready'
+              node.status = 'ready_for_dev'
             }
           }
         }
@@ -518,7 +516,7 @@ export function registerPMToolsHandlers(): void {
           if (remainingDeps.length === 0 || allRemainingComplete) {
             const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
             if (toIndex >= 0) {
-              dag.nodes[toIndex].status = 'ready'
+              dag.nodes[toIndex].status = 'ready_for_dev'
               statusChanged = true
             }
           }
@@ -558,16 +556,15 @@ export async function pmCreateTask(input: CreateTaskInput): Promise<CreateTaskRe
     const position = calculatePosition(dag, input)
 
     // First task is always ready, subsequent tasks without deps are blocked
-    let status: TaskStatus = 'ready'
+    let status: TaskStatus = 'ready_for_dev'
     if (input.dependsOn && input.dependsOn.length > 0) {
       const allDepsCompleted = input.dependsOn.every((depId) => {
         const dep = dag.nodes.find((n) => n.id === depId)
         return dep && dep.status === 'completed'
       })
-      status = allDepsCompleted ? 'ready' : 'blocked'
-    } else if (dag.nodes.length > 0) {
-      status = 'blocked'
+      status = allDepsCompleted ? 'ready_for_dev' : 'blocked'
     }
+    // No dependencies = ready_for_dev (task can start immediately)
 
     const newTask: Task = {
       id: randomUUID(),
@@ -779,7 +776,7 @@ export async function pmDeleteTask(input: DeleteTaskInput): Promise<DeleteTaskRe
           return dep && dep.status === 'completed'
         })
         if (nodeDeps.length === 0 || allDepsComplete) {
-          node.status = 'ready'
+          node.status = 'ready_for_dev'
         }
       }
     }
@@ -826,7 +823,7 @@ export async function pmAddDependency(input: AddDependencyInput): Promise<AddDep
 
     dag.connections.push({ from: input.fromTaskId, to: input.toTaskId })
 
-    if (toTask.status === 'ready' && fromTask.status !== 'completed') {
+    if (toTask.status === 'ready_for_dev' && fromTask.status !== 'completed') {
       const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
       if (toIndex >= 0) {
         dag.nodes[toIndex].status = 'blocked'
@@ -889,7 +886,7 @@ export async function pmRemoveDependency(input: RemoveDependencyInput): Promise<
       if (remainingDeps.length === 0 || allRemainingComplete) {
         const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
         if (toIndex >= 0) {
-          dag.nodes[toIndex].status = 'ready'
+          dag.nodes[toIndex].status = 'ready_for_dev'
           statusChanged = true
         }
       }

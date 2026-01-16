@@ -1,5 +1,39 @@
 # Project Milestones: DAGent
 
+## v2.7 Canvas Background System (Shipped: 2026-01-16)
+
+**Delivered:** Unified canvas-based background rendering system with six composable visual effect layers, replacing deprecated CSS components with a performant single-RAF animation loop.
+
+**Phases completed:** 83-89 (7 plans total)
+
+**Key accomplishments:**
+
+- Canvas Infrastructure: Layer interface (init/update/render/reset), useAnimationFrame hook with delta time, UnifiedCanvas component with HiDPI support, reduced motion accessibility
+- Visual Effects: 6 layers (Sky, Stars, HorizonGlow, Terrain, Grid, ShootingStars) rendering in single RAF loop
+- Sky gradient (deep purple to pink), 360 stars with sinusoidal flicker
+- Horizon glow with pulsing animation (0.3-0.8 intensity)
+- Perspective grid with curved lines and scrolling animation
+- Shooting stars with gradient trails (1% spawn, max 3 concurrent)
+- Terrain silhouettes with 2-3 parallax depths and optional cyan edge glow
+- Integration: Replaced 5 deprecated CSS components (311 lines), unified all background rendering
+- Performance: ResizeObserver with 100ms debounce (PERF-03)
+
+**Stats:**
+
+- 7 phases, 7 plans executed (~21 tasks)
+- 14/16 v1 requirements completed, 2 deferred to v2 (PERF-01, PERF-02)
+- 1 day development time (05:01 AM to 3:49 PM on 2026-01-16)
+
+**Git range:** `feat(83)` → `v2.7`
+
+**Deferred to v2:**
+- PERF-01: Object pooling for stars and shooting stars (current performance acceptable)
+- PERF-02: Context caching with GPU context loss handling (no reported issues)
+
+**What's next:** Consider performance optimization (pooling, context caching), additional visual effects (CRT scanlines, chromatic aberration), or next milestone planning.
+
+---
+
 ## v2.5 Intelligent Task Scoping & Context Management (Shipped: 2026-01-15)
 
 **Delivered:** FeatureSpec system enabling PM agent to maintain living specifications with goals, requirements, constraints, and acceptance criteria. Spec-aware agents receive broader context for better task execution. Token-based checkpointing replaces arbitrary iteration limits. UI simplified by hiding implementation details.

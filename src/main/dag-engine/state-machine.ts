@@ -1,33 +1,33 @@
 import type { TaskStatus } from '@shared/types'
 
 /**
- * Valid state transitions for task pipeline:
+ * Valid state transitions for task pipeline (queue-based):
  *
- * blocked → ready     (all dependencies completed)
- * ready → dev         (agent assigned)
- * dev → qa            (dev work complete, ready for QA)
- * dev → failed        (dev failure)
- * qa → merging        (QA passed)
- * qa → dev            (QA failed, rework needed)
- * qa → failed         (QA error)
- * merging → completed (merge success)
- * merging → failed    (merge failure)
+ * blocked → ready_for_dev       (all dependencies completed)
+ * ready_for_dev → in_progress   (dev agent assigned)
+ * in_progress → ready_for_qa    (dev complete)
+ * in_progress → failed          (dev/qa/merge failure)
+ * ready_for_qa → ready_for_merge (QA passed)
+ * ready_for_qa → ready_for_dev  (QA failed, back to dev)
+ * ready_for_merge → in_progress (merge agent started)
+ * in_progress → completed       (merge success)
  *
  * Additionally:
- * any → blocked       (reset on retry or dependency change)
- * failed → ready      (retry after fix)
+ * any → blocked                 (reset on retry or dependency change)
+ * failed → ready_for_dev        (retry after fix)
  */
 
 export type StateTransitionEvent =
-  | 'DEPENDENCIES_MET' // blocked → ready
-  | 'AGENT_ASSIGNED' // ready → dev
-  | 'DEV_COMPLETE' // dev → qa
-  | 'QA_PASSED' // qa → merging
-  | 'QA_FAILED' // qa → dev (with feedback)
-  | 'MERGE_SUCCESS' // merging → completed
-  | 'MERGE_FAILED' // merging → failed
-  | 'TASK_FAILED' // dev/qa → failed
-  | 'RETRY' // failed → ready (if dependencies met)
+  | 'DEPENDENCIES_MET' // blocked → ready_for_dev
+  | 'AGENT_ASSIGNED' // ready_for_dev → in_progress
+  | 'DEV_COMPLETE' // in_progress → ready_for_qa
+  | 'QA_PASSED' // ready_for_qa → ready_for_merge
+  | 'QA_FAILED' // ready_for_qa → ready_for_dev (back to dev)
+  | 'MERGE_STARTED' // ready_for_merge → in_progress
+  | 'MERGE_SUCCESS' // in_progress → completed
+  | 'MERGE_FAILED' // in_progress → failed
+  | 'TASK_FAILED' // in_progress → failed
+  | 'RETRY' // failed → ready_for_dev (if dependencies met)
   | 'DEPENDENCY_CHANGED' // any incomplete → blocked
   | 'RESET' // any → blocked (manual reset)
 
@@ -40,26 +40,26 @@ export interface StateTransition {
 // All valid transitions
 export const VALID_TRANSITIONS: StateTransition[] = [
   // Main pipeline flow
-  { from: 'blocked', to: 'ready', event: 'DEPENDENCIES_MET' },
-  { from: 'ready', to: 'dev', event: 'AGENT_ASSIGNED' },
-  { from: 'dev', to: 'qa', event: 'DEV_COMPLETE' },
-  { from: 'qa', to: 'merging', event: 'QA_PASSED' },
-  { from: 'qa', to: 'dev', event: 'QA_FAILED' },
-  { from: 'merging', to: 'completed', event: 'MERGE_SUCCESS' },
+  { from: 'blocked', to: 'ready_for_dev', event: 'DEPENDENCIES_MET' },
+  { from: 'ready_for_dev', to: 'in_progress', event: 'AGENT_ASSIGNED' },
+  { from: 'in_progress', to: 'ready_for_qa', event: 'DEV_COMPLETE' },
+  { from: 'ready_for_qa', to: 'ready_for_merge', event: 'QA_PASSED' },
+  { from: 'ready_for_qa', to: 'ready_for_dev', event: 'QA_FAILED' }, // Back to dev for rework
+  { from: 'ready_for_merge', to: 'in_progress', event: 'MERGE_STARTED' },
+  { from: 'in_progress', to: 'completed', event: 'MERGE_SUCCESS' },
   // Failure transitions
-  { from: 'dev', to: 'failed', event: 'TASK_FAILED' },
-  { from: 'qa', to: 'failed', event: 'TASK_FAILED' },
-  { from: 'merging', to: 'failed', event: 'MERGE_FAILED' },
+  { from: 'in_progress', to: 'failed', event: 'TASK_FAILED' },
+  { from: 'in_progress', to: 'failed', event: 'MERGE_FAILED' },
   // Recovery and retry
-  { from: 'failed', to: 'ready', event: 'RETRY' },
+  { from: 'failed', to: 'ready_for_dev', event: 'RETRY' },
   { from: 'failed', to: 'blocked', event: 'DEPENDENCY_CHANGED' },
-  { from: 'ready', to: 'blocked', event: 'DEPENDENCY_CHANGED' },
+  { from: 'ready_for_dev', to: 'blocked', event: 'DEPENDENCY_CHANGED' },
   // Reset transitions (any state → blocked)
   { from: 'blocked', to: 'blocked', event: 'RESET' },
-  { from: 'ready', to: 'blocked', event: 'RESET' },
-  { from: 'dev', to: 'blocked', event: 'RESET' },
-  { from: 'qa', to: 'blocked', event: 'RESET' },
-  { from: 'merging', to: 'blocked', event: 'RESET' },
+  { from: 'ready_for_dev', to: 'blocked', event: 'RESET' },
+  { from: 'in_progress', to: 'blocked', event: 'RESET' },
+  { from: 'ready_for_qa', to: 'blocked', event: 'RESET' },
+  { from: 'ready_for_merge', to: 'blocked', event: 'RESET' },
   { from: 'failed', to: 'blocked', event: 'RESET' },
   { from: 'completed', to: 'blocked', event: 'RESET' }
 ]

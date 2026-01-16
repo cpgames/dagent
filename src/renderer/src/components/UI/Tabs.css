@@ -1,0 +1,96 @@
+/**
+ * Tabs Component Styles
+ * Tabbed navigation with underline and pills variants
+ */
+
+/* Tab list container */
+.ui-tabs__list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* Underline variant */
+.ui-tabs--underline .ui-tabs__list {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Pills variant */
+.ui-tabs--pills .ui-tabs__list {
+  background: var(--bg-surface);
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+}
+
+/* Tab trigger base */
+.ui-tabs__trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  outline: none;
+}
+
+.ui-tabs__trigger:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.ui-tabs__trigger:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.ui-tabs__trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Active state - underline variant */
+.ui-tabs--underline .ui-tabs__trigger--active {
+  color: var(--accent-primary);
+}
+
+.ui-tabs--underline .ui-tabs__trigger--active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+/* Active state - pills variant */
+.ui-tabs--pills .ui-tabs__trigger {
+  border-radius: var(--radius-sm);
+}
+
+.ui-tabs--pills .ui-tabs__trigger--active {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+.ui-tabs--pills .ui-tabs__trigger--active:hover:not(:disabled) {
+  background: var(--accent-primary-bright);
+  color: var(--text-inverse);
+}
+
+/* Tab content */
+.ui-tabs__content {
+  padding: var(--space-lg) 0;
+}
+
+.ui-tabs__content--hidden {
+  display: none;
+}

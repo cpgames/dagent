@@ -8,28 +8,21 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current Milestone: v2.7 Canvas Background System
+## Current Milestone: Planning Next Version
 
-**Goal:** Unify all background rendering into a single canvas layer with enhanced visual effects.
+**Status:** v2.7 complete. Ready for next milestone planning.
 
-**Target features:**
-- Unified canvas background (starfield + horizon + grid in one render context)
-- Shooting stars with trails (occasional bright streaks)
-- Pulsing horizon glow (animated intensity)
-- Terrain silhouettes (mountain/city outlines on horizon edges)
-- Performance-optimized single requestAnimationFrame loop
-- Reduced motion support (static fallback)
+## Current State (v2.7 Canvas Background System)
 
-## Current State (v2.6 Synthwave UI Redesign)
-
-Shipped 2026-01-16. Complete visual redesign with synthwave aesthetic:
-- 13 phases (70-82) completed
-- CSS custom properties theme system
-- Reusable UI component library (Button, Input, Dialog, etc.)
-- Background system with starfield and horizon
-- Canvas-based grid with curved lines (Phase 82)
-- All components migrated to CSS custom properties
-- Accessibility features (reduced motion, focus states)
+Shipped 2026-01-16. Unified canvas background rendering system:
+- 7 phases (83-89) completed
+- Canvas Infrastructure with Layer interface (init/update/render/reset)
+- 6 visual effect layers (Sky, Stars, HorizonGlow, Terrain, Grid, ShootingStars)
+- Single requestAnimationFrame loop for all animations
+- UnifiedCanvas component with HiDPI support and reduced motion
+- Replaced 5 deprecated CSS components (311 lines removed)
+- ResizeObserver with 100ms debounce for performance
+- Object pooling and context caching deferred to v2
 
 ## Requirements
 
@@ -113,9 +106,25 @@ Shipped 2026-01-16. Complete visual redesign with synthwave aesthetic:
 - [x] Context-aware checkpointing (~150k token limit) - v2.5
 - [x] Removed loop counter badge from TaskNode UI - v2.5
 - [x] FeatureSpecViewer component in DAGView sidebar - v2.5
+- [x] useAnimationFrame hook with delta time and pause support - v2.7
+- [x] UnifiedCanvas component with resize handling and DPR support - v2.7
+- [x] Layer interface (init/update/render/reset) for composable effects - v2.7
+- [x] Reduced motion detection with static fallback - v2.7
+- [x] Sky gradient layer (deep purple to pink) - v2.7
+- [x] Starfield layer with 360 stars and sinusoidal flicker - v2.7
+- [x] Horizon glow layer with pulsing animation - v2.7
+- [x] Perspective grid layer with curved lines - v2.7
+- [x] Shooting stars layer with trails (1% spawn, max 3 concurrent) - v2.7
+- [x] Terrain silhouettes layer with parallax depths - v2.7
+- [x] Single canvas replaces all CSS background components - v2.7
+- [x] Single requestAnimationFrame loop for all layers - v2.7
+- [x] Removed deprecated Starfield, Horizon, and SynthwaveBackground CSS components - v2.7
+- [x] ResizeObserver with 100ms debounce - v2.7
 
 ### Backlog
 
+- [ ] Object pooling for stars and shooting stars (deferred from v2.7)
+- [ ] Context caching with GPU context loss handling (deferred from v2.7)
 - [ ] Node-level chat (scoped AI for individual tasks)
 - [ ] Locking behavior for nodes and connections
 - [ ] Re-evaluate dependencies button functionality
@@ -170,4 +179,4 @@ Key reference material:
 | Feature status from tasks | Priority rules for column placement | Good |
 
 ---
-*Last updated: 2026-01-15 after v2.5 milestone*
+*Last updated: 2026-01-16 after v2.7 milestone*

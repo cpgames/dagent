@@ -5,11 +5,28 @@ import {
   getFeatureMergeAgent,
   removeFeatureMergeAgent
 } from '../agents/feature-merge-agent'
+import { getFeatureStore } from './storage-handlers'
+import { getGitManager } from '../git'
 
 export function registerFeatureMergeAgentHandlers(): void {
   // Create and initialize merge agent
-  ipcMain.handle('feature-merge:create', async (_event, featureId: string, targetBranch: string = 'main') => {
-    const agent = createFeatureMergeAgent(featureId, targetBranch)
+  ipcMain.handle('feature-merge:create', async (_event, featureId: string, targetBranch?: string) => {
+    console.log(`[FeatureMergeHandler] Creating agent for feature: ${featureId}`)
+
+    // Load feature to get the actual branch name
+    const store = getFeatureStore()
+    const feature = store ? await store.loadFeature(featureId) : null
+    const featureBranch = feature?.branchName // Use stored branch name
+
+    // Auto-detect default branch if not specified (handles main vs master)
+    const gitManager = getGitManager()
+    const resolvedTargetBranch = targetBranch || await gitManager.getDefaultBranch()
+
+    console.log(`[FeatureMergeHandler] Feature loaded:`, feature ? { id: feature.id, branchName: feature.branchName } : 'null')
+    console.log(`[FeatureMergeHandler] Using feature branch: ${featureBranch}`)
+    console.log(`[FeatureMergeHandler] Target branch: ${resolvedTargetBranch}`)
+
+    const agent = createFeatureMergeAgent(featureId, resolvedTargetBranch, featureBranch)
     const initialized = await agent.initialize()
     if (initialized) {
       registerFeatureMergeAgent(agent)
@@ -28,7 +45,9 @@ export function registerFeatureMergeAgentHandlers(): void {
     const agent = getFeatureMergeAgent(featureId)
     if (!agent) return { success: false, error: 'Agent not found' }
     const result = await agent.checkBranches()
-    return { success: result, state: agent.getState() }
+    const state = agent.getState()
+    // Return the error from state if check failed
+    return { success: result, error: result ? undefined : state.error, state }
   })
 
   // Auto-approve and execute merge (for AI Merge flow)

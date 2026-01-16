@@ -15,7 +15,7 @@ import { DEFAULT_HARNESS_STATE } from './harness-types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
-import { getMessageBus, createHarnessToTaskMessage } from './message-bus'
+import { getMessageBus, createHarnessToDevMessage } from './message-bus'
 
 export class HarnessAgent extends EventEmitter {
   private state: HarnessState
@@ -456,7 +456,7 @@ export class HarnessAgent extends EventEmitter {
       this.log('approval_sent', `Approved: ${decision.type}`, taskId, pending.agentId)
 
       bus.publish(
-        createHarnessToTaskMessage(taskId, pending.agentId, 'intention_approved', {
+        createHarnessToDevMessage(taskId, pending.agentId, 'intention_approved', {
           type: decision.type,
           notes: decision.notes
         })
@@ -465,7 +465,7 @@ export class HarnessAgent extends EventEmitter {
       this.log('rejection_sent', `Rejected: ${decision.reason}`, taskId, pending.agentId)
 
       bus.publish(
-        createHarnessToTaskMessage(taskId, pending.agentId, 'intention_rejected', {
+        createHarnessToDevMessage(taskId, pending.agentId, 'intention_rejected', {
           reason: decision.reason
         })
       )

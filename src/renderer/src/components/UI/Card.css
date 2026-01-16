@@ -1,0 +1,132 @@
+/**
+ * Card Component Styles
+ * Glass-effect container with optional border glow
+ */
+
+/* Base card styles */
+.ui-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  transition: all var(--transition-fast);
+}
+
+/* Padding variants */
+.ui-card--padding-none {
+  padding: 0;
+}
+
+.ui-card--padding-sm {
+  padding: var(--space-sm);
+}
+
+.ui-card--padding-md {
+  padding: var(--space-md);
+}
+
+.ui-card--padding-lg {
+  padding: var(--space-lg);
+}
+
+/* Variant: default */
+.ui-card--default {
+  background: var(--card-bg);
+}
+
+/* Variant: elevated */
+.ui-card--elevated {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+/* Variant: outline */
+.ui-card--outline {
+  background: transparent;
+  border-color: var(--border-subtle);
+}
+
+/* Hoverable state */
+.ui-card--hoverable:hover {
+  border-color: var(--card-hover-border);
+  box-shadow: var(--glow-border-secondary);
+}
+
+/* Clickable state */
+.ui-card--clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-card--clickable:hover {
+  border-color: var(--card-hover-border);
+  box-shadow: var(--glow-border-secondary);
+}
+
+.ui-card--clickable:active {
+  transform: scale(0.99);
+}
+
+.ui-card--clickable:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Card compound components */
+.ui-card__header {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.ui-card__body {
+  padding: var(--space-lg);
+}
+
+.ui-card__footer {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+/* When card has padding, compound components should not double-pad */
+.ui-card--padding-sm .ui-card__header,
+.ui-card--padding-md .ui-card__header,
+.ui-card--padding-lg .ui-card__header {
+  margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm)) var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.ui-card--padding-md .ui-card__header,
+.ui-card--padding-lg .ui-card__header {
+  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md);
+  padding: var(--space-md);
+}
+
+.ui-card--padding-lg .ui-card__header {
+  margin: calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg)) var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.ui-card--padding-sm .ui-card__footer,
+.ui-card--padding-md .ui-card__footer,
+.ui-card--padding-lg .ui-card__footer {
+  margin: var(--space-sm) calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm));
+  padding: var(--space-sm);
+}
+
+.ui-card--padding-md .ui-card__footer,
+.ui-card--padding-lg .ui-card__footer {
+  margin: var(--space-md) calc(-1 * var(--space-md)) calc(-1 * var(--space-md));
+  padding: var(--space-md);
+}
+
+.ui-card--padding-lg .ui-card__footer {
+  margin: var(--space-lg) calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg));
+  padding: var(--space-md) var(--space-lg);
+}

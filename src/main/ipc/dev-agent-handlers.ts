@@ -1,24 +1,24 @@
 /**
- * IPC handlers for task agent operations.
- * Exposes task agent lifecycle to renderer process.
+ * IPC handlers for dev agent operations.
+ * Exposes dev agent lifecycle to renderer process.
  */
 
 import { ipcMain } from 'electron'
 import {
-  createTaskAgent,
-  registerTaskAgent,
-  getTaskAgent,
-  removeTaskAgent,
-  getAllTaskAgents,
-  clearTaskAgents
+  createDevAgent,
+  registerDevAgent,
+  getDevAgent,
+  removeDevAgent,
+  getAllDevAgents,
+  clearDevAgents
 } from '../agents'
 import type { Task, DAGGraph } from '@shared/types'
-import type { TaskAgentConfig } from '../agents/task-types'
+import type { DevAgentConfig } from '../agents/dev-types'
 import type { IntentionDecision } from '../agents/harness-types'
 
-export function registerTaskAgentHandlers(): void {
+export function registerDevAgentHandlers(): void {
   ipcMain.handle(
-    'task-agent:create',
+    'dev-agent:create',
     async (
       _event,
       featureId: string,
@@ -27,13 +27,13 @@ export function registerTaskAgentHandlers(): void {
       graph: DAGGraph,
       claudeMd?: string,
       featureGoal?: string,
-      config?: Partial<TaskAgentConfig>
+      config?: Partial<DevAgentConfig>
     ) => {
-      const agent = createTaskAgent(featureId, taskId, config)
+      const agent = createDevAgent(featureId, taskId, config)
       const initialized = await agent.initialize(task, graph, claudeMd, featureGoal)
 
       if (initialized) {
-        registerTaskAgent(agent)
+        registerDevAgent(agent)
       }
 
       return {
@@ -43,58 +43,58 @@ export function registerTaskAgentHandlers(): void {
     }
   )
 
-  ipcMain.handle('task-agent:get-state', async (_event, taskId: string) => {
-    const agent = getTaskAgent(taskId)
+  ipcMain.handle('dev-agent:get-state', async (_event, taskId: string) => {
+    const agent = getDevAgent(taskId)
     return agent?.getState() || null
   })
 
-  ipcMain.handle('task-agent:get-status', async (_event, taskId: string) => {
-    const agent = getTaskAgent(taskId)
+  ipcMain.handle('dev-agent:get-status', async (_event, taskId: string) => {
+    const agent = getDevAgent(taskId)
     return agent?.getStatus() || null
   })
 
-  ipcMain.handle('task-agent:get-all', async () => {
-    return getAllTaskAgents().map((a) => a.getState())
+  ipcMain.handle('dev-agent:get-all', async () => {
+    return getAllDevAgents().map((a) => a.getState())
   })
 
   ipcMain.handle(
-    'task-agent:propose-intention',
+    'dev-agent:propose-intention',
     async (_event, taskId: string, intention?: string) => {
-      const agent = getTaskAgent(taskId)
+      const agent = getDevAgent(taskId)
       if (!agent) return false
       return agent.proposeIntention(intention)
     }
   )
 
   ipcMain.handle(
-    'task-agent:receive-approval',
+    'dev-agent:receive-approval',
     async (_event, taskId: string, decision: IntentionDecision) => {
-      const agent = getTaskAgent(taskId)
+      const agent = getDevAgent(taskId)
       if (!agent) return false
       agent.receiveApproval(decision)
       return true
     }
   )
 
-  ipcMain.handle('task-agent:execute', async (_event, taskId: string) => {
-    const agent = getTaskAgent(taskId)
+  ipcMain.handle('dev-agent:execute', async (_event, taskId: string) => {
+    const agent = getDevAgent(taskId)
     if (!agent) return { success: false, taskId, error: 'Agent not found' }
     return agent.execute()
   })
 
   ipcMain.handle(
-    'task-agent:cleanup',
+    'dev-agent:cleanup',
     async (_event, taskId: string, removeWorktree: boolean = false) => {
-      const agent = getTaskAgent(taskId)
+      const agent = getDevAgent(taskId)
       if (!agent) return false
       await agent.cleanup(removeWorktree)
-      removeTaskAgent(taskId)
+      removeDevAgent(taskId)
       return true
     }
   )
 
-  ipcMain.handle('task-agent:clear-all', async () => {
-    clearTaskAgents()
+  ipcMain.handle('dev-agent:clear-all', async () => {
+    clearDevAgents()
     return true
   })
 }

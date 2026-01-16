@@ -1,0 +1,255 @@
+/**
+ * NodeDialog Component Styles
+ * Task editing dialog with status badges and loop progress
+ */
+
+.node-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Status badge styling */
+.node-dialog__status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.node-dialog__status-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.node-dialog__status-badge {
+  display: inline-block;
+  padding: 0.25rem var(--space-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  border: 1px solid;
+}
+
+/* Status badge variants */
+.node-dialog__status-badge--blocked,
+.node-dialog__status-badge--ready_for_dev {
+  background: var(--color-info-dim);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary-dim);
+}
+
+.node-dialog__status-badge--in_progress {
+  background: var(--color-warning-dim);
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.node-dialog__status-badge--ready_for_qa {
+  background: var(--accent-secondary-dim);
+  color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+}
+
+.node-dialog__status-badge--ready_for_merge {
+  background: var(--color-warning-dim);
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.node-dialog__status-badge--completed {
+  background: var(--color-success-dim);
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.node-dialog__status-badge--failed {
+  background: var(--color-error-dim);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+/* Loop progress section */
+.node-dialog__loop-section {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-md);
+}
+
+.node-dialog__loop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.node-dialog__loop-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.node-dialog__loop-status {
+  font-size: 0.75rem;
+  padding: 0.25rem var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.node-dialog__loop-status--running {
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary);
+}
+
+.node-dialog__loop-status--completed {
+  background: var(--color-success-dim);
+  color: var(--color-success);
+}
+
+.node-dialog__loop-status--failed {
+  background: var(--color-error-dim);
+  color: var(--color-error);
+}
+
+.node-dialog__loop-status--aborted {
+  background: var(--color-warning-dim);
+  color: var(--color-warning);
+}
+
+/* Checklist items */
+.node-dialog__checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.node-dialog__checklist-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+}
+
+.node-dialog__checklist-icon {
+  font-family: monospace;
+}
+
+.node-dialog__checklist-icon--pass { color: var(--color-success); }
+.node-dialog__checklist-icon--fail { color: var(--color-error); }
+.node-dialog__checklist-icon--pending { color: var(--color-warning); }
+.node-dialog__checklist-icon--skipped { color: var(--text-muted); }
+
+.node-dialog__checklist-label {
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.node-dialog__checklist-status {
+  font-size: 0.75rem;
+}
+
+/* Abort button */
+.node-dialog__abort-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.node-dialog__abort-btn:hover {
+  background: rgba(255, 51, 102, 0.3);
+}
+
+.node-dialog__abort-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Error/exit messages */
+.node-dialog__loop-error {
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--color-error);
+  background: var(--color-error-dim);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.node-dialog__loop-exit {
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Lock toggle row */
+.node-dialog__controls-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.node-dialog__lock-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.node-dialog__lock-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.node-dialog__lock-btn--locked {
+  background: var(--color-warning-dim);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.node-dialog__lock-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Disabled chat button */
+.node-dialog__chat-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-default);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.node-dialog__chat-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Field styling */
+.node-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.node-dialog__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}

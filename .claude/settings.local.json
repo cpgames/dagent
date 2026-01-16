@@ -31,7 +31,11 @@
       "Bash(git branch:*)",
       "Bash(git ls-tree:*)",
       "Bash(tree:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cd /d D:cpgamestoolsDagentTest)",
+      "Bash(git -C:*)",
+      "Bash(cd:*)",
+      "Bash(npm run dev:*)"
     ]
   }
 }

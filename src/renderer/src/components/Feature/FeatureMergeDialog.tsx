@@ -2,6 +2,27 @@ import type { JSX } from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import type { Feature } from '@shared/types'
 import type { MergeType } from '../Kanban'
+import {
+  Dialog,
+  DialogHeader,
+  DialogBody,
+  DialogFooter,
+  Button,
+  Input,
+  Textarea,
+  Checkbox,
+  Select,
+  type SelectOption
+} from '../UI'
+import './FeatureMergeDialog.css'
+
+// Local type matching git manager BranchInfo
+interface BranchInfo {
+  name: string
+  current: boolean
+  commit: string
+  label: string
+}
 
 interface FeatureMergeDialogProps {
   isOpen: boolean
@@ -23,9 +44,47 @@ export function FeatureMergeDialog({
   const [deleteBranch, setDeleteBranch] = useState(false)
   const [prUrl, setPrUrl] = useState<string | null>(null)
 
+  // Branch selection state
+  const [branches, setBranches] = useState<BranchInfo[]>([])
+  const [targetBranch, setTargetBranch] = useState<string>('')
+  const [loadingBranches, setLoadingBranches] = useState(false)
+
   // PR form state
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
+
+  // Load branches when dialog opens
+  useEffect(() => {
+    if (isOpen && feature) {
+      setLoadingBranches(true)
+      Promise.all([
+        window.electronAPI.git.listBranches(),
+        window.electronAPI.git.getCurrentBranch()
+      ])
+        .then(([branchList, currentBranch]) => {
+          // Filter out feature branches (only show main/master and other non-feature branches)
+          const filteredBranches = branchList.filter(
+            (b) => !b.name.startsWith('feature/') && b.name !== feature.branchName
+          )
+          setBranches(filteredBranches)
+
+          // Default to current branch, or first available branch
+          if (currentBranch && filteredBranches.some((b) => b.name === currentBranch)) {
+            setTargetBranch(currentBranch)
+          } else if (filteredBranches.length > 0) {
+            // Prefer main/master
+            const defaultBranch = filteredBranches.find((b) => b.name === 'main' || b.name === 'master')
+            setTargetBranch(defaultBranch?.name || filteredBranches[0].name)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load branches:', err)
+        })
+        .finally(() => {
+          setLoadingBranches(false)
+        })
+    }
+  }, [isOpen, feature])
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -34,7 +93,11 @@ export function FeatureMergeDialog({
       setError(null)
       setPrUrl(null)
       setPrTitle(`Merge feature: ${feature.name}`)
-      setPrBody(`## Summary\nMerge completed feature "${feature.name}" into main branch.\n\n## Changes\n- Feature implementation`)
+      setPrBody(`## Summary
+Merge completed feature "${feature.name}" into main branch.
+
+## Changes
+- Feature implementation`)
     }
   }, [isOpen, feature])
 
@@ -48,14 +111,14 @@ export function FeatureMergeDialog({
 
   // AI Merge flow
   const handleAIMerge = async () => {
-    if (!feature) return
+    if (!feature || !targetBranch) return
 
     try {
       setStatus('initializing')
       setError(null)
 
-      // Create and initialize agent
-      const createResult = await window.electronAPI.featureMerge.create(feature.id, 'main')
+      // Create and initialize agent with selected target branch
+      const createResult = await window.electronAPI.featureMerge.create(feature.id, targetBranch)
       if (!createResult.success) {
         throw new Error(createResult.state?.error || 'Failed to initialize merge agent')
       }
@@ -101,14 +164,11 @@ export function FeatureMergeDialog({
         throw new Error('GitHub CLI is not authenticated. Run `gh auth login` to authenticate.')
       }
 
-      // Get feature branch name
-      const featureBranch = `feature/${feature.id}/main`
-
-      // Create PR
+      // Create PR using branch name from feature record
       const result = await window.electronAPI.pr.create({
         title: prTitle,
         body: prBody,
-        head: featureBranch,
+        head: feature.branchName,
         base: 'main'
       })
 
@@ -124,84 +184,88 @@ export function FeatureMergeDialog({
     }
   }
 
-  if (!isOpen || !feature) return null
+  if (!feature) return null
 
   const isProcessing = status === 'initializing' || status === 'checking' || status === 'merging' || status === 'creating-pr'
   const showPRForm = mergeType === 'pr' && status === 'idle'
   const showMergeOptions = mergeType === 'ai' && status === 'idle'
 
+  // Convert branches to Select options
+  const branchOptions: SelectOption[] = branches.map((branch) => ({
+    value: branch.name,
+    label: `${branch.name}${branch.current ? ' (current)' : ''}`
+  }))
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={isProcessing ? undefined : handleClose} />
+    <Dialog
+      open={isOpen}
+      onClose={handleClose}
+      size="md"
+      closeOnBackdrop={!isProcessing}
+      closeOnEscape={!isProcessing}
+    >
+      <DialogHeader title={mergeType === 'ai' ? 'AI Merge' : 'Create Pull Request'} />
 
-      {/* Dialog */}
-      <div
-        className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-lg mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">
-            {mergeType === 'ai' ? 'AI Merge' : 'Create Pull Request'}
-          </h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={isProcessing}
-            className="text-gray-400 hover:text-white focus:outline-none disabled:opacity-50"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
+      <DialogBody>
         {/* Feature info */}
-        <div className="mb-4 p-3 bg-gray-700/50 rounded-md">
-          <p className="text-sm text-gray-300">
-            Feature: <span className="font-medium text-white">{feature.name}</span>
+        <div className="merge-dialog__feature-info">
+          <p className="merge-dialog__feature-name">
+            Feature: <span className="merge-dialog__feature-name-value">{feature.name}</span>
           </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Branch: feature/{feature.id}/main → main
+          <p className="merge-dialog__branch-info">
+            Branch: {feature.branchName} &rarr; {targetBranch || 'loading...'}
           </p>
         </div>
 
         {/* AI Merge Options */}
         {showMergeOptions && (
-          <div className="mb-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={deleteBranch}
-                onChange={(e) => setDeleteBranch(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
-              />
-              <span className="text-sm text-gray-300">Delete feature branch after merge</span>
-            </label>
+          <div className="merge-dialog__options">
+            {/* Target branch selection */}
+            <div className="merge-dialog__field">
+              <label className="merge-dialog__label">Target Branch</label>
+              {loadingBranches ? (
+                <div className="merge-dialog__loading">
+                  <svg className="merge-dialog__loading-spinner" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading branches...
+                </div>
+              ) : (
+                <Select
+                  value={targetBranch}
+                  onChange={(e) => setTargetBranch(e.target.value)}
+                  options={branchOptions}
+                />
+              )}
+            </div>
+
+            {/* Delete branch checkbox */}
+            <Checkbox
+              checked={deleteBranch}
+              onChange={(e) => setDeleteBranch(e.target.checked)}
+              label="Delete feature branch after merge"
+            />
           </div>
         )}
 
         {/* PR Form */}
         {showPRForm && (
-          <div className="space-y-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">PR Title</label>
-              <input
+          <div className="merge-dialog__pr-form">
+            <div className="merge-dialog__field">
+              <label className="merge-dialog__label">PR Title</label>
+              <Input
                 type="text"
                 value={prTitle}
                 onChange={(e) => setPrTitle(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
-              <textarea
+            <div className="merge-dialog__field">
+              <label className="merge-dialog__label">Description</label>
+              <Textarea
                 value={prBody}
                 onChange={(e) => setPrBody(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                minRows={4}
               />
             </div>
           </div>
@@ -209,13 +273,13 @@ export function FeatureMergeDialog({
 
         {/* Status/Progress */}
         {isProcessing && (
-          <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700 rounded-md">
-            <div className="flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24">
+          <div className="merge-dialog__status merge-dialog__status--processing">
+            <div className="merge-dialog__status-content">
+              <svg className="merge-dialog__loading-spinner" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span className="text-sm text-blue-300">
+              <span className="merge-dialog__status-text merge-dialog__status-text--processing">
                 {status === 'initializing' && 'Initializing merge agent...'}
                 {status === 'checking' && 'Checking branches...'}
                 {status === 'merging' && 'Merging branches...'}
@@ -227,8 +291,8 @@ export function FeatureMergeDialog({
 
         {/* Success */}
         {status === 'completed' && (
-          <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-md">
-            <p className="text-sm text-green-300 font-medium">
+          <div className="merge-dialog__status merge-dialog__status--success">
+            <p className="merge-dialog__status-text merge-dialog__status-text--success">
               {mergeType === 'ai' ? 'Merge completed successfully!' : 'Pull request created!'}
             </p>
             {prUrl && (
@@ -236,7 +300,7 @@ export function FeatureMergeDialog({
                 href={prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-400 hover:text-blue-300 mt-1 block"
+                className="merge-dialog__pr-link"
               >
                 View PR: {prUrl}
               </a>
@@ -246,32 +310,29 @@ export function FeatureMergeDialog({
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md">
-            <p className="text-sm text-red-300">{error}</p>
+          <div className="merge-dialog__status merge-dialog__status--error">
+            <p className="merge-dialog__status-text merge-dialog__status-text--error">{error}</p>
           </div>
         )}
+      </DialogBody>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={isProcessing}
-            className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-500"
+      <DialogFooter>
+        <Button
+          variant="secondary"
+          onClick={handleClose}
+          disabled={isProcessing}
+        >
+          {status === 'completed' ? 'Close' : 'Cancel'}
+        </Button>
+        {status === 'idle' && (
+          <Button
+            variant="primary"
+            onClick={mergeType === 'ai' ? handleAIMerge : handleCreatePR}
           >
-            {status === 'completed' ? 'Close' : 'Cancel'}
-          </button>
-          {status === 'idle' && (
-            <button
-              type="button"
-              onClick={mergeType === 'ai' ? handleAIMerge : handleCreatePR}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {mergeType === 'ai' ? 'Start Merge' : 'Create PR'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+            {mergeType === 'ai' ? 'Start Merge' : 'Create PR'}
+          </Button>
+        )}
+      </DialogFooter>
+    </Dialog>
   )
 }

@@ -1,4 +1,4 @@
-import type { Feature, DAGGraph, ChatHistory, AgentLog, TaskAgentSession, TaskAgentMessage } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage } from '@shared/types';
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
@@ -168,31 +168,31 @@ export class FeatureStore {
   }
 
   /**
-   * Save task agent session.
+   * Save dev agent session.
    */
-  async saveTaskSession(featureId: string, taskId: string, session: TaskAgentSession): Promise<void> {
+  async saveTaskSession(featureId: string, taskId: string, session: DevAgentSession): Promise<void> {
     const filePath = paths.getTaskSessionPath(this.projectRoot, featureId, taskId);
     await writeJson(filePath, session);
   }
 
   /**
-   * Load task agent session.
+   * Load dev agent session.
    * @returns Session, or null if not found.
    */
-  async loadTaskSession(featureId: string, taskId: string): Promise<TaskAgentSession | null> {
+  async loadTaskSession(featureId: string, taskId: string): Promise<DevAgentSession | null> {
     const filePath = paths.getTaskSessionPath(this.projectRoot, featureId, taskId);
-    return readJson<TaskAgentSession>(filePath);
+    return readJson<DevAgentSession>(filePath);
   }
 
   /**
-   * Append a message to an existing task session.
+   * Append a message to an existing dev agent session.
    * Creates session if it doesn't exist.
    */
   async appendSessionMessage(
     featureId: string,
     taskId: string,
-    message: TaskAgentMessage,
-    sessionDefaults?: Partial<TaskAgentSession>
+    message: DevAgentMessage,
+    sessionDefaults?: Partial<DevAgentSession>
   ): Promise<void> {
     let session = await this.loadTaskSession(featureId, taskId);
     if (!session) {

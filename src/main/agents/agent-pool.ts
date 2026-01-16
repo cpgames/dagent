@@ -63,64 +63,28 @@ export class AgentPool extends EventEmitter {
 
   /**
    * Check if we can spawn a new agent of given type.
+   * No limits for task/merge/qa agents - spawn as many as needed.
+   * Only harness is limited to one instance.
    */
   canSpawn(type: AgentType): boolean {
-    const activeAgents = this.getAgents().filter((a) => a.status !== 'terminated')
-    const totalActive = activeAgents.length
-
-    if (totalActive >= this.config.maxAgents) return false
-
     if (type === 'harness') {
       // Only one harness allowed
       return !this.harnessId || this.agents.get(this.harnessId)?.status === 'terminated'
     }
 
-    if (type === 'merge') {
-      const activeMerge = activeAgents.filter((a) => a.type === 'merge' && a.status === 'busy')
-        .length
-      return activeMerge < this.config.maxMergeAgents
-    }
-
-    if (type === 'task') {
-      const activeTasks = activeAgents.filter((a) => a.type === 'task' && a.status === 'busy')
-        .length
-      return activeTasks < this.config.maxTaskAgents
-    }
-
-    if (type === 'qa') {
-      const activeQA = activeAgents.filter((a) => a.type === 'qa' && a.status === 'busy').length
-      return activeQA < this.config.maxQAAgents
-    }
-
-    return false
+    // No limits for task, merge, or qa agents
+    return true
   }
 
   /**
    * Count available slots for a given agent type.
+   * Returns Infinity for task/merge/qa (unlimited), 1 or 0 for harness.
    */
   getAvailableSlots(type: AgentType): number {
-    const activeAgents = this.getAgents().filter((a) => a.status !== 'terminated')
-
     if (type === 'harness') return this.canSpawn('harness') ? 1 : 0
 
-    if (type === 'merge') {
-      const activeMerge = activeAgents.filter((a) => a.type === 'merge' && a.status === 'busy')
-        .length
-      return Math.max(0, this.config.maxMergeAgents - activeMerge)
-    }
-
-    if (type === 'task') {
-      const activeTasks = activeAgents.filter((a) => a.type === 'task' && a.status === 'busy')
-        .length
-      return Math.max(0, this.config.maxTaskAgents - activeTasks)
-    }
-
-    if (type === 'qa') {
-      const activeQA = activeAgents.filter((a) => a.type === 'qa' && a.status === 'busy').length
-      return Math.max(0, this.config.maxQAAgents - activeQA)
-    }
-
-    return 0
+    // Unlimited slots for task, merge, and qa agents
+    return Infinity
   }
 
   /**

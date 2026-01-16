@@ -1,0 +1,144 @@
+/**
+ * Radio Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Radio Group wrapper */
+.ui-radio-group {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.ui-radio-group--vertical {
+  flex-direction: column;
+}
+
+.ui-radio-group--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+/* Individual radio wrapper */
+.ui-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-radio--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Hide native radio */
+.ui-radio__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+
+/* Custom radio visual - circular */
+.ui-radio__circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  transition: all var(--transition-fast);
+}
+
+/* Size variants for circle */
+.ui-radio--sm .ui-radio__circle {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ui-radio--md .ui-radio__circle {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.ui-radio--lg .ui-radio__circle {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Hover state */
+.ui-radio:hover:not(.ui-radio--disabled) .ui-radio__circle {
+  border-color: var(--accent-secondary);
+  box-shadow: var(--glow-border-secondary);
+}
+
+/* Focus state */
+.ui-radio__input:focus-visible + .ui-radio__circle {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Checked state */
+.ui-radio__input:checked + .ui-radio__circle {
+  border-color: var(--accent-primary);
+}
+
+.ui-radio:hover:not(.ui-radio--disabled) .ui-radio__input:checked + .ui-radio__circle {
+  border-color: var(--accent-primary-bright);
+  box-shadow: var(--glow-primary);
+}
+
+/* Inner dot for checked state */
+.ui-radio__dot {
+  border-radius: var(--radius-full);
+  background: var(--accent-primary);
+  opacity: 0;
+  transform: scale(0);
+  transition: all var(--transition-fast);
+}
+
+.ui-radio__input:checked + .ui-radio__circle .ui-radio__dot {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Dot sizes */
+.ui-radio--sm .ui-radio__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+}
+
+.ui-radio--md .ui-radio__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+.ui-radio--lg .ui-radio__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+/* Label */
+.ui-radio__label {
+  color: var(--text-primary);
+  transition: color var(--transition-fast);
+}
+
+.ui-radio--sm .ui-radio__label {
+  font-size: 0.75rem;
+}
+
+.ui-radio--md .ui-radio__label {
+  font-size: 0.875rem;
+}
+
+.ui-radio--lg .ui-radio__label {
+  font-size: 1rem;
+}
+
+.ui-radio--disabled .ui-radio__label {
+  color: var(--text-disabled);
+}

@@ -2,7 +2,7 @@
  * MessageBus - Publish/Subscribe Communication for Inter-Agent Messages
  *
  * Provides a singleton message bus for decoupled communication between
- * TaskAgent and HarnessAgent using EventEmitter patterns.
+ * DevAgent and HarnessAgent using EventEmitter patterns.
  */
 
 import { EventEmitter } from 'events'
@@ -116,9 +116,9 @@ export function createMessage(
 }
 
 /**
- * Create a message from TaskAgent to HarnessAgent.
+ * Create a message from DevAgent to HarnessAgent.
  */
-export function createTaskToHarnessMessage(
+export function createDevToHarnessMessage(
   taskId: string,
   agentId: string,
   type: InterAgentMessageType,
@@ -134,9 +134,9 @@ export function createTaskToHarnessMessage(
 }
 
 /**
- * Create a message from HarnessAgent to TaskAgent.
+ * Create a message from HarnessAgent to DevAgent.
  */
-export function createHarnessToTaskMessage(
+export function createHarnessToDevMessage(
   taskId: string,
   agentId: string,
   type: InterAgentMessageType,

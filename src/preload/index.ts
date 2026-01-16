@@ -23,7 +23,7 @@ import type {
   DeleteTaskResult,
   RemoveDependencyInput,
   RemoveDependencyResult,
-  TaskAgentSession
+  DevAgentSession
 } from '@shared/types'
 import type {
   ProjectContext,
@@ -37,7 +37,8 @@ import type {
   ExecutionConfig,
   ExecutionState,
   ExecutionSnapshot,
-  NextTasksResult
+  NextTasksResult,
+  TaskLoopStatus
 } from '../main/dag-engine/orchestrator-types'
 import type {
   GitManagerConfig,
@@ -67,14 +68,22 @@ import type {
 } from '../main/agents/harness-types'
 import type { AgentQueryOptions, AgentStreamEvent } from '../main/agent/types'
 import type {
-  TaskAgentState,
-  TaskAgentStatus,
-  TaskAgentConfig,
+  DevAgentState,
+  DevAgentStatus,
+  DevAgentConfig,
   TaskExecutionResult
-} from '../main/agents/task-types'
+} from '../main/agents/dev-types'
 import type { MergeAgentState, MergeAgentStatus } from '../main/agents/merge-types'
 import type { CreatePRRequest, CreatePRResult, GhCliStatus } from '../main/github'
 import type { FeatureMergeAgentState, FeatureMergeResult } from '../main/agents/feature-merge-types'
+import type {
+  CreateSpecInput,
+  CreateSpecResult,
+  UpdateSpecInput,
+  UpdateSpecResult,
+  GetSpecInput,
+  GetSpecResult
+} from '../main/agents/feature-spec-types'
 
 /**
  * Preload script for DAGent.
@@ -146,7 +155,7 @@ const electronAPI = {
       ipcRenderer.invoke('storage:deleteNode', featureId, nodeId),
 
     // Task session operations
-    loadTaskSession: (featureId: string, taskId: string): Promise<TaskAgentSession | null> =>
+    loadTaskSession: (featureId: string, taskId: string): Promise<DevAgentSession | null> =>
       ipcRenderer.invoke('storage:loadTaskSession', featureId, taskId),
     listTaskSessions: (featureId: string): Promise<string[]> =>
       ipcRenderer.invoke('storage:listTaskSessions', featureId)
@@ -235,7 +244,21 @@ const electronAPI = {
       ipcRenderer.invoke('execution:get-snapshot'),
     updateConfig: (config: Partial<ExecutionConfig>): Promise<ExecutionConfig> =>
       ipcRenderer.invoke('execution:update-config', config),
-    reset: (): Promise<{ success: boolean }> => ipcRenderer.invoke('execution:reset')
+    reset: (): Promise<{ success: boolean }> => ipcRenderer.invoke('execution:reset'),
+
+    // Loop status methods (Ralph Loop)
+    getLoopStatus: (taskId: string): Promise<TaskLoopStatus | null> =>
+      ipcRenderer.invoke('execution:get-loop-status', taskId),
+    getAllLoopStatuses: (): Promise<Record<string, TaskLoopStatus>> =>
+      ipcRenderer.invoke('execution:get-all-loop-statuses'),
+    abortLoop: (taskId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:abort-loop', taskId),
+    onLoopStatusUpdated: (callback: (status: TaskLoopStatus) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: TaskLoopStatus): void =>
+        callback(status)
+      ipcRenderer.on('task:loop-status-updated', handler)
+      return () => ipcRenderer.removeListener('task:loop-status-updated', handler)
+    }
   },
 
   // Git API
@@ -375,8 +398,8 @@ const electronAPI = {
     reset: (): Promise<boolean> => ipcRenderer.invoke('harness:reset')
   },
 
-  // Task Agent API
-  taskAgent: {
+  // Dev Agent API
+  devAgent: {
     create: (
       featureId: string,
       taskId: string,
@@ -384,10 +407,10 @@ const electronAPI = {
       graph: DAGGraph,
       claudeMd?: string,
       featureGoal?: string,
-      config?: Partial<TaskAgentConfig>
-    ): Promise<{ success: boolean; state: TaskAgentState }> =>
+      config?: Partial<DevAgentConfig>
+    ): Promise<{ success: boolean; state: DevAgentState }> =>
       ipcRenderer.invoke(
-        'task-agent:create',
+        'dev-agent:create',
         featureId,
         taskId,
         task,
@@ -396,20 +419,20 @@ const electronAPI = {
         featureGoal,
         config
       ),
-    getState: (taskId: string): Promise<TaskAgentState | null> =>
-      ipcRenderer.invoke('task-agent:get-state', taskId),
-    getStatus: (taskId: string): Promise<TaskAgentStatus | null> =>
-      ipcRenderer.invoke('task-agent:get-status', taskId),
-    getAll: (): Promise<TaskAgentState[]> => ipcRenderer.invoke('task-agent:get-all'),
+    getState: (taskId: string): Promise<DevAgentState | null> =>
+      ipcRenderer.invoke('dev-agent:get-state', taskId),
+    getStatus: (taskId: string): Promise<DevAgentStatus | null> =>
+      ipcRenderer.invoke('dev-agent:get-status', taskId),
+    getAll: (): Promise<DevAgentState[]> => ipcRenderer.invoke('dev-agent:get-all'),
     proposeIntention: (taskId: string, intention?: string): Promise<boolean> =>
-      ipcRenderer.invoke('task-agent:propose-intention', taskId, intention),
+      ipcRenderer.invoke('dev-agent:propose-intention', taskId, intention),
     receiveApproval: (taskId: string, decision: IntentionDecision): Promise<boolean> =>
-      ipcRenderer.invoke('task-agent:receive-approval', taskId, decision),
+      ipcRenderer.invoke('dev-agent:receive-approval', taskId, decision),
     execute: (taskId: string): Promise<TaskExecutionResult> =>
-      ipcRenderer.invoke('task-agent:execute', taskId),
+      ipcRenderer.invoke('dev-agent:execute', taskId),
     cleanup: (taskId: string, removeWorktree?: boolean): Promise<boolean> =>
-      ipcRenderer.invoke('task-agent:cleanup', taskId, removeWorktree),
-    clearAll: (): Promise<boolean> => ipcRenderer.invoke('task-agent:clear-all')
+      ipcRenderer.invoke('dev-agent:cleanup', taskId, removeWorktree),
+    clearAll: (): Promise<boolean> => ipcRenderer.invoke('dev-agent:clear-all')
   },
 
   // Merge Agent API
@@ -597,6 +620,16 @@ const electronAPI = {
       ipcRenderer.invoke('feature-merge:execute', featureId, deleteBranchOnSuccess),
     cleanup: (featureId: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('feature-merge:cleanup', featureId)
+  },
+
+  // PM Spec API (feature specification management for PM Agent)
+  pmSpec: {
+    createSpec: (input: CreateSpecInput): Promise<CreateSpecResult> =>
+      ipcRenderer.invoke('pm-spec:createSpec', input),
+    updateSpec: (input: UpdateSpecInput): Promise<UpdateSpecResult> =>
+      ipcRenderer.invoke('pm-spec:updateSpec', input),
+    getSpec: (input: GetSpecInput): Promise<GetSpecResult> =>
+      ipcRenderer.invoke('pm-spec:getSpec', input)
   }
 }
 

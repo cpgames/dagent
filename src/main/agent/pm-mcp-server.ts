@@ -11,8 +11,14 @@ import {
   pmUpdateTask,
   pmDeleteTask,
   pmAddDependency,
-  pmRemoveDependency
+  pmRemoveDependency,
+  getPMToolsFeatureContext
 } from '../ipc/pm-tools-handlers'
+import {
+  pmCreateSpec,
+  pmUpdateSpec,
+  pmGetSpec
+} from '../ipc/pm-spec-handlers'
 
 // Dynamic SDK imports for ES module compatibility
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,6 +185,322 @@ export async function createPMMcpServer(): Promise<unknown | null> {
             }]
           }
         }
+      ),
+      tool(
+        'CreateSpec',
+        'Create a new feature specification. Call this when user describes a new feature to capture goals, requirements, and acceptance criteria.',
+        {
+          featureName: z.string().describe('Human-readable name for the feature'),
+          initialGoals: z.array(z.string()).optional().describe('Initial high-level goals'),
+          initialRequirements: z.array(z.string()).optional().describe('Initial specific requirements'),
+          initialConstraints: z.array(z.string()).optional().describe('Any constraints or limitations'),
+          initialAcceptanceCriteria: z.array(z.string()).optional().describe('How to verify the feature is done')
+        },
+        async (args: {
+          featureName: string
+          initialGoals?: string[]
+          initialRequirements?: string[]
+          initialConstraints?: string[]
+          initialAcceptanceCriteria?: string[]
+        }) => {
+          const featureId = getPMToolsFeatureContext()
+          if (!featureId) {
+            return {
+              content: [{
+                type: 'text',
+                text: 'Error: No feature selected. Cannot create spec.'
+              }]
+            }
+          }
+          const result = await pmCreateSpec({
+            featureId,
+            featureName: args.featureName,
+            initialGoals: args.initialGoals,
+            initialRequirements: args.initialRequirements,
+            initialConstraints: args.initialConstraints,
+            initialAcceptanceCriteria: args.initialAcceptanceCriteria
+          })
+          return {
+            content: [{
+              type: 'text',
+              text: result.success
+                ? `Spec created for feature: ${args.featureName}`
+                : `Failed to create spec: ${result.error}`
+            }]
+          }
+        }
+      ),
+      tool(
+        'UpdateSpec',
+        'Update an existing feature specification. Use when user refines requirements in conversation.',
+        {
+          addGoals: z.array(z.string()).optional().describe('Goals to add'),
+          addRequirements: z.array(z.string()).optional().describe('Requirements to add'),
+          addConstraints: z.array(z.string()).optional().describe('Constraints to add'),
+          addAcceptanceCriteria: z.array(z.string()).optional().describe('Acceptance criteria to add'),
+          historyNote: z.string().optional().describe('Note about what changed (for history)')
+        },
+        async (args: {
+          addGoals?: string[]
+          addRequirements?: string[]
+          addConstraints?: string[]
+          addAcceptanceCriteria?: string[]
+          historyNote?: string
+        }) => {
+          const featureId = getPMToolsFeatureContext()
+          if (!featureId) {
+            return {
+              content: [{
+                type: 'text',
+                text: 'Error: No feature selected. Cannot update spec.'
+              }]
+            }
+          }
+          const result = await pmUpdateSpec({
+            featureId,
+            addGoals: args.addGoals,
+            addRequirements: args.addRequirements,
+            addConstraints: args.addConstraints,
+            addAcceptanceCriteria: args.addAcceptanceCriteria,
+            historyNote: args.historyNote
+          })
+          if (result.success) {
+            const parts: string[] = ['Spec updated.']
+            if (result.addedRequirementIds?.length) {
+              parts.push(`Added requirements: ${result.addedRequirementIds.join(', ')}`)
+            }
+            if (result.addedCriterionIds?.length) {
+              parts.push(`Added criteria: ${result.addedCriterionIds.join(', ')}`)
+            }
+            return { content: [{ type: 'text', text: parts.join(' ') }] }
+          }
+          return {
+            content: [{
+              type: 'text',
+              text: `Failed to update spec: ${result.error}`
+            }]
+          }
+        }
+      ),
+      tool(
+        'GetSpec',
+        'Get the current feature specification to understand requirements.',
+        {},
+        async () => {
+          const featureId = getPMToolsFeatureContext()
+          if (!featureId) {
+            return {
+              content: [{
+                type: 'text',
+                text: 'Error: No feature selected. Cannot get spec.'
+              }]
+            }
+          }
+          const result = await pmGetSpec({ featureId })
+          if (result.spec) {
+            const spec = result.spec
+            const lines = [
+              `Feature: ${spec.featureName}`,
+              '',
+              'Goals:',
+              spec.goals.length > 0 ? spec.goals.map(g => `- ${g}`).join('\n') : '  (none)',
+              '',
+              'Requirements:',
+              spec.requirements.length > 0
+                ? spec.requirements.map(r => `- [${r.completed ? 'x' : ' '}] ${r.id}: ${r.description}`).join('\n')
+                : '  (none)',
+              '',
+              'Constraints:',
+              spec.constraints.length > 0 ? spec.constraints.map(c => `- ${c}`).join('\n') : '  (none)',
+              '',
+              'Acceptance Criteria:',
+              spec.acceptanceCriteria.length > 0
+                ? spec.acceptanceCriteria.map(ac => `- [${ac.passed ? 'x' : ' '}] ${ac.id}: ${ac.description}`).join('\n')
+                : '  (none)'
+            ]
+            return { content: [{ type: 'text', text: lines.join('\n') }] }
+          }
+          return {
+            content: [{
+              type: 'text',
+              text: result.error || 'No spec found for this feature.'
+            }]
+          }
+        }
+      ),
+      tool(
+        'DecomposeSpec',
+        'Analyze the feature spec and suggest task decomposition. Call after creating or updating a spec to determine if multiple tasks are needed.',
+        {
+          forceDecompose: z.boolean().optional().describe('Force decomposition even for simple specs')
+        },
+        async (args: { forceDecompose?: boolean }) => {
+          const featureId = getPMToolsFeatureContext()
+          if (!featureId) {
+            return {
+              content: [{
+                type: 'text',
+                text: 'Error: No feature selected. Cannot analyze spec.'
+              }]
+            }
+          }
+          const result = await pmGetSpec({ featureId })
+          if (!result.spec) {
+            return {
+              content: [{
+                type: 'text',
+                text: 'No spec found. Create a spec first with CreateSpec.'
+              }]
+            }
+          }
+
+          const spec = result.spec
+          const requirementCount = spec.requirements.length
+
+          // Detect cross-cutting concerns by analyzing requirement text
+          const crossCuttingKeywords = ['api', 'ui', 'database', 'backend', 'frontend', 'migration', 'auth']
+          const concernsFound = new Set<string>()
+          for (const req of spec.requirements) {
+            const lower = req.description.toLowerCase()
+            for (const keyword of crossCuttingKeywords) {
+              if (lower.includes(keyword)) {
+                concernsFound.add(keyword)
+              }
+            }
+          }
+          const hasCrossCuttingConcerns = concernsFound.size >= 2
+
+          // Determine complexity
+          const isComplex = args.forceDecompose || requirementCount >= 3 || hasCrossCuttingConcerns
+
+          let reason: string
+          if (args.forceDecompose) {
+            reason = 'Forced decomposition requested'
+          } else if (requirementCount >= 3) {
+            reason = `${requirementCount} requirements detected (3+ = complex)`
+          } else if (hasCrossCuttingConcerns) {
+            reason = `Cross-cutting concerns detected: ${Array.from(concernsFound).join(', ')}`
+          } else {
+            reason = `Simple feature with ${requirementCount} requirement(s)`
+          }
+
+          // Generate suggested tasks for complex specs
+          interface SuggestedTask {
+            title: string
+            description: string
+            requirementIds: string[]
+            dependsOn: string[]
+          }
+          const suggestedTasks: SuggestedTask[] = []
+
+          if (isComplex && spec.requirements.length > 0) {
+            // Group requirements by detected concern
+            const apiReqs: typeof spec.requirements = []
+            const uiReqs: typeof spec.requirements = []
+            const dataReqs: typeof spec.requirements = []
+            const otherReqs: typeof spec.requirements = []
+
+            for (const req of spec.requirements) {
+              const lower = req.description.toLowerCase()
+              if (lower.includes('api') || lower.includes('endpoint') || lower.includes('backend')) {
+                apiReqs.push(req)
+              } else if (lower.includes('ui') || lower.includes('component') || lower.includes('frontend') || lower.includes('display')) {
+                uiReqs.push(req)
+              } else if (lower.includes('database') || lower.includes('migration') || lower.includes('schema') || lower.includes('model')) {
+                dataReqs.push(req)
+              } else {
+                otherReqs.push(req)
+              }
+            }
+
+            // Create tasks for each group
+            let taskIndex = 0
+            if (dataReqs.length > 0) {
+              suggestedTasks.push({
+                title: 'Data layer changes',
+                description: `Implement data/model changes: ${dataReqs.map(r => r.description).join('; ')}`,
+                requirementIds: dataReqs.map(r => r.id),
+                dependsOn: []
+              })
+              taskIndex++
+            }
+            if (apiReqs.length > 0) {
+              suggestedTasks.push({
+                title: 'API implementation',
+                description: `Implement API endpoints: ${apiReqs.map(r => r.description).join('; ')}`,
+                requirementIds: apiReqs.map(r => r.id),
+                dependsOn: dataReqs.length > 0 ? ['task-0'] : []
+              })
+              taskIndex++
+            }
+            if (uiReqs.length > 0) {
+              suggestedTasks.push({
+                title: 'UI implementation',
+                description: `Implement UI components: ${uiReqs.map(r => r.description).join('; ')}`,
+                requirementIds: uiReqs.map(r => r.id),
+                dependsOn: apiReqs.length > 0 ? ['task-1'] : (dataReqs.length > 0 ? ['task-0'] : [])
+              })
+              taskIndex++
+            }
+            if (otherReqs.length > 0) {
+              suggestedTasks.push({
+                title: 'Additional requirements',
+                description: `Implement: ${otherReqs.map(r => r.description).join('; ')}`,
+                requirementIds: otherReqs.map(r => r.id),
+                dependsOn: taskIndex > 0 ? [`task-${taskIndex - 1}`] : []
+              })
+            }
+
+            // If no grouping worked, create one task per requirement
+            if (suggestedTasks.length === 0) {
+              for (let i = 0; i < spec.requirements.length; i++) {
+                const req = spec.requirements[i]
+                suggestedTasks.push({
+                  title: req.description.substring(0, 50),
+                  description: req.description,
+                  requirementIds: [req.id],
+                  dependsOn: i > 0 ? [`task-${i - 1}`] : []
+                })
+              }
+            }
+          }
+
+          // Format response
+          const lines = [
+            `## Complexity Analysis`,
+            '',
+            `**Complex:** ${isComplex ? 'Yes' : 'No'}`,
+            `**Reason:** ${reason}`,
+            ''
+          ]
+
+          if (isComplex && suggestedTasks.length > 0) {
+            lines.push('## Suggested Tasks')
+            lines.push('')
+            for (let i = 0; i < suggestedTasks.length; i++) {
+              const task = suggestedTasks[i]
+              lines.push(`### Task ${i + 1}: ${task.title}`)
+              lines.push(`- Description: ${task.description}`)
+              lines.push(`- Requirements: ${task.requirementIds.join(', ')}`)
+              if (task.dependsOn.length > 0) {
+                lines.push(`- Depends on: Task ${task.dependsOn.map(d => parseInt(d.split('-')[1]) + 1).join(', Task ')}`)
+              }
+              lines.push('')
+            }
+            lines.push('Use CreateTask to create these tasks, adding dependencies as indicated.')
+          } else if (!isComplex) {
+            lines.push('## Recommendation')
+            lines.push('')
+            lines.push('Create a single task covering all requirements.')
+          }
+
+          return {
+            content: [{
+              type: 'text',
+              text: lines.join('\n')
+            }]
+          }
+        }
       )
     ]
   })
@@ -195,6 +517,10 @@ export function getPMToolNamesForAllowedTools(): string[] {
     'mcp__pm-tools__UpdateTask',
     'mcp__pm-tools__DeleteTask',
     'mcp__pm-tools__AddDependency',
-    'mcp__pm-tools__RemoveDependency'
+    'mcp__pm-tools__RemoveDependency',
+    'mcp__pm-tools__CreateSpec',
+    'mcp__pm-tools__UpdateSpec',
+    'mcp__pm-tools__GetSpec',
+    'mcp__pm-tools__DecomposeSpec'
   ]
 }

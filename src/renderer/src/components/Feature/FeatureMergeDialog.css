@@ -1,0 +1,142 @@
+/**
+ * FeatureMergeDialog Component Styles
+ * Merge/PR dialog with progress states
+ */
+
+.merge-dialog__feature-info {
+  padding: var(--space-md);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.merge-dialog__feature-name {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.merge-dialog__feature-name-value {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.merge-dialog__branch-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+/* Options section */
+.merge-dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.merge-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merge-dialog__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.merge-dialog__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.merge-dialog__loading-spinner {
+  width: 1rem;
+  height: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.merge-dialog__option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.merge-dialog__option-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* PR Form */
+.merge-dialog__pr-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+/* Status messages */
+.merge-dialog__status {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.merge-dialog__status--processing {
+  background: var(--color-info-dim);
+  border: 1px solid var(--accent-primary);
+}
+
+.merge-dialog__status--success {
+  background: var(--color-success-dim);
+  border: 1px solid var(--color-success);
+}
+
+.merge-dialog__status--error {
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+}
+
+.merge-dialog__status-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merge-dialog__status-text {
+  font-size: 0.875rem;
+}
+
+.merge-dialog__status-text--processing {
+  color: var(--accent-primary);
+}
+
+.merge-dialog__status-text--success {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.merge-dialog__status-text--error {
+  color: var(--color-error);
+}
+
+.merge-dialog__pr-link {
+  font-size: 0.875rem;
+  color: var(--accent-primary);
+  margin-top: var(--space-xs);
+  display: block;
+}
+
+.merge-dialog__pr-link:hover {
+  color: var(--accent-primary);
+  filter: brightness(1.2);
+}

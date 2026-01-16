@@ -15,7 +15,7 @@ export function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'DAGent',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

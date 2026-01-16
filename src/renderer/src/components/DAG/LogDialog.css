@@ -1,0 +1,123 @@
+/**
+ * LogDialog Component Styles
+ * Agent log viewer with filtering
+ */
+
+.log-dialog__filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.log-dialog__filter-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.log-dialog__filter-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.log-dialog__filter-btn {
+  padding: 0.25rem var(--space-sm);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-transform: capitalize;
+}
+
+.log-dialog__filter-btn--inactive {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.log-dialog__filter-btn--inactive:hover {
+  background: var(--bg-active);
+}
+
+.log-dialog__filter-btn--active {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+.log-dialog__count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Log entries container */
+.log-dialog__entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+.log-dialog__empty {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+}
+
+/* Log entry row */
+.log-dialog__entry {
+  background: var(--bg-base);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.log-dialog__entry-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.log-dialog__timestamp {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
+.log-dialog__badge {
+  padding: 0.125rem var(--space-sm);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+/* Agent badges */
+.log-dialog__badge--harness { background: var(--accent-secondary); }
+.log-dialog__badge--task { background: var(--accent-primary); }
+.log-dialog__badge--merge { background: var(--color-success); }
+.log-dialog__badge--pm { background: #6366f1; } /* Indigo */
+
+/* Type badges */
+.log-dialog__badge--intention { background: var(--bg-active); }
+.log-dialog__badge--approval { background: var(--color-success); }
+.log-dialog__badge--rejection { background: var(--color-error); }
+.log-dialog__badge--modification { background: var(--color-warning); }
+.log-dialog__badge--action { background: var(--accent-primary); }
+.log-dialog__badge--error { background: var(--color-error); }
+.log-dialog__badge--pm-query { background: #818cf8; } /* Indigo-400 */
+.log-dialog__badge--pm-response { background: #a5b4fc; } /* Indigo-300 */
+
+.log-dialog__task-id {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.log-dialog__content {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}

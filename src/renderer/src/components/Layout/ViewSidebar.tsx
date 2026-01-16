@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { useViewStore, type ViewType } from '../../stores'
+import './ViewSidebar.css'
 
 /**
  * Icon for Kanban view - grid/board layout
@@ -83,7 +84,7 @@ export function ViewSidebar(): JSX.Element {
   const { activeView, requestViewChange } = useViewStore()
 
   return (
-    <aside className="w-12 bg-gray-800 border-r border-gray-700 flex flex-col items-center py-2 gap-1">
+    <aside className="view-sidebar">
       {views.map(({ id, label, Icon }) => {
         const isActive = activeView === id
         return (
@@ -91,18 +92,11 @@ export function ViewSidebar(): JSX.Element {
             key={id}
             onClick={() => requestViewChange(id)}
             title={label}
-            className={`
-              w-10 h-10 flex items-center justify-center rounded-md transition-colors relative
-              ${isActive
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:bg-gray-700 hover:text-white'}
-            `}
+            className={`view-sidebar__button ${isActive ? 'view-sidebar__button--active' : ''}`}
           >
-            {/* Active indicator - right border */}
-            {isActive && (
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-500 rounded-l" />
-            )}
-            <Icon className="w-5 h-5" />
+            {/* Active indicator - right edge glow */}
+            {isActive && <span className="view-sidebar__indicator" />}
+            <Icon className="view-sidebar__icon" />
           </button>
         )
       })}

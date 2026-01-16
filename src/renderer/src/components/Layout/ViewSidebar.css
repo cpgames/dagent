@@ -1,0 +1,62 @@
+/**
+ * ViewSidebar Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+.view-sidebar {
+  width: 3rem;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  gap: var(--space-xs);
+}
+
+.view-sidebar__button {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.view-sidebar__button:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.view-sidebar__button--active {
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+}
+
+.view-sidebar__button--active:hover {
+  background: var(--bg-elevated);
+}
+
+/* Active indicator - right edge glow */
+.view-sidebar__indicator {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 1.5rem;
+  background: var(--accent-primary);
+  border-radius: 1px 0 0 1px;
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+.view-sidebar__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}

@@ -17,8 +17,8 @@ export const TOOL_PRESETS = {
   // QA Agent - read-only code review (no write/edit)
   qaAgent: ['Read', 'Glob', 'Grep', 'Bash'],
 
-  // PM Agent - read + full task management (CRUD + dependency inference)
-  pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask'],
+  // PM Agent - read + full task management (CRUD + dependency inference) + spec management + decomposition
+  pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask', 'CreateSpec', 'UpdateSpec', 'GetSpec', 'DecomposeSpec'],
 
   // No tools - basic chat only
   none: []

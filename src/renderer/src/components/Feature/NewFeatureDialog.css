@@ -1,0 +1,31 @@
+/**
+ * NewFeatureDialog Component Styles
+ * Feature creation dialog with validation
+ */
+
+.new-feature-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.new-feature-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.new-feature-dialog__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.new-feature-dialog__error {
+  padding: var(--space-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--color-error);
+}

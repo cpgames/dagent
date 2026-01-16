@@ -1,0 +1,175 @@
+/**
+ * FeatureCard Component Styles
+ * Feature cards with status-colored borders and glow effects
+ */
+
+.feature-card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-default);
+  border-left-width: 4px;
+}
+
+.feature-card:hover {
+  border-color: var(--card-hover-border);
+  box-shadow: var(--glow-border-secondary);
+}
+
+.feature-card:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Status border colors */
+.feature-card--not_started {
+  border-left-color: var(--accent-primary);
+}
+
+.feature-card--in_progress {
+  border-left-color: var(--color-warning);
+}
+
+.feature-card--needs_attention {
+  border-left-color: var(--color-error);
+}
+
+.feature-card--completed {
+  border-left-color: var(--color-success);
+}
+
+.feature-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.feature-card__title {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.feature-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* Action buttons - visible on hover */
+.feature-card__action-btn {
+  opacity: 0;
+  padding: var(--space-xs);
+  margin: calc(-1 * var(--space-xs));
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+
+.feature-card:hover .feature-card__action-btn {
+  opacity: 1;
+}
+
+.feature-card__action-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.feature-card__action-btn--start:hover {
+  color: var(--color-success);
+}
+
+.feature-card__action-btn--delete:hover {
+  color: var(--color-error);
+}
+
+.feature-card__action-btn--loading {
+  opacity: 1;
+  color: var(--color-success);
+  cursor: wait;
+}
+
+/* Icon sizing */
+.feature-card__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Footer actions (merge, archive) */
+.feature-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.feature-card__merge-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.875rem;
+  color: var(--accent-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.feature-card__merge-btn:hover {
+  color: var(--accent-primary-bright);
+}
+
+.feature-card__archive-btn {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.feature-card__archive-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Merge dropdown */
+.feature-card__dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: var(--space-xs);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown);
+  min-width: 120px;
+  padding: var(--space-xs) 0;
+}
+
+.feature-card__dropdown-item {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.feature-card__dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

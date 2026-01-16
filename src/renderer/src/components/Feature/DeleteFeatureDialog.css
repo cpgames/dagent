@@ -1,0 +1,44 @@
+/**
+ * DeleteFeatureDialog Component Styles
+ * Confirmation dialog for feature deletion
+ */
+
+.delete-feature-dialog__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.delete-feature-dialog__message {
+  color: var(--text-secondary);
+}
+
+.delete-feature-dialog__feature-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.delete-feature-dialog__warning {
+  padding: var(--space-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--color-error);
+}
+
+.delete-feature-dialog__warning-title {
+  font-weight: 500;
+  margin-bottom: var(--space-xs);
+}
+
+.delete-feature-dialog__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.delete-feature-dialog__option-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}

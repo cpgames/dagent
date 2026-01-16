@@ -1,6 +1,7 @@
 import { useEffect, useRef, type JSX, type ReactNode } from 'react'
 import { useGitStore, useProjectStore } from '../../stores'
 import { GitStatus } from '../Git'
+import './StatusBar.css'
 
 /** Status refresh interval in milliseconds (30 seconds) */
 const STATUS_REFRESH_INTERVAL = 30_000
@@ -64,20 +65,17 @@ export function StatusBar({ children }: StatusBarProps): JSX.Element {
   }, [loadBranch, refreshStatus])
 
   return (
-    <footer className="h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-between px-3 text-xs overflow-hidden">
+    <footer className="status-bar">
       {/* Left section: Project path */}
-      <div className="flex items-center overflow-hidden min-w-0 flex-shrink">
+      <div className="status-bar__left">
         {projectPath && (
-          <span
-            className="text-gray-400 truncate max-w-64"
-            title={projectPath}
-          >
+          <span className="status-bar__path" title={projectPath}>
             {truncatePath(projectPath)}
           </span>
         )}
       </div>
       {/* Right section: Auth and git status */}
-      <div className="flex items-center gap-3 overflow-hidden flex-shrink-0">
+      <div className="status-bar__right">
         {children}
         <GitStatus />
       </div>
