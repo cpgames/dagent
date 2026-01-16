@@ -1,0 +1,146 @@
+/**
+ * AgentConfigPanel Component Styles
+ * Agent configuration panel with synthwave theming
+ */
+
+.agent-config {
+  padding: var(--space-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+/* Header section */
+.agent-config__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.agent-config__header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.agent-config__title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.agent-config__close-btn {
+  padding: var(--space-xs);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+
+.agent-config__close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.agent-config__close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Status badges */
+.agent-config__status-badge {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  text-transform: capitalize;
+}
+
+.agent-config__status-badge--idle {
+  background: var(--color-success-dim);
+  color: var(--color-success);
+  border-color: rgba(0, 255, 136, 0.3);
+}
+
+.agent-config__status-badge--busy {
+  background: var(--color-warning-dim);
+  color: var(--color-warning);
+  border-color: rgba(255, 149, 0, 0.3);
+}
+
+.agent-config__status-badge--offline {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+/* Current activity display */
+.agent-config__activity {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm);
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid var(--accent-primary-dim);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  color: var(--accent-primary);
+}
+
+/* Form fields */
+.agent-config__field {
+  margin-bottom: var(--space-lg);
+}
+
+.agent-config__label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.agent-config__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+/* Checkbox field layout */
+.agent-config__checkbox-field {
+  margin-bottom: var(--space-lg);
+}
+
+.agent-config__checkbox-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+  margin-left: calc(1rem + var(--space-sm));
+}
+
+/* Tools list */
+.agent-config__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.agent-config__tool-badge {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Actions footer */
+.agent-config__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border-default);
+}
