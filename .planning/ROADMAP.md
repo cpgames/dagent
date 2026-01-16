@@ -16,8 +16,8 @@ None
 
 Complete visual redesign with synthwave aesthetic and decoupled theming system.
 
-- [ ] **Phase 70: Theme Infrastructure** - CSS custom properties, ThemeContext, theme persistence (1 plan)
-- [ ] **Phase 71: Base UI - Buttons & Inputs** - Reusable Button, Input, Textarea components (1 plan)
+- [x] **Phase 70: Theme Infrastructure** - CSS custom properties, ThemeContext, theme persistence (1/1 plans)
+- [x] **Phase 71: Base UI - Buttons & Inputs** - Reusable Button, Input, Textarea components (1/1 plans)
 - [ ] **Phase 72: Base UI - Controls** - Checkbox, Radio, Toggle, Slider, Select (1 plan)
 - [ ] **Phase 73: Base UI - Layout** - Card, Dialog, Badge, Tabs, Tooltip (1 plan)
 - [ ] **Phase 74: Background System** - Synthwave background with starfield and horizon (1 plan)
