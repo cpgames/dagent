@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.7 Canvas Background System
 **Roadmap:** .planning/milestones/v2.7-ROADMAP.md
 
-Phase: 83 of 89 (Canvas Infrastructure)
-Plan: 83-01 complete
-Status: Phase 83 complete
-Last activity: 2026-01-16 — Phase 83-01 executed (canvas infrastructure)
+Phase: 84 of 89 (Sky & Starfield Layers)
+Plan: 84-01 ready
+Status: Plan ready for execution
+Last activity: 2026-01-16 — Phase 84-01 planned (sky & starfield layers)
 
 Progress: █░░░░░░░░░ 14% (1/7 phases)
 
-Next action: /gsd:plan-phase 84
+Next action: /gsd:execute-phase 84
 
 ## Performance Metrics
 
@@ -41,8 +41,8 @@ Next action: /gsd:plan-phase 84
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 80-01, 81-01, 81-02, 82-01, 83-01
-- Trend: v2.7 in progress (canvas infrastructure complete)
+- Last 5 plans: 81-01, 81-02, 82-01, 83-01, 84-01
+- Trend: v2.7 in progress (sky & starfield layers planned)
 
 ## Accumulated Context
 
