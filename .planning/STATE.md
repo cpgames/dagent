@@ -13,18 +13,18 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Roadmap:** .planning/milestones/v2.7-ROADMAP.md
 
 Phase: 85 of 89 (Horizon Glow Layer)
-Plan: 85-01 ready
-Status: Phase 85 planned
-Last activity: 2026-01-16 — Phase 85-01 planned (HorizonGlowLayer with pulsing animation)
+Plan: 85-01 complete
+Status: Phase 85 complete
+Last activity: 2026-01-16 — Phase 85-01 complete (HorizonGlowLayer with pulsing radial gradient)
 
-Progress: ██░░░░░░░░ 28% (2/7 phases)
+Progress: ███░░░░░░░ 43% (3/7 phases)
 
-Next action: /gsd:execute-phase 85
+Next action: /gsd:plan-phase 86
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 109 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 2)
+- Total plans completed: 110 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 3)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~320 min
 
@@ -41,8 +41,8 @@ Next action: /gsd:execute-phase 85
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 81-02, 82-01, 83-01, 84-01
-- Trend: v2.7 in progress (sky & starfield layers complete)
+- Last 5 plans: 82-01, 83-01, 84-01, 85-01
+- Trend: v2.7 in progress (horizon glow layer complete)
 
 ## Accumulated Context
 
@@ -493,9 +493,9 @@ All verification items passed. Milestone v2.6 Complete.
 
 - **84-01**: SkyLayer with synthwave gradient, StarsLayer with 360 flickering stars, layers barrel export
 
-### Phase 85: Horizon Glow Layer (planned)
+### Phase 85: Horizon Glow Layer ✓
 
-- **85-01**: HorizonGlowLayer with pulsing radial gradient (planned)
+- **85-01**: HorizonGlowLayer with pulsing radial gradient at 65% viewport height
 
 ---
 
