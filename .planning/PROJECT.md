@@ -8,16 +8,28 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v2.5 Intelligent Task Scoping & Context Management)
+## Current Milestone: v2.7 Canvas Background System
 
-Shipped 2026-01-15. FeatureSpec system with spec-aware agents:
-- 162 source files, ~27,576 LOC TypeScript
-- 68 phases, 114 plans executed across 17 milestones
-- FeatureSpec types with goals, requirements, constraints, acceptance criteria
-- PM agent spec management (create/update/get via MCP tools)
-- Spec-aware DevAgent and QA for broader feature context
-- Context-aware checkpointing (token-based instead of fixed iterations)
-- Simplified UI (removed loop counter, added spec viewer)
+**Goal:** Unify all background rendering into a single canvas layer with enhanced visual effects.
+
+**Target features:**
+- Unified canvas background (starfield + horizon + grid in one render context)
+- Shooting stars with trails (occasional bright streaks)
+- Pulsing horizon glow (animated intensity)
+- Terrain silhouettes (mountain/city outlines on horizon edges)
+- Performance-optimized single requestAnimationFrame loop
+- Reduced motion support (static fallback)
+
+## Current State (v2.6 Synthwave UI Redesign)
+
+Shipped 2026-01-16. Complete visual redesign with synthwave aesthetic:
+- 13 phases (70-82) completed
+- CSS custom properties theme system
+- Reusable UI component library (Button, Input, Dialog, etc.)
+- Background system with starfield and horizon
+- Canvas-based grid with curved lines (Phase 82)
+- All components migrated to CSS custom properties
+- Accessibility features (reduced motion, focus states)
 
 ## Requirements
 
