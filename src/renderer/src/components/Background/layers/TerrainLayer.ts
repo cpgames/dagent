@@ -26,20 +26,20 @@ export class TerrainLayer implements Layer {
     const mountainWidth = this.width * 0.3; // Mountains take 30% of width on each side
     const numPoints = 15;
 
-    // Generate left mountain profile
+    // Generate left mountain profile (flatter)
     this.leftMountain = this.generateMountainProfile(
       numPoints,
       horizonY,
-      this.height * 0.25, // Peak height variation
+      this.height * 0.12, // Flatter peak height variation
       0,
       mountainWidth
     );
 
-    // Generate right mountain profile
+    // Generate right mountain profile (flatter)
     this.rightMountain = this.generateMountainProfile(
       numPoints,
       horizonY,
-      this.height * 0.25,
+      this.height * 0.12, // Flatter peak height variation
       this.width - mountainWidth,
       this.width
     );
@@ -138,29 +138,29 @@ export class TerrainLayer implements Layer {
     for (let i = 0; i < numPoints; i++) {
       const t = i / (numPoints - 1);
 
-      // Start and end at horizon
+      // Start and end at horizon - flatter profile
       let edgeFactor: number;
       if (isLeftSide) {
-        // Left side: start at horizon, peak in middle-right, end lower
-        edgeFactor = Math.sin(t * Math.PI * 0.8);
+        // Left side: gentle rise from left
+        edgeFactor = Math.sin(t * Math.PI * 0.5) * 0.8;
       } else {
-        // Right side: start lower, peak in middle-left, end at horizon
-        edgeFactor = Math.sin((1 - t) * Math.PI * 0.8);
+        // Right side: gentle rise from right
+        edgeFactor = Math.sin((1 - t) * Math.PI * 0.5) * 0.8;
       }
 
-      // Add some randomness for natural look
-      const noise = (Math.random() - 0.5) * 0.2;
+      // Minimal randomness for smoother profile
+      const noise = (Math.random() - 0.5) * 0.1;
       const heightFactor = edgeFactor * (1 + noise);
 
       // Calculate y-coordinate (lower values = higher on screen)
       const y = horizonY - heightFactor * variation;
 
-      points.push(Math.max(horizonY * 0.6, y)); // Don't go too high
+      points.push(Math.max(horizonY * 0.75, y)); // Keep peaks lower
     }
 
-    // Ensure edges start/end near horizon
-    points[0] = horizonY - variation * 0.1;
-    points[numPoints - 1] = horizonY - variation * 0.2;
+    // Ensure edges start/end at or near horizon
+    points[0] = horizonY;
+    points[numPoints - 1] = horizonY - variation * 0.1;
 
     return points;
   }

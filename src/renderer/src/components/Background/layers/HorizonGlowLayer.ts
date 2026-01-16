@@ -16,8 +16,8 @@ export class HorizonGlowLayer implements Layer {
   // Configuration
   private readonly color = '#ff006e';
   private readonly positionY = 0.85; // 85% from top (lower horizon line to match reference)
-  private readonly heightFraction = 0.2; // Glow spans 20% of canvas height
-  private readonly minIntensity = 0.7;
+  private readonly heightFraction = 0.08; // Thin glow band (8% of canvas height)
+  private readonly minIntensity = 0.8;
   private readonly maxIntensity = 1.0;
   private readonly pulseSpeed = 0.0005; // radians/ms for slower, subtle pulsing
 
@@ -54,10 +54,9 @@ export class HorizonGlowLayer implements Layer {
       centerX, centerY, Math.max(radiusX, radiusY)
     );
 
-    // Color stops with intensity-based alpha - more concentrated glow
-    gradient.addColorStop(0, this.hexToRgba(this.color, intensity * 0.9));
-    gradient.addColorStop(0.3, this.hexToRgba(this.color, intensity * 0.7));
-    gradient.addColorStop(0.6, this.hexToRgba(this.color, intensity * 0.3));
+    // Color stops for thin gradient band
+    gradient.addColorStop(0, this.hexToRgba(this.color, intensity));
+    gradient.addColorStop(0.5, this.hexToRgba(this.color, intensity * 0.8));
     gradient.addColorStop(1, this.hexToRgba(this.color, 0));
 
     // Draw elliptical glow using scale transform
