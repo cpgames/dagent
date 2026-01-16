@@ -1,195 +1,166 @@
 import type { Layer, LayerContext } from './types';
 
 /**
- * Internal terrain profile representation for each parallax layer.
- */
-interface TerrainProfile {
-  /** Y-coordinates representing terrain height at each point */
-  points: number[];
-  /** Horizontal scroll speed in pixels per millisecond */
-  scrollSpeed: number;
-  /** Opacity of this terrain layer (0-1) */
-  opacity: number;
-}
-
-/**
- * TerrainLayer renders parallax mountain/city silhouettes with optional cyan edge glow.
+ * TerrainLayer renders mountain/city silhouettes on the left and right sides.
  *
  * Features:
- * - 3 parallax terrain layers moving at different speeds
- * - Black silhouettes with varying opacity for depth effect
- * - Optional cyan glow on terrain edges for synthwave aesthetic
- * - Seamless wrapping for infinite scrolling
+ * - Mountains positioned on left and right edges
+ * - Black silhouettes with cyan edge glow
+ * - Static positioning (no animation)
+ * - Peaks rise from horizon line
  */
 export class TerrainLayer implements Layer {
-  // Configuration constants
-  private readonly NUM_LAYERS = 3;
   private readonly CYAN_GLOW = '#00f0ff';
   private readonly GLOW_WIDTH = 2;
 
-  // State
-  private profiles: TerrainProfile[] = [];
-  private scrollOffsets: number[] = [];
+  private leftMountain: number[] = [];
+  private rightMountain: number[] = [];
   private width = 0;
   private height = 0;
 
   init(_ctx: CanvasRenderingContext2D, context: LayerContext): void {
-    // Store dimensions
     this.width = context.width;
     this.height = context.height;
 
-    // Initialize scroll offsets
-    this.scrollOffsets = [0, 0, 0];
+    const horizonY = this.height * 0.85;
+    const mountainWidth = this.width * 0.3; // Mountains take 30% of width on each side
+    const numPoints = 15;
 
-    // Generate 3 terrain profiles with different characteristics
-    this.profiles = [
-      // Near layer (index 0): most visible, fastest scroll
-      {
-        points: this.generateTerrainProfile(
-          30 + Math.floor(Math.random() * 11), // 30-40 points
-          this.height * 0.75, // baseHeight
-          this.height * 0.15  // variation
-        ),
-        scrollSpeed: 0.02,
-        opacity: 0.9,
-      },
-      // Mid layer (index 1): medium opacity, medium scroll
-      {
-        points: this.generateTerrainProfile(
-          25 + Math.floor(Math.random() * 11), // 25-35 points
-          this.height * 0.78,
-          this.height * 0.12
-        ),
-        scrollSpeed: 0.015,
-        opacity: 0.6,
-      },
-      // Far layer (index 2): faint, slowest scroll
-      {
-        points: this.generateTerrainProfile(
-          20 + Math.floor(Math.random() * 11), // 20-30 points
-          this.height * 0.82,
-          this.height * 0.08
-        ),
-        scrollSpeed: 0.01,
-        opacity: 0.3,
-      },
-    ];
+    // Generate left mountain profile
+    this.leftMountain = this.generateMountainProfile(
+      numPoints,
+      horizonY,
+      this.height * 0.25, // Peak height variation
+      0,
+      mountainWidth
+    );
+
+    // Generate right mountain profile
+    this.rightMountain = this.generateMountainProfile(
+      numPoints,
+      horizonY,
+      this.height * 0.25,
+      this.width - mountainWidth,
+      this.width
+    );
   }
 
   update(_deltaTime: number): void {
     // Static terrain - no animation
-    // for (let i = 0; i < this.NUM_LAYERS; i++) {
-    //   this.scrollOffsets[i] += deltaTime * this.profiles[i].scrollSpeed;
-    //   this.scrollOffsets[i] %= this.width;
-    // }
   }
 
   render(ctx: CanvasRenderingContext2D, _context: LayerContext): void {
-    // Render far to near (so near layers render on top)
-    for (let i = this.NUM_LAYERS - 1; i >= 0; i--) {
-      const profile = this.profiles[i];
-      const scrollOffset = this.scrollOffsets[i];
-      const numPoints = profile.points.length;
+    const horizonY = this.height * 0.85;
 
-      // Set fill style for black silhouette
-      ctx.fillStyle = `rgba(0, 0, 0, ${profile.opacity})`;
+    // Draw left mountain
+    this.drawMountain(ctx, this.leftMountain, 0, horizonY);
 
-      // Begin terrain shape path
-      ctx.beginPath();
-      ctx.moveTo(0, this.height); // Start at bottom-left
-
-      // Draw terrain profile with scroll offset
-      // Draw both visible segment and wrapped segment for seamless scrolling
-      for (let segment = 0; segment < 2; segment++) {
-        const offsetX = segment * this.width - scrollOffset;
-
-        for (let j = 0; j < numPoints; j++) {
-          const x = offsetX + (j / (numPoints - 1)) * this.width;
-          const y = profile.points[j];
-
-          if (segment === 0 && j === 0) {
-            ctx.lineTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        }
-      }
-
-      // Close path by drawing to bottom-right and back to start
-      ctx.lineTo(this.width * 2 - scrollOffset, this.height);
-      ctx.lineTo(0, this.height);
-      ctx.closePath();
-
-      // Fill the terrain shape
-      ctx.fill();
-
-      // Optional cyan glow on top edge
-      ctx.save();
-      ctx.globalAlpha = 0.5;
-      ctx.strokeStyle = this.CYAN_GLOW;
-      ctx.lineWidth = this.GLOW_WIDTH;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      // Stroke just the top edge
-      ctx.beginPath();
-      for (let segment = 0; segment < 2; segment++) {
-        const offsetX = segment * this.width - scrollOffset;
-
-        for (let j = 0; j < numPoints; j++) {
-          const x = offsetX + (j / (numPoints - 1)) * this.width;
-          const y = profile.points[j];
-
-          if (segment === 0 && j === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        }
-      }
-      ctx.stroke();
-
-      ctx.restore();
-    }
+    // Draw right mountain
+    this.drawMountain(ctx, this.rightMountain, this.width - this.width * 0.3, horizonY);
   }
 
   reset(): void {
-    this.scrollOffsets = [0, 0, 0];
+    // Nothing to reset for static terrain
   }
 
   /**
-   * Generate a terrain profile with varied peaks and valleys.
-   *
-   * @param numPoints - Number of points in the terrain profile
-   * @param baseHeight - Base y-coordinate (higher values = lower on screen)
-   * @param variation - Maximum variation from baseHeight
-   * @returns Array of y-coordinates representing terrain height
+   * Draw a mountain silhouette with cyan glow on top edge.
    */
-  private generateTerrainProfile(
-    numPoints: number,
-    baseHeight: number,
-    variation: number
-  ): number[] {
-    const points: number[] = [];
+  private drawMountain(
+    ctx: CanvasRenderingContext2D,
+    profile: number[],
+    startX: number,
+    horizonY: number
+  ): void {
+    const numPoints = profile.length;
+    const mountainWidth = this.width * 0.3;
 
-    // Use sine waves and random noise for varied terrain
-    const frequency1 = (Math.PI * 2) / numPoints;
-    const frequency2 = (Math.PI * 4) / numPoints;
+    // Draw black silhouette
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.beginPath();
+    ctx.moveTo(startX, this.height); // Bottom-left
 
+    // Draw mountain profile
     for (let i = 0; i < numPoints; i++) {
-      // Combine two sine waves of different frequencies
-      const wave1 = Math.sin(i * frequency1);
-      const wave2 = Math.sin(i * frequency2) * 0.5;
-      const noise = (Math.random() - 0.5) * 0.3;
-
-      // Calculate y-coordinate (baseHeight + variation pattern)
-      const y = baseHeight + (wave1 + wave2 + noise) * variation;
-
-      points.push(y);
+      const x = startX + (i / (numPoints - 1)) * mountainWidth;
+      const y = profile[i];
+      ctx.lineTo(x, y);
     }
 
-    // Ensure first and last points match for seamless wrapping
-    points[numPoints - 1] = points[0];
+    // Complete the shape
+    ctx.lineTo(startX + mountainWidth, this.height); // Bottom-right
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw cyan glow on top edge
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = this.CYAN_GLOW;
+    ctx.lineWidth = this.GLOW_WIDTH;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    for (let i = 0; i < numPoints; i++) {
+      const x = startX + (i / (numPoints - 1)) * mountainWidth;
+      const y = profile[i];
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /**
+   * Generate a mountain profile with varied peaks.
+   *
+   * @param numPoints - Number of points in the profile
+   * @param horizonY - Y-coordinate of horizon line
+   * @param variation - Maximum height variation from horizon
+   * @param startX - Starting X position
+   * @param endX - Ending X position
+   * @returns Array of y-coordinates representing mountain peaks
+   */
+  private generateMountainProfile(
+    numPoints: number,
+    horizonY: number,
+    variation: number,
+    startX: number,
+    endX: number
+  ): number[] {
+    const points: number[] = [];
+    const isLeftSide = startX === 0;
+
+    for (let i = 0; i < numPoints; i++) {
+      const t = i / (numPoints - 1);
+
+      // Start and end at horizon
+      let edgeFactor: number;
+      if (isLeftSide) {
+        // Left side: start at horizon, peak in middle-right, end lower
+        edgeFactor = Math.sin(t * Math.PI * 0.8);
+      } else {
+        // Right side: start lower, peak in middle-left, end at horizon
+        edgeFactor = Math.sin((1 - t) * Math.PI * 0.8);
+      }
+
+      // Add some randomness for natural look
+      const noise = (Math.random() - 0.5) * 0.2;
+      const heightFactor = edgeFactor * (1 + noise);
+
+      // Calculate y-coordinate (lower values = higher on screen)
+      const y = horizonY - heightFactor * variation;
+
+      points.push(Math.max(horizonY * 0.6, y)); // Don't go too high
+    }
+
+    // Ensure edges start/end near horizon
+    points[0] = horizonY - variation * 0.1;
+    points[numPoints - 1] = horizonY - variation * 0.2;
 
     return points;
   }

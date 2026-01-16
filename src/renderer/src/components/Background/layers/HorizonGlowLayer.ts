@@ -15,8 +15,8 @@ export class HorizonGlowLayer implements Layer {
 
   // Configuration
   private readonly color = '#ff006e';
-  private readonly positionY = 0.75; // 75% from top (lower horizon line)
-  private readonly heightFraction = 0.25; // Glow spans 25% of canvas height
+  private readonly positionY = 0.85; // 85% from top (lower horizon line to match reference)
+  private readonly heightFraction = 0.2; // Glow spans 20% of canvas height
   private readonly minIntensity = 0.7;
   private readonly maxIntensity = 1.0;
   private readonly pulseSpeed = 0.0005; // radians/ms for slower, subtle pulsing

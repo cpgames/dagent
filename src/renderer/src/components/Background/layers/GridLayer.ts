@@ -37,7 +37,7 @@ export class GridLayer implements Layer {
     const { width, height } = context;
 
     // Calculate key positions
-    const horizonY = 0; // Top of canvas
+    const horizonY = height * 0.85; // Horizon at 85% from top (matches glow position)
     const viewerY = height; // Bottom of canvas
     const centerX = width / 2;
 
