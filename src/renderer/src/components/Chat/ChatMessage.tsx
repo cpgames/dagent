@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import type { ChatMessage as ChatMessageType } from '../../stores/chat-store'
+import './ChatMessage.css'
 
 interface ChatMessageProps {
   message: ChatMessageType
@@ -9,13 +10,9 @@ export function ChatMessage({ message }: ChatMessageProps): JSX.Element {
   const isUser = message.role === 'user'
 
   return (
-    <div
-      className={`rounded-lg p-3 ${
-        isUser ? 'bg-blue-900/50' : 'bg-gray-700'
-      }`}
-    >
-      <div className="text-sm text-gray-400 mb-1">{isUser ? 'You' : 'AI'}</div>
-      <div className="whitespace-pre-wrap text-white">{message.content}</div>
+    <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--assistant'}`}>
+      <div className="chat-message__role">{isUser ? 'You' : 'AI'}</div>
+      <div className="chat-message__content">{message.content}</div>
     </div>
   )
 }
