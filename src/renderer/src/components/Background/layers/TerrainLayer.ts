@@ -76,13 +76,12 @@ export class TerrainLayer implements Layer {
     ];
   }
 
-  update(deltaTime: number): void {
-    // Update scroll offset for each layer
-    for (let i = 0; i < this.NUM_LAYERS; i++) {
-      this.scrollOffsets[i] += deltaTime * this.profiles[i].scrollSpeed;
-      // Wrap using modulo for seamless scrolling
-      this.scrollOffsets[i] %= this.width;
-    }
+  update(_deltaTime: number): void {
+    // Static terrain - no animation
+    // for (let i = 0; i < this.NUM_LAYERS; i++) {
+    //   this.scrollOffsets[i] += deltaTime * this.profiles[i].scrollSpeed;
+    //   this.scrollOffsets[i] %= this.width;
+    // }
   }
 
   render(ctx: CanvasRenderingContext2D, _context: LayerContext): void {

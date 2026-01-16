@@ -25,12 +25,12 @@ export class GridLayer implements Layer {
     this.baseSpacing = context.height / this.lineCount;
   }
 
-  update(deltaTime: number): void {
-    // Increment scroll offset and wrap using modulo
-    this.scrollOffset += deltaTime * this.scrollSpeed;
-    if (this.baseSpacing > 0) {
-      this.scrollOffset = this.scrollOffset % this.baseSpacing;
-    }
+  update(_deltaTime: number): void {
+    // Static grid - no animation
+    // this.scrollOffset += deltaTime * this.scrollSpeed;
+    // if (this.baseSpacing > 0) {
+    //   this.scrollOffset = this.scrollOffset % this.baseSpacing;
+    // }
   }
 
   render(ctx: CanvasRenderingContext2D, context: LayerContext): void {

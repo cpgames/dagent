@@ -14,12 +14,12 @@ export class HorizonGlowLayer implements Layer {
   private time = 0;
 
   // Configuration
-  private readonly color = '#ff2975';
-  private readonly positionY = 0.65; // 65% from top (horizon line)
-  private readonly heightFraction = 0.3; // Glow spans 30% of canvas height
-  private readonly minIntensity = 0.3;
-  private readonly maxIntensity = 0.8;
-  private readonly pulseSpeed = 0.001; // radians/ms for smooth pulsing
+  private readonly color = '#ff006e';
+  private readonly positionY = 0.75; // 75% from top (lower horizon line)
+  private readonly heightFraction = 0.25; // Glow spans 25% of canvas height
+  private readonly minIntensity = 0.7;
+  private readonly maxIntensity = 1.0;
+  private readonly pulseSpeed = 0.0005; // radians/ms for slower, subtle pulsing
 
   init(_ctx: CanvasRenderingContext2D, _context: LayerContext): void {
     // No initialization needed - gradient computed each frame
@@ -54,10 +54,10 @@ export class HorizonGlowLayer implements Layer {
       centerX, centerY, Math.max(radiusX, radiusY)
     );
 
-    // Color stops with intensity-based alpha
-    gradient.addColorStop(0, this.hexToRgba(this.color, intensity * 0.8));
-    gradient.addColorStop(0.4, this.hexToRgba(this.color, intensity * 0.4));
-    gradient.addColorStop(0.7, this.hexToRgba(this.color, intensity * 0.15));
+    // Color stops with intensity-based alpha - more concentrated glow
+    gradient.addColorStop(0, this.hexToRgba(this.color, intensity * 0.9));
+    gradient.addColorStop(0.3, this.hexToRgba(this.color, intensity * 0.7));
+    gradient.addColorStop(0.6, this.hexToRgba(this.color, intensity * 0.3));
     gradient.addColorStop(1, this.hexToRgba(this.color, 0));
 
     // Draw elliptical glow using scale transform
