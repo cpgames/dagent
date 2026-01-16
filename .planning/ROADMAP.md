@@ -17,7 +17,7 @@ Implement iterative task execution with fresh context windows and automated veri
 - [x] **Phase 56: Task Plan Infrastructure** - TaskPlan schema, checklist storage in worktree (1/1 plans)
 - [x] **Phase 57: Verification Runner** - Automated build/lint/test checks (1/1 plans)
 - [x] **Phase 58: Task Controller** - Iteration loop manager for DevAgent (1/1 plans)
-- [ ] **Phase 59: DevAgent Integration** - Plan-aware execution mode
+- [x] **Phase 59: DevAgent Integration** - Plan-aware execution mode (1/1 plans)
 - [ ] **Phase 60: Orchestrator Integration** - Wire TaskController into execution flow
 - [ ] **Phase 61: Loop Status UI** - Iteration counter, checklist display, abort button
 
@@ -272,3 +272,4 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 56. Task Plan Infrastructure | v2.4 | 1/1 | Complete | 2026-01-15 |
 | 57. Verification Runner | v2.4 | 1/1 | Complete | 2026-01-15 |
 | 58. Task Controller | v2.4 | 1/1 | Complete | 2026-01-15 |
+| 59. DevAgent Integration | v2.4 | 1/1 | Complete | 2026-01-15 |
