@@ -1,9 +1,11 @@
 @import "tailwindcss";
 @import './base.css';
+@import '../themes/index.css';
 
 /**
  * Main CSS entry point for DAGent.
  * Tailwind is imported first, then base styles override defaults.
+ * Theme CSS provides custom properties via data-theme attribute.
  */
 
 code {

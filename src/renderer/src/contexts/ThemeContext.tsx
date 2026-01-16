@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 /** Available theme options */
 export type Theme = 'synthwave' | 'dark';
@@ -40,7 +40,7 @@ interface ThemeProviderProps {
  * Manages theme state and applies it to the document root.
  * Persists theme preference to localStorage.
  */
-export function ThemeProvider({ children }: ThemeProviderProps): JSX.Element {
+export function ThemeProvider({ children }: ThemeProviderProps): React.JSX.Element {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
   // Apply theme on mount and when it changes
