@@ -1,0 +1,200 @@
+/**
+ * ContextView Styles
+ * Project context editor with synthwave theming
+ */
+
+/* Container */
+.context-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-lg);
+}
+
+/* Header */
+.context-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.context-view__header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.context-view__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.context-view__badge--unsaved {
+  font-size: 0.75rem;
+  background: var(--color-warning);
+  color: var(--text-inverse);
+  padding: 0.125rem var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+/* Generate button (disabled state) */
+.context-view__generate-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-disabled);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.context-view__generate-btn:focus {
+  outline: none;
+}
+
+.context-view__generate-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.context-view__generate-soon {
+  font-size: 0.75rem;
+}
+
+/* Error display */
+.context-view__error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+  padding: var(--space-md) var(--space-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.context-view__error-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--color-error);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 var(--space-sm);
+  transition: color var(--transition-fast);
+}
+
+.context-view__error-dismiss:hover {
+  color: var(--text-primary);
+}
+
+/* Editor area */
+.context-view__editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.context-view__textarea {
+  flex: 1;
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  resize: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.context-view__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.context-view__textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--glow-border-primary);
+}
+
+/* Footer */
+.context-view__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-lg);
+}
+
+.context-view__timestamp {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Save button */
+.context-view__save-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.context-view__save-btn:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.context-view__save-btn--active {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: 1px solid var(--btn-primary-border);
+}
+
+.context-view__save-btn--active:hover:not(:disabled) {
+  background: var(--btn-primary-hover-bg);
+  box-shadow: var(--btn-primary-glow);
+}
+
+.context-view__save-btn--inactive {
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.context-view__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.context-view__save-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.context-view__save-icon--spinning {
+  animation: context-spin 1s linear infinite;
+}
+
+@keyframes context-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef, type JSX } from 'react';
 import { toast } from '../stores/toast-store';
 import { useViewStore } from '../stores';
+import { Dialog, DialogHeader, DialogBody, DialogFooter, Button } from '../components/UI';
+import './ContextView.css';
 
 /**
  * ContextView - Displays context documents and CLAUDE.md content.
@@ -148,23 +150,19 @@ export default function ContextView(): JSX.Element {
   };
 
   return (
-    <div className="flex flex-col h-full p-4">
+    <div className="context-view">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-white">Project Context</h2>
-          {isDirty && (
-            <span className="text-xs bg-yellow-600 text-yellow-100 px-2 py-0.5 rounded">
-              Unsaved
-            </span>
-          )}
+      <div className="context-view__header">
+        <div className="context-view__header-left">
+          <h2 className="context-view__title">Project Context</h2>
+          {isDirty && <span className="context-view__badge--unsaved">Unsaved</span>}
         </div>
         <button
           disabled
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-400 bg-gray-700 border border-gray-600 rounded-md cursor-not-allowed opacity-60 focus:outline-none"
+          className="context-view__generate-btn"
           title="Coming soon: AI will generate context from your codebase"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="context-view__generate-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -172,29 +170,29 @@ export default function ContextView(): JSX.Element {
               d="M13 10V3L4 14h7v7l9-11h-7z"
             />
           </svg>
-          <span className="flex items-center gap-1">
+          <span>
             Generate with AI
-            <span className="text-xs">(Soon)</span>
+            <span className="context-view__generate-soon"> (Soon)</span>
           </span>
         </button>
       </div>
 
       {/* Error display */}
       {error && (
-        <div className="mb-2 bg-red-900/90 text-red-100 px-3 py-2 rounded-lg text-sm flex justify-between items-center">
+        <div className="context-view__error">
           <span>{error}</span>
           <button
             onClick={() => setError(null)}
-            className="ml-2 hover:text-white text-red-200"
+            className="context-view__error-dismiss"
             aria-label="Dismiss error"
           >
-            ×
+            x
           </button>
         </div>
       )}
 
       {/* Main textarea */}
-      <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
+      <div className="context-view__editor">
         <textarea
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
@@ -213,13 +211,13 @@ Coding standards, naming conventions, etc...
 
 ## Dependencies
 Important dependencies and their purposes...`}
-          className="flex-1 w-full px-4 py-3 font-mono text-sm bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          className="context-view__textarea"
         />
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="text-sm text-gray-400">
+      <div className="context-view__footer">
+        <div className="context-view__timestamp">
           {lastSynced ? (
             <span>Last saved: {formatTimestamp(lastSynced)}</span>
           ) : (
@@ -229,14 +227,10 @@ Important dependencies and their purposes...`}
         <button
           onClick={handleSave}
           disabled={isSaving || !isDirty}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-            isDirty
-              ? 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500'
-              : 'bg-gray-700 text-gray-300 focus:ring-gray-500'
-          }`}
+          className={`context-view__save-btn ${isDirty ? 'context-view__save-btn--active' : 'context-view__save-btn--inactive'}`}
         >
           <svg
-            className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`}
+            className={`context-view__save-icon ${isSaving ? 'context-view__save-icon--spinning' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -253,30 +247,27 @@ Important dependencies and their purposes...`}
       </div>
 
       {/* Discard Changes Confirmation Dialog */}
-      {showDiscardDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md shadow-xl border border-gray-700">
-            <h3 className="text-lg font-semibold mb-2 text-white">Unsaved Changes</h3>
-            <p className="text-gray-300 mb-4">
-              You have unsaved changes. Do you want to discard them?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white"
-                onClick={handleCancelDiscard}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white"
-                onClick={handleConfirmDiscard}
-              >
-                Discard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog
+        open={showDiscardDialog}
+        onClose={handleCancelDiscard}
+        size="sm"
+        closeOnBackdrop={false}
+      >
+        <DialogHeader title="Unsaved Changes" />
+        <DialogBody>
+          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+            You have unsaved changes. Do you want to discard them?
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={handleCancelDiscard}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDiscard}>
+            Discard
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }
