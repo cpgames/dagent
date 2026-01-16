@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.6 Synthwave UI Redesign
 **Roadmap:** .planning/ROADMAP.md
 
-Status: Phase 80 complete - Project & Auth Migration (1 plan: 6 components migrated)
-Last activity: 2026-01-16 - Phase 80 completed
+Status: Phase 82 complete - Canvas Synthwave Grid
+Last activity: 2026-01-16 - Canvas-based grid replaces CSS grid
 
-Progress: 17 milestones shipped (v1.0-v2.5), v2.6 in progress (11/12 phases complete)
+Progress: 17 milestones shipped (v1.0-v2.5), v2.6 in progress (13/13 phases complete)
 
-Next action: /gsd:plan-phase 81 or /gsd:progress
+Next action: /gsd:verify-work or /gsd:complete-milestone
 
 ## Performance Metrics
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-16
-Stopped at: Phase 80-01 complete
+Stopped at: Phase 82-01 complete (v2.6 milestone complete)
 Resume file: None
-Next action: /gsd:plan-phase 81 or /gsd:progress
+Next action: /gsd:verify-work or /gsd:complete-milestone
 
 ## Completed Phases
 
@@ -423,6 +423,64 @@ All verification items passed. Milestone v2.3 Complete.
 - **68-01**: Removed loop iteration badge from TaskNode, created FeatureSpecViewer component, integrated spec viewer into DAGView chat sidebar
 
 All verification items passed. Milestone v2.5 Complete.
+
+### Phase 70: Theme Infrastructure ✓
+
+- **70-01**: CSS custom properties for theming, ThemeContext, theme persistence
+
+### Phase 71: Base UI - Buttons & Inputs ✓
+
+- **71-01**: Reusable Button, Input, Textarea components with synthwave styling
+
+### Phase 72: Base UI - Controls ✓
+
+- **72-01**: Checkbox, Radio, Toggle, Slider, Select components
+
+### Phase 73: Base UI - Layout ✓
+
+- **73-01**: Card, Dialog, Badge, Tabs, Tooltip components
+
+### Phase 74: Background System ✓
+
+- **74-01**: Synthwave background with starfield and horizon glow
+
+### Phase 75: Migrate Layout Components ✓
+
+- **75-01**: ViewSidebar, StatusBar, ResizeHandle migrated to CSS custom properties
+
+### Phase 76: Migrate Kanban View ✓
+
+- **76-01**: KanbanView, KanbanColumn, FeatureCard migrated to CSS custom properties
+
+### Phase 77: Migrate DAG View ✓
+
+- **77-01**: TaskNode, SelectableEdge, ExecutionControls migrated to CSS custom properties
+
+### Phase 78: Migrate Dialogs ✓
+
+- **78-01**: NodeDialog, NewFeatureDialog, DeleteFeatureDialog migrated to Dialog component
+- **78-02**: LogDialog, SessionLogDialog, FeatureMergeDialog migrated to Dialog component
+
+### Phase 79: Migrate Chat & Views ✓
+
+- **79-01**: ChatPanel, ChatMessage migrated to CSS custom properties
+- **79-02**: ContextView migrated to CSS custom properties
+- **79-03**: AgentsView, AgentConfigPanel migrated to CSS custom properties
+
+### Phase 80: Migrate Project & Auth ✓
+
+- **80-01**: ProjectSelector, AuthDialog migrated to CSS custom properties
+
+### Phase 81: Polish & Accessibility ✓
+
+- **81-01**: Utility components (SkipLink, VisuallyHidden, FocusTrap)
+- **81-02**: Reduced motion support, focus states, keyboard navigation
+
+### Phase 82: Canvas Synthwave Grid ✓
+
+- **82-01**: Canvas-based grid with curved horizontal lines, animation, reduced motion support
+
+All verification items passed. Milestone v2.6 Complete.
 
 ---
 
