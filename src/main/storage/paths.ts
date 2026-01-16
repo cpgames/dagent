@@ -94,6 +94,14 @@ export function getTaskPlanPath(projectRoot: string, featureId: string, taskId: 
 }
 
 /**
+ * Get the path to feature-spec.md for a specific feature.
+ * Location: {projectRoot}/.dagent-worktrees/{featureId}/.dagent/feature-spec.md
+ */
+export function getFeatureSpecPath(projectRoot: string, featureId: string): string {
+  return path.join(getFeatureDir(projectRoot, featureId), 'feature-spec.md');
+}
+
+/**
  * Get the root directory for archived features.
  * Location: {projectRoot}/.dagent-archived/
  */
