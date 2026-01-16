@@ -62,7 +62,7 @@ Unify all background rendering into a single canvas layer with enhanced visual e
 | VFX-01 | Phase 84 | Complete |
 | VFX-02 | Phase 84 | Complete |
 | VFX-03 | Phase 85 | Complete |
-| VFX-04 | Phase 86 | Pending |
+| VFX-04 | Phase 86 | Complete |
 | VFX-05 | Phase 87 | Pending |
 | VFX-06 | Phase 88 | Pending |
 | INT-01 | Phase 89 | Pending |
