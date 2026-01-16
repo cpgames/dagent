@@ -10,22 +10,35 @@ None
 
 ## Milestones
 
-### Current Milestone: v2.4 Ralph Loop Integration (Phases 56-61)
+### Current Milestone: v2.5 Intelligent Task Scoping & Context Management
 
-Implement iterative task execution with fresh context windows and automated verification.
+See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
+
+- [ ] **Phase 62: Feature Spec Infrastructure** - FeatureSpec types, markdown storage (0/1 plans)
+- [ ] **Phase 63: PM Spec Management** - PM creates/updates spec through chat (0/1 plans)
+- [ ] **Phase 64: PM Task Decomposition** - Intelligent complexity analysis (0/1 plans)
+- [ ] **Phase 65: Spec-Aware DevAgent** - DevAgent reads spec for context (0/1 plans)
+- [ ] **Phase 66: Spec-Aware QA** - QA validates against spec criteria (0/1 plans)
+- [ ] **Phase 67: Context-Aware Checkpointing** - Token-based instead of fixed iterations (0/1 plans)
+- [ ] **Phase 68: UI Simplification** - Remove loop counter, add spec viewer (0/1 plans)
+
+## Completed Milestones
+
+<details>
+<summary>v2.4 Ralph Loop Integration (Phases 56-61) - SHIPPED 2026-01-15</summary>
 
 - [x] **Phase 56: Task Plan Infrastructure** - TaskPlan schema, checklist storage in worktree (1/1 plans)
 - [x] **Phase 57: Verification Runner** - Automated build/lint/test checks (1/1 plans)
 - [x] **Phase 58: Task Controller** - Iteration loop manager for DevAgent (1/1 plans)
 - [x] **Phase 59: DevAgent Integration** - Plan-aware execution mode (1/1 plans)
-- [ ] **Phase 60: Orchestrator Integration** - Wire TaskController into execution flow
-- [ ] **Phase 61: Loop Status UI** - Iteration counter, checklist display, abort button
+- [x] **Phase 60: Orchestrator Integration** - Wire TaskController into execution flow (1/1 plans)
+- [x] **Phase 61: Loop Status UI** - Iteration counter, checklist display, abort button (1/1 plans)
 
-**Total:** 6 phases
+**Total:** 6 phases, 6 plans
 
 See [v2.4-ROADMAP.md](milestones/v2.4-ROADMAP.md) for details.
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>v2.3 Feature-to-Main Merge (Phases 52-55) - SHIPPED 2026-01-15</summary>
@@ -210,7 +223,7 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 
 ## Progress
 
-**Current milestone:** v2.4 Ralph Loop Integration (Phases 56-61)
+**Current milestone:** None (planning next)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -273,3 +286,5 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 57. Verification Runner | v2.4 | 1/1 | Complete | 2026-01-15 |
 | 58. Task Controller | v2.4 | 1/1 | Complete | 2026-01-15 |
 | 59. DevAgent Integration | v2.4 | 1/1 | Complete | 2026-01-15 |
+| 60. Orchestrator Integration | v2.4 | 1/1 | Complete | 2026-01-15 |
+| 61. Loop Status UI | v2.4 | 1/1 | Complete | 2026-01-15 |
