@@ -9,6 +9,8 @@
  * On QA_FAILED: task transitions back to dev with feedback stored in task.qaFeedback
  */
 
+import type { FeatureSpec } from './feature-spec-types'
+
 /**
  * Internal QA agent status for tracking agent lifecycle.
  */
@@ -28,6 +30,7 @@ export interface QAAgentState {
   featureId: string
   taskId: string
   worktreePath: string | null
+  featureSpec: FeatureSpec | null
   reviewResult: QAReviewResult | null
   error: string | null
   startedAt: string | null
@@ -59,6 +62,7 @@ export const DEFAULT_QA_AGENT_STATE: Omit<QAAgentState, 'featureId' | 'taskId'> 
   status: 'initializing',
   agentId: null,
   worktreePath: null,
+  featureSpec: null,
   reviewResult: null,
   error: null,
   startedAt: null,
