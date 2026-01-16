@@ -1,0 +1,13 @@
+/**
+ * Theme Index
+ *
+ * Import all theme files here. The active theme is controlled via
+ * the data-theme attribute on the document root element.
+ */
+
+@import './synthwave.css';
+
+/* Future themes can be added here:
+ * @import './dark.css';
+ * @import './light.css';
+ */

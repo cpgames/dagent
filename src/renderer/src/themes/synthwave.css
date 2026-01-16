@@ -1,0 +1,184 @@
+/**
+ * Synthwave Theme
+ *
+ * A cyberpunk/retrowave color scheme with neon accents on dark backgrounds.
+ * Reference: doc/1.png, doc/2.png, doc/3.png
+ */
+
+:root[data-theme="synthwave"] {
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * BACKGROUNDS
+   * Deep space purples with translucency for layering
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --bg-base: #0a0015;
+  --bg-surface: rgba(26, 16, 48, 0.8);
+  --bg-elevated: rgba(40, 20, 70, 0.9);
+  --bg-overlay: rgba(10, 0, 21, 0.95);
+  --bg-hover: rgba(50, 30, 80, 0.6);
+  --bg-active: rgba(60, 40, 90, 0.7);
+
+  /* Gradient backgrounds */
+  --bg-gradient-horizon: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 0, 255, 0.1) 50%,
+    rgba(0, 240, 255, 0.2) 100%
+  );
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * ACCENT COLORS
+   * Neon palette for interactive elements
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --accent-primary: #00f0ff;      /* Cyan - buttons, links, focus */
+  --accent-secondary: #ff00ff;    /* Magenta - borders, highlights */
+  --accent-tertiary: #ff6090;     /* Pink - special states */
+
+  /* Accent variations */
+  --accent-primary-dim: rgba(0, 240, 255, 0.3);
+  --accent-primary-bright: #40ffff;
+  --accent-secondary-dim: rgba(255, 0, 255, 0.3);
+  --accent-secondary-bright: #ff60ff;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * SEMANTIC COLORS
+   * Status indicators
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --color-success: #00ff88;
+  --color-success-dim: rgba(0, 255, 136, 0.2);
+  --color-warning: #ff9500;
+  --color-warning-dim: rgba(255, 149, 0, 0.2);
+  --color-error: #ff3366;
+  --color-error-dim: rgba(255, 51, 102, 0.2);
+  --color-info: #00f0ff;
+  --color-info-dim: rgba(0, 240, 255, 0.2);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * TEXT COLORS
+   * Hierarchy from bright to muted
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --text-primary: #ffffff;
+  --text-secondary: #b8a0d0;
+  --text-muted: #6a5080;
+  --text-disabled: #4a3060;
+  --text-inverse: #0a0015;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * BORDERS
+   * Subtle to accent
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --border-default: rgba(255, 0, 255, 0.3);
+  --border-subtle: rgba(184, 160, 208, 0.2);
+  --border-accent: var(--accent-secondary);
+  --border-focus: var(--accent-primary);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * GLOW EFFECTS
+   * Neon glow for interactive states
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --glow-primary: 0 0 10px var(--accent-primary), 0 0 20px var(--accent-primary);
+  --glow-secondary: 0 0 10px var(--accent-secondary), 0 0 20px var(--accent-secondary);
+  --glow-success: 0 0 10px var(--color-success), 0 0 20px var(--color-success);
+  --glow-error: 0 0 10px var(--color-error), 0 0 20px var(--color-error);
+
+  /* Subtle glows for borders */
+  --glow-border-primary: inset 0 0 10px rgba(0, 240, 255, 0.3);
+  --glow-border-secondary: inset 0 0 10px rgba(255, 0, 255, 0.3);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * SHADOWS
+   * Depth and elevation
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * BORDER RADIUS
+   * Consistent rounding
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * SPACING
+   * Consistent spacing scale
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * TRANSITIONS
+   * Animation timing
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * Z-INDEX
+   * Stacking order
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-popover: 400;
+  --z-tooltip: 500;
+  --z-toast: 600;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * COMPONENT-SPECIFIC TOKENS
+   * Button states
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  --btn-primary-bg: var(--accent-primary);
+  --btn-primary-text: var(--text-inverse);
+  --btn-primary-border: var(--accent-primary);
+  --btn-primary-hover-bg: var(--accent-primary-bright);
+  --btn-primary-glow: var(--glow-primary);
+
+  --btn-secondary-bg: transparent;
+  --btn-secondary-text: var(--accent-secondary);
+  --btn-secondary-border: var(--accent-secondary);
+  --btn-secondary-hover-bg: var(--accent-secondary-dim);
+  --btn-secondary-glow: var(--glow-secondary);
+
+  --btn-ghost-bg: transparent;
+  --btn-ghost-text: var(--text-secondary);
+  --btn-ghost-border: transparent;
+  --btn-ghost-hover-bg: var(--bg-hover);
+
+  /* Input states */
+  --input-bg: var(--bg-surface);
+  --input-text: var(--text-primary);
+  --input-placeholder: var(--text-muted);
+  --input-border: var(--border-default);
+  --input-focus-border: var(--accent-primary);
+  --input-focus-glow: var(--glow-border-primary);
+
+  /* Card styles */
+  --card-bg: var(--bg-surface);
+  --card-border: var(--border-default);
+  --card-hover-border: var(--accent-secondary);
+
+  /* Dialog/Modal styles */
+  --dialog-bg: var(--bg-elevated);
+  --dialog-border: var(--border-accent);
+  --dialog-backdrop: rgba(10, 0, 21, 0.8);
+
+  /* Status badge colors */
+  --badge-blocked-bg: var(--color-info-dim);
+  --badge-blocked-text: var(--accent-primary);
+  --badge-progress-bg: var(--color-warning-dim);
+  --badge-progress-text: var(--color-warning);
+  --badge-success-bg: var(--color-success-dim);
+  --badge-success-text: var(--color-success);
+  --badge-error-bg: var(--color-error-dim);
+  --badge-error-text: var(--color-error);
+}
