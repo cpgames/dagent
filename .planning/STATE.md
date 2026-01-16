@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.7 Canvas Background System
 **Roadmap:** .planning/milestones/v2.7-ROADMAP.md
 
-Phase: 86 of 89 (Grid Layer Integration)
-Plan: 86-01 complete
+Phase: 87 of 89 (Shooting Stars Layer)
+Plan: 87-01 complete
 Status: Ready for next phase
-Last activity: 2026-01-16 — Phase 86-01 complete (GridLayer migration from SynthwaveGrid)
+Last activity: 2026-01-16 — Phase 87-01 complete (ShootingStarsLayer with gradient trails)
 
-Progress: ████░░░░░░ 57% (4/7 phases)
+Progress: █████░░░░░ 71% (5/7 phases)
 
-Next action: /gsd:plan-phase 87
+Next action: /gsd:plan-phase 88
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 111 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 4)
+- Total plans completed: 112 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~320 min
 
@@ -41,8 +41,8 @@ Next action: /gsd:plan-phase 87
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 83-01, 84-01, 85-01, 86-01
-- Trend: v2.7 in progress (grid layer integration complete)
+- Last 5 plans: 84-01, 85-01, 86-01, 87-01
+- Trend: v2.7 in progress (shooting stars layer complete)
 
 ## Accumulated Context
 
@@ -500,6 +500,10 @@ All verification items passed. Milestone v2.6 Complete.
 ### Phase 86: Grid Layer Integration ✓
 
 - **86-01**: GridLayer with curved horizontal lines and converging vertical lines
+
+### Phase 87: Shooting Stars Layer ✓
+
+- **87-01**: ShootingStarsLayer with gradient trails, ~1% spawn rate, max 3 concurrent stars
 
 ---
 
