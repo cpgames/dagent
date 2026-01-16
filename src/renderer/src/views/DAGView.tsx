@@ -34,10 +34,13 @@ import {
   type TaskNodeData,
   type SelectableEdgeData
 } from '../components/DAG'
-import type { LogEntry, TaskAgentSession } from '@shared/types'
+import type { LogEntry, DevAgentSession } from '@shared/types'
+import type { TaskLoopStatus } from '../../../main/dag-engine/orchestrator-types'
 import { FeatureChat } from '../components/Chat'
 import { ResizeHandle } from '../components/Layout'
+import { FeatureSpecViewer } from '../components/Feature/FeatureSpecViewer'
 import type { DAGGraph, Task } from '@shared/types'
+import { toast } from '../stores/toast-store'
 
 // Register custom node and edge types
 const nodeTypes = {
@@ -51,6 +54,7 @@ const edgeTypes = {
 // Convert DAG nodes to React Flow format
 function dagToNodes(
   dag: DAGGraph | null,
+  loopStatuses: Record<string, TaskLoopStatus>,
   onEdit: (taskId: string) => void,
   onDelete: (taskId: string) => void,
   onLog: (taskId: string) => void
@@ -63,6 +67,7 @@ function dagToNodes(
     position: task.position,
     data: {
       task,
+      loopStatus: loopStatuses[task.id] || null,
       onEdit,
       onDelete,
       onLog
@@ -99,6 +104,7 @@ export default function DAGView(): JSX.Element {
   const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
   const {
     dag,
+    loopStatuses,
     isMutating,
     error,
     setError,
@@ -129,13 +135,28 @@ export default function DAGView(): JSX.Element {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([])
 
   // Task session for SessionLogDialog
-  const [taskSession, setTaskSession] = useState<TaskAgentSession | null>(null)
+  const [taskSession, setTaskSession] = useState<DevAgentSession | null>(null)
 
   // Chat panel width state with localStorage persistence
   const [chatWidth, setChatWidth] = useState(() => {
     const saved = localStorage.getItem('dagent.chatPanelWidth')
     return saved ? parseInt(saved, 10) : 320
   })
+
+  // Spec viewer visibility state with localStorage persistence
+  const [showSpec, setShowSpec] = useState(() => {
+    const saved = localStorage.getItem('dagent.showSpecViewer')
+    return saved === 'true'
+  })
+
+  // Toggle spec viewer visibility
+  const handleToggleSpec = useCallback(() => {
+    setShowSpec((prev) => {
+      const newValue = !prev
+      localStorage.setItem('dagent.showSpecViewer', String(newValue))
+      return newValue
+    })
+  }, [])
 
   // Handle chat panel resize
   const handleChatResize = useCallback((deltaX: number) => {
@@ -231,6 +252,18 @@ export default function DAGView(): JSX.Element {
     [dag, activeFeatureId, openLogDialog]
   )
 
+  // Handle abort loop
+  const handleAbortLoop = useCallback(async (taskId: string) => {
+    try {
+      const result = await window.electronAPI.execution.abortLoop(taskId)
+      if (!result.success) {
+        toast.error(`Failed to abort loop: ${result.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to abort loop: ${(error as Error).message}`)
+    }
+  }, [])
+
   // Handle PM log button click
   const handleShowPMLogs = useCallback(async () => {
     openLogDialog('PM Agent Logs', null, 'pm')
@@ -260,8 +293,8 @@ export default function DAGView(): JSX.Element {
 
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
-    () => dagToNodes(dag, handleEditTask, handleDeleteTask, handleLogTask),
-    [dag, handleEditTask, handleDeleteTask, handleLogTask]
+    () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask),
+    [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask]
   )
   const initialEdges = useMemo(
     () => dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge),
@@ -273,9 +306,9 @@ export default function DAGView(): JSX.Element {
 
   // Update nodes/edges when DAG or selection changes
   useEffect(() => {
-    setNodes(dagToNodes(dag, handleEditTask, handleDeleteTask, handleLogTask))
+    setNodes(dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask))
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
-  }, [dag, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
+  }, [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
   // Load DAG when active feature changes
   useEffect(() => {
@@ -451,16 +484,49 @@ export default function DAGView(): JSX.Element {
 
         {/* Chat sidebar */}
         {activeFeatureId && (
-          <div className="relative" style={{ width: chatWidth }}>
+          <div className="relative flex flex-col h-full" style={{ width: chatWidth }}>
             <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
-            <FeatureChat featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
+            {/* Spec toggle bar */}
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-700 bg-gray-800">
+              <button
+                onClick={handleToggleSpec}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                title={showSpec ? 'Hide feature spec' : 'Show feature spec'}
+              >
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform ${showSpec ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <span>Spec</span>
+              </button>
+            </div>
+            {/* Feature spec viewer (collapsible) */}
+            {showSpec && (
+              <div className="border-b border-gray-700 max-h-64 overflow-y-auto">
+                <FeatureSpecViewer featureId={activeFeatureId} />
+              </div>
+            )}
+            {/* Chat takes remaining space */}
+            <div className="flex-1 min-h-0">
+              <FeatureChat featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
+            </div>
           </div>
         )}
       </div>
 
       {/* Node Dialog */}
       {dialogTask && (
-        <NodeDialog task={dialogTask} onSave={handleDialogSave} onClose={closeNodeDialog} />
+        <NodeDialog
+          task={dialogTask}
+          loopStatus={loopStatuses[dialogTask.id] || null}
+          onSave={handleDialogSave}
+          onClose={closeNodeDialog}
+          onAbortLoop={handleAbortLoop}
+        />
       )}
 
       {/* Session Log Dialog for task logs */}

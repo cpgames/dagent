@@ -1,9 +1,12 @@
 import { memo, type JSX } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { Task, TaskStatus } from '@shared/types'
+import type { TaskLoopStatus } from '../../../../main/dag-engine/orchestrator-types'
+import { getTaskStatusLabel } from '@shared/types/task'
 
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task
+  loopStatus?: TaskLoopStatus | null
   onEdit: (taskId: string) => void
   onDelete: (taskId: string) => void
   onLog: (taskId: string) => void
@@ -11,20 +14,20 @@ export interface TaskNodeData extends Record<string, unknown> {
 
 const statusBorderColors: Record<TaskStatus, string> = {
   blocked: 'border-blue-500',
-  ready: 'border-blue-500',
-  dev: 'border-yellow-500',
-  qa: 'border-purple-500',
-  merging: 'border-yellow-500',
+  ready_for_dev: 'border-blue-500',
+  in_progress: 'border-yellow-500',
+  ready_for_qa: 'border-purple-500',
+  ready_for_merge: 'border-yellow-500',
   completed: 'border-green-500',
   failed: 'border-red-500'
 }
 
 const statusBgColors: Record<TaskStatus, string> = {
   blocked: 'bg-blue-500/10',
-  ready: 'bg-blue-500/10',
-  dev: 'bg-yellow-500/10',
-  qa: 'bg-purple-500/10',
-  merging: 'bg-yellow-500/10',
+  ready_for_dev: 'bg-blue-500/10',
+  in_progress: 'bg-yellow-500/10',
+  ready_for_qa: 'bg-purple-500/10',
+  ready_for_merge: 'bg-yellow-500/10',
   completed: 'bg-green-500/10',
   failed: 'bg-red-500/10'
 }
@@ -33,15 +36,16 @@ const statusBgColors: Record<TaskStatus, string> = {
 const stateBadgeConfig: Partial<
   Record<TaskStatus, { label: string; bgColor: string; textColor: string }>
 > = {
-  dev: { label: 'DEV', bgColor: 'bg-blue-500/20', textColor: 'text-blue-400' },
-  qa: { label: 'QA', bgColor: 'bg-yellow-500/20', textColor: 'text-yellow-400' },
-  merging: { label: 'MERGE', bgColor: 'bg-purple-500/20', textColor: 'text-purple-400' },
+  in_progress: { label: 'DEV', bgColor: 'bg-blue-500/20', textColor: 'text-blue-400' },
+  ready_for_qa: { label: 'QA', bgColor: 'bg-yellow-500/20', textColor: 'text-yellow-400' },
+  ready_for_merge: { label: 'MERGE', bgColor: 'bg-purple-500/20', textColor: 'text-purple-400' },
   failed: { label: 'FAILED', bgColor: 'bg-red-500/20', textColor: 'text-red-400' }
 }
 
 function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   const nodeData = data as TaskNodeData
-  const { task, onEdit, onDelete, onLog } = nodeData
+  // loopStatus kept in data for NodeDialog/debugging, but not rendered on TaskNode
+  const { task, loopStatus: _loopStatus, onEdit, onDelete, onLog } = nodeData
   const borderColor = statusBorderColors[task.status]
   const bgColor = statusBgColors[task.status]
 
@@ -152,7 +156,7 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
 
       {/* Status indicator */}
       <div className="px-3 py-2">
-        <span className="text-xs text-gray-400 capitalize">{task.status}</span>
+        <span className="text-xs text-gray-400">{getTaskStatusLabel(task.status)}</span>
       </div>
 
       {/* Source handle (right) - output to dependents */}
