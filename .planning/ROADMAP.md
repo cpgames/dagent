@@ -14,7 +14,7 @@ None
 
 See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
 
-- [ ] **Phase 62: Feature Spec Infrastructure** - FeatureSpec types, markdown storage (0/1 plans)
+- [x] **Phase 62: Feature Spec Infrastructure** - FeatureSpec types, markdown storage (1/1 plans)
 - [ ] **Phase 63: PM Spec Management** - PM creates/updates spec through chat (0/1 plans)
 - [ ] **Phase 64: PM Task Decomposition** - Intelligent complexity analysis (0/1 plans)
 - [ ] **Phase 65: Spec-Aware DevAgent** - DevAgent reads spec for context (0/1 plans)
