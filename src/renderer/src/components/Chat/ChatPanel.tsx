@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent 
 import { useChatStore } from '../../stores/chat-store'
 import { ChatMessage } from './ChatMessage'
 import { ToolUsageDisplay } from './ToolUsageDisplay'
+import { Button } from '../UI'
+import './ChatPanel.css'
 
 interface ChatPanelProps {
   agentName: string
@@ -79,15 +81,15 @@ export function ChatPanel({
   }, [onClear, clearMessages])
 
   return (
-    <div className={`flex flex-col border-l border-gray-700 bg-gray-900 ${className}`}>
+    <div className={`chat-panel ${className}`}>
       {/* Header */}
-      <div className="p-3 border-b border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-white">{agentName}</h3>
-        <div className="flex items-center" style={{ gap: '0.5rem' }}>
+      <div className="chat-panel__header">
+        <h3 className="chat-panel__header-title">{agentName}</h3>
+        <div className="chat-panel__header-actions">
           {onShowLogs && (
             <button
               onClick={onShowLogs}
-              className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
+              className="chat-panel__icon-btn"
               title="View PM agent communication logs"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,7 +104,7 @@ export function ChatPanel({
           )}
           <button
             onClick={handleClear}
-            className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700"
+            className="chat-panel__clear-btn"
             title="Clear chat messages"
           >
             Clear
@@ -111,15 +113,15 @@ export function ChatPanel({
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '16px' }}>
+      <div className="chat-panel__messages">
         {isLoading ? (
-          <div className="text-gray-400 text-center">Loading chat...</div>
+          <div className="chat-panel__loading">Loading chat...</div>
         ) : messages.length === 0 && !streamingContent ? (
-          <div className="text-gray-400 text-center text-sm">
+          <div className="chat-panel__empty">
             No messages yet. Start a conversation.
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="chat-panel__messages-list">
             {messages.map((m) => (
               <ChatMessage key={m.id} message={m} />
             ))}
@@ -136,24 +138,21 @@ export function ChatPanel({
         )}
         {/* Streaming response */}
         {streamingContent && (
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="text-sm text-gray-400 mb-1">Assistant</div>
-            <div className="text-gray-200 whitespace-pre-wrap">
+          <div className="chat-panel__streaming">
+            <div className="chat-panel__streaming-role">Assistant</div>
+            <div className="chat-panel__streaming-content">
               {streamingContent}
-              <span className="animate-pulse text-blue-400">|</span>
+              <span className="chat-panel__streaming-cursor">|</span>
             </div>
           </div>
         )}
         {/* Stop button during streaming */}
         {isResponding && (
-          <div className="flex items-center gap-2">
+          <div className="chat-panel__thinking">
             {!streamingContent && (
-              <span className="text-gray-400 text-sm animate-pulse">AI is thinking...</span>
+              <span className="chat-panel__thinking-text">AI is thinking...</span>
             )}
-            <button
-              onClick={abortAgent}
-              className="text-red-400 text-sm hover:text-red-300 underline"
-            >
+            <button onClick={abortAgent} className="chat-panel__stop-btn">
               Stop generating
             </button>
           </div>
@@ -162,24 +161,24 @@ export function ChatPanel({
       </div>
 
       {/* Input area */}
-      <div className="p-3 border-t border-gray-700">
-        <div className="flex gap-2">
+      <div className="chat-panel__input-area">
+        <div className="chat-panel__input-row">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             disabled={isResponding}
-            className="flex-1 bg-gray-800 text-white rounded px-3 py-2 resize-none border border-gray-600 focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="chat-panel__textarea"
             rows={2}
           />
-          <button
+          <Button
             onClick={handleSend}
             disabled={!inputValue.trim() || isResponding}
-            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
+            size="md"
           >
             {isResponding ? 'Thinking...' : 'Send'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

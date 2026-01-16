@@ -1,0 +1,214 @@
+/**
+ * ChatPanel Component Styles
+ * Full chat interface with synthwave theming
+ */
+
+/* Main container */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  border-left: 1px solid var(--border-default);
+}
+
+/* Header section */
+.chat-panel__header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-panel__header-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.chat-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Icon button in header */
+.chat-panel__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chat-panel__icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Clear button */
+.chat-panel__clear-btn {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chat-panel__clear-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Messages area */
+.chat-panel__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+.chat-panel__messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Empty state */
+.chat-panel__empty {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  padding: var(--space-xl);
+}
+
+/* Loading state */
+.chat-panel__loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-xl);
+}
+
+/* Streaming response container */
+.chat-panel__streaming {
+  background: rgba(255, 0, 255, 0.1);
+  border: 1px solid rgba(255, 0, 255, 0.25);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.chat-panel__streaming-role {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.chat-panel__streaming-content {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 0.875rem;
+}
+
+/* Animated cursor */
+.chat-panel__streaming-cursor {
+  color: var(--accent-primary);
+  animation: cursor-blink 1s ease-in-out infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Thinking state */
+.chat-panel__thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.chat-panel__thinking-text {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Stop button */
+.chat-panel__stop-btn {
+  color: var(--color-error);
+  font-size: 0.875rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.chat-panel__stop-btn:hover {
+  color: #ff5588;
+}
+
+/* Input area */
+.chat-panel__input-area {
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-default);
+}
+
+.chat-panel__input-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Textarea styling */
+.chat-panel__textarea {
+  flex: 1;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  transition: all var(--transition-fast);
+  line-height: 1.5;
+}
+
+.chat-panel__textarea::placeholder {
+  color: var(--input-placeholder);
+}
+
+.chat-panel__textarea:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: var(--input-focus-glow);
+}
+
+.chat-panel__textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
