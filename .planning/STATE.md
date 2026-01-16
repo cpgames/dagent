@@ -5,26 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v2.4 Ralph Loop (Task Plan Infrastructure)
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-**Milestone:** v2.4 Ralph Loop (Task Plan Infrastructure)
+**Milestone:** v2.5 Intelligent Task Scoping & Context Management
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: 59 (DevAgent Integration) - COMPLETE
-Plan: 59-01 complete
-Status: DevAgent iteration mode for Ralph Loop integration
-Last activity: 2026-01-15 - Phase 59-01 executed
+Status: v2.5 in progress - Phases 62-66 complete
+Last activity: 2026-01-15 - Phase 66 (Spec-Aware QA) completed
 
-Progress: 14 milestones shipped (v1.0-v2.3), v2.4 in progress (4/6 phases)
+Progress: 16 milestones shipped (v1.0-v2.4), v2.5 in progress (5/7 phases complete)
 
-Next action: /gsd:plan-phase 60
+Next action: Plan Phase 67
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 105 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 4)
+- Total plans completed: 107 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~320 min
 
@@ -41,8 +39,8 @@ Next action: /gsd:plan-phase 60
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 56-01, 57-01, 58-01, 59-01
-- Trend: v2.4 Ralph Loop milestone in progress (4/6 phases complete)
+- Last 5 plans: 57-01, 58-01, 59-01, 60-01, 61-01
+- Trend: v2.4 Ralph Loop milestone COMPLETE (6/6 phases)
 
 ## Accumulated Context
 
@@ -387,6 +385,55 @@ All verification items passed. Milestone v2.3 Complete.
 ### Phase 59: DevAgent Integration ✓
 
 - **59-01**: DevAgent iteration mode (iterationMode config, executeIteration(), initializeForIteration()), TaskController integration with worktree reuse
+
+### Phase 60: Orchestrator Integration ✓
+
+- **60-01**: TaskController integrated into orchestrator (replaces direct DevAgent spawning), TaskLoopStatus interface, ExecutionConfig loop settings, IPC handlers for loop status
+
+### Phase 61: Loop Status UI ✓
+
+- **61-01**: Loop status UI with iteration badge on TaskNode, checklist display in NodeDialog, abort button, dag-store integration
+
+### Phase 62: Feature Spec Infrastructure ✓
+
+- **62-01**: FeatureSpec types (feature-spec-types.ts), FeatureSpecStore for markdown persistence (feature-spec-store.ts)
+
+### Phase 63: PM Spec Management ✓
+
+- **63-01**: PM MCP tools (CreateSpec, UpdateSpec, GetSpec) in pm-mcp-server.ts, IPC handlers, prompt instructions
+
+### Phase 64: PM Task Decomposition ✓
+
+- **64-01**: DecomposeSpec MCP tool with complexity analysis, task grouping by concern type
+
+### Phase 65: Spec-Aware DevAgent ✓
+
+- **65-01**: DevAgent receives featureSpec via TaskController, includes spec goals/requirements/constraints in execution prompts
+
+### Phase 66: Spec-Aware QA ✓
+
+- **66-01**: QA agent receives featureSpec, includes acceptance criteria in review prompts, references spec items in feedback
+
+---
+
+## v2.4 Milestone Summary
+
+Ralph Loop Integration is complete. Tasks now execute in iterative loops with fresh context and automated verification:
+
+1. **Task Plan Infrastructure**: TaskPlan schema with checklist storage in worktree `.dagent/` directory
+2. **Verification Runner**: Automated build/lint/test checks with result parsing
+3. **Task Controller**: Iteration loop manager spawning fresh DevAgent per iteration
+4. **DevAgent Integration**: Plan-aware execution mode with iteration support
+5. **Orchestrator Integration**: TaskController replaces direct DevAgent spawning
+6. **Loop Status UI**: Iteration badge, checklist display, abort button
+
+The application now provides:
+- Iterative task execution until build/tests pass (not just agent claims done)
+- Fresh context per iteration (no bloat on complex tasks)
+- Verification results visible in UI (pass/fail dots on task nodes)
+- Full checklist display in node dialog with icons
+- Abort button to stop loops early
+- Real-time loop status updates via IPC
 
 ---
 

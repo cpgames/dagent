@@ -15,10 +15,10 @@ None
 See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
 
 - [x] **Phase 62: Feature Spec Infrastructure** - FeatureSpec types, markdown storage (1/1 plans)
-- [ ] **Phase 63: PM Spec Management** - PM creates/updates spec through chat (0/1 plans)
-- [ ] **Phase 64: PM Task Decomposition** - Intelligent complexity analysis (0/1 plans)
-- [ ] **Phase 65: Spec-Aware DevAgent** - DevAgent reads spec for context (0/1 plans)
-- [ ] **Phase 66: Spec-Aware QA** - QA validates against spec criteria (0/1 plans)
+- [x] **Phase 63: PM Spec Management** - PM creates/updates spec through chat (1/1 plans)
+- [x] **Phase 64: PM Task Decomposition** - Intelligent complexity analysis (1/1 plans)
+- [x] **Phase 65: Spec-Aware DevAgent** - DevAgent reads spec for context (1/1 plans)
+- [x] **Phase 66: Spec-Aware QA** - QA validates against spec criteria (1/1 plans)
 - [ ] **Phase 67: Context-Aware Checkpointing** - Token-based instead of fixed iterations (0/1 plans)
 - [ ] **Phase 68: UI Simplification** - Remove loop counter, add spec viewer (0/1 plans)
 
@@ -288,3 +288,8 @@ See [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) for details.
 | 59. DevAgent Integration | v2.4 | 1/1 | Complete | 2026-01-15 |
 | 60. Orchestrator Integration | v2.4 | 1/1 | Complete | 2026-01-15 |
 | 61. Loop Status UI | v2.4 | 1/1 | Complete | 2026-01-15 |
+| 62. Feature Spec Infrastructure | v2.5 | 1/1 | Complete | 2026-01-15 |
+| 63. PM Spec Management | v2.5 | 1/1 | Complete | 2026-01-15 |
+| 64. PM Task Decomposition | v2.5 | 1/1 | Complete | 2026-01-15 |
+| 65. Spec-Aware DevAgent | v2.5 | 1/1 | Complete | 2026-01-15 |
+| 66. Spec-Aware QA | v2.5 | 1/1 | Complete | 2026-01-15 |
