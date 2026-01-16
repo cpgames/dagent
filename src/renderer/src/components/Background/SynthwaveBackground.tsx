@@ -1,6 +1,7 @@
 import React from 'react';
 import { Starfield } from './Starfield';
 import { Horizon } from './Horizon';
+import { SynthwaveGrid } from './SynthwaveGrid';
 import './SynthwaveBackground.css';
 
 export interface SynthwaveBackgroundProps {
@@ -17,13 +18,13 @@ export interface SynthwaveBackgroundProps {
 /**
  * Synthwave background container component.
  *
- * Combines Starfield and Horizon components to create
- * the full synthwave aesthetic background.
+ * Combines Starfield, Horizon, and SynthwaveGrid components
+ * to create the full synthwave aesthetic background.
  */
 export const SynthwaveBackground: React.FC<SynthwaveBackgroundProps> = ({
   stars = true,
   horizon = true,
-  grid = false,
+  grid = true,
   className = '',
 }) => {
   const classes = ['synthwave-background', className].filter(Boolean).join(' ');
@@ -31,7 +32,8 @@ export const SynthwaveBackground: React.FC<SynthwaveBackgroundProps> = ({
   return (
     <div className={classes} aria-hidden="true">
       {stars && <Starfield />}
-      {horizon && <Horizon showGrid={grid} />}
+      {grid && <SynthwaveGrid />}
+      {horizon && <Horizon showGrid={false} />}
     </div>
   );
 };
