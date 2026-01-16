@@ -435,6 +435,8 @@ export class TaskController extends EventEmitter {
 
   /**
    * Spawn a fresh DevAgent for this iteration.
+   * On first iteration: uses initialize() to create worktree
+   * On subsequent iterations: uses initializeForIteration() with existing worktreePath
    */
   private async spawnDevAgent(prompt: string): Promise<TaskExecutionResult> {
     // Clean up previous agent if exists
@@ -443,53 +445,67 @@ export class TaskController extends EventEmitter {
       this.currentDevAgent = null
     }
 
-    // Create fresh DevAgent
+    // Create fresh DevAgent with iteration mode config
     const agent = createDevAgent(this.state.featureId, this.state.taskId, {
-      autoPropose: true,
-      autoExecute: true
+      autoPropose: false, // We handle execution directly
+      autoExecute: false, // We handle execution directly
+      iterationMode: true,
+      iterationPrompt: prompt,
+      existingWorktreePath: this.state.worktreePath || undefined
     })
     this.currentDevAgent = agent
 
     try {
-      // Initialize agent
-      const initialized = await agent.initialize(
-        this.task!,
-        this.graph!,
-        this.claudeMd,
-        this.featureGoal
-      )
+      const isFirstIteration = this.state.currentIteration === 1
 
-      if (!initialized) {
-        return {
-          success: false,
-          taskId: this.state.taskId,
-          error: agent.getState().error || 'Failed to initialize DevAgent'
+      if (isFirstIteration) {
+        // First iteration: use full initialize() to create worktree
+        const initialized = await agent.initialize(
+          this.task!,
+          this.graph!,
+          this.claudeMd,
+          this.featureGoal
+        )
+
+        if (!initialized) {
+          return {
+            success: false,
+            taskId: this.state.taskId,
+            error: agent.getState().error || 'Failed to initialize DevAgent'
+          }
+        }
+
+        // Store worktree path for subsequent iterations
+        this.state.worktreePath = agent.getState().worktreePath
+      } else {
+        // Subsequent iterations: use initializeForIteration() with existing worktree
+        if (!this.state.worktreePath) {
+          return {
+            success: false,
+            taskId: this.state.taskId,
+            error: 'No worktree path available for iteration'
+          }
+        }
+
+        const initialized = await agent.initializeForIteration(
+          this.task!,
+          this.graph!,
+          this.state.worktreePath,
+          this.claudeMd,
+          this.featureGoal
+        )
+
+        if (!initialized) {
+          return {
+            success: false,
+            taskId: this.state.taskId,
+            error: agent.getState().error || 'Failed to initialize DevAgent for iteration'
+          }
         }
       }
 
-      // Store worktree path
-      this.state.worktreePath = agent.getState().worktreePath
-
-      // Propose intention and wait for approval
-      await agent.proposeIntention(prompt)
-
-      // Wait for execution to complete
-      return new Promise<TaskExecutionResult>((resolve) => {
-        const onComplete = (result: TaskExecutionResult): void => {
-          agent.off('dev-agent:ready_for_merge', onComplete)
-          agent.off('dev-agent:failed', onFailed)
-          resolve(result)
-        }
-
-        const onFailed = (result: TaskExecutionResult): void => {
-          agent.off('dev-agent:ready_for_merge', onComplete)
-          agent.off('dev-agent:failed', onFailed)
-          resolve(result)
-        }
-
-        agent.on('dev-agent:ready_for_merge', onComplete)
-        agent.on('dev-agent:failed', onFailed)
-      })
+      // Execute iteration directly - bypasses intention-approval workflow
+      return await agent.executeIteration(prompt)
     } catch (error) {
       return {
         success: false,
