@@ -1,0 +1,102 @@
+/**
+ * Textarea Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Textarea wrapper */
+.ui-textarea-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+/* Base textarea styles */
+.ui-textarea {
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all var(--transition-fast);
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.ui-textarea::placeholder {
+  color: var(--input-placeholder);
+}
+
+.ui-textarea:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: var(--input-focus-glow);
+}
+
+.ui-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  resize: none;
+}
+
+/* Size variants */
+.ui-textarea--sm {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.75rem;
+  min-height: 4rem;
+}
+
+.ui-textarea--md {
+  padding: var(--space-md) var(--space-lg);
+  font-size: 0.875rem;
+  min-height: 6rem;
+}
+
+.ui-textarea--lg {
+  padding: var(--space-lg) var(--space-xl);
+  font-size: 1rem;
+  min-height: 8rem;
+}
+
+/* Error state */
+.ui-textarea--error {
+  border-color: var(--color-error);
+}
+
+.ui-textarea--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px var(--color-error-dim);
+}
+
+/* Auto-resize disables manual resize */
+.ui-textarea--auto-resize {
+  resize: none;
+  overflow: hidden;
+}
+
+/* Error message */
+.ui-textarea__error {
+  color: var(--color-error);
+  font-size: 0.75rem;
+}
+
+/* Character count */
+.ui-textarea__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.ui-textarea__count {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.ui-textarea__count--warning {
+  color: var(--color-warning);
+}
+
+.ui-textarea__count--error {
+  color: var(--color-error);
+}

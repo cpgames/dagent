@@ -1,0 +1,145 @@
+/**
+ * Input Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Input wrapper for icons and error messages */
+.ui-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+/* Input container for icon positioning */
+.ui-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Base input styles */
+.ui-input {
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.ui-input::placeholder {
+  color: var(--input-placeholder);
+}
+
+.ui-input:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: var(--input-focus-glow);
+}
+
+.ui-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Size variants */
+.ui-input--sm {
+  height: 2rem;
+  padding: 0 var(--space-md);
+  font-size: 0.75rem;
+}
+
+.ui-input--md {
+  height: 2.5rem;
+  padding: 0 var(--space-lg);
+  font-size: 0.875rem;
+}
+
+.ui-input--lg {
+  height: 3rem;
+  padding: 0 var(--space-xl);
+  font-size: 1rem;
+}
+
+/* With left icon */
+.ui-input--with-left-icon.ui-input--sm {
+  padding-left: 2rem;
+}
+
+.ui-input--with-left-icon.ui-input--md {
+  padding-left: 2.5rem;
+}
+
+.ui-input--with-left-icon.ui-input--lg {
+  padding-left: 3rem;
+}
+
+/* With right icon */
+.ui-input--with-right-icon.ui-input--sm {
+  padding-right: 2rem;
+}
+
+.ui-input--with-right-icon.ui-input--md {
+  padding-right: 2.5rem;
+}
+
+.ui-input--with-right-icon.ui-input--lg {
+  padding-right: 3rem;
+}
+
+/* Error state */
+.ui-input--error {
+  border-color: var(--color-error);
+}
+
+.ui-input--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px var(--color-error-dim);
+}
+
+/* Icon positioning */
+.ui-input__icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.ui-input__icon--left {
+  left: var(--space-md);
+}
+
+.ui-input__icon--right {
+  right: var(--space-md);
+}
+
+/* Clickable right icon (for clear button, etc.) */
+.ui-input__icon--clickable {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.ui-input__icon--clickable:hover {
+  color: var(--text-primary);
+}
+
+/* Error message */
+.ui-input__error {
+  color: var(--color-error);
+  font-size: 0.75rem;
+}
+
+/* Number input spinners (hidden by default) */
+.ui-input[type="number"]::-webkit-outer-spin-button,
+.ui-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ui-input[type="number"] {
+  -moz-appearance: textfield;
+}

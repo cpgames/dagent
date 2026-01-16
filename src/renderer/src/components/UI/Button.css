@@ -1,0 +1,220 @@
+/**
+ * Button Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Base button styles */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  user-select: none;
+  outline: none;
+  border: 1px solid transparent;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Size variants */
+.ui-button--sm {
+  height: 2rem;
+  padding: 0 var(--space-md);
+  font-size: 0.75rem;
+}
+
+.ui-button--md {
+  height: 2.5rem;
+  padding: 0 var(--space-lg);
+  font-size: 0.875rem;
+}
+
+.ui-button--lg {
+  height: 3rem;
+  padding: 0 var(--space-xl);
+  font-size: 1rem;
+}
+
+/* Primary variant */
+.ui-button--primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-color: var(--btn-primary-border);
+}
+
+.ui-button--primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover-bg);
+  box-shadow: var(--btn-primary-glow);
+}
+
+.ui-button--primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Secondary variant */
+.ui-button--secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+}
+
+.ui-button--secondary:hover:not(:disabled) {
+  background: var(--btn-secondary-hover-bg);
+  box-shadow: var(--btn-secondary-glow);
+}
+
+.ui-button--secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Ghost variant */
+.ui-button--ghost {
+  background: var(--btn-ghost-bg);
+  color: var(--btn-ghost-text);
+  border-color: var(--btn-ghost-border);
+}
+
+.ui-button--ghost:hover:not(:disabled) {
+  background: var(--btn-ghost-hover-bg);
+  color: var(--text-primary);
+}
+
+/* Danger variant */
+.ui-button--danger {
+  background: var(--color-error);
+  color: var(--text-primary);
+  border-color: var(--color-error);
+}
+
+.ui-button--danger:hover:not(:disabled) {
+  background: #ff4477;
+  box-shadow: var(--glow-error);
+}
+
+.ui-button--danger:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Loading state */
+.ui-button--loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.ui-button__spinner {
+  position: absolute;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-button-spin 0.6s linear infinite;
+}
+
+.ui-button--primary .ui-button__spinner {
+  border-color: var(--btn-primary-text);
+  border-right-color: transparent;
+}
+
+.ui-button--secondary .ui-button__spinner {
+  border-color: var(--btn-secondary-text);
+  border-right-color: transparent;
+}
+
+.ui-button--danger .ui-button__spinner {
+  border-color: var(--text-primary);
+  border-right-color: transparent;
+}
+
+@keyframes ui-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Full width variant */
+.ui-button--full-width {
+  width: 100%;
+}
+
+/* Icon button styles */
+.ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  outline: none;
+}
+
+.ui-icon-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.ui-icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Icon button sizes */
+.ui-icon-button--sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.875rem;
+}
+
+.ui-icon-button--md {
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1rem;
+}
+
+.ui-icon-button--lg {
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 1.25rem;
+}
+
+/* Icon button variants */
+.ui-icon-button--primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+.ui-icon-button--primary:hover:not(:disabled) {
+  box-shadow: var(--btn-primary-glow);
+}
+
+.ui-icon-button--secondary {
+  border-color: var(--btn-secondary-border);
+  color: var(--btn-secondary-text);
+}
+
+.ui-icon-button--secondary:hover:not(:disabled) {
+  background: var(--btn-secondary-hover-bg);
+  box-shadow: var(--btn-secondary-glow);
+}
+
+.ui-icon-button--ghost:hover:not(:disabled) {
+  background: var(--btn-ghost-hover-bg);
+  color: var(--text-primary);
+}
