@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.6 Synthwave UI Redesign
 **Roadmap:** .planning/ROADMAP.md
 
-Status: Phase 79 complete - Chat & Views Migration (3 plans: Chat components, ContextView/FeatureSpecViewer, AgentsView)
-Last activity: 2026-01-16 - Phase 79 completed
+Status: Phase 80 complete - Project & Auth Migration (1 plan: 6 components migrated)
+Last activity: 2026-01-16 - Phase 80 completed
 
-Progress: 17 milestones shipped (v1.0-v2.5), v2.6 in progress (10/12 phases complete)
+Progress: 17 milestones shipped (v1.0-v2.5), v2.6 in progress (11/12 phases complete)
 
-Next action: /gsd:plan-phase 80 or /gsd:progress
+Next action: /gsd:plan-phase 81 or /gsd:progress
 
 ## Performance Metrics
 
@@ -68,9 +68,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-16
-Stopped at: Phase 79-03 complete
+Stopped at: Phase 80-01 complete
 Resume file: None
-Next action: Execute Phase 79-04 or /gsd:progress
+Next action: /gsd:plan-phase 81 or /gsd:progress
 
 ## Completed Phases
 
