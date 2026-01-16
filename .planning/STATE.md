@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.7 Canvas Background System
 **Roadmap:** .planning/milestones/v2.7-ROADMAP.md
 
-Phase: 85 of 89 (Horizon Glow Layer)
-Plan: 85-01 complete
-Status: Phase 85 complete
-Last activity: 2026-01-16 — Phase 85-01 complete (HorizonGlowLayer with pulsing radial gradient)
+Phase: 86 of 89 (Grid Layer Integration)
+Plan: 86-01 planned
+Status: Ready for execution
+Last activity: 2026-01-16 — Phase 86-01 planned (GridLayer migration from SynthwaveGrid)
 
 Progress: ███░░░░░░░ 43% (3/7 phases)
 
-Next action: /gsd:plan-phase 86
+Next action: /gsd:execute-phase
 
 ## Performance Metrics
 
