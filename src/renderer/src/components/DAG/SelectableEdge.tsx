@@ -3,6 +3,11 @@
  */
 import { useState, type JSX } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position } from '@xyflow/react'
+import './SelectableEdge.css'
+
+// Theme colors for edge styling (CSS variables can't be used in inline SVG styles)
+const EDGE_COLOR_DEFAULT = '#6a5080' // matches --text-muted
+const EDGE_COLOR_SELECTED = '#00f0ff' // matches --accent-primary
 
 export interface SelectableEdgeData {
   selected?: boolean
@@ -82,7 +87,7 @@ export default function SelectableEdge({
         markerEnd={markerEnd}
         interactionWidth={20}
         style={{
-          stroke: isSelected ? '#3B82F6' : '#6B7280',
+          stroke: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR_DEFAULT,
           strokeWidth: isSelected ? 3 : 2,
           cursor: 'pointer',
           transition: 'stroke 0.15s, stroke-width 0.15s'
@@ -100,37 +105,28 @@ export default function SelectableEdge({
             cursor: 'pointer',
             zIndex: isSelected ? 10 : 0
           }}
-          className="nodrag nopan"
+          className="edge-label nodrag nopan"
           onClick={handleEdgeClick}
         >
           {/* Delete button and confirm dialog */}
           {isSelected && (
-            <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="edge-delete-container" onClick={(e) => e.stopPropagation()}>
               {!showConfirm ? (
                 <button
                   onClick={handleDeleteClick}
-                  className="w-6 h-6 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-lg border border-red-700"
+                  className="edge-delete-btn"
                   title="Delete connection"
                 >
                   ×
                 </button>
               ) : (
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 shadow-xl flex flex-col gap-2 min-w-[140px]">
-                  <span className="text-xs text-gray-300 text-center">Remove dependency?</span>
-                  <div className="flex gap-2 justify-center">
-                    <button
-                      onClick={handleConfirmDelete}
-                      className="px-2 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded"
-                    >
+                <div className="edge-confirm-dialog">
+                  <span className="edge-confirm-text">Remove dependency?</span>
+                  <div className="edge-confirm-actions">
+                    <button onClick={handleConfirmDelete} className="edge-confirm-btn edge-confirm-btn--delete">
                       Delete
                     </button>
-                    <button
-                      onClick={handleCancelDelete}
-                      className="px-2 py-1 text-xs bg-gray-600 hover:bg-gray-500 text-white rounded"
-                    >
+                    <button onClick={handleCancelDelete} className="edge-confirm-btn edge-confirm-btn--cancel">
                       Cancel
                     </button>
                   </div>

@@ -1,0 +1,164 @@
+/**
+ * TaskNode Component Styles
+ * DAG task nodes with status-colored borders and glow effects
+ */
+
+.task-node {
+  min-width: 200px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-default);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-fast);
+}
+
+.task-node--selected {
+  box-shadow: 0 0 0 2px var(--accent-primary-dim);
+}
+
+/* Status border colors */
+.task-node--blocked {
+  border-color: var(--accent-primary);
+  background: var(--color-info-dim);
+}
+
+.task-node--ready_for_dev {
+  border-color: var(--accent-primary);
+  background: var(--color-info-dim);
+}
+
+.task-node--in_progress {
+  border-color: var(--color-warning);
+  background: var(--color-warning-dim);
+}
+
+.task-node--ready_for_qa {
+  border-color: var(--accent-secondary);
+  background: var(--accent-secondary-dim);
+}
+
+.task-node--ready_for_merge {
+  border-color: var(--color-warning);
+  background: var(--color-warning-dim);
+}
+
+.task-node--completed {
+  border-color: var(--color-success);
+  background: var(--color-success-dim);
+}
+
+.task-node--failed {
+  border-color: var(--color-error);
+  background: var(--color-error-dim);
+}
+
+.task-node__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.task-node__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.task-node__title-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.task-node__lock-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+}
+
+.task-node__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.task-node__action-btn {
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.task-node__action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.task-node__action-btn--delete:hover {
+  color: var(--color-error);
+}
+
+.task-node__action-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* State badge section */
+.task-node__badge-section {
+  padding: var(--space-xs) var(--space-md);
+}
+
+.task-node__badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.task-node__badge--dev {
+  background: var(--color-info-dim);
+  color: var(--accent-primary);
+}
+
+.task-node__badge--qa {
+  background: var(--color-warning-dim);
+  color: var(--color-warning);
+}
+
+.task-node__badge--merge {
+  background: var(--accent-secondary-dim);
+  color: var(--accent-secondary);
+}
+
+.task-node__badge--failed {
+  background: var(--color-error-dim);
+  color: var(--color-error);
+}
+
+/* Status text */
+.task-node__status {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.task-node__status-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* React Flow handle overrides */
+.task-node__handle {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  background: var(--text-muted) !important;
+  border: 2px solid var(--bg-elevated) !important;
+}

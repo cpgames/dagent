@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { Task, TaskStatus } from '@shared/types'
 import type { TaskLoopStatus } from '../../../../main/dag-engine/orchestrator-types'
 import { getTaskStatusLabel } from '@shared/types/task'
+import './TaskNode.css'
 
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task
@@ -12,65 +13,38 @@ export interface TaskNodeData extends Record<string, unknown> {
   onLog: (taskId: string) => void
 }
 
-const statusBorderColors: Record<TaskStatus, string> = {
-  blocked: 'border-blue-500',
-  ready_for_dev: 'border-blue-500',
-  in_progress: 'border-yellow-500',
-  ready_for_qa: 'border-purple-500',
-  ready_for_merge: 'border-yellow-500',
-  completed: 'border-green-500',
-  failed: 'border-red-500'
-}
-
-const statusBgColors: Record<TaskStatus, string> = {
-  blocked: 'bg-blue-500/10',
-  ready_for_dev: 'bg-blue-500/10',
-  in_progress: 'bg-yellow-500/10',
-  ready_for_qa: 'bg-purple-500/10',
-  ready_for_merge: 'bg-yellow-500/10',
-  completed: 'bg-green-500/10',
-  failed: 'bg-red-500/10'
-}
-
 // State badge configuration for active execution states
-const stateBadgeConfig: Partial<
-  Record<TaskStatus, { label: string; bgColor: string; textColor: string }>
-> = {
-  in_progress: { label: 'DEV', bgColor: 'bg-blue-500/20', textColor: 'text-blue-400' },
-  ready_for_qa: { label: 'QA', bgColor: 'bg-yellow-500/20', textColor: 'text-yellow-400' },
-  ready_for_merge: { label: 'MERGE', bgColor: 'bg-purple-500/20', textColor: 'text-purple-400' },
-  failed: { label: 'FAILED', bgColor: 'bg-red-500/20', textColor: 'text-red-400' }
+const stateBadgeConfig: Partial<Record<TaskStatus, { label: string; cssClass: string }>> = {
+  in_progress: { label: 'DEV', cssClass: 'task-node__badge--dev' },
+  ready_for_qa: { label: 'QA', cssClass: 'task-node__badge--qa' },
+  ready_for_merge: { label: 'MERGE', cssClass: 'task-node__badge--merge' },
+  failed: { label: 'FAILED', cssClass: 'task-node__badge--failed' }
 }
 
 function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   const nodeData = data as TaskNodeData
   // loopStatus kept in data for NodeDialog/debugging, but not rendered on TaskNode
   const { task, loopStatus: _loopStatus, onEdit, onDelete, onLog } = nodeData
-  const borderColor = statusBorderColors[task.status]
-  const bgColor = statusBgColors[task.status]
+
+  const nodeClasses = [
+    'task-node',
+    `task-node--${task.status}`,
+    selected ? 'task-node--selected' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <div
-      className={`
-        min-w-[200px] rounded-lg shadow-lg border-2
-        ${borderColor} ${bgColor}
-        ${selected ? 'ring-2 ring-white/50' : ''}
-        bg-gray-800
-      `}
-    >
+    <div className={nodeClasses}>
       {/* Target handle (left) - input from dependencies */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-gray-600"
-      />
+      <Handle type="target" position={Position.Left} className="task-node__handle" />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
-        <div className="flex items-center gap-2">
+      <div className="task-node__header">
+        <div className="task-node__title">
           {task.locked && (
             <svg
-              className="w-4 h-4 text-gray-400"
+              className="task-node__lock-icon"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -83,20 +57,23 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
               />
             </svg>
           )}
-          <span className="text-sm font-medium text-white truncate max-w-[120px]">
-            {task.title}
-          </span>
+          <span className="task-node__title-text">{task.title}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="task-node__actions">
           <button
             onClick={(e) => {
               e.stopPropagation()
               onEdit(task.id)
             }}
-            className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
+            className="task-node__action-btn"
             title="Edit task"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="task-node__action-icon"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -110,10 +87,15 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
               e.stopPropagation()
               onLog(task.id)
             }}
-            className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
+            className="task-node__action-btn"
             title="View agent logs for this task"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="task-node__action-icon"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -127,10 +109,15 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
               e.stopPropagation()
               onDelete(task.id)
             }}
-            className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-red-400"
+            className="task-node__action-btn task-node__action-btn--delete"
             title="Delete task"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="task-node__action-icon"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -144,9 +131,9 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
 
       {/* Dynamic state badge - only shows for active execution states */}
       {stateBadgeConfig[task.status] && (
-        <div className="px-3 py-1">
+        <div className="task-node__badge-section">
           <span
-            className={`text-xs px-1.5 py-0.5 rounded font-medium ${stateBadgeConfig[task.status]!.bgColor} ${stateBadgeConfig[task.status]!.textColor}`}
+            className={`task-node__badge ${stateBadgeConfig[task.status]!.cssClass}`}
             title={`State: ${stateBadgeConfig[task.status]!.label}${task.assignedAgentId ? `\nAgent: ${task.assignedAgentId}` : ''}`}
           >
             {stateBadgeConfig[task.status]!.label}
@@ -155,16 +142,12 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
       )}
 
       {/* Status indicator */}
-      <div className="px-3 py-2">
-        <span className="text-xs text-gray-400">{getTaskStatusLabel(task.status)}</span>
+      <div className="task-node__status">
+        <span className="task-node__status-text">{getTaskStatusLabel(task.status)}</span>
       </div>
 
       {/* Source handle (right) - output to dependents */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-gray-600"
-      />
+      <Handle type="source" position={Position.Right} className="task-node__handle" />
     </div>
   )
 }

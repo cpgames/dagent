@@ -1,0 +1,95 @@
+/**
+ * SelectableEdge Component Styles
+ * DAG edges with selection highlighting and delete confirmation
+ */
+
+.edge-label {
+  position: absolute;
+  pointer-events: all;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+}
+
+.edge-label--selected {
+  z-index: 10;
+}
+
+.edge-delete-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.edge-delete-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-error);
+  border: 1px solid var(--color-error);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.edge-delete-btn:hover {
+  filter: brightness(1.2);
+}
+
+.edge-confirm-dialog {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 140px;
+}
+
+.edge-confirm-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.edge-confirm-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.edge-confirm-btn {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.edge-confirm-btn--delete {
+  background: var(--color-error);
+  color: var(--text-primary);
+}
+
+.edge-confirm-btn--delete:hover {
+  filter: brightness(1.2);
+}
+
+.edge-confirm-btn--cancel {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.edge-confirm-btn--cancel:hover {
+  background: var(--bg-active);
+}

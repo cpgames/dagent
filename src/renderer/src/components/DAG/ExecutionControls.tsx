@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useExecutionStore } from '../../stores/execution-store'
 import { useDAGStore } from '../../stores/dag-store'
+import './ExecutionControls.css'
 
 interface ExecutionControlsProps {
   featureId: string | null
@@ -12,7 +13,7 @@ interface ExecutionControlsProps {
 
 // Play icon SVG
 const PlayIcon = (): JSX.Element => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="execution-controls__btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -30,7 +31,7 @@ const PlayIcon = (): JSX.Element => (
 
 // Pause icon SVG
 const PauseIcon = (): JSX.Element => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="execution-controls__btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -42,7 +43,7 @@ const PauseIcon = (): JSX.Element => (
 
 // Stop icon SVG
 const StopIcon = (): JSX.Element => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="execution-controls__btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -61,7 +62,7 @@ const StopIcon = (): JSX.Element => (
 // Undo icon SVG
 const UndoIcon = ({ spinning = false }: { spinning?: boolean }): JSX.Element => (
   <svg
-    className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`}
+    className={`execution-controls__btn-icon ${spinning ? 'execution-controls__btn-icon--spinning' : ''}`}
     fill="none"
     stroke="currentColor"
     viewBox="0 0 24 24"
@@ -78,7 +79,7 @@ const UndoIcon = ({ spinning = false }: { spinning?: boolean }): JSX.Element => 
 // Redo icon SVG
 const RedoIcon = ({ spinning = false }: { spinning?: boolean }): JSX.Element => (
   <svg
-    className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`}
+    className={`execution-controls__btn-icon ${spinning ? 'execution-controls__btn-icon--spinning' : ''}`}
     fill="none"
     stroke="currentColor"
     viewBox="0 0 24 24"
@@ -121,17 +122,23 @@ export default function ExecutionControls({
     await stop()
   }
 
-  const buttonBase = 'px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-colors'
-  const activeButton = 'bg-gray-700 hover:bg-gray-600 text-white'
-  const disabledButton = 'bg-gray-700 text-gray-400 cursor-not-allowed'
+  const getButtonClass = (isActive: boolean): string => {
+    return `execution-controls__btn ${isActive ? 'execution-controls__btn--active' : 'execution-controls__btn--disabled'}`
+  }
+
+  const getStatusDotClass = (): string => {
+    if (isRunning) return 'execution-controls__status-dot execution-controls__status-dot--running'
+    if (isPaused) return 'execution-controls__status-dot execution-controls__status-dot--paused'
+    return 'execution-controls__status-dot execution-controls__status-dot--idle'
+  }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="execution-controls">
       {/* Play/Pause button */}
       <button
         onClick={handlePlayPause}
         disabled={isLoading || !featureId}
-        className={`${buttonBase} ${!isLoading && featureId ? activeButton : disabledButton}`}
+        className={getButtonClass(!isLoading && !!featureId)}
         title={isRunning ? 'Pause execution' : isPaused ? 'Resume execution' : 'Start execution'}
       >
         {isRunning ? <PauseIcon /> : <PlayIcon />}
@@ -142,20 +149,20 @@ export default function ExecutionControls({
       <button
         onClick={handleStop}
         disabled={isLoading || isIdle}
-        className={`${buttonBase} ${!isLoading && !isIdle ? activeButton : disabledButton}`}
+        className={getButtonClass(!isLoading && !isIdle)}
         title="Stop execution"
       >
         <StopIcon />
         Stop
       </button>
 
-      <div className="border-l border-gray-600 mx-2 h-6" />
+      <div className="execution-controls__divider" />
 
       {/* Undo button */}
       <button
         onClick={onUndo}
         disabled={!canUndo || isUndoing}
-        className={`${buttonBase} ${canUndo && !isUndoing ? activeButton : disabledButton}`}
+        className={getButtonClass(canUndo && !isUndoing)}
         title="Undo"
       >
         <UndoIcon spinning={isUndoing} />
@@ -166,7 +173,7 @@ export default function ExecutionControls({
       <button
         onClick={onRedo}
         disabled={!canRedo || isRedoing}
-        className={`${buttonBase} ${canRedo && !isRedoing ? activeButton : disabledButton}`}
+        className={getButtonClass(canRedo && !isRedoing)}
         title="Redo"
       >
         <RedoIcon spinning={isRedoing} />
@@ -175,13 +182,9 @@ export default function ExecutionControls({
 
       {/* Status indicator */}
       {!isIdle && (
-        <div className="ml-4 text-sm">
-          <span
-            className={`inline-block w-2 h-2 rounded-full mr-2 ${
-              isRunning ? 'bg-yellow-500 animate-pulse' : isPaused ? 'bg-blue-500' : 'bg-gray-500'
-            }`}
-          />
-          <span className="text-gray-400">
+        <div className="execution-controls__status">
+          <span className={getStatusDotClass()} />
+          <span className="execution-controls__status-text">
             {isRunning ? 'Running...' : isPaused ? 'Paused' : status}
           </span>
         </div>

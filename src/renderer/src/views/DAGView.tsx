@@ -399,7 +399,7 @@ export default function DAGView(): JSX.Element {
   return (
     <div className="flex flex-col h-full">
       {/* Feature tabs at top */}
-      <div className="border-b border-gray-700 bg-gray-900">
+      <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
         <FeatureTabs
           features={features}
           activeFeatureId={activeFeatureId}
@@ -410,18 +410,18 @@ export default function DAGView(): JSX.Element {
       {/* Main content area: React Flow canvas + Chat sidebar */}
       <div className="flex-1 flex overflow-hidden">
         {/* React Flow canvas */}
-        <div className="flex-1 flex flex-col bg-gray-900">
+        <div className="flex-1 flex flex-col bg-[var(--bg-base)]">
           <div className="flex-1 relative">
             {activeFeatureId ? (
               <>
                 {error && (
-                  <div className="absolute top-2 left-2 right-2 z-10 bg-red-900/90 text-red-100 px-3 py-2 rounded-lg text-sm flex justify-between items-center">
+                  <div className="absolute top-2 left-2 right-2 z-10 bg-[var(--color-error-dim)] text-[var(--color-error)] px-3 py-2 rounded-lg text-sm flex justify-between items-center">
                     <span>
                       <span className="font-medium">Error:</span> {error}
                     </span>
                     <button
                       onClick={() => setError(null)}
-                      className="ml-2 hover:text-white text-red-200"
+                      className="ml-2 hover:text-[var(--text-primary)] text-[var(--color-error)]"
                       aria-label="Dismiss error"
                     >
                       ×
@@ -444,34 +444,34 @@ export default function DAGView(): JSX.Element {
                   minZoom={0.25}
                   maxZoom={2}
                   nodesDraggable
-                  className="bg-gray-900"
+                  className="bg-[var(--bg-base)]"
                   proOptions={{ hideAttribution: true }}
                 >
-                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
-                  <Controls className="!bg-gray-800 !border-gray-700 [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600" />
+                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#6a5080" />
+                  <Controls className="!bg-[var(--bg-surface)] !border-[var(--border-default)] [&>button]:!bg-[var(--bg-elevated)] [&>button]:!border-[var(--border-subtle)] [&>button]:!text-[var(--text-primary)] [&>button:hover]:!bg-[var(--bg-hover)]" />
                   <MiniMap
-                    className="!bg-gray-800 !border-gray-700"
-                    nodeColor="#4B5563"
-                    maskColor="rgba(0, 0, 0, 0.5)"
+                    className="!bg-[var(--bg-surface)] !border-[var(--border-default)]"
+                    nodeColor="#6a5080"
+                    maskColor="rgba(10, 0, 21, 0.6)"
                   />
                 </ReactFlow>
                 {/* Mutation loading indicator */}
                 {isMutating && (
-                  <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-md">
-                    <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                    <span className="text-sm text-gray-300">Saving...</span>
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-md">
+                    <span className="inline-block w-2 h-2 bg-[var(--color-warning)] rounded-full animate-pulse" />
+                    <span className="text-sm text-[var(--text-secondary)]">Saving...</span>
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
+              <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
                 Select a feature to view its task graph
               </div>
             )}
           </div>
 
           {/* Control bar at bottom */}
-          <div className="border-t border-gray-700 bg-gray-800 px-4 py-2">
+          <div className="border-t border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2">
             <ExecutionControls
               featureId={activeFeatureId}
               onUndo={undo}
@@ -487,10 +487,10 @@ export default function DAGView(): JSX.Element {
           <div className="relative flex flex-col h-full" style={{ width: chatWidth }}>
             <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
             {/* Spec toggle bar */}
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-700 bg-gray-800">
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
               <button
                 onClick={handleToggleSpec}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                 title={showSpec ? 'Hide feature spec' : 'Show feature spec'}
               >
                 <svg
@@ -506,7 +506,7 @@ export default function DAGView(): JSX.Element {
             </div>
             {/* Feature spec viewer (collapsible) */}
             {showSpec && (
-              <div className="border-b border-gray-700 max-h-64 overflow-y-auto">
+              <div className="border-b border-[var(--border-default)] max-h-64 overflow-y-auto">
                 <FeatureSpecViewer featureId={activeFeatureId} />
               </div>
             )}

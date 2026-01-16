@@ -1,0 +1,95 @@
+/**
+ * ExecutionControls Component Styles
+ * DAG execution control bar with themed buttons
+ */
+
+.execution-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.execution-controls__btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.execution-controls__btn--active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.execution-controls__btn--active:hover {
+  background: var(--bg-active);
+}
+
+.execution-controls__btn--disabled {
+  background: var(--bg-hover);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.execution-controls__btn-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.execution-controls__btn-icon--spinning {
+  animation: spin 1s linear infinite;
+}
+
+.execution-controls__divider {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--border-subtle);
+  margin: 0 var(--space-sm);
+}
+
+.execution-controls__status {
+  margin-left: var(--space-lg);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+}
+
+.execution-controls__status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  margin-right: var(--space-sm);
+}
+
+.execution-controls__status-dot--running {
+  background: var(--color-warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.execution-controls__status-dot--paused {
+  background: var(--accent-primary);
+}
+
+.execution-controls__status-dot--idle {
+  background: var(--text-muted);
+}
+
+.execution-controls__status-text {
+  color: var(--text-muted);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
