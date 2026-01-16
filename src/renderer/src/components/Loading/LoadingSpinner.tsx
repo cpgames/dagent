@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import './LoadingSpinner.css';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -9,18 +10,10 @@ export default function LoadingSpinner({
   size = 'md',
   message
 }: LoadingSpinnerProps): JSX.Element {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12'
-  };
-
   return (
-    <div className="flex flex-col items-center justify-center gap-3">
-      <div
-        className={`${sizeClasses[size]} border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin`}
-      />
-      {message && <span className="text-gray-400 text-sm">{message}</span>}
+    <div className="loading-spinner">
+      <div className={`loading-spinner__spinner loading-spinner__spinner--${size}`} />
+      {message && <span className="loading-spinner__message">{message}</span>}
     </div>
   );
 }
@@ -28,7 +21,7 @@ export default function LoadingSpinner({
 // Full-screen loading overlay
 export function LoadingOverlay({ message }: { message?: string }): JSX.Element {
   return (
-    <div className="fixed inset-0 bg-gray-900/80 flex items-center justify-center z-50">
+    <div className="loading-overlay">
       <LoadingSpinner size="lg" message={message} />
     </div>
   );

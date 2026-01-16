@@ -1,0 +1,89 @@
+/**
+ * LoadingSpinner Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Spinner container */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+}
+
+/* Spinner element */
+.loading-spinner__spinner {
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent-primary);
+  border-radius: var(--radius-full);
+  animation: loading-spin 0.8s linear infinite;
+}
+
+/* Size variants */
+.loading-spinner__spinner--sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.loading-spinner__spinner--md {
+  width: 2rem;
+  height: 2rem;
+}
+
+.loading-spinner__spinner--lg {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Spin animation */
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Glow pulse animation for large spinners */
+.loading-spinner__spinner--lg {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  animation: loading-spin 0.8s linear infinite, loading-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes loading-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--accent-primary) 50%, transparent);
+  }
+}
+
+/* Message text */
+.loading-spinner__message {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Full-screen overlay */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner__spinner {
+    animation: none;
+  }
+
+  .loading-spinner__spinner--lg {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+    animation: none;
+  }
+}

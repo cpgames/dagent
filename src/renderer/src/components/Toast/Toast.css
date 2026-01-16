@@ -1,0 +1,135 @@
+/**
+ * Toast Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Toast container */
+.toast-container {
+  position: fixed;
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 28rem;
+}
+
+/* Individual toast item */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Toast icon */
+.toast__icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+/* Toast message */
+.toast__message {
+  flex: 1;
+  font-size: 0.875rem;
+}
+
+/* Toast dismiss button */
+.toast__dismiss {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--space-xs);
+  font-size: 1rem;
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.toast__dismiss:hover {
+  color: var(--text-primary);
+}
+
+.toast__dismiss:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Type variants */
+.toast--success {
+  border-color: var(--color-success);
+  box-shadow: var(--shadow-lg), inset 0 0 20px color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+
+.toast--success .toast__icon {
+  color: var(--color-success);
+}
+
+.toast--error {
+  border-color: var(--color-error);
+  box-shadow: var(--shadow-lg), inset 0 0 20px color-mix(in srgb, var(--color-error) 15%, transparent);
+}
+
+.toast--error .toast__icon {
+  color: var(--color-error);
+}
+
+.toast--warning {
+  border-color: var(--color-warning);
+  box-shadow: var(--shadow-lg), inset 0 0 20px color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.toast--warning .toast__icon {
+  color: var(--color-warning);
+}
+
+.toast--info {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-lg), inset 0 0 20px color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+
+.toast--info .toast__icon {
+  color: var(--accent-primary);
+}
+
+/* Hover glow effect */
+.toast--success:hover {
+  box-shadow: var(--shadow-lg), 0 0 15px color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.toast--error:hover {
+  box-shadow: var(--shadow-lg), 0 0 15px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+.toast--warning:hover {
+  box-shadow: var(--shadow-lg), 0 0 15px color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.toast--info:hover {
+  box-shadow: var(--shadow-lg), 0 0 15px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
