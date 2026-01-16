@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import './ToolUsageDisplay.css'
 
 interface ToolUsageDisplayProps {
   toolName: string
@@ -35,25 +36,25 @@ export function ToolUsageDisplay({
   const inputDisplay = formatInput(input)
 
   return (
-    <div className="bg-gray-800/50 rounded-lg p-2 my-2 border border-gray-700">
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-purple-400 font-mono">{toolName}</span>
-        {isLoading && <span className="text-yellow-400 animate-pulse">Running...</span>}
-        {result && <span className="text-green-400 text-xs">Done</span>}
+    <div className="tool-usage">
+      <div className="tool-usage__header">
+        <span className="tool-usage__name">{toolName}</span>
+        {isLoading && <span className="tool-usage__status tool-usage__status--running">Running...</span>}
+        {result && <span className="tool-usage__status tool-usage__status--done">Done</span>}
       </div>
 
       {/* Tool input (for Grep/Glob show pattern) */}
       {inputDisplay && (
-        <div className="text-xs text-gray-500 mt-1 font-mono truncate">{inputDisplay}</div>
+        <div className="tool-usage__input">{inputDisplay}</div>
       )}
 
       {/* Tool result (collapsible for large results) */}
       {result && (
-        <details className="mt-2">
-          <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">
+        <details className="tool-usage__result">
+          <summary className="tool-usage__summary">
             View result ({result.length} chars)
           </summary>
-          <pre className="mt-1 text-xs text-gray-400 bg-gray-900 p-2 rounded overflow-x-auto max-h-32 overflow-y-auto whitespace-pre-wrap">
+          <pre className="tool-usage__result-content">
             {result.slice(0, 500)}
             {result.length > 500 && '...'}
           </pre>

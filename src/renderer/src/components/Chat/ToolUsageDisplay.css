@@ -1,0 +1,105 @@
+/**
+ * ToolUsageDisplay Component Styles
+ * Tool execution display with synthwave theming
+ */
+
+/* Container */
+.tool-usage {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) 0;
+  border: 1px solid var(--border-default);
+  transition: all var(--transition-fast);
+}
+
+.tool-usage:hover {
+  border-color: var(--accent-secondary-dim);
+  box-shadow: var(--glow-border-secondary);
+}
+
+/* Header row with tool name and status */
+.tool-usage__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+}
+
+/* Tool name - purple/magenta accent */
+.tool-usage__name {
+  color: var(--accent-secondary);
+  font-family: monospace;
+  font-weight: 500;
+}
+
+/* Status indicators */
+.tool-usage__status {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Running status - yellow/orange with pulse */
+.tool-usage__status--running {
+  color: var(--color-warning);
+  animation: tool-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tool-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Done status - green */
+.tool-usage__status--done {
+  color: var(--color-success);
+  font-size: 0.75rem;
+}
+
+/* Tool input display */
+.tool-usage__input {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+  margin-top: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Result details container */
+.tool-usage__result {
+  margin-top: var(--space-sm);
+}
+
+/* Clickable summary */
+.tool-usage__summary {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.tool-usage__summary:hover {
+  color: var(--text-primary);
+}
+
+/* Result content */
+.tool-usage__result-content {
+  margin-top: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+  overflow-x: auto;
+  max-height: 8rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  border: 1px solid var(--border-subtle);
+}
