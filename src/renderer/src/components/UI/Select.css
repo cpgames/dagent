@@ -1,0 +1,147 @@
+/**
+ * Select Component Styles
+ * Uses CSS custom properties from synthwave theme
+ */
+
+/* Wrapper */
+.ui-select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Select container for custom arrow */
+.ui-select-container {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Base select styles */
+.ui-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+/* Size variants */
+.ui-select--sm {
+  height: 2rem;
+  padding: 0 2rem 0 var(--space-sm);
+  font-size: 0.75rem;
+}
+
+.ui-select--md {
+  height: 2.5rem;
+  padding: 0 2.5rem 0 var(--space-md);
+  font-size: 0.875rem;
+}
+
+.ui-select--lg {
+  height: 3rem;
+  padding: 0 3rem 0 var(--space-lg);
+  font-size: 1rem;
+}
+
+/* Hover state */
+.ui-select:hover:not(:disabled) {
+  border-color: var(--accent-secondary);
+  box-shadow: var(--glow-border-secondary);
+}
+
+/* Focus state */
+.ui-select:focus-visible {
+  border-color: var(--input-focus-border);
+  box-shadow: var(--input-focus-glow);
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.ui-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Error state */
+.ui-select--error {
+  border-color: var(--color-error);
+}
+
+.ui-select--error:hover:not(:disabled) {
+  box-shadow: var(--glow-error);
+}
+
+.ui-select--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px var(--color-error-dim);
+}
+
+/* Placeholder styling */
+.ui-select option[value=""] {
+  color: var(--input-placeholder);
+}
+
+/* Custom dropdown arrow */
+.ui-select__icon {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.ui-select-container:hover .ui-select__icon {
+  color: var(--accent-secondary);
+}
+
+.ui-select:focus-visible + .ui-select__icon {
+  color: var(--accent-primary);
+}
+
+/* Icon sizes */
+.ui-select--sm + .ui-select__icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.ui-select--md + .ui-select__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ui-select--lg + .ui-select__icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* Error message */
+.ui-select__error {
+  font-size: 0.75rem;
+  color: var(--color-error);
+}
+
+/* Option styling (limited browser support) */
+.ui-select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  padding: var(--space-sm);
+}
+
+.ui-select option:hover,
+.ui-select option:focus,
+.ui-select option:checked {
+  background: var(--accent-primary-dim);
+}
+
+.ui-select option:disabled {
+  color: var(--text-disabled);
+}
