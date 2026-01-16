@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useProjectStore } from '../../stores'
+import './ProjectSelector.css'
 
 interface ProjectSelectorProps {
   onOpenFullDialog: () => void
@@ -71,14 +72,14 @@ export function ProjectSelector({ onOpenFullDialog }: ProjectSelectorProps): JSX
     .slice(0, 3)
 
   return (
-    <div className="relative flex items-center gap-1" ref={dropdownRef}>
+    <div className="project-selector" ref={dropdownRef}>
       {/* Project name text */}
-      <span className="text-lg font-semibold text-white">{projectName}</span>
+      <span className="project-selector__name">{projectName}</span>
 
       {/* Dropdown trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-2 py-1 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded border border-gray-600 transition-colors"
+        className="project-selector__trigger"
         title="Switch project"
       >
         ...
@@ -86,30 +87,30 @@ export function ProjectSelector({ onOpenFullDialog }: ProjectSelectorProps): JSX
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-64 bg-gray-800 border border-gray-600 rounded-md shadow-lg z-50 overflow-hidden">
+        <div className="project-selector__dropdown">
           {/* Recent projects */}
           {recentToShow.length > 0 && (
-            <div className="py-1">
+            <div className="project-selector__recent-list">
               {recentToShow.map((project) => (
                 <button
                   key={project.path}
                   onClick={() => handleProjectClick(project.path)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-700 transition-colors"
+                  className="project-selector__recent-item"
                 >
-                  <FolderIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-sm text-white truncate">{project.name}</span>
+                  <FolderIcon className="project-selector__recent-icon" />
+                  <span className="project-selector__recent-name">{project.name}</span>
                 </button>
               ))}
-              <div className="border-t border-gray-600 my-1" />
+              <div className="project-selector__divider" />
             </div>
           )}
 
           {/* Open Project... option */}
           <button
             onClick={handleOpenDialog}
-            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-700 transition-colors"
+            className="project-selector__open-item"
           >
-            <span className="text-sm text-gray-300">Open Project...</span>
+            <span className="project-selector__open-text">Open Project...</span>
           </button>
         </div>
       )}

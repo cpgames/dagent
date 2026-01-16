@@ -1,0 +1,74 @@
+/**
+ * NewProjectDialog Component Styles
+ * Project creation form with location and name fields
+ */
+
+.new-project-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.new-project-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.new-project-dialog__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.new-project-dialog__location-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.new-project-dialog__location-input {
+  flex: 1;
+}
+
+.new-project-dialog__browse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.new-project-dialog__browse-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
+}
+
+.new-project-dialog__browse-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.new-project-dialog__browse-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.new-project-dialog__help-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+.new-project-dialog__error {
+  padding: var(--space-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--color-error);
+}

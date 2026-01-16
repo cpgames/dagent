@@ -1,0 +1,188 @@
+/**
+ * AuthDialog Component Styles
+ * Authentication configuration dialog
+ */
+
+.auth-dialog__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* SDK status section */
+.auth-dialog__sdk-status {
+  padding: var(--space-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+}
+
+.auth-dialog__sdk-status-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.auth-dialog__sdk-status-value {
+  font-size: 0.875rem;
+}
+
+.auth-dialog__sdk-status-value--available {
+  color: var(--color-success);
+}
+
+.auth-dialog__sdk-status-value--unavailable {
+  color: var(--color-warning);
+}
+
+.auth-dialog__sdk-status-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+/* SDK active section */
+.auth-dialog__sdk-active {
+  padding: var(--space-lg);
+  background: var(--bg-surface);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.auth-dialog__sdk-active-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.auth-dialog__status-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+}
+
+.auth-dialog__status-dot--success {
+  background: var(--color-success);
+}
+
+.auth-dialog__sdk-active-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-success);
+}
+
+.auth-dialog__sdk-active-description {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Authenticated section */
+.auth-dialog__authenticated {
+  padding: var(--space-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+}
+
+.auth-dialog__authenticated-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.auth-dialog__authenticated-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-success);
+}
+
+.auth-dialog__credential-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+}
+
+.auth-dialog__credential-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.auth-dialog__credential-label {
+  color: var(--text-muted);
+}
+
+.auth-dialog__credential-value {
+  color: var(--text-secondary);
+}
+
+.auth-dialog__credential-value--mono {
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+/* Manual auth form */
+.auth-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.auth-dialog__form-header {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.auth-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.auth-dialog__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.auth-dialog__radio-group {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+/* Error display */
+.auth-dialog__error {
+  padding: var(--space-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--color-error);
+}
+
+/* Help text */
+.auth-dialog__help {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.auth-dialog__help-link {
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: filter 150ms ease;
+}
+
+.auth-dialog__help-link:hover {
+  filter: brightness(1.2);
+  text-decoration: underline;
+}
+
+/* Button rows */
+.auth-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}

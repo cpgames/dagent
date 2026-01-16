@@ -1,0 +1,220 @@
+/**
+ * ProjectSelectionDialog Component Styles
+ * Project selection with recent list and action buttons
+ */
+
+/* Loading overlay */
+.project-selection-dialog__loading {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-elevated);
+  opacity: 0.9;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  z-index: 10;
+}
+
+.project-selection-dialog__spinner {
+  width: 2rem;
+  height: 2rem;
+  color: var(--accent-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.project-selection-dialog__loading-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Error display */
+.project-selection-dialog__error {
+  padding: var(--space-md);
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--color-error);
+  margin-bottom: var(--space-md);
+}
+
+/* Recent projects section */
+.project-selection-dialog__section {
+  margin-bottom: var(--space-md);
+}
+
+.project-selection-dialog__section-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.project-selection-dialog__recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.project-selection-dialog__recent-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-surface);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.project-selection-dialog__recent-item:hover {
+  background: var(--bg-hover);
+}
+
+.project-selection-dialog__recent-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.project-selection-dialog__recent-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  color: var(--accent-secondary);
+}
+
+.project-selection-dialog__recent-info {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+
+.project-selection-dialog__recent-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-selection-dialog__recent-path {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-selection-dialog__remove-btn {
+  padding: var(--space-xs);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease;
+}
+
+.project-selection-dialog__recent-item:hover .project-selection-dialog__remove-btn {
+  opacity: 1;
+}
+
+.project-selection-dialog__remove-btn:hover {
+  background: var(--bg-elevated);
+}
+
+.project-selection-dialog__remove-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+}
+
+/* Empty state */
+.project-selection-dialog__empty {
+  text-align: center;
+  padding: var(--space-lg);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+}
+
+/* Action buttons */
+.project-selection-dialog__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: auto;
+}
+
+.project-selection-dialog__action-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-surface);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.project-selection-dialog__action-btn:hover {
+  background: var(--bg-hover);
+}
+
+.project-selection-dialog__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.project-selection-dialog__action-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+}
+
+.project-selection-dialog__action-icon--blue {
+  background: var(--accent-primary);
+}
+
+.project-selection-dialog__action-icon--green {
+  background: var(--color-success);
+}
+
+.project-selection-dialog__action-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text-primary);
+}
+
+.project-selection-dialog__action-text {
+  text-align: left;
+}
+
+.project-selection-dialog__action-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.project-selection-dialog__action-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

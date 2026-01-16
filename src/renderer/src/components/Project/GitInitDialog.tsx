@@ -1,5 +1,7 @@
 import type { JSX } from 'react'
 import { useState } from 'react'
+import { Dialog, DialogBody, Button } from '../UI'
+import './GitInitDialog.css'
 
 interface GitInitDialogProps {
   isOpen: boolean
@@ -30,7 +32,7 @@ function WarningIcon({ className }: { className?: string }): JSX.Element {
  */
 function Spinner({ className }: { className?: string }): JSX.Element {
   return (
-    <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
+    <svg className={className} fill="none" viewBox="0 0 24 24">
       <circle
         className="opacity-25"
         cx="12"
@@ -107,83 +109,80 @@ export function GitInitDialog({
     }
   }
 
+  // Empty onClose since this dialog shouldn't be closeable by clicking backdrop
+  const handleClose = (): void => {
+    // Dialog cannot be closed directly - user must choose an action
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
-
-      {/* Dialog */}
-      <div className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-        {/* Header with warning icon */}
-        <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0 w-12 h-12 bg-yellow-600/20 rounded-full flex items-center justify-center">
-            <WarningIcon className="w-6 h-6 text-yellow-500" />
+    <Dialog open={isOpen} onClose={handleClose} size="md" closeOnBackdrop={false} closeOnEscape={false}>
+      <DialogBody>
+        <div className="git-init-dialog__content">
+          {/* Header with warning icon */}
+          <div className="git-init-dialog__header">
+            <div className="git-init-dialog__warning-icon-container">
+              <WarningIcon className="git-init-dialog__warning-icon" />
+            </div>
+            <div className="git-init-dialog__header-text">
+              <h2>No Git Repository</h2>
+              <p className="git-init-dialog__header-subtitle">
+                The folder <span className="git-init-dialog__project-name">{projectName}</span> is not a git
+                repository.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">No Git Repository</h2>
-            <p className="text-sm text-gray-400 mt-1">
-              The folder <span className="font-medium text-white">{projectName}</span> is not a git
-              repository.
-            </p>
+
+          {/* Description */}
+          <p className="git-init-dialog__description">
+            DAGent requires git for version control and worktree-based task isolation. Please
+            initialize a git repository or select a different project.
+          </p>
+
+          {/* Error display */}
+          {error && (
+            <div className="git-init-dialog__error">
+              {error}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="git-init-dialog__actions">
+            {/* Primary action - Initialize Git */}
+            <Button
+              onClick={handleInitGit}
+              disabled={isLoading}
+              variant="primary"
+              fullWidth
+              leftIcon={isInitializing ? <Spinner className="git-init-dialog__spinner" /> : undefined}
+            >
+              {isInitializing ? 'Initializing...' : 'Initialize Git'}
+            </Button>
+
+            {/* Secondary actions row */}
+            <div className="git-init-dialog__secondary-actions">
+              <Button
+                onClick={onOpenAnother}
+                disabled={isLoading}
+                variant="ghost"
+              >
+                Open Another Project
+              </Button>
+              <Button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                variant="ghost"
+                leftIcon={
+                  isRefreshing
+                    ? <Spinner className="git-init-dialog__spinner" />
+                    : <RefreshIcon className="git-init-dialog__refresh-icon" />
+                }
+              >
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
-
-        {/* Description */}
-        <p className="text-sm text-gray-300 mb-6">
-          DAGent requires git for version control and worktree-based task isolation. Please
-          initialize a git repository or select a different project.
-        </p>
-
-        {/* Error display */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex flex-col gap-3">
-          {/* Primary action - Initialize Git */}
-          <button
-            onClick={handleInitGit}
-            disabled={isLoading}
-            className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isInitializing ? (
-              <>
-                <Spinner className="w-4 h-4" />
-                Initializing...
-              </>
-            ) : (
-              'Initialize Git'
-            )}
-          </button>
-
-          {/* Secondary actions row */}
-          <div className="flex gap-3">
-            <button
-              onClick={onOpenAnother}
-              disabled={isLoading}
-              className="flex-1 px-4 py-2 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Open Another Project
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="px-4 py-2 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              title="Re-scan for git repository"
-            >
-              {isRefreshing ? (
-                <Spinner className="w-4 h-4" />
-              ) : (
-                <RefreshIcon className="w-4 h-4" />
-              )}
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </DialogBody>
+    </Dialog>
   )
 }

@@ -1,6 +1,8 @@
 import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { useProjectStore } from '../../stores'
+import { Dialog, DialogHeader, DialogBody } from '../UI'
+import './ProjectSelectionDialog.css'
 
 interface ProjectSelectionDialogProps {
   isOpen: boolean
@@ -52,7 +54,7 @@ function XIcon({ className }: { className?: string }): JSX.Element {
  */
 function Spinner({ className }: { className?: string }): JSX.Element {
   return (
-    <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
+    <svg className={`${className}`} fill="none" viewBox="0 0 24 24">
       <circle
         className="opacity-25"
         cx="12"
@@ -144,78 +146,50 @@ export function ProjectSelectionDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+    <Dialog open={isOpen} onClose={handleClose} size="md" closeOnBackdrop={!isLoading}>
+      <DialogHeader title="Open Project" />
 
-      {/* Dialog */}
-      <div
-        className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6 max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Open Project</h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={isLoading}
-            className="text-gray-400 hover:text-white focus:outline-none disabled:opacity-50"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
+      <DialogBody>
         {/* Loading overlay */}
         {isLoading && (
-          <div className="absolute inset-0 bg-gray-800/80 rounded-lg flex items-center justify-center z-10">
-            <div className="flex flex-col items-center gap-2">
-              <Spinner className="w-8 h-8 text-blue-500" />
-              <span className="text-sm text-gray-300">Opening project...</span>
-            </div>
+          <div className="project-selection-dialog__loading">
+            <Spinner className="project-selection-dialog__spinner" />
+            <span className="project-selection-dialog__loading-text">Opening project...</span>
           </div>
         )}
 
         {/* Error display */}
         {error && (
-          <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md text-sm text-red-400">
+          <div className="project-selection-dialog__error">
             {error}
           </div>
         )}
 
         {/* Recent projects section */}
         {recentProjects.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Recent Projects</h3>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
+          <div className="project-selection-dialog__section">
+            <h3 className="project-selection-dialog__section-title">Recent Projects</h3>
+            <div className="project-selection-dialog__recent-list">
               {recentProjects.map((project) => (
                 <button
                   key={project.path}
                   onClick={() => handleOpenRecent(project.path)}
                   disabled={isLoading}
-                  className="w-full flex items-center gap-3 px-3 py-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+                  className="project-selection-dialog__recent-item"
                 >
-                  <FolderIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  <div className="flex-1 text-left min-w-0">
-                    <div className="text-white text-sm font-medium truncate">{project.name}</div>
-                    <div className="text-xs text-gray-500 truncate" title={project.path}>
+                  <FolderIcon className="project-selection-dialog__recent-icon" />
+                  <div className="project-selection-dialog__recent-info">
+                    <div className="project-selection-dialog__recent-name">{project.name}</div>
+                    <div className="project-selection-dialog__recent-path" title={project.path}>
                       {truncatePath(project.path)}
                     </div>
                   </div>
                   <button
                     onClick={(e) => handleRemoveFromRecent(e, project.path)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded transition-opacity"
+                    className="project-selection-dialog__remove-btn"
                     title="Remove from recent"
                   >
-                    <XIcon className="w-4 h-4 text-gray-400" />
+                    <XIcon className="project-selection-dialog__remove-icon" />
                   </button>
                 </button>
               ))}
@@ -225,42 +199,42 @@ export function ProjectSelectionDialog({
 
         {/* No recent projects message */}
         {recentProjects.length === 0 && (
-          <div className="mb-4 text-center py-4 text-gray-500 text-sm">
+          <div className="project-selection-dialog__empty">
             No recent projects
           </div>
         )}
 
         {/* Action buttons */}
-        <div className="space-y-3 mt-auto">
+        <div className="project-selection-dialog__actions">
           <button
             onClick={handleOpenFolder}
             disabled={isLoading}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="project-selection-dialog__action-btn"
           >
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <FolderIcon className="w-5 h-5 text-white" />
+            <div className="project-selection-dialog__action-icon project-selection-dialog__action-icon--blue">
+              <FolderIcon />
             </div>
-            <div className="text-left">
-              <div className="text-white font-medium">Open Folder</div>
-              <div className="text-sm text-gray-400">Open an existing project folder</div>
+            <div className="project-selection-dialog__action-text">
+              <div className="project-selection-dialog__action-title">Open Folder</div>
+              <div className="project-selection-dialog__action-desc">Open an existing project folder</div>
             </div>
           </button>
 
           <button
             onClick={handleCreateNew}
             disabled={isLoading || !onCreateNew}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="project-selection-dialog__action-btn"
           >
-            <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-              <PlusIcon className="w-5 h-5 text-white" />
+            <div className="project-selection-dialog__action-icon project-selection-dialog__action-icon--green">
+              <PlusIcon />
             </div>
-            <div className="text-left">
-              <div className="text-white font-medium">Create New Project</div>
-              <div className="text-sm text-gray-400">Create a new DAGent project folder</div>
+            <div className="project-selection-dialog__action-text">
+              <div className="project-selection-dialog__action-title">Create New Project</div>
+              <div className="project-selection-dialog__action-desc">Create a new DAGent project folder</div>
             </div>
           </button>
         </div>
-      </div>
-    </div>
+      </DialogBody>
+    </Dialog>
   )
 }
