@@ -10,9 +10,14 @@ None
 
 ## Milestones
 
-### Current Milestone: v2.5 Intelligent Task Scoping & Context Management
+### Current Milestone
 
-See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
+None (planning next)
+
+## Completed Milestones
+
+<details>
+<summary>v2.5 Intelligent Task Scoping & Context Management (Phases 62-68) - SHIPPED 2026-01-15</summary>
 
 - [x] **Phase 62: Feature Spec Infrastructure** - FeatureSpec types, markdown storage (1/1 plans)
 - [x] **Phase 63: PM Spec Management** - PM creates/updates spec through chat (1/1 plans)
@@ -22,7 +27,11 @@ See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
 - [x] **Phase 67: Context-Aware Checkpointing** - Token-based instead of fixed iterations (1/1 plans)
 - [x] **Phase 68: UI Simplification** - Remove loop counter, add spec viewer (1/1 plans)
 
-## Completed Milestones
+**Total:** 7 phases, 7 plans
+
+See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
+
+</details>
 
 <details>
 <summary>v2.4 Ralph Loop Integration (Phases 56-61) - SHIPPED 2026-01-15</summary>

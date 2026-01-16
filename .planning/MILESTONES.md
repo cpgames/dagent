@@ -1,5 +1,65 @@
 # Project Milestones: DAGent
 
+## v2.5 Intelligent Task Scoping & Context Management (Shipped: 2026-01-15)
+
+**Delivered:** FeatureSpec system enabling PM agent to maintain living specifications with goals, requirements, constraints, and acceptance criteria. Spec-aware agents receive broader context for better task execution. Token-based checkpointing replaces arbitrary iteration limits. UI simplified by hiding implementation details.
+
+**Phases completed:** 62-68 (7 plans total)
+
+**Key accomplishments:**
+
+- FeatureSpec types and FeatureSpecStore for markdown-based spec persistence
+- PM agent spec tools (create_spec, update_spec, get_spec) via MCP server
+- Intelligent task decomposition with complexity analysis (simple/medium/complex)
+- Spec-aware DevAgent receives full feature spec for broader implementation context
+- Spec-aware QA validates against acceptance criteria from spec
+- Context-aware checkpointing using cumulative token tracking (~150k limit)
+- TaskController exits on context limit instead of fixed iteration count
+- UI simplification: removed confusing loop counter badge from TaskNode
+- FeatureSpecViewer component for viewing spec in sidebar
+
+**Stats:**
+
+- 7 phases, 7 plans executed
+- ~1,800 lines of TypeScript added (27,576 total)
+- Token tracking through AgentService → DevAgent → TaskController flow
+- 3 days development time (2026-01-13 → 2026-01-15)
+
+**Git range:** `v2.4` → `v2.5`
+
+**What's next:** Consider enhanced spec editing, requirement auto-completion, or next milestone planning.
+
+---
+
+## v2.4 Ralph Loop Integration (Shipped: 2026-01-15)
+
+**Delivered:** Ralph Loop pattern for iterative task execution with fresh context windows, automated verification checklist, and real-time UI feedback for iteration progress.
+
+**Phases completed:** 56-61 (6 plans total)
+
+**Key accomplishments:**
+
+- DevAgentConfig with iteration mode toggle and checklist items (typecheck, lint, test, build)
+- TaskController with iteration loop execution and checklist verification
+- Orchestrator integration exposing loop status via IPC (get/abort/subscribe)
+- LoopResultParser for extracting pass/fail/error from agent output
+- Real-time loop status updates via MessageBus events
+- TaskNode iteration badges showing current/max iterations with mini checklist dots
+- NodeDialog loop progress section with full checklist, abort button, and error display
+- dag-store loopStatuses state with subscription for live updates
+
+**Stats:**
+
+- 6 phases, 6 plans executed
+- ~2,100 lines of TypeScript added (25,746 total)
+- Real-time IPC subscription pattern for UI updates
+
+**Git range:** `v2.3` → `v2.4`
+
+**What's next:** Consider DevAgent conversation mode, additional verification steps, or next milestone planning.
+
+---
+
 ## v2.3 Feature-to-Main Merge (Shipped: 2026-01-15)
 
 **Delivered:** Complete feature-to-main merge workflow enabling users to merge completed features back to the working branch via AI-assisted merge or GitHub PR creation.

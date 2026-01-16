@@ -8,13 +8,16 @@ A standalone Electron desktop application for dependency-aware AI agent orchestr
 
 Tasks execute in correct dependency order with context handoff between agents - the DAG execution engine must work correctly or nothing else matters.
 
-## Current State (v2.3 Feature-to-Main Merge)
+## Current State (v2.5 Intelligent Task Scoping & Context Management)
 
-Shipped 2026-01-15. Complete feature lifecycle from creation to merge:
-- 160 source files, ~23,654 LOC TypeScript
-- 55 phases, 101 plans executed across 15 milestones
-- AI-assisted merge or GitHub PR creation for completed features
-- Full merge workflow with branch cleanup and conflict detection
+Shipped 2026-01-15. FeatureSpec system with spec-aware agents:
+- 162 source files, ~27,576 LOC TypeScript
+- 68 phases, 114 plans executed across 17 milestones
+- FeatureSpec types with goals, requirements, constraints, acceptance criteria
+- PM agent spec management (create/update/get via MCP tools)
+- Spec-aware DevAgent and QA for broader feature context
+- Context-aware checkpointing (token-based instead of fixed iterations)
+- Simplified UI (removed loop counter, added spec viewer)
 
 ## Requirements
 
@@ -83,6 +86,21 @@ Shipped 2026-01-15. Complete feature lifecycle from creation to merge:
 - [x] FeatureMergeAgent with conflict detection - v2.3
 - [x] GitHub PR creation via gh CLI - v2.3
 - [x] FeatureMergeDialog with progress and error handling - v2.3
+- [x] Ralph Loop iterative execution with fresh context windows - v2.4
+- [x] DevAgentConfig with iteration mode and checklist items - v2.4
+- [x] TaskController iteration loop with automated verification - v2.4
+- [x] Loop status IPC (get/abort/subscribe) from orchestrator - v2.4
+- [x] TaskNode iteration badges with checklist mini-dots - v2.4
+- [x] NodeDialog loop progress section with abort button - v2.4
+- [x] FeatureSpec types with goals, requirements, constraints, acceptance criteria - v2.5
+- [x] FeatureSpecStore for markdown-based spec persistence - v2.5
+- [x] PM agent spec tools (create_spec, update_spec, get_spec) via MCP - v2.5
+- [x] Intelligent task decomposition with complexity analysis - v2.5
+- [x] Spec-aware DevAgent receives full feature spec for context - v2.5
+- [x] Spec-aware QA validates against acceptance criteria - v2.5
+- [x] Context-aware checkpointing (~150k token limit) - v2.5
+- [x] Removed loop counter badge from TaskNode UI - v2.5
+- [x] FeatureSpecViewer component in DAGView sidebar - v2.5
 
 ### Backlog
 
@@ -140,4 +158,4 @@ Key reference material:
 | Feature status from tasks | Priority rules for column placement | Good |
 
 ---
-*Last updated: 2026-01-15 after v2.3 milestone*
+*Last updated: 2026-01-15 after v2.5 milestone*
