@@ -23,12 +23,14 @@ import { RequestPriority } from '../agent/request-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getMessageBus, createDevToHarnessMessage } from './message-bus'
 import type { IntentionApprovedPayload, IntentionRejectedPayload } from '@shared/types'
+import type { FeatureSpec } from './feature-spec-types'
 
 export class DevAgent extends EventEmitter {
   private state: DevAgentState
   private config: DevAgentConfig
   private unsubscribe?: () => void
   private isExecuting: boolean = false // Guard against double execute
+  private isAborted: boolean = false // Flag for abort during execution
 
   constructor(featureId: string, taskId: string, config: Partial<DevAgentConfig> = {}) {
     super()
@@ -89,7 +91,8 @@ export class DevAgent extends EventEmitter {
     task: Task,
     graph: DAGGraph,
     claudeMd?: string,
-    featureGoal?: string
+    featureGoal?: string,
+    featureSpec?: FeatureSpec
   ): Promise<boolean> {
     if (this.state.status !== 'initializing') {
       return false
@@ -136,7 +139,7 @@ export class DevAgent extends EventEmitter {
 
     // Load context
     this.state.status = 'loading_context'
-    const contextLoaded = await this.loadContext(graph, claudeMd, featureGoal)
+    const contextLoaded = await this.loadContext(graph, claudeMd, featureGoal, featureSpec)
 
     if (!contextLoaded) {
       this.state.status = 'failed'
@@ -172,7 +175,8 @@ export class DevAgent extends EventEmitter {
   private async loadContext(
     graph: DAGGraph,
     claudeMd?: string,
-    featureGoal?: string
+    featureGoal?: string,
+    featureSpec?: FeatureSpec
   ): Promise<boolean> {
     try {
       const task = this.state.task!
@@ -204,6 +208,7 @@ export class DevAgent extends EventEmitter {
       this.state.context = {
         claudeMd: claudeMd || null,
         featureGoal: featureGoal || null,
+        featureSpec: featureSpec || null,
         taskTitle: task.title,
         taskDescription: task.description,
         dependencyContext,
@@ -548,6 +553,38 @@ export class DevAgent extends EventEmitter {
       parts.push('## Feature Goal', context.featureGoal, '')
     }
 
+    // Include feature specification for broader context
+    if (context.featureSpec) {
+      parts.push('## Feature Specification')
+      parts.push('This task is part of a larger feature. Keep these goals in mind:')
+      parts.push('')
+
+      if (context.featureSpec.goals.length > 0) {
+        parts.push('### Goals')
+        for (const goal of context.featureSpec.goals) {
+          parts.push(`- ${goal}`)
+        }
+        parts.push('')
+      }
+
+      if (context.featureSpec.requirements.length > 0) {
+        parts.push('### Requirements')
+        for (const req of context.featureSpec.requirements) {
+          const status = req.completed ? '✓' : '○'
+          parts.push(`- ${status} ${req.id}: ${req.description}`)
+        }
+        parts.push('')
+      }
+
+      if (context.featureSpec.constraints.length > 0) {
+        parts.push('### Constraints')
+        for (const constraint of context.featureSpec.constraints) {
+          parts.push(`- ${constraint}`)
+        }
+        parts.push('')
+      }
+    }
+
     parts.push(
       '## Task to Implement',
       `**Title:** ${task.title}`,
@@ -605,7 +642,8 @@ export class DevAgent extends EventEmitter {
     graph: DAGGraph,
     worktreePath: string,
     claudeMd?: string,
-    featureGoal?: string
+    featureGoal?: string,
+    featureSpec?: FeatureSpec
   ): Promise<boolean> {
     if (this.state.status !== 'initializing') {
       return false
@@ -625,6 +663,7 @@ export class DevAgent extends EventEmitter {
     this.state.context = {
       claudeMd: claudeMd || null,
       featureGoal: featureGoal || null,
+      featureSpec: featureSpec || null,
       taskTitle: task.title,
       taskDescription: task.description,
       dependencyContext,
@@ -674,6 +713,8 @@ export class DevAgent extends EventEmitter {
       let summary = ''
 
       console.log(`[DevAgent ${this.state.taskId}] Executing iteration in worktree: ${this.state.worktreePath}`)
+      console.log(`[DevAgent ${this.state.taskId}] Prompt length: ${prompt.length} chars`)
+      console.log(`[DevAgent ${this.state.taskId}] Prompt preview: ${prompt.substring(0, 200)}...`)
 
       // Verify worktree path exists before executing
       const fs = await import('fs/promises')
@@ -686,6 +727,12 @@ export class DevAgent extends EventEmitter {
         throw new Error(`Worktree path does not exist: ${this.state.worktreePath}`)
       }
 
+      let eventCount = 0
+      let toolUseCount = 0
+      // Track cumulative token usage for this iteration
+      let cumulativeInputTokens = 0
+      let cumulativeOutputTokens = 0
+
       for await (const event of agentService.streamQuery({
         prompt,
         toolPreset: 'taskAgent',
@@ -696,6 +743,21 @@ export class DevAgent extends EventEmitter {
         taskId: this.state.taskId,
         priority: RequestPriority.DEV
       })) {
+        eventCount++
+        // Check for abort flag
+        if (this.isAborted) {
+          throw new Error('Execution aborted')
+        }
+
+        // Track token usage from events
+        if (event.usage) {
+          cumulativeInputTokens = event.usage.inputTokens
+          cumulativeOutputTokens = event.usage.outputTokens
+        }
+
+        // Log all events for debugging
+        console.log(`[DevAgent ${this.state.taskId}] Event ${eventCount}: type=${event.type}, msgType=${event.message?.type || 'N/A'}`)
+
         // Emit progress events
         if (event.type === 'message' && event.message?.type === 'assistant') {
           const progressEvent: TaskProgressEvent = {
@@ -704,9 +766,11 @@ export class DevAgent extends EventEmitter {
           }
           this.emit('dev-agent:progress', progressEvent)
           summary = event.message.content
+          console.log(`[DevAgent ${this.state.taskId}] Assistant message (${event.message.content.length} chars): ${event.message.content.substring(0, 100)}...`)
         }
 
         if (event.type === 'tool_use' && event.message) {
+          toolUseCount++
           const progressEvent: TaskProgressEvent = {
             type: 'tool_use',
             content: `Using tool: ${event.message.toolName}`,
@@ -714,6 +778,7 @@ export class DevAgent extends EventEmitter {
             toolInput: event.message.toolInput
           }
           this.emit('dev-agent:tool-use', progressEvent)
+          console.log(`[DevAgent ${this.state.taskId}] Tool use #${toolUseCount}: ${event.message.toolName}`)
         }
 
         if (event.type === 'tool_result' && event.message) {
@@ -728,12 +793,17 @@ export class DevAgent extends EventEmitter {
 
         if (event.type === 'message' && event.message?.type === 'result') {
           summary = event.message.content
+          console.log(`[DevAgent ${this.state.taskId}] Result: ${event.message.content.substring(0, 200)}...`)
         }
 
         if (event.type === 'error') {
+          console.error(`[DevAgent ${this.state.taskId}] Error event: ${event.error}`)
           throw new Error(event.error)
         }
       }
+
+      const totalTokens = cumulativeInputTokens + cumulativeOutputTokens
+      console.log(`[DevAgent ${this.state.taskId}] Stream complete: ${eventCount} events, ${toolUseCount} tool uses, ${totalTokens} tokens (${cumulativeInputTokens} in, ${cumulativeOutputTokens} out)`)
 
       console.log(`[DevAgent ${this.state.taskId}] Iteration complete`)
       this.state.status = 'ready_for_merge'
@@ -741,7 +811,12 @@ export class DevAgent extends EventEmitter {
       const result: TaskExecutionResult = {
         success: true,
         taskId: this.state.taskId,
-        summary: summary || `Iteration completed: ${this.state.task?.title}`
+        summary: summary || `Iteration completed: ${this.state.task?.title}`,
+        tokenUsage: {
+          inputTokens: cumulativeInputTokens,
+          outputTokens: cumulativeOutputTokens,
+          totalTokens
+        }
       }
 
       this.emit('dev-agent:ready_for_merge', result)
@@ -801,6 +876,7 @@ export class DevAgent extends EventEmitter {
    * Abort the current execution.
    */
   abort(): void {
+    this.isAborted = true
     if (this.state.status === 'working') {
       const agentService = getAgentService()
       agentService.abort()

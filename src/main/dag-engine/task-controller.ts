@@ -10,12 +10,16 @@ import type {
   IterationResult
 } from './task-controller-types'
 import { DEFAULT_TASK_CONTROLLER_CONFIG } from './task-controller-types'
+// Re-export TaskControllerState for use by orchestrator
+export type { TaskControllerState } from './task-controller-types'
 import type { TaskPlan } from '../agents/task-plan-types'
 import { getTaskPlanStore } from '../agents/task-plan-store'
 import type { VerificationResult } from '../agents/verification-types'
 import { getVerificationRunner, type VerificationConfig } from '../agents/verification-runner'
 import { createDevAgent, type DevAgent } from '../agents/dev-agent'
 import type { TaskExecutionResult } from '../agents/dev-types'
+import { getFeatureSpecStore } from '../agents/feature-spec-store'
+import type { FeatureSpec } from '../agents/feature-spec-types'
 
 export interface TaskStateChange {
   taskId: string
@@ -66,6 +70,9 @@ export function transitionTask(
 
   // Apply the transition
   task.status = nextStatus
+
+  // Log status transition
+  console.log(`[Task ${task.id}] ${previousStatus} -> ${nextStatus} (${event})`)
 
   return {
     success: true,
@@ -173,6 +180,7 @@ export class TaskController extends EventEmitter {
   private graph: DAGGraph | null = null
   private claudeMd?: string
   private featureGoal?: string
+  private featureSpec: FeatureSpec | null = null
   private currentDevAgent: DevAgent | null = null
   private projectRoot: string
 
@@ -196,7 +204,8 @@ export class TaskController extends EventEmitter {
       startedAt: null,
       completedAt: null,
       exitReason: null,
-      error: null
+      error: null,
+      cumulativeTokens: { input: 0, output: 0, total: 0 }
     }
   }
 
@@ -241,6 +250,10 @@ export class TaskController extends EventEmitter {
       plan.status = 'running'
       await store.savePlan(this.state.featureId, this.state.taskId, plan)
       this.plan = plan
+
+      // Load feature spec for DevAgent context
+      const specStore = getFeatureSpecStore(this.projectRoot)
+      this.featureSpec = await specStore.loadSpec(this.state.featureId)
 
       // Enter iteration loop
       await this.runIterationLoop()
@@ -296,6 +309,16 @@ export class TaskController extends EventEmitter {
       // Update plan with results
       await this.updatePlanFromResults(devResult, verifyResults)
 
+      // Accumulate token usage from this iteration
+      if (devResult.tokenUsage) {
+        this.state.cumulativeTokens.input += devResult.tokenUsage.inputTokens
+        this.state.cumulativeTokens.output += devResult.tokenUsage.outputTokens
+        this.state.cumulativeTokens.total += devResult.tokenUsage.totalTokens
+        console.log(
+          `[TaskController ${this.state.taskId}] Token usage after iteration ${this.state.currentIteration}: ${this.state.cumulativeTokens.total} total (${this.state.cumulativeTokens.input} in, ${this.state.cumulativeTokens.output} out)`
+        )
+      }
+
       // Create iteration result
       const iterationResult: IterationResult = {
         iteration: this.state.currentIteration,
@@ -307,7 +330,12 @@ export class TaskController extends EventEmitter {
       }
 
       this.state.iterationResults.push(iterationResult)
-      this.emit('iteration:complete', iterationResult)
+      // Include token usage in the event for UI tracking
+      this.emit('iteration:complete', {
+        ...iterationResult,
+        tokenUsage: devResult.tokenUsage,
+        cumulativeTokens: { ...this.state.cumulativeTokens }
+      })
 
       // Log activity to TaskPlan
       if (this.plan) {
@@ -346,12 +374,23 @@ export class TaskController extends EventEmitter {
       return 'aborted'
     }
 
-    // Check if max iterations reached
+    // Check context limit first (more intelligent than iteration count)
+    if (
+      this.config.useContextCheckpointing &&
+      this.state.cumulativeTokens.total >= this.config.contextTokenLimit
+    ) {
+      console.log(
+        `[TaskController ${this.state.taskId}] Context limit reached: ${this.state.cumulativeTokens.total} >= ${this.config.contextTokenLimit}`
+      )
+      return 'context_limit_reached'
+    }
+
+    // Check if max iterations reached (safety backstop)
     if (this.state.currentIteration > this.state.maxIterations) {
       return 'max_iterations_reached'
     }
 
-    // Check if all required checklist items pass
+    // Check if all required checklist items pass (or are skipped)
     if (this.plan) {
       const requiredItems = this.plan.checklist.filter((item) => {
         // 'implement' is always required
@@ -366,7 +405,10 @@ export class TaskController extends EventEmitter {
         return false
       })
 
-      const allPassed = requiredItems.every((item) => item.status === 'pass')
+      // 'skipped' counts as passing - if a check is unavailable (no npm script), don't block
+      const allPassed = requiredItems.every(
+        (item) => item.status === 'pass' || item.status === 'skipped'
+      )
       if (allPassed && this.state.currentIteration > 1) {
         // Only exit on first iteration if we've actually run checks
         return 'all_checks_passed'
@@ -384,14 +426,21 @@ export class TaskController extends EventEmitter {
 
     parts.push('# Task Implementation Request')
     parts.push('')
+    parts.push('You are working in a git worktree. Make all necessary file changes to complete this task.')
+    parts.push('Use Write, Edit, or Bash tools to create/modify files as needed.')
+    parts.push('')
 
     if (this.state.currentIteration === 1) {
-      parts.push('## Initial Implementation')
-      parts.push(`Implement the following task: ${this.task?.title}`)
+      parts.push('## Task')
+      parts.push(`**Title:** ${this.task?.title}`)
       if (this.task?.description) {
-        parts.push('')
-        parts.push(this.task.description)
+        parts.push(`**Description:** ${this.task.description}`)
       }
+      parts.push('')
+      parts.push('## Instructions')
+      parts.push('1. Implement the task requirements')
+      parts.push('2. Create or modify files as needed')
+      parts.push('3. Work in the current directory (.)')
     } else {
       parts.push(`## Iteration ${this.state.currentIteration} - Fix Failing Checks`)
       parts.push('')
@@ -464,7 +513,8 @@ export class TaskController extends EventEmitter {
           this.task!,
           this.graph!,
           this.claudeMd,
-          this.featureGoal
+          this.featureGoal,
+          this.featureSpec || undefined
         )
 
         if (!initialized) {
@@ -492,7 +542,8 @@ export class TaskController extends EventEmitter {
           this.graph!,
           this.state.worktreePath,
           this.claudeMd,
-          this.featureGoal
+          this.featureGoal,
+          this.featureSpec || undefined
         )
 
         if (!initialized) {
@@ -605,6 +656,11 @@ export class TaskController extends EventEmitter {
     const passed = verifyResults.filter((r) => r.passed).length
     const failed = verifyResults.length - passed
     parts.push(`Verification: ${passed} passed, ${failed} failed`)
+
+    // Include token usage if available
+    if (devResult.tokenUsage) {
+      parts.push(`Tokens: ${devResult.tokenUsage.totalTokens.toLocaleString()}`)
+    }
 
     return parts.join('. ')
   }

@@ -22,6 +22,7 @@
 
 import type { Task } from '@shared/types'
 import type { IntentionDecision } from './harness-types'
+import type { FeatureSpec } from './feature-spec-types'
 
 /**
  * Internal dev agent status for tracking agent lifecycle.
@@ -58,6 +59,9 @@ export interface TaskContext {
   claudeMd: string | null
   featureGoal: string | null
 
+  /** Feature specification for broader context (optional) */
+  featureSpec?: FeatureSpec | null
+
   // Task-specific context
   taskDescription: string
   taskTitle: string
@@ -88,6 +92,13 @@ export interface DevAgentConfig {
   existingWorktreePath: string | undefined // Use existing worktree instead of creating new one
 }
 
+/** Token usage for an iteration */
+export interface IterationTokenUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
 export interface TaskExecutionResult {
   success: boolean
   taskId: string
@@ -96,6 +107,8 @@ export interface TaskExecutionResult {
   error?: string
   commitHash?: string
   filesChanged?: number
+  /** Token usage for this execution/iteration */
+  tokenUsage?: IterationTokenUsage
 }
 
 export interface TaskProgressEvent {

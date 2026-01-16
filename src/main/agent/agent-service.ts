@@ -9,6 +9,11 @@ type SDKMessage = {
   }
   result?: string
   errors?: string[]
+  /** Token usage data from SDK (available on some message types) */
+  usage?: {
+    input_tokens: number
+    output_tokens: number
+  }
 }
 
 import type { AgentQueryOptions, AgentStreamEvent } from './types'
@@ -40,6 +45,9 @@ export class AgentService {
   // Cache the PM MCP server
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pmMcpServer: any = null
+  // Cumulative token tracking for current query
+  private cumulativeInputTokens: number = 0
+  private cumulativeOutputTokens: number = 0
 
   async *streamQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
     // Determine priority from options or infer from agentType
@@ -94,6 +102,10 @@ export class AgentService {
    * Execute the actual SDK query. Called by RequestManager when a slot is available.
    */
   private async *executeSDKQuery(options: AgentQueryOptions): AsyncGenerator<AgentStreamEvent> {
+    // Reset token counters for new query
+    this.cumulativeInputTokens = 0
+    this.cumulativeOutputTokens = 0
+
     // Clear ELECTRON_RUN_AS_NODE which breaks Claude Code subprocess spawning
     // This env var is set by VS Code and some Electron tools
     const savedElectronRunAsNode = process.env.ELECTRON_RUN_AS_NODE
@@ -128,6 +140,8 @@ export class AgentService {
         allowedTools: tools,
         permissionMode: options.permissionMode || 'default'
       }
+
+      console.log(`[AgentService] SDK query options: cwd=${options.cwd}, tools=${tools.join(',')}, permissionMode=${queryOptions.permissionMode}`)
 
       // Add PM MCP server if PM tools are needed
       if (isPMAgent) {
@@ -181,13 +195,35 @@ export class AgentService {
       })
 
       for await (const message of this.activeQuery) {
+        // Track token usage from SDK messages
+        if (message.usage) {
+          this.cumulativeInputTokens += message.usage.input_tokens
+          this.cumulativeOutputTokens += message.usage.output_tokens
+        }
+
         const event = this.convertMessage(message)
         if (event) {
+          // Add per-message usage if available
+          if (message.usage) {
+            event.usage = {
+              inputTokens: message.usage.input_tokens,
+              outputTokens: message.usage.output_tokens,
+              totalTokens: message.usage.input_tokens + message.usage.output_tokens
+            }
+          }
           yield event
         }
       }
 
-      yield { type: 'done' }
+      // Include cumulative token usage in done event
+      yield {
+        type: 'done',
+        usage: {
+          inputTokens: this.cumulativeInputTokens,
+          outputTokens: this.cumulativeOutputTokens,
+          totalTokens: this.cumulativeInputTokens + this.cumulativeOutputTokens
+        }
+      }
     } catch (error) {
       yield {
         type: 'error',

@@ -26,9 +26,19 @@ export type TaskControllerStatus =
  */
 export type LoopExitReason =
   | 'all_checks_passed' // All required checks pass
-  | 'max_iterations_reached' // Hit maxIterations limit
+  | 'max_iterations_reached' // Hit maxIterations limit (safety backstop)
+  | 'context_limit_reached' // Hit context token limit (intelligent checkpoint)
   | 'aborted' // User or system abort
   | 'error' // Unrecoverable error occurred
+
+/**
+ * Cumulative token usage tracking across iterations.
+ */
+export interface CumulativeTokenUsage {
+  input: number
+  output: number
+  total: number
+}
 
 // =============================================================================
 // Result Interfaces
@@ -70,7 +80,7 @@ export interface TaskControllerState {
   worktreePath: string | null
   /** Current iteration number (1-based) */
   currentIteration: number
-  /** Maximum iterations allowed */
+  /** Maximum iterations allowed (safety backstop) */
   maxIterations: number
   /** Results from each completed iteration */
   iterationResults: IterationResult[]
@@ -82,6 +92,8 @@ export interface TaskControllerState {
   exitReason: LoopExitReason | null
   /** Error message if failed (null if no error) */
   error: string | null
+  /** Cumulative token usage across all iterations */
+  cumulativeTokens: CumulativeTokenUsage
 }
 
 // =============================================================================
@@ -92,7 +104,7 @@ export interface TaskControllerState {
  * Configuration options for TaskController.
  */
 export interface TaskControllerConfig {
-  /** Maximum number of iterations before giving up (default: 10) */
+  /** Maximum number of iterations before giving up (safety backstop, default: 50) */
   maxIterations: number
   /** Run build verification after each iteration (default: true) */
   runBuild: boolean
@@ -104,6 +116,10 @@ export interface TaskControllerConfig {
   continueOnLintFail: boolean
   /** Abort immediately if DevAgent fails (default: false) */
   abortOnDevAgentFail: boolean
+  /** Enable context-aware checkpointing based on token usage (default: true) */
+  useContextCheckpointing: boolean
+  /** Token limit for context-aware checkpointing (default: 150000) */
+  contextTokenLimit: number
 }
 
 // =============================================================================
@@ -114,10 +130,12 @@ export interface TaskControllerConfig {
  * Default TaskController configuration with sensible defaults.
  */
 export const DEFAULT_TASK_CONTROLLER_CONFIG: TaskControllerConfig = {
-  maxIterations: 10,
+  maxIterations: 50, // Safety backstop - context checkpointing should trigger first
   runBuild: true,
   runLint: true,
   runTests: false,
   continueOnLintFail: true,
-  abortOnDevAgentFail: false
+  abortOnDevAgentFail: false,
+  useContextCheckpointing: true,
+  contextTokenLimit: 150000 // ~150k tokens soft limit for checkpointing
 }

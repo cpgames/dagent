@@ -35,8 +35,17 @@ export interface AgentQueryOptions {
   agentId?: string // Agent identifier (e.g., 'pm', 'dev-task1', 'qa-task2' - defaults to agentType if not specified)
 }
 
+/** Token usage data from SDK messages */
+export interface TokenUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
 export interface AgentStreamEvent {
   type: 'message' | 'tool_use' | 'tool_result' | 'done' | 'error'
   message?: AgentMessage
   error?: string
+  /** Token usage from this event (populated from SDK usage data) */
+  usage?: TokenUsage
 }
