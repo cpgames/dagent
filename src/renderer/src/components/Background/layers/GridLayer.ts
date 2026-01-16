@@ -16,8 +16,6 @@ export class GridLayer implements Layer {
   private readonly lineCount = 15;
   private readonly verticalLineCount = 21; // Odd for center line
   private readonly scrollSpeed = 0.05;
-  private readonly horizonCyanColor = 'rgba(0, 240, 255, 0.8)';
-  private readonly verticalMagentaColor = 'rgba(255, 0, 255, 0.6)';
 
   // State
   private scrollOffset = 0;
