@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.5 Intelligent Task Scoping & Context Management
 **Roadmap:** .planning/ROADMAP.md
 
-Status: v2.5 in progress - Phases 62-66 complete
-Last activity: 2026-01-15 - Phase 66 (Spec-Aware QA) completed
+Status: v2.5 in progress - Phases 62-66 complete, Phase 67 planned
+Last activity: 2026-01-15 - Phase 67 plan created
 
 Progress: 16 milestones shipped (v1.0-v2.4), v2.5 in progress (5/7 phases complete)
 
-Next action: Plan Phase 67
+Next action: Execute Phase 67-01
 
 ## Performance Metrics
 

@@ -19,7 +19,7 @@ See [v2.5-ROADMAP.md](milestones/v2.5-ROADMAP.md) for details.
 - [x] **Phase 64: PM Task Decomposition** - Intelligent complexity analysis (1/1 plans)
 - [x] **Phase 65: Spec-Aware DevAgent** - DevAgent reads spec for context (1/1 plans)
 - [x] **Phase 66: Spec-Aware QA** - QA validates against spec criteria (1/1 plans)
-- [ ] **Phase 67: Context-Aware Checkpointing** - Token-based instead of fixed iterations (0/1 plans)
+- [ ] **Phase 67: Context-Aware Checkpointing** - Token-based instead of fixed iterations (1/1 plans)
 - [ ] **Phase 68: UI Simplification** - Remove loop counter, add spec viewer (0/1 plans)
 
 ## Completed Milestones
