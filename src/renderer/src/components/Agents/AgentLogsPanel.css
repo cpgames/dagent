@@ -1,0 +1,215 @@
+/**
+ * AgentLogsPanel Component Styles
+ * Agent logs display with synthwave theming
+ */
+
+.agent-logs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Filter controls */
+.agent-logs__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.agent-logs__filter-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.agent-logs__filter-group {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.agent-logs__filter-btn {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  background: var(--bg-elevated);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.agent-logs__filter-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.agent-logs__filter-btn--active {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+.agent-logs__filter-btn--active:hover {
+  background: var(--accent-primary-bright);
+}
+
+/* Live indicator */
+.agent-logs__live-indicator {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-success);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Log entries container */
+.agent-logs__entries {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Empty/loading states */
+.agent-logs__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.agent-logs__empty-content {
+  color: var(--text-secondary);
+}
+
+.agent-logs__empty-title {
+  font-size: 1.125rem;
+  margin-bottom: var(--space-sm);
+}
+
+.agent-logs__empty-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.agent-logs__loading {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: var(--space-lg);
+}
+
+/* Log entry */
+.agent-logs__entry {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  font-size: 0.875rem;
+}
+
+.agent-logs__entry-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/* Timestamp */
+.agent-logs__timestamp {
+  font-size: 0.75rem;
+  font-family: 'Monaco', 'Consolas', monospace;
+  color: var(--text-muted);
+}
+
+/* Agent type badges */
+.agent-logs__agent-badge {
+  padding: 0 var(--space-xs);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.agent-logs__agent-badge--harness {
+  background: rgba(168, 85, 247, 0.6);
+}
+
+.agent-logs__agent-badge--task {
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary);
+}
+
+.agent-logs__agent-badge--merge {
+  background: var(--color-success-dim);
+  color: var(--color-success);
+}
+
+.agent-logs__agent-badge--pm {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+/* Log type badges */
+.agent-logs__type-badge {
+  padding: 0 var(--space-xs);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.agent-logs__type-badge--intention {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.agent-logs__type-badge--approval {
+  background: var(--color-success-dim);
+  color: var(--color-success);
+}
+
+.agent-logs__type-badge--rejection {
+  background: var(--color-error-dim);
+  color: var(--color-error);
+}
+
+.agent-logs__type-badge--modification {
+  background: var(--color-warning-dim);
+  color: var(--color-warning);
+}
+
+.agent-logs__type-badge--action {
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary);
+}
+
+.agent-logs__type-badge--error {
+  background: rgba(139, 0, 0, 0.6);
+  color: var(--color-error);
+}
+
+/* Task ID */
+.agent-logs__task-id {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Log content */
+.agent-logs__content {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
