@@ -535,6 +535,36 @@ function DAGViewInner({
                 </ReactFlow>
                 {/* Layout controls */}
                 <LayoutControls featureId={activeFeatureId} onResetLayout={handleResetLayout} />
+
+                {/* Add Task FAB - Scrolls to chat to ask PM agent */}
+                <button
+                  onClick={() => {
+                    // Scroll chat into view and focus input
+                    const chatInput = document.querySelector('.chat-panel__input') as HTMLTextAreaElement | null
+                    if (chatInput) {
+                      chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      setTimeout(() => chatInput.focus(), 300)
+                    }
+                  }}
+                  className="absolute bottom-4 right-4 z-10 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] hover:from-[var(--accent-primary-bright)] hover:to-[var(--accent-secondary-bright)] border border-[var(--accent-primary)] rounded-full shadow-lg hover:shadow-xl transition-all duration-200 text-[var(--text-primary)] font-medium text-sm group"
+                  title="Ask PM agent to add a new task"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  <span className="group-hover:scale-105 transition-transform">Add Task</span>
+                </button>
+
                 {/* Mutation loading indicator */}
                 {isMutating && (
                   <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-md">
