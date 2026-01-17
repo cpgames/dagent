@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v2.7 Canvas Background System
+**Current focus:** v2.8 Vertical DAG Flow and Auto-Placement
 
 ## Current Position
 
-**Milestone:** v2.7 Canvas Background System
-**Roadmap:** .planning/milestones/v2.7-ROADMAP.md
+**Milestone:** v2.8 Vertical DAG Flow and Auto-Placement
+**Roadmap:** .planning/milestones/v2.8-ROADMAP.md
 
-Phase: 87 of 89 (Shooting Stars Layer)
-Plan: 87-01 complete
-Status: Ready for next phase
-Last activity: 2026-01-16 — Phase 87-01 complete (ShootingStarsLayer with gradient trails)
+Phase: 93 of 94 (PM Agent DAG Integration)
+Plan: 93-01 planned, ready for execution
+Status: Ready to execute
+Last activity: 2026-01-16 — Phase 93-01 planned (PM agent DAG tools via MCP)
 
-Progress: █████░░░░░ 71% (5/7 phases)
+Progress: ██████░░░ 75% (3/4 phases)
 
-Next action: /gsd:plan-phase 88
+Next action: /gsd:execute-plan .planning/phases/93-pm-agent-dag-integration/93-01-PLAN.md
 
 ## Performance Metrics
 
