@@ -28,6 +28,7 @@ export interface MergeAgentState {
   error: string | null
   startedAt: string | null
   completedAt: string | null
+  sessionId: string | null // Session ID for SessionManager logging
 }
 
 export interface MergeContext {
@@ -79,5 +80,6 @@ export const DEFAULT_MERGE_AGENT_STATE: Omit<MergeAgentState, 'featureId' | 'tas
   mergeResult: null,
   error: null,
   startedAt: null,
-  completedAt: null
+  completedAt: null,
+  sessionId: null
 }
