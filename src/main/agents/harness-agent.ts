@@ -16,6 +16,7 @@ import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
 import { getMessageBus, createHarnessToDevMessage } from './message-bus'
+import { getSessionManager } from '../services/session-manager'
 
 export class HarnessAgent extends EventEmitter {
   private state: HarnessState
@@ -33,6 +34,45 @@ export class HarnessAgent extends EventEmitter {
   }
 
   /**
+   * Log a message to SessionManager if sessionId is set.
+   * Silently fails if session logging is not configured.
+   */
+  private async logToSessionManager(
+    role: 'user' | 'assistant',
+    content: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.state.sessionId || !this.state.featureId) {
+      return
+    }
+    try {
+      const sessionManager = getSessionManager()
+      await sessionManager.addMessage(
+        this.state.sessionId,
+        this.state.featureId,
+        {
+          role,
+          content,
+          metadata: {
+            ...metadata,
+            agentType: 'harness',
+            internal: true // Mark as internal so it doesn't show in chat UI
+          }
+        }
+      )
+    } catch (error) {
+      console.error('[HarnessAgent] Failed to log to session:', error)
+    }
+  }
+
+  /**
+   * Set the session ID for SessionManager logging.
+   */
+  setSessionId(sessionId: string): void {
+    this.state.sessionId = sessionId
+  }
+
+  /**
    * Initialize harness for a feature execution.
    */
   async initialize(
@@ -40,7 +80,8 @@ export class HarnessAgent extends EventEmitter {
     featureGoal: string,
     graph: DAGGraph,
     claudeMd?: string,
-    projectRoot?: string
+    projectRoot?: string,
+    sessionId?: string
   ): Promise<boolean> {
     console.log(`[HarnessAgent] Initializing for feature ${featureId}, current status: ${this.state.status}`)
 
@@ -78,10 +119,17 @@ export class HarnessAgent extends EventEmitter {
       startedAt: null,
       stoppedAt: null,
       projectRoot: projectRoot || null,
-      sessionId: null
+      sessionId: sessionId || null
     }
 
     this.log('info', `Harness initialized for feature: ${featureId}`)
+
+    // Log to SessionManager
+    await this.logToSessionManager('assistant', `Harness initialized for feature: ${featureId}`, {
+      event: 'harness_initialized',
+      featureId
+    })
+
     return true
   }
 
@@ -206,7 +254,7 @@ export class HarnessAgent extends EventEmitter {
   /**
    * Receive an intention from a task agent.
    */
-  receiveIntention(agentId: string, taskId: string, intention: string, files?: string[]): void {
+  async receiveIntention(agentId: string, taskId: string, intention: string, files?: string[]): Promise<void> {
     const pending: PendingIntention = {
       agentId,
       taskId,
@@ -226,6 +274,15 @@ export class HarnessAgent extends EventEmitter {
 
     this.log('intention_received', intention, taskId, agentId)
     this.emit('intention:received', pending)
+
+    // Log to SessionManager
+    const intentionPreview = intention.length > 100 ? intention.substring(0, 100) + '...' : intention
+    await this.logToSessionManager('user', `Intention received from ${agentId}: ${intentionPreview}`, {
+      event: 'intention_received',
+      taskId,
+      agentId,
+      files
+    })
   }
 
   /**
@@ -441,7 +498,7 @@ export class HarnessAgent extends EventEmitter {
   /**
    * Apply a decision to a pending intention.
    */
-  private applyDecision(taskId: string, decision: IntentionDecision): void {
+  private async applyDecision(taskId: string, decision: IntentionDecision): Promise<void> {
     const pending = this.state.pendingIntentions.get(taskId)
     if (!pending) return
 
@@ -462,6 +519,15 @@ export class HarnessAgent extends EventEmitter {
           notes: decision.notes
         })
       )
+
+      // Log approval to SessionManager
+      await this.logToSessionManager('assistant', `Intention approved (${decision.type}) for task ${taskId}`, {
+        event: 'intention_approved',
+        taskId,
+        agentId: pending.agentId,
+        decisionType: decision.type,
+        notes: decision.notes
+      })
     } else {
       this.log('rejection_sent', `Rejected: ${decision.reason}`, taskId, pending.agentId)
 
@@ -470,6 +536,14 @@ export class HarnessAgent extends EventEmitter {
           reason: decision.reason
         })
       )
+
+      // Log rejection to SessionManager
+      await this.logToSessionManager('assistant', `Intention rejected for task ${taskId}: ${decision.reason}`, {
+        event: 'intention_rejected',
+        taskId,
+        agentId: pending.agentId,
+        reason: decision.reason
+      })
     }
 
     // Remove from pending
@@ -521,11 +595,11 @@ export class HarnessAgent extends EventEmitter {
    * Handle intention_proposed message.
    * Delegates to existing receiveIntention logic.
    */
-  private handleIntentionProposed(msg: InterAgentMessage): void {
+  private async handleIntentionProposed(msg: InterAgentMessage): Promise<void> {
     const payload = msg.payload as IntentionProposedPayload
     // Check if intention already pending (from direct call)
     if (!this.state.pendingIntentions.has(msg.taskId)) {
-      this.receiveIntention(msg.from.id, msg.taskId, payload.intention, payload.files)
+      await this.receiveIntention(msg.from.id, msg.taskId, payload.intention, payload.files)
     }
   }
 
@@ -539,16 +613,16 @@ export class HarnessAgent extends EventEmitter {
   /**
    * Handle task_completed message.
    */
-  private handleTaskCompleted(msg: InterAgentMessage): void {
-    this.completeTask(msg.taskId)
+  private async handleTaskCompleted(msg: InterAgentMessage): Promise<void> {
+    await this.completeTask(msg.taskId)
   }
 
   /**
    * Handle task_failed message.
    */
-  private handleTaskFailed(msg: InterAgentMessage): void {
+  private async handleTaskFailed(msg: InterAgentMessage): Promise<void> {
     const payload = msg.payload as { error: string }
-    this.failTask(msg.taskId, payload.error)
+    await this.failTask(msg.taskId, payload.error)
   }
 
   /**
@@ -574,19 +648,32 @@ export class HarnessAgent extends EventEmitter {
   /**
    * Mark task as completed, remove from active.
    */
-  completeTask(taskId: string): void {
+  async completeTask(taskId: string): Promise<void> {
     this.state.activeTasks.delete(taskId)
     this.log('task_completed', `Task ${taskId} completed`, taskId)
     this.emit('task:completed', taskId)
+
+    // Log to SessionManager
+    await this.logToSessionManager('assistant', `Task ${taskId} completed`, {
+      event: 'task_completed',
+      taskId
+    })
   }
 
   /**
    * Mark task as failed.
    */
-  failTask(taskId: string, error: string): void {
+  async failTask(taskId: string, error: string): Promise<void> {
     this.state.activeTasks.delete(taskId)
     this.log('task_failed', `Task ${taskId} failed: ${error}`, taskId)
     this.emit('task:failed', { taskId, error })
+
+    // Log to SessionManager
+    await this.logToSessionManager('assistant', `Task ${taskId} failed: ${error}`, {
+      event: 'task_failed',
+      taskId,
+      error
+    })
   }
 
   /**
