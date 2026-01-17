@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v3.0 Session & Checkpoint Architecture
 **Roadmap:** .planning/milestones/v3.0-session-checkpoint-ROADMAP.md
 
-Phase: v3.0-05-dev-agent-integration (Dev Agent Integration)
-Plan: All 3 plans complete (05-01, 05-02, 05-03)
-Status: VERIFIED
-Last activity: 2026-01-17 — Phase verified (all 9 must-haves passed)
+Phase: v3.0-06-ui-enhancements (UI Enhancements)
+Plan: 06-01 complete
+Status: IN_PROGRESS
+Last activity: 2026-01-17 — Plan 06-01 complete (SessionStatus + CheckpointViewer components)
 
-Progress: ██████████ 100% (3/3 plans complete, phase verified)
+Progress: █████░░░░░ 50% (1/2 plans complete)
 
-Next action: /gsd:plan-phase v3.0-06
+Next action: /gsd:execute-plan 06-02
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 122 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 3)
+- Total plans completed: 123 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 4)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -41,8 +41,8 @@ Next action: /gsd:plan-phase v3.0-06
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: 101-01, 97-01, 98-01, 99-01, v3.0-05-01, v3.0-05-02, v3.0-05-03
-- Trend: v3.0 phase 05 complete (Dev Agent Integration with SessionManager)
+- Last 7 plans: 97-01, 98-01, 99-01, v3.0-05-01, v3.0-05-02, v3.0-05-03, v3.0-06-01
+- Trend: v3.0 phase 06 in progress (UI Enhancements - SessionStatus + CheckpointViewer)
 
 ## Accumulated Context
 
@@ -878,4 +878,12 @@ The application now provides:
   - Added IPC handlers for dev session migration
   - Extended ChatMessage metadata with agentId, taskId, and migration fields
   - Migration creates backup before modifying old session files
+
+### Phase v3.0-06: UI Enhancements (In Progress)
+
+- **06-01**: Session Status & Checkpoint Viewer Components
+  - Created SessionStatus component (token count, checkpoint version, compaction count, warning indicator)
+  - Created CheckpointViewer component (collapsible sections: completed, in progress, pending, blockers, decisions)
+  - Both components subscribe to compaction events for real-time updates
+  - Exported components from Chat barrel file
 
