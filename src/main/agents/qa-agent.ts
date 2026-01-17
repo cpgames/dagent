@@ -12,6 +12,7 @@ import type { FeatureSpec } from './feature-spec-types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-manager'
+import { getSessionManager } from '../services/session-manager'
 
 export class QAAgent extends EventEmitter {
   private state: QAAgentState
@@ -25,6 +26,56 @@ export class QAAgent extends EventEmitter {
       ...DEFAULT_QA_AGENT_STATE,
       featureId,
       taskId
+    }
+  }
+
+  /**
+   * Set the session ID for SessionManager logging.
+   * Called by orchestrator to link QA agent with the task's session.
+   *
+   * @param sessionId - Session ID for logging
+   */
+  setSessionId(sessionId: string): void {
+    this.state.sessionId = sessionId
+  }
+
+  /**
+   * Log a message to SessionManager.
+   * No-op if sessionId is not set.
+   *
+   * @param role - Message role ('user' for input, 'assistant' for output)
+   * @param content - Message content
+   * @param metadata - Optional metadata for the message
+   */
+  private async logToSessionManager(
+    role: 'user' | 'assistant',
+    content: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.state.sessionId) {
+      // No session - skip logging
+      return
+    }
+
+    try {
+      const sessionManager = getSessionManager()
+      await sessionManager.addMessage(
+        this.state.sessionId,
+        this.state.featureId,
+        {
+          role,
+          content,
+          metadata: {
+            ...metadata,
+            agentId: this.state.agentId || undefined,
+            taskId: this.state.taskId,
+            agentType: 'qa',
+            internal: true // Mark as internal so it doesn't show in chat UI
+          }
+        }
+      )
+    } catch (error) {
+      console.error('[QAAgent] Failed to log to session:', error)
     }
   }
 
@@ -102,6 +153,12 @@ export class QAAgent extends EventEmitter {
     this.state.status = 'loading_context'
     this.emit('qa-agent:loading-context')
 
+    // Log review start to SessionManager
+    await this.logToSessionManager('user', `Starting QA review for task: ${this.taskTitle}`, {
+      reviewStart: true,
+      worktreePath: this.state.worktreePath
+    })
+
     try {
       // Build review prompt
       const prompt = this.buildReviewPrompt()
@@ -158,6 +215,12 @@ export class QAAgent extends EventEmitter {
 
       // If review passed, commit the changes
       if (result.passed) {
+        // Log review passed to SessionManager
+        await this.logToSessionManager('assistant', `QA review PASSED`, {
+          reviewPassed: true,
+          filesReviewed: result.filesReviewed
+        })
+
         console.log(`[QAAgent ${this.state.taskId}] Review passed, committing changes...`)
         const commitResult = await this.commitChanges()
 
@@ -166,11 +229,31 @@ export class QAAgent extends EventEmitter {
           console.error(`[QAAgent ${this.state.taskId}] Commit failed: ${commitResult.error}`)
           result.passed = false
           result.feedback = `QA passed but commit failed: ${commitResult.error}`
+
+          // Log commit failure to SessionManager
+          await this.logToSessionManager('assistant', `Commit failed: ${commitResult.error}`, {
+            commitFailed: true,
+            error: commitResult.error
+          })
         } else {
           result.commitHash = commitResult.commitHash
           result.filesChanged = commitResult.filesChanged
           console.log(`[QAAgent ${this.state.taskId}] Commit successful: ${commitResult.commitHash}`)
+
+          // Log commit success to SessionManager
+          await this.logToSessionManager('assistant', `Changes committed: ${commitResult.commitHash}`, {
+            commitSuccess: true,
+            commitHash: commitResult.commitHash,
+            filesChanged: commitResult.filesChanged
+          })
         }
+      } else {
+        // Log review failed to SessionManager
+        await this.logToSessionManager('assistant', `QA review FAILED`, {
+          reviewFailed: true,
+          feedback: result.feedback,
+          filesReviewed: result.filesReviewed
+        })
       }
 
       this.state.reviewResult = result
@@ -183,6 +266,12 @@ export class QAAgent extends EventEmitter {
       const errorMsg = (error as Error).message
       this.state.status = 'failed'
       this.state.error = errorMsg
+
+      // Log error to SessionManager
+      await this.logToSessionManager('assistant', `QA review error: ${errorMsg}`, {
+        reviewError: true,
+        error: errorMsg
+      })
 
       const result: QAReviewResult = {
         passed: false,
