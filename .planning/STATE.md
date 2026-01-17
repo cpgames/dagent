@@ -12,21 +12,21 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.9 Create Feature Workflow
 **Roadmap:** .planning/milestones/v2.9-create-feature-workflow.md
 
-Phase: 98 (Automatic Planning Workflow)
-Plan: 98-01 complete
+Phase: 99 (Auto-Archive on Merge)
+Plan: 99-01 complete
 Status: Complete
-Last activity: 2026-01-17 — Phase 98-01 executed (PM agent auto-starts on feature creation, creates spec.md and initial tasks, moves to backlog)
+Last activity: 2026-01-17 — Phase 99-01 executed (automatic archive on merge to main or PR creation, orchestrator handles archived features)
 
-Progress: ██████████ 100% (6/6 phases complete - Phases 100, 95, 96, 101, 97, 98 complete)
+Progress: ██████████ 100% (7/7 phases complete - Phases 100, 95, 96, 101, 97, 98, 99 complete)
 
-Next action: Proceed to Phase 99 (Auto-Archive on Merge) to complete v2.9 milestone
+Next action: v2.9 milestone complete - all features now auto-archive when merged
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 118 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 6)
+- Total plans completed: 119 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~445 min
+- Total execution time: ~490 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: Proceed to Phase 99 (Auto-Archive on Merge) to complete v2.9 milest
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: 87-01, 100-01, 95-01, 96-01, 101-01, 97-01, 98-01
-- Trend: v2.9 in progress (automatic planning workflow complete, auto-archive remaining)
+- Last 7 plans: 100-01, 95-01, 96-01, 101-01, 97-01, 98-01, 99-01
+- Trend: v2.9 complete (full workflow automation: planning → archive)
 
 ## Accumulated Context
 
@@ -795,21 +795,60 @@ This streamlines feature creation:
 - Graceful error handling
 - Visual feedback with spinner animation
 
+### Phase 99: Auto-Archive on Merge ✓
+
+- **99-01**: Automatic feature archiving when merged to main or PR created
+
+All verification items passed. Phase 99 Complete.
+
+### Summary
+
+Auto-Archive on Merge is complete. Features now automatically archive when merged to main:
+
+1. **MergeAgent Completion Detection**: When last task merges, feature transitions to 'completed'
+2. **FeatureMergeAgent Auto-Archive**: Archives feature after successful AI merge to main
+3. **PR Creation Auto-Archive**: Archives feature after successful PR creation
+4. **Orchestrator Protection**: Prevents execution on archived features, handles archive gracefully
+
+The application now provides:
+- Automatic feature completion when all tasks merged
+- Automatic archive on AI merge (feature → main)
+- Automatic archive on PR creation
+- Orchestrator prevents re-execution of archived features
+- Centralized status management with validation
+- Full lifecycle automation: planning → archive
+
+This completes the feature workflow:
+- Phase 100: Status system (6 statuses with transitions)
+- Phase 95: Kanban columns (6 columns for visual tracking)
+- Phase 96: Context-aware buttons (Start/Stop)
+- Phase 101: Enhanced feature dialog (description, attachments, auto-merge)
+- Phase 97: Scrollbar styling (synthwave theme)
+- Phase 98: Auto-planning (PM agent on creation)
+- Phase 99: Auto-archive (on merge/PR) - THIS PHASE
+
 ---
 
-## v2.9 Milestone Summary (Phases 100, 95, 96, 101, 97, 98)
+## v2.9 Milestone Summary (Phases 100, 95, 96, 101, 97, 98, 99)
 
-Create Feature Workflow is complete. Users now have a streamlined workflow for creating and executing features:
+Create Feature Workflow is complete. Users now have a fully automated workflow from feature creation to archive:
 
 1. **Phase 100 - Feature Status System**: 6-status workflow (planning → backlog → in_progress → needs_attention → completed → archived) with centralized status management
 2. **Phase 95 - Kanban Column Restructure**: 6-column Kanban board with horizontal/vertical scrolling
 3. **Phase 96 - Kanban Feature Card Updates**: Context-aware Start/Stop buttons, Git branch merge icon, Archive button removed
+4. **Phase 101 - Enhanced Feature Dialog**: Description, file attachments, auto-merge preference, unique name validation
+5. **Phase 97 - App Scrollbar Styling**: Global scrollbar with synthwave theme
+6. **Phase 98 - Automatic Planning Workflow**: PM agent auto-starts on feature creation, creates spec and tasks, moves to backlog
+7. **Phase 99 - Auto-Archive on Merge**: Automatic archive when merged to main or PR created
 
 The application now provides:
-- Streamlined feature creation workflow with proper status management
-- Kanban board with 6 columns matching the new workflow
+- **Fully automated lifecycle**: Features start in Planning, auto-plan with PM agent, progress through workflow, auto-archive on merge
+- **No manual status management**: All transitions automated (planning → backlog → in_progress → completed → archived)
+- Kanban board with 6 columns matching the workflow
 - Context-aware Start button (Backlog features only) that moves to In Progress before starting execution
 - Context-aware Stop button (In Progress features only) that stops execution and moves back to Backlog
 - Clear Git branch merge icon for completed features
-- Automatic archive on merge (Phase 99) instead of manual Archive button
+- Rich feature context capture (description, attachments, auto-merge preference)
+- Automatic archive on merge (both AI merge and PR creation paths)
+- Orchestrator protection against re-execution of archived features
 
