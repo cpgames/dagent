@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type JSX } from 'react'
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -640,7 +641,9 @@ export default function DAGView(): JSX.Element {
       {/* React Flow wrapper with inner component */}
       <div className="flex-1 overflow-hidden">
         {activeFeatureId ? (
-          <DAGViewInner activeFeatureId={activeFeatureId} />
+          <ReactFlowProvider>
+            <DAGViewInner activeFeatureId={activeFeatureId} />
+          </ReactFlowProvider>
         ) : (
           <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
             Select a feature to view its task graph
