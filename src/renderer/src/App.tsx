@@ -73,10 +73,12 @@ function App(): React.JSX.Element {
   }, [projectPath])
 
   const handleCreateFeature = async (data: FeatureCreateData): Promise<void> => {
-    const feature = await createFeature(data.name)
+    const feature = await createFeature(data.name, {
+      description: data.description,
+      attachments: data.attachments,
+      autoMerge: data.autoMerge
+    })
     if (feature) {
-      // TODO: Handle description, attachments, and autoMerge in Task 4
-      // For now, we just create the feature with the name
       setNewFeatureDialogOpen(false)
     }
     // Error case is handled in store (toast displayed)

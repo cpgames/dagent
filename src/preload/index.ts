@@ -118,8 +118,8 @@ const electronAPI = {
     deleteFeature: (featureId: string): Promise<boolean> =>
       ipcRenderer.invoke('storage:deleteFeature', featureId),
     listFeatures: (): Promise<string[]> => ipcRenderer.invoke('storage:listFeatures'),
-    createFeature: (name: string): Promise<Feature> =>
-      ipcRenderer.invoke('storage:createFeature', name),
+    createFeature: (name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}): Promise<Feature> =>
+      ipcRenderer.invoke('storage:createFeature', name, options),
     featureExists: (name: string): Promise<boolean> =>
       ipcRenderer.invoke('storage:featureExists', name),
 

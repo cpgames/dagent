@@ -20,7 +20,7 @@ interface FeatureState {
   // Async actions (call IPC)
   loadFeatures: () => Promise<void>;
   saveFeature: (feature: Feature) => Promise<void>;
-  createFeature: (name: string) => Promise<Feature | null>;
+  createFeature: (name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}) => Promise<Feature | null>;
   deleteFeature: (featureId: string, deleteBranch?: boolean) => Promise<boolean>;
   updateFeatureStatus: (featureId: string, newStatus: FeatureStatus) => Promise<boolean>;
 }
@@ -109,11 +109,11 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
     }
   },
 
-  createFeature: async (name) => {
+  createFeature: async (name, options) => {
     set({ isLoading: true, error: null });
     try {
       // Create feature record in storage
-      const feature = await window.electronAPI.storage.createFeature(name);
+      const feature = await window.electronAPI.storage.createFeature(name, options);
 
       // Attempt to create git worktree (non-blocking failure)
       try {

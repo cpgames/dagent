@@ -133,7 +133,7 @@ export interface AppInfo {
  */
 export interface StorageAPI {
   // Feature operations
-  createFeature: (name: string) => Promise<Feature>
+  createFeature: (name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}) => Promise<Feature>
   saveFeature: (feature: Feature) => Promise<boolean>
   loadFeature: (featureId: string) => Promise<Feature | null>
   deleteFeature: (featureId: string) => Promise<boolean>
