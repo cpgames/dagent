@@ -1,0 +1,23 @@
+/**
+ * KanbanView Component Styles
+ * Horizontal scrolling board with independently scrollable columns
+ */
+
+.kanban-view__board {
+  overflow-x: auto;
+  height: 100%;
+}
+
+/* Custom scrollbar for horizontal board scroll */
+.kanban-view__board::-webkit-scrollbar {
+  height: 6px;
+}
+
+.kanban-view__board::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+
+.kanban-view__board::-webkit-scrollbar-track {
+  background: transparent;
+}
