@@ -4,11 +4,11 @@
  */
 
 .kanban-column {
-  flex: 1;
-  min-width: 250px;
-  max-width: 350px;
   display: flex;
   flex-direction: column;
+  min-width: 300px;
+  max-width: 300px;
+  height: 100%;
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
@@ -31,8 +31,12 @@
 }
 
 /* Status-specific title colors */
-.kanban-column__title--not_started {
+.kanban-column__title--planning {
   color: var(--accent-primary);
+}
+
+.kanban-column__title--backlog {
+  color: var(--text-secondary);
 }
 
 .kanban-column__title--in_progress {
@@ -47,6 +51,10 @@
   color: var(--color-success);
 }
 
+.kanban-column__title--archived {
+  color: var(--text-muted);
+}
+
 .kanban-column__count {
   background: var(--bg-hover);
   color: var(--text-secondary);
@@ -56,26 +64,31 @@
   border-radius: var(--radius-full);
 }
 
-.kanban-column__cards {
+.kanban-column__content {
+  overflow-y: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.kanban-column__cards {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-sm);
-  overflow-y: auto;
   padding-right: var(--space-xs);
 }
 
 /* Custom scrollbar */
-.kanban-column__cards::-webkit-scrollbar {
+.kanban-column__content::-webkit-scrollbar {
   width: 6px;
 }
 
-.kanban-column__cards::-webkit-scrollbar-thumb {
+.kanban-column__content::-webkit-scrollbar-thumb {
   background: var(--border-default);
   border-radius: var(--radius-full);
 }
 
-.kanban-column__cards::-webkit-scrollbar-track {
+.kanban-column__content::-webkit-scrollbar-track {
   background: transparent;
 }
 

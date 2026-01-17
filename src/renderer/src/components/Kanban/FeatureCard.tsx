@@ -7,7 +7,6 @@ export type MergeType = 'ai' | 'pr';
 interface FeatureCardProps {
   feature: Feature;
   onSelect: (featureId: string) => void;
-  onArchive?: (featureId: string) => void;
   onDelete?: (featureId: string) => void;
   onStart?: (featureId: string) => void;
   onMerge?: (featureId: string, mergeType: MergeType) => void;
@@ -83,22 +82,21 @@ function SpinnerIcon(): React.JSX.Element {
 function MergeIcon(): React.JSX.Element {
   return (
     <svg className="feature-card__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M8 7H6a2 2 0 00-2 2v8a2 2 0 002 2h2"
-      />
+      <circle cx="5" cy="6" r="3" strokeWidth="2" />
+      <circle cx="19" cy="18" r="3" strokeWidth="2" />
+      <circle cx="5" cy="18" r="3" strokeWidth="2" />
+      <path d="M5 9v6" strokeWidth="2" strokeLinecap="round" />
+      <path d="M19 15c0-3.314-2.686-6-6-6H5" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
 /**
  * FeatureCard - Displays a single feature in the Kanban board.
- * Shows feature name, task progress placeholder, archive button for completed features,
+ * Shows feature name, task progress placeholder,
  * merge button with dropdown for completed features, and delete button on hover.
  */
-export default function FeatureCard({ feature, onSelect, onArchive, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
+export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
   const canStart = feature.status === 'planning' || feature.status === 'backlog' || feature.status === 'needs_attention';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
@@ -112,11 +110,6 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
 
   const handleClick = () => {
     onSelect(feature.id);
-  };
-
-  const handleArchive = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering onSelect
-    onArchive?.(feature.id);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -190,49 +183,37 @@ export default function FeatureCard({ feature, onSelect, onArchive, onDelete, on
         </div>
       </div>
 
-      {/* Merge and Archive buttons - only shown for completed features */}
-      {feature.status === 'completed' && (onMerge || onArchive) && (
+      {/* Merge button - only shown for completed features */}
+      {feature.status === 'completed' && onMerge && (
         <div className="feature-card__footer">
           {/* Merge button with dropdown */}
-          {onMerge && (
-            <div className="relative">
-              <button
-                className="feature-card__merge-btn"
-                onClick={handleMergeClick}
-                aria-label={`Merge ${feature.name}`}
-              >
-                <MergeIcon />
-                Merge
-              </button>
-              {/* Dropdown menu */}
-              {showMergeDropdown && (
-                <div className="feature-card__dropdown">
-                  <button
-                    className="feature-card__dropdown-item"
-                    onClick={(e) => handleMergeOption(e, 'ai')}
-                  >
-                    AI Merge
-                  </button>
-                  <button
-                    className="feature-card__dropdown-item"
-                    onClick={(e) => handleMergeOption(e, 'pr')}
-                  >
-                    Create PR
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          {/* Archive button */}
-          {onArchive && (
+          <div className="relative">
             <button
-              className="feature-card__archive-btn"
-              onClick={handleArchive}
-              aria-label={`Archive ${feature.name}`}
+              className="feature-card__merge-btn"
+              onClick={handleMergeClick}
+              aria-label={`Merge ${feature.name}`}
             >
-              Archive
+              <MergeIcon />
+              Merge
             </button>
-          )}
+            {/* Dropdown menu */}
+            {showMergeDropdown && (
+              <div className="feature-card__dropdown">
+                <button
+                  className="feature-card__dropdown-item"
+                  onClick={(e) => handleMergeOption(e, 'ai')}
+                >
+                  AI Merge
+                </button>
+                <button
+                  className="feature-card__dropdown-item"
+                  onClick={(e) => handleMergeOption(e, 'pr')}
+                >
+                  Create PR
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
