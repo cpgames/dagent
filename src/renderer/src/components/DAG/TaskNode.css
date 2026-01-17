@@ -7,9 +7,10 @@
   min-width: 200px;
   border-radius: var(--radius-lg);
   border: 2px solid var(--border-default);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, rgba(40, 20, 70, 0.95), rgba(30, 15, 55, 0.95));
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4);
   transition: all var(--transition-fast);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--selected {
@@ -19,37 +20,44 @@
 /* Status border colors */
 .task-node--blocked {
   border-color: var(--accent-primary);
-  background: var(--color-info-dim);
+  background: rgba(0, 240, 255, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--ready_for_dev {
   border-color: var(--accent-primary);
-  background: var(--color-info-dim);
+  background: rgba(0, 240, 255, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--in_progress {
   border-color: var(--color-warning);
-  background: var(--color-warning-dim);
+  background: rgba(255, 149, 0, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--ready_for_qa {
   border-color: var(--accent-secondary);
-  background: var(--accent-secondary-dim);
+  background: rgba(255, 0, 255, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--ready_for_merge {
   border-color: var(--color-warning);
-  background: var(--color-warning-dim);
+  background: rgba(255, 149, 0, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--completed {
   border-color: var(--color-success);
-  background: var(--color-success-dim);
+  background: rgba(0, 255, 136, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node--failed {
   border-color: var(--color-error);
-  background: var(--color-error-dim);
+  background: rgba(255, 51, 102, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .task-node__header {
