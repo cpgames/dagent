@@ -13,7 +13,9 @@ const statusConfig: Record<Status, { color: string; bg: string; label: string }>
   completed: { color: 'text-green-400', bg: 'bg-green-500/20', label: 'Completed' },
   failed: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed' },
   // Feature statuses
-  not_started: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Not Started' },
+  planning: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Planning' },
+  backlog: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Backlog' },
+  archived: { color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Archived' },
   needs_attention: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Needs Attention' }
 };
 

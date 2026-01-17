@@ -1,4 +1,4 @@
-export type FeatureStatus = 'not_started' | 'in_progress' | 'needs_attention' | 'completed';
+export type FeatureStatus = 'planning' | 'backlog' | 'in_progress' | 'needs_attention' | 'completed' | 'archived';
 
 export interface Feature {
   id: string;

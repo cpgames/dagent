@@ -99,7 +99,7 @@ function MergeIcon(): React.JSX.Element {
  * merge button with dropdown for completed features, and delete button on hover.
  */
 export default function FeatureCard({ feature, onSelect, onArchive, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
-  const canStart = feature.status === 'not_started' || feature.status === 'needs_attention';
+  const canStart = feature.status === 'planning' || feature.status === 'backlog' || feature.status === 'needs_attention';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
   // Close dropdown when clicking outside

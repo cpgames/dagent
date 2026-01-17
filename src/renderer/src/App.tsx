@@ -26,7 +26,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
  * Provides the application shell with vertical sidebar navigation and view switching.
  */
 function App(): React.JSX.Element {
-  const { loadFeatures, createFeature } = useFeatureStore()
+  const { loadFeatures, createFeature, features, activeFeatureId } = useFeatureStore()
   const { activeView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
   const { loadCurrentProject, projectPath, initGitRepo, checkGitStatus } = useProjectStore()
@@ -131,6 +131,23 @@ function App(): React.JSX.Element {
     new ShootingStarsLayer()
   ], []);
 
+  // Get active feature for badge
+  const activeFeature = features.find(f => f.id === activeFeatureId)
+
+  // Status color mapping
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'in_progress':
+        return 'var(--accent-primary)'
+      case 'needs_attention':
+        return 'var(--color-warning)'
+      case 'completed':
+        return 'var(--color-success)'
+      default:
+        return 'var(--text-muted)'
+    }
+  }
+
   return (
     <ThemeProvider>
       <ErrorBoundary>
@@ -138,7 +155,21 @@ function App(): React.JSX.Element {
         <div className="h-screen text-white flex flex-col overflow-hidden relative z-0">
           {/* Header */}
           <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <ProjectSelector onOpenFullDialog={() => setProjectSelectionDialogOpen(true)} />
+            <div className="flex items-center gap-4">
+              <ProjectSelector onOpenFullDialog={() => setProjectSelectionDialogOpen(true)} />
+              {/* Feature badge - only show in DAG view with active feature */}
+              {activeView === 'dag' && activeFeature && (
+                <div
+                  className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium"
+                  style={{
+                    backgroundColor: 'var(--bg-elevated)',
+                    borderLeft: `4px solid ${getStatusColor(activeFeature.status)}`
+                  }}
+                >
+                  {activeFeature.name}
+                </div>
+              )}
+            </div>
             <Button
               variant="primary"
               onClick={() => setNewFeatureDialogOpen(true)}

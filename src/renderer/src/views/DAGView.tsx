@@ -26,7 +26,6 @@ import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
 import {
   TaskNode,
-  FeatureTabs,
   NodeDialog,
   ConfirmDialog,
   LogDialog,
@@ -364,38 +363,45 @@ function DAGViewInner({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  // Update nodes/edges when DAG or selection changes
-  useEffect(() => {
-    setNodes(dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask))
-    setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
-  }, [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
+  // Store loaded layout positions in a ref so they persist across DAG updates
+  const layoutPositionsRef = useRef<Record<string, { x: number; y: number }>>({})
 
   // Load layout positions when active feature changes
   useEffect(() => {
-    if (!activeFeatureId) return
+    if (!activeFeatureId) {
+      layoutPositionsRef.current = {}
+      return
+    }
 
     const loadLayout = async () => {
       try {
         const result = await window.electronAPI.dagLayout.load(activeFeatureId)
         if (result.success && result.layout && result.layout.positions) {
-          // Merge saved positions into current nodes
-          setNodes((currentNodes) =>
-            currentNodes.map((node) => {
-              const savedPos = result.layout?.positions[node.id]
-              if (savedPos) {
-                return { ...node, position: savedPos }
-              }
-              return node
-            })
-          )
+          layoutPositionsRef.current = result.layout.positions
+        } else {
+          layoutPositionsRef.current = {}
         }
       } catch (error) {
         console.error('[DAGView] Failed to load layout:', error)
+        layoutPositionsRef.current = {}
       }
     }
 
     loadLayout()
-  }, [activeFeatureId, setNodes])
+  }, [activeFeatureId])
+
+  // Update nodes/edges when DAG or selection changes, merging in saved layout positions
+  useEffect(() => {
+    const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask).map((node) => {
+      const savedPos = layoutPositionsRef.current[node.id]
+      if (savedPos) {
+        return { ...node, position: savedPos }
+      }
+      return node
+    })
+    setNodes(newNodes)
+    setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
+  }, [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
   // Handle layout reset
   const handleResetLayout = useCallback(async () => {
@@ -403,6 +409,7 @@ function DAGViewInner({
 
     try {
       // Clear saved layout
+      layoutPositionsRef.current = {}
       await window.electronAPI.dagLayout.save(activeFeatureId, {})
 
       // Reset nodes to default positions (center all nodes and let React Flow auto-arrange)
@@ -460,12 +467,13 @@ function DAGViewInner({
     (changes: NodeChange[]) => {
       onNodesChange(changes)
 
-      // Update positions in DAG store
+      // Update positions in the layout ref (not the DAG store)
       changes.forEach((change) => {
         if (change.type === 'position' && change.position && change.id) {
-          updateNode(change.id, {
-            position: { x: change.position.x, y: change.position.y }
-          })
+          layoutPositionsRef.current[change.id] = {
+            x: change.position.x,
+            y: change.position.y
+          }
         }
       })
 
@@ -477,20 +485,15 @@ function DAGViewInner({
 
         saveLayoutTimerRef.current = setTimeout(async () => {
           try {
-            // Collect all current positions
-            const positions: Record<string, { x: number; y: number }> = {}
-            nodes.forEach((node) => {
-              positions[node.id] = { x: node.position.x, y: node.position.y }
-            })
-
-            await window.electronAPI.dagLayout.save(activeFeatureId, positions)
+            // Save positions from the ref
+            await window.electronAPI.dagLayout.save(activeFeatureId, layoutPositionsRef.current)
           } catch (error) {
             console.error('[DAGView] Failed to save layout:', error)
           }
         }, 500)
       }
     },
-    [onNodesChange, updateNode, activeFeatureId, nodes]
+    [onNodesChange, activeFeatureId]
   )
 
   // Handle new connections
@@ -572,7 +575,6 @@ function DAGViewInner({
                     stroke: '#00f0ff',
                     strokeWidth: 3
                   }}
-                  connectionLineType="default"
                   className="!bg-[rgba(10,0,21,0.5)]"
                   proOptions={{ hideAttribution: true }}
                 >
@@ -717,7 +719,7 @@ function DAGViewInner({
 
 // Outer component wrapper
 export default function DAGView(): JSX.Element {
-  const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
+  const { activeFeatureId } = useFeatureStore()
   const { loadDag } = useDAGStore()
 
   // Load DAG when active feature changes
@@ -728,28 +730,16 @@ export default function DAGView(): JSX.Element {
   }, [activeFeatureId, loadDag])
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Feature tabs at top */}
-      <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
-        <FeatureTabs
-          features={features}
-          activeFeatureId={activeFeatureId}
-          onSelectFeature={setActiveFeature}
-        />
-      </div>
-
-      {/* React Flow wrapper with inner component */}
-      <div className="flex-1 overflow-hidden">
-        {activeFeatureId ? (
-          <ReactFlowProvider>
-            <DAGViewInner activeFeatureId={activeFeatureId} />
-          </ReactFlowProvider>
-        ) : (
-          <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
-            Select a feature to view its task graph
-          </div>
-        )}
-      </div>
+    <div className="h-full">
+      {activeFeatureId ? (
+        <ReactFlowProvider>
+          <DAGViewInner activeFeatureId={activeFeatureId} />
+        </ReactFlowProvider>
+      ) : (
+        <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
+          Select a feature to view its task graph
+        </div>
+      )}
     </div>
   )
 }

@@ -47,8 +47,7 @@ export default function SelectableEdge({
   targetPosition,
   source,
   target,
-  data,
-  markerEnd
+  data
 }: SelectableEdgeProps): JSX.Element {
   const [showConfirm, setShowConfirm] = useState(false)
 

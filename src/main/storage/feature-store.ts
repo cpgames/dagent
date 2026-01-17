@@ -36,7 +36,7 @@ export class FeatureStore {
     const feature: Feature = {
       id,
       name,
-      status: 'not_started',
+      status: 'planning',
       branchName: getFeatureBranchName(id),
       createdAt: now,
       updatedAt: now

@@ -43,7 +43,7 @@ export class ExecutionOrchestrator extends EventEmitter {
   private initFailureCounts: Map<string, number> = new Map()
   private readonly MAX_INIT_RETRIES = 3
   // Track current feature status to detect changes
-  private currentFeatureStatus: FeatureStatus = 'not_started'
+  private currentFeatureStatus: FeatureStatus = 'planning'
   // Track TaskController instances for Ralph Loop execution
   private taskControllers: Map<string, TaskController> = new Map()
 
@@ -63,7 +63,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.events = []
     this.failedThisTick = new Set()
     this.initFailureCounts = new Map()
-    this.currentFeatureStatus = 'not_started'
+    this.currentFeatureStatus = 'planning'
   }
 
   /**

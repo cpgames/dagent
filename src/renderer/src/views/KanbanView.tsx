@@ -8,13 +8,15 @@ import type { Feature, FeatureStatus } from '@shared/types';
 
 /**
  * Column configuration for the Kanban board.
- * Order matches DAGENT_SPEC 3.1: Not Started -> In Progress -> Needs Attention -> Completed
+ * Order matches new workflow: Planning -> Backlog -> In Progress -> Needs Attention -> Completed -> Archived
  */
 const columns: { title: string; status: FeatureStatus }[] = [
-  { title: 'Not Started', status: 'not_started' },
+  { title: 'Planning', status: 'planning' },
+  { title: 'Backlog', status: 'backlog' },
   { title: 'In Progress', status: 'in_progress' },
   { title: 'Needs Attention', status: 'needs_attention' },
   { title: 'Completed', status: 'completed' },
+  { title: 'Archived', status: 'archived' },
 ];
 
 /**
@@ -41,10 +43,12 @@ export default function KanbanView() {
   // Group features by status
   const featuresByStatus = useMemo(() => {
     const grouped: Record<FeatureStatus, Feature[]> = {
-      not_started: [],
+      planning: [],
+      backlog: [],
       in_progress: [],
       needs_attention: [],
       completed: [],
+      archived: [],
     };
 
     for (const feature of features) {
