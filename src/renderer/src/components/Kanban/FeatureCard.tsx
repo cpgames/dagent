@@ -236,6 +236,14 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
         </div>
       </div>
 
+      {/* Planning progress indicator - shown for planning status only */}
+      {feature.status === 'planning' && (
+        <div className="feature-card__planning-indicator">
+          <div className="feature-card__planning-spinner" />
+          <span>Planning in progress...</span>
+        </div>
+      )}
+
       {/* Merge button - only shown for completed features */}
       {feature.status === 'completed' && onMerge && (
         <div className="feature-card__footer">

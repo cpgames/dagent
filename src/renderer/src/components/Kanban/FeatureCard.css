@@ -24,8 +24,12 @@
 }
 
 /* Status border colors */
-.feature-card--not_started {
-  border-left-color: var(--accent-primary);
+.feature-card--planning {
+  border-left-color: var(--accent-secondary);
+}
+
+.feature-card--backlog {
+  border-left-color: var(--text-muted);
 }
 
 .feature-card--in_progress {
@@ -38,6 +42,11 @@
 
 .feature-card--completed {
   border-left-color: var(--color-success);
+}
+
+.feature-card--archived {
+  border-left-color: var(--border-default);
+  opacity: 0.7;
 }
 
 .feature-card__header {
@@ -176,4 +185,27 @@
 .feature-card__dropdown-item:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* Planning progress indicator */
+.feature-card__planning-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.feature-card__planning-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent-secondary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
