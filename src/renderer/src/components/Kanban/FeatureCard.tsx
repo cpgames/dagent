@@ -9,6 +9,7 @@ interface FeatureCardProps {
   onSelect: (featureId: string) => void;
   onDelete?: (featureId: string) => void;
   onStart?: (featureId: string) => void;
+  onStop?: (featureId: string) => void;
   onMerge?: (featureId: string, mergeType: MergeType) => void;
   isStarting?: boolean;
 }
@@ -77,6 +78,21 @@ function SpinnerIcon(): React.JSX.Element {
 }
 
 /**
+ * Stop icon SVG component (square)
+ */
+function StopIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="feature-card__icon"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <rect x="6" y="6" width="12" height="12" />
+    </svg>
+  );
+}
+
+/**
  * Merge icon SVG component (git merge - two branches joining)
  */
 function MergeIcon(): React.JSX.Element {
@@ -96,8 +112,9 @@ function MergeIcon(): React.JSX.Element {
  * Shows feature name, task progress placeholder,
  * merge button with dropdown for completed features, and delete button on hover.
  */
-export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
+export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting }: FeatureCardProps) {
   const showStart = feature.status === 'backlog';
+  const showStop = feature.status === 'in_progress';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
   // Close dropdown when clicking outside
@@ -131,6 +148,20 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMe
       } catch (error) {
         console.error('Error updating feature status:', error);
       }
+    }
+  };
+
+  const handleStop = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering onSelect
+    try {
+      // First stop execution, then update status back to backlog
+      onStop?.(feature.id);
+      const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'backlog');
+      if (!updateResult.success) {
+        console.error('Failed to update feature status:', updateResult.error);
+      }
+    } catch (error) {
+      console.error('Error updating feature status:', error);
     }
   };
 
@@ -176,6 +207,18 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMe
               title={isStarting ? 'Starting...' : 'Start execution'}
             >
               {isStarting ? <SpinnerIcon /> : <PlayIcon />}
+            </button>
+          )}
+
+          {/* Stop button - shown on hover for in_progress features only */}
+          {showStop && onStop && (
+            <button
+              className="feature-card__action-btn feature-card__action-btn--stop"
+              onClick={handleStop}
+              aria-label={`Stop ${feature.name}`}
+              title="Stop execution"
+            >
+              <StopIcon />
             </button>
           )}
 

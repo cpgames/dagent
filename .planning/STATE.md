@@ -12,21 +12,21 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.9 Create Feature Workflow
 **Roadmap:** .planning/milestones/v2.9-create-feature-workflow.md
 
-Phase: 100 of 101 (Feature Status System)
-Plan: 100-01 complete
+Phase: 95 of 99 (Kanban Column Restructure)
+Plan: 95-01 complete
 Status: Complete
-Last activity: 2026-01-17 — Phase 100-01 executed (updated FeatureStatus type, created FeatureStatusManager, integrated IPC, added migration)
+Last activity: 2026-01-17 — Phase 95-01 executed (updated Kanban with 6 columns, added horizontal/vertical scrolling, centralized status management ready)
 
-Progress: █████████ 100% (1/1 phases - Phase 100 complete)
+Progress: ███████░░ 75% (2/3 phases complete - Phases 100, 95 complete)
 
-Next action: Phase 101 or next milestone planning
+Next action: Phase 96 (Kanban Feature Card Updates) or Phase 97 (App-Wide Scrollbar Styling)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 113 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 1)
+- Total plans completed: 114 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 2)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~350 min
+- Total execution time: ~365 min
 
 **By Phase:**
 
@@ -673,3 +673,33 @@ This lays the foundation for:
 - Phase 98: Automatic planning workflow with PM agent transitions
 - Phase 99: Auto-archive on merge (completed → archived)
 - Phase 101: Enhanced feature dialog with validated status transitions
+
+---
+
+## Phase 95: Kanban Column Restructure ✓
+
+- **95-01**: Updated Kanban board with 6 columns, horizontal/vertical scrolling, centralized status management
+
+All verification items passed. Phase 95 Complete.
+
+### Summary
+
+Kanban Column Restructure is complete. The Kanban board now supports the new feature workflow with proper scrolling UX:
+
+1. **6-Column Configuration**: Planning → Backlog → In Progress → Needs Attention → Completed → Archived
+2. **Horizontal Scrolling**: Board container scrolls horizontally to accommodate all columns
+3. **Vertical Scrolling**: Each column scrolls independently with fixed header
+4. **Fixed Column Width**: Columns are 300px wide for consistent layout
+5. **Status Colors**: Updated title colors for planning (cyan), backlog (gray), archived (dim gray)
+
+The application now provides:
+- Horizontally scrollable board with `kanban-view__board` CSS class
+- Independently scrollable columns with `.kanban-column__content` wrapper
+- Fixed 300px column width prevents layout shifts
+- Custom scrollbar styling for board and columns
+- Centralized status management ready for drag-and-drop (when implemented)
+
+This enables:
+- Phase 96: Context-aware Start/Stop buttons on feature cards
+- Phase 97: Custom synthwave scrollbar styling throughout app
+- Phase 98: Automatic planning workflow with PM agent

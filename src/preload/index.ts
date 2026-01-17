@@ -120,6 +120,8 @@ const electronAPI = {
     listFeatures: (): Promise<string[]> => ipcRenderer.invoke('storage:listFeatures'),
     createFeature: (name: string): Promise<Feature> =>
       ipcRenderer.invoke('storage:createFeature', name),
+    featureExists: (name: string): Promise<boolean> =>
+      ipcRenderer.invoke('storage:featureExists', name),
 
     // DAG operations
     saveDag: (featureId: string, dag: DAGGraph): Promise<boolean> =>

@@ -88,6 +88,10 @@
   color: var(--color-success);
 }
 
+.feature-card__action-btn--stop:hover {
+  color: var(--color-warning);
+}
+
 .feature-card__action-btn--delete:hover {
   color: var(--color-error);
 }

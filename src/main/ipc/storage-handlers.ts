@@ -71,6 +71,17 @@ export function registerStorageHandlers(): void {
     return getStore().createFeature(name);
   });
 
+  ipcMain.handle('storage:featureExists', async (_event, name: string) => {
+    const features = await getStore().listFeatures();
+    for (const featureId of features) {
+      const feature = await getStore().loadFeature(featureId);
+      if (feature && feature.name === name) {
+        return true;
+      }
+    }
+    return false;
+  });
+
   // DAG operations
   ipcMain.handle('storage:saveDag', async (_event, featureId: string, dag: DAGGraph) => {
     await getStore().saveDag(featureId, dag);
