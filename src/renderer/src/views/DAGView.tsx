@@ -24,7 +24,6 @@ import '@xyflow/react/dist/style.css'
 import { useFeatureStore } from '../stores/feature-store'
 import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
-import { useChatStore } from '../stores/chat-store'
 import {
   TaskNode,
   FeatureTabs,
@@ -121,6 +120,7 @@ function DAGViewInner({
     isMutating,
     error,
     setError,
+    addNode,
     updateNode,
     addConnection,
     removeNode,
@@ -242,22 +242,24 @@ function DAGViewInner({
   )
 
   // Handle create task from dialog
-  const { addMessage, sendToAgent } = useChatStore()
   const handleCreateTask = useCallback(
     async (title: string, description: string) => {
       if (!activeFeatureId) return
 
-      // Add the message to chat and send to PM agent
-      const message = `Add a new task:\nTitle: ${title}\nDescription: ${description}`
-      addMessage({
-        role: 'user',
-        content: message
-      })
+      // Create a new task directly in the DAG
+      const newTask: Task = {
+        id: `task-${Date.now()}`, // Temporary ID, DAGManager will assign proper one
+        title,
+        description,
+        status: 'ready_for_dev',
+        locked: false,
+        position: { x: 0, y: 0 } // DAGManager will auto-place it
+      }
 
-      // Send to PM agent
-      await sendToAgent()
+      await addNode(newTask)
+      toast.success(`Task "${title}" created`)
     },
-    [activeFeatureId, addMessage, sendToAgent]
+    [activeFeatureId, addNode]
   )
 
   const handleDeleteTask = useCallback(
