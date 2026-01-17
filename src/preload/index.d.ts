@@ -110,6 +110,15 @@ import type {
   GetSpecInput,
   GetSpecResult
 } from '../main/agents/feature-spec-types'
+import type {
+  Session,
+  ChatMessage,
+  Checkpoint,
+  SessionContext,
+  AgentDescription,
+  CreateSessionOptions,
+  SessionUpdateEvent
+} from '../../shared/types/session'
 
 /**
  * SDK availability status for Claude Agent SDK.
@@ -1321,6 +1330,138 @@ export interface HistoryAPI {
   getState: (featureId: string) => Promise<HistoryState>
 }
 
+/**
+ * Session API for session & checkpoint management.
+ * Handles conversation sessions across all agent types with automatic compaction.
+ */
+export interface SessionAPI {
+  /**
+   * Get or create a session for a specific context
+   */
+  getOrCreate: (
+    projectRoot: string,
+    options: CreateSessionOptions
+  ) => Promise<Session>
+
+  /**
+   * Get session by ID
+   */
+  getById: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<Session | null>
+
+  /**
+   * Archive a session
+   */
+  archive: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<void>
+
+  /**
+   * Add a message to a session
+   */
+  addMessage: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    message: Omit<ChatMessage, 'id' | 'timestamp'>
+  ) => Promise<ChatMessage>
+
+  /**
+   * Get recent messages from a session
+   */
+  getRecentMessages: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    limit?: number
+  ) => Promise<ChatMessage[]>
+
+  /**
+   * Get all messages from a session
+   */
+  getAllMessages: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<ChatMessage[]>
+
+  /**
+   * Clear all messages from a session
+   */
+  clearMessages: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<void>
+
+  /**
+   * Get checkpoint for a session
+   */
+  getCheckpoint: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<Checkpoint | null>
+
+  /**
+   * Update checkpoint for a session
+   */
+  updateCheckpoint: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    checkpoint: Checkpoint
+  ) => Promise<void>
+
+  /**
+   * Get context for a session
+   */
+  getContext: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<SessionContext | null>
+
+  /**
+   * Update context for a session
+   */
+  updateContext: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    context: SessionContext
+  ) => Promise<void>
+
+  /**
+   * Get agent description for a session
+   */
+  getAgentDescription: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<AgentDescription | null>
+
+  /**
+   * Set agent description for a session
+   */
+  setAgentDescription: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    description: AgentDescription
+  ) => Promise<void>
+
+  /**
+   * Subscribe to session update events
+   */
+  onUpdated: (callback: (event: SessionUpdateEvent) => void) => () => void
+}
+
 export interface ElectronAPI {
   /**
    * Test IPC connection - returns 'pong' from main process
@@ -1476,6 +1617,11 @@ export interface ElectronAPI {
    * DAG Layout API for persisting node positions
    */
   dagLayout: DAGLayoutAPI
+
+  /**
+   * Session API for session & checkpoint management
+   */
+  session: SessionAPI
 }
 
 declare global {

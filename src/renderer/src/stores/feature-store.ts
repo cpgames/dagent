@@ -80,19 +80,39 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
   setError: (error) => set({ error }),
 
   loadFeatures: async () => {
+    console.log('[FeatureStore] loadFeatures called');
     set({ isLoading: true, error: null });
     try {
+      console.log('[FeatureStore] Calling listFeatures...');
       const featureIds = await window.electronAPI.storage.listFeatures();
+      console.log('[FeatureStore] listFeatures returned:', featureIds, 'type:', typeof featureIds);
+
       const features: Feature[] = [];
+      console.log('[FeatureStore] features array initialized:', Array.isArray(features));
+
       // Guard against undefined/null featureIds
       if (featureIds) {
+        console.log('[FeatureStore] featureIds is truthy, iterating...');
         for (const id of featureIds) {
+          console.log('[FeatureStore] Loading feature:', id);
           const feature = await window.electronAPI.storage.loadFeature(id);
-          if (feature) features.push(feature);
+          console.log('[FeatureStore] Loaded feature:', feature);
+          if (feature) {
+            console.log('[FeatureStore] Pushing feature to array...');
+            features.push(feature);
+            console.log('[FeatureStore] features.length after push:', features.length);
+          }
         }
+      } else {
+        console.log('[FeatureStore] featureIds is falsy, skipping iteration');
       }
+
+      console.log('[FeatureStore] Setting features state with:', features);
       set({ features, isLoading: false });
+      console.log('[FeatureStore] loadFeatures completed successfully');
     } catch (error) {
+      console.error('[FeatureStore] loadFeatures error:', error);
+      console.error('[FeatureStore] Error stack:', (error as Error).stack);
       const message = (error as Error).message;
       set({ error: message, isLoading: false });
       toast.error(`Failed to load features: ${message}`);

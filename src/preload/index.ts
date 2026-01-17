@@ -714,6 +714,41 @@ const electronAPI = {
       ipcRenderer.invoke('dag-layout:load', featureId),
     delete: (featureId: string): Promise<{ success: boolean; deleted: boolean; error?: string }> =>
       ipcRenderer.invoke('dag-layout:delete', featureId)
+  },
+
+  // Session API (session & checkpoint management)
+  session: {
+    getOrCreate: (projectRoot: string, options: any): Promise<any> =>
+      ipcRenderer.invoke('session:getOrCreate', projectRoot, options),
+    getById: (projectRoot: string, sessionId: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:getById', projectRoot, sessionId, featureId),
+    archive: (projectRoot: string, sessionId: string, featureId: string): Promise<void> =>
+      ipcRenderer.invoke('session:archive', projectRoot, sessionId, featureId),
+    addMessage: (projectRoot: string, sessionId: string, featureId: string, message: any): Promise<any> =>
+      ipcRenderer.invoke('session:addMessage', projectRoot, sessionId, featureId, message),
+    getRecentMessages: (projectRoot: string, sessionId: string, featureId: string, limit?: number): Promise<any[]> =>
+      ipcRenderer.invoke('session:getRecentMessages', projectRoot, sessionId, featureId, limit),
+    getAllMessages: (projectRoot: string, sessionId: string, featureId: string): Promise<any[]> =>
+      ipcRenderer.invoke('session:getAllMessages', projectRoot, sessionId, featureId),
+    clearMessages: (projectRoot: string, sessionId: string, featureId: string): Promise<void> =>
+      ipcRenderer.invoke('session:clearMessages', projectRoot, sessionId, featureId),
+    getCheckpoint: (projectRoot: string, sessionId: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:getCheckpoint', projectRoot, sessionId, featureId),
+    updateCheckpoint: (projectRoot: string, sessionId: string, featureId: string, checkpoint: any): Promise<void> =>
+      ipcRenderer.invoke('session:updateCheckpoint', projectRoot, sessionId, featureId, checkpoint),
+    getContext: (projectRoot: string, sessionId: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:getContext', projectRoot, sessionId, featureId),
+    updateContext: (projectRoot: string, sessionId: string, featureId: string, context: any): Promise<void> =>
+      ipcRenderer.invoke('session:updateContext', projectRoot, sessionId, featureId, context),
+    getAgentDescription: (projectRoot: string, sessionId: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:getAgentDescription', projectRoot, sessionId, featureId),
+    setAgentDescription: (projectRoot: string, sessionId: string, featureId: string, description: any): Promise<void> =>
+      ipcRenderer.invoke('session:setAgentDescription', projectRoot, sessionId, featureId, description),
+    onUpdated: (callback: (event: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('session:updated', handler)
+      return () => ipcRenderer.removeListener('session:updated', handler)
+    }
   }
 }
 

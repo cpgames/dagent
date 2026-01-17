@@ -52,7 +52,12 @@ export default function KanbanView() {
     };
 
     for (const feature of features) {
-      grouped[feature.status].push(feature);
+      // Safety check: if feature has invalid status, default to 'needs_attention'
+      const status = feature.status in grouped ? feature.status : 'needs_attention';
+      if (status !== feature.status) {
+        console.warn(`Feature ${feature.id} has invalid status '${feature.status}', defaulting to 'needs_attention'`);
+      }
+      grouped[status].push(feature);
     }
 
     return grouped;

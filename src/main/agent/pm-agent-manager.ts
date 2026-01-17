@@ -109,12 +109,21 @@ export class PMAgentManager {
 
               // Save assistant message to chat history
               // Note: event.message.type (not role) is 'assistant' for assistant messages
+              // Filter out system initialization messages and other internal messages
               if (event.message.type === 'assistant' && event.message.content) {
-                chatHistory.entries.push({
-                  role: 'assistant',
-                  content: event.message.content,
-                  timestamp: new Date().toISOString()
-                })
+                const content = event.message.content.trim()
+                // Skip system messages like "System: init", empty messages, and thinking messages
+                const isSystemMessage = content.startsWith('System:') ||
+                                       content.startsWith('Thinking:') ||
+                                       content.length === 0
+
+                if (!isSystemMessage) {
+                  chatHistory.entries.push({
+                    role: 'assistant',
+                    content: event.message.content,
+                    timestamp: new Date().toISOString()
+                  })
+                }
               }
             } else if (event.type === 'error') {
               console.error(`[PMAgentManager] PM error: ${event.error}`)
