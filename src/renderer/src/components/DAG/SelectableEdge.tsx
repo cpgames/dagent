@@ -2,11 +2,11 @@
  * SelectableEdge - Custom edge component with selection, highlighting, and delete functionality.
  */
 import { useState, type JSX } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, Position } from '@xyflow/react'
 import './SelectableEdge.css'
 
 // Theme colors for edge styling (CSS variables can't be used in inline SVG styles)
-const EDGE_COLOR_DEFAULT = '#6a5080' // matches --text-muted
+const EDGE_COLOR_DEFAULT = '#a86ce6' // matches vibrant purple border
 const EDGE_COLOR_SELECTED = '#00f0ff' // matches --accent-primary
 
 export interface SelectableEdgeData {
@@ -52,14 +52,34 @@ export default function SelectableEdge({
 }: SelectableEdgeProps): JSX.Element {
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition
-  })
+  // Calculate control point offset - larger value = more extension before curve
+  const offset = 80
+
+  // Calculate control points based on position
+  const getControlPoint = (x: number, y: number, position: Position) => {
+    switch (position) {
+      case Position.Top:
+        return { x, y: y - offset }
+      case Position.Bottom:
+        return { x, y: y + offset }
+      case Position.Left:
+        return { x: x - offset, y }
+      case Position.Right:
+        return { x: x + offset, y }
+      default:
+        return { x, y }
+    }
+  }
+
+  const sourceControl = getControlPoint(sourceX, sourceY, sourcePosition)
+  const targetControl = getControlPoint(targetX, targetY, targetPosition)
+
+  // Create cubic bezier path manually
+  const edgePath = `M ${sourceX},${sourceY} C ${sourceControl.x},${sourceControl.y} ${targetControl.x},${targetControl.y} ${targetX},${targetY}`
+
+  // Calculate label position (midpoint of the curve)
+  const labelX = (sourceX + targetX) / 2
+  const labelY = (sourceY + targetY) / 2
 
   const isSelected = data?.selected ?? false
 
@@ -85,14 +105,8 @@ export default function SelectableEdge({
     setShowConfirm(false)
   }
 
-  // Override marker color based on selection state
-  const markerConfig: string | EdgeMarker | undefined =
-    markerEnd && typeof markerEnd === 'object'
-      ? {
-          ...markerEnd,
-          color: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR_DEFAULT
-        }
-      : markerEnd
+  // Use marker IDs based on selection state
+  const markerEndId = isSelected ? 'url(#edge-arrow-selected)' : 'url(#edge-arrow-default)'
 
   return (
     <>
@@ -100,7 +114,7 @@ export default function SelectableEdge({
       <BaseEdge
         id={id}
         path={edgePath}
-        markerEnd={markerConfig as string}
+        markerEnd={markerEndId}
         interactionWidth={20}
         style={{
           stroke: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR_DEFAULT,

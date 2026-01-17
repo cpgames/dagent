@@ -7,7 +7,7 @@
   min-width: 200px;
   max-width: 240px;
   border-radius: var(--radius-lg);
-  border: 2px solid rgba(106, 80, 128, 0.6);
+  border: 2px solid rgba(168, 108, 230, 1);
   background: linear-gradient(135deg, rgba(40, 20, 70, 0.7), rgba(30, 15, 55, 0.7));
   box-shadow: var(--shadow-md), 0 0 8px rgba(106, 80, 128, 0.3);
   transition: all var(--transition-fast);
@@ -157,7 +157,7 @@
 .task-node__handle {
   width: 0.75rem !important;
   height: 0.75rem !important;
-  background: var(--text-muted) !important;
+  background: rgba(168, 108, 230, 1) !important;
   border: 2px solid var(--bg-elevated) !important;
 }
 

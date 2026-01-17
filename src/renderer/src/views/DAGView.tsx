@@ -568,9 +568,46 @@ function DAGViewInner({
                     [3000, 3000]
                   ]}
                   defaultEdgeOptions={{ animated: false }}
+                  connectionLineStyle={{
+                    stroke: '#00f0ff',
+                    strokeWidth: 3
+                  }}
+                  connectionLineType="default"
                   className="!bg-[rgba(10,0,21,0.5)]"
                   proOptions={{ hideAttribution: true }}
                 >
+                  <svg style={{ position: 'absolute', top: 0, left: 0 }}>
+                    <defs>
+                      <marker
+                        id="edge-arrow-default"
+                        viewBox="0 0 10 10"
+                        refX="9"
+                        refY="5"
+                        markerWidth="6"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                      >
+                        <path
+                          d="M 0 0 L 10 5 L 0 10 z"
+                          fill="#a86ce6"
+                        />
+                      </marker>
+                      <marker
+                        id="edge-arrow-selected"
+                        viewBox="0 0 10 10"
+                        refX="9"
+                        refY="5"
+                        markerWidth="6"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                      >
+                        <path
+                          d="M 0 0 L 10 5 L 0 10 z"
+                          fill="#00f0ff"
+                        />
+                      </marker>
+                    </defs>
+                  </svg>
                   <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(106, 80, 128, 0.5)" className="opacity-50" />
                   <Controls className="!bg-[var(--bg-surface)] !border-[var(--border-default)] [&>button]:!bg-[var(--bg-elevated)] [&>button]:!border-[var(--border-subtle)] [&>button]:!text-[var(--text-primary)] [&>button:hover]:!bg-[var(--bg-hover)]" />
                   <MiniMap
