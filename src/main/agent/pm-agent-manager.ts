@@ -166,7 +166,7 @@ export class PMAgentManager {
     }
 
     // Add attachment contents if provided
-    if (attachmentPaths && attachmentPaths.length > 0) {
+    if (attachmentPaths?.length) {
       contextParts.push('\n## Attached Files\n')
 
       const featureDir = getFeatureDir(this.projectRoot, featureId)
