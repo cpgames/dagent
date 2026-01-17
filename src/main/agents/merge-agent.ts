@@ -13,25 +13,64 @@ import {
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
 import { getFeatureStore } from '../ipc/storage-handlers'
+import { getSessionManager } from '../services/session-manager'
 import * as path from 'path'
 
 export class MergeAgent extends EventEmitter {
   private state: MergeAgentState
 
-  constructor(featureId: string, taskId: string) {
+  constructor(featureId: string, taskId: string, sessionId?: string) {
     super()
     this.state = {
       ...DEFAULT_MERGE_AGENT_STATE,
       featureId,
-      taskId
+      taskId,
+      sessionId: sessionId || null
+    }
+  }
+
+  /**
+   * Set the session ID for SessionManager logging.
+   */
+  setSessionId(sessionId: string): void {
+    this.state.sessionId = sessionId
+  }
+
+  /**
+   * Log a message to SessionManager if sessionId is set.
+   * Gracefully handles errors to avoid disrupting merge operations.
+   */
+  private async logToSessionManager(
+    role: 'user' | 'assistant',
+    content: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.state.sessionId) {
+      return
+    }
+    try {
+      const sessionManager = getSessionManager()
+      await sessionManager.addMessage(this.state.sessionId, this.state.featureId, {
+        role,
+        content,
+        metadata: {
+          ...metadata,
+          internal: true,
+          agentId: this.state.agentId || undefined,
+          agentType: 'merge',
+          taskId: this.state.taskId
+        }
+      })
+    } catch (error) {
+      console.error('[MergeAgent] Failed to log to session:', error)
     }
   }
 
   /**
    * Initialize merge agent for a task.
-   * @param _taskTitle - Task title (reserved for future logging/UI purposes)
+   * @param taskTitle - Task title for logging purposes
    */
-  async initialize(_taskTitle: string): Promise<boolean> {
+  async initialize(taskTitle: string): Promise<boolean> {
     if (this.state.status !== 'initializing') {
       return false
     }
@@ -43,6 +82,7 @@ export class MergeAgent extends EventEmitter {
     if (!pool.canSpawn('merge')) {
       this.state.status = 'failed'
       this.state.error = 'Cannot spawn merge agent - pool limit reached'
+      await this.logToSessionManager('assistant', `Merge initialization failed: pool limit reached`)
       return false
     }
 
@@ -70,6 +110,12 @@ export class MergeAgent extends EventEmitter {
     // MergeAgent is autonomous - no harness notification needed
     // Orchestrator tracks merge state via task status and events
 
+    // Log initialization to session
+    await this.logToSessionManager('assistant', `Merge initialized for task: ${taskTitle}`, {
+      taskBranch: this.state.taskBranch,
+      featureBranch: this.state.featureBranch
+    })
+
     this.emit('merge-agent:initialized', this.getState())
     return true
   }
@@ -90,6 +136,7 @@ export class MergeAgent extends EventEmitter {
       if (!taskWorktree) {
         this.state.error = 'Task worktree not found'
         this.state.status = 'failed'
+        await this.logToSessionManager('assistant', `Branch check failed: Task worktree not found`)
         return false
       }
 
@@ -98,6 +145,7 @@ export class MergeAgent extends EventEmitter {
       if (!featureBranchExists) {
         this.state.error = `Feature branch ${this.state.featureBranch} not found`
         this.state.status = 'failed'
+        await this.logToSessionManager('assistant', `Branch check failed: Feature branch ${this.state.featureBranch} not found`)
         return false
       }
 
@@ -105,6 +153,17 @@ export class MergeAgent extends EventEmitter {
       const diffSummary = await gitManager.getDiffSummary(
         this.state.featureBranch!,
         this.state.taskBranch!
+      )
+
+      // Log branch status to session
+      await this.logToSessionManager(
+        'assistant',
+        `Branch check complete: ${diffSummary.files} files changed (+${diffSummary.insertions}/-${diffSummary.deletions})`,
+        {
+          filesChanged: diffSummary.files,
+          insertions: diffSummary.insertions,
+          deletions: diffSummary.deletions
+        }
       )
 
       this.emit('merge-agent:branches-checked', {
@@ -117,6 +176,7 @@ export class MergeAgent extends EventEmitter {
     } catch (error) {
       this.state.error = (error as Error).message
       this.state.status = 'failed'
+      await this.logToSessionManager('assistant', `Branch check error: ${this.state.error}`)
       return false
     }
   }
@@ -210,6 +270,12 @@ export class MergeAgent extends EventEmitter {
     this.state.status = 'merging'
     this.emit('merge-agent:merging')
 
+    // Log merge start
+    await this.logToSessionManager(
+      'assistant',
+      `Merge started: ${this.state.taskBranch} -> ${this.state.featureBranch}`
+    )
+
     try {
       const gitManager = getGitManager()
 
@@ -226,6 +292,12 @@ export class MergeAgent extends EventEmitter {
         this.state.status = 'completed'
         this.state.completedAt = new Date().toISOString()
 
+        // Log successful merge
+        await this.logToSessionManager('assistant', `Merge completed successfully`, {
+          worktreeRemoved: result.worktreeRemoved,
+          branchDeleted: result.branchDeleted
+        })
+
         // Check if all tasks in the feature are now complete
         await this.checkAndArchiveFeature()
 
@@ -237,6 +309,15 @@ export class MergeAgent extends EventEmitter {
         // Conflicts detected during merge
         this.state.status = 'resolving_conflicts'
         this.state.conflicts = result.conflicts
+
+        // Log conflicts detected
+        await this.logToSessionManager(
+          'assistant',
+          `Merge conflicts detected in ${result.conflicts.length} files`,
+          {
+            conflicts: result.conflicts.map((c) => ({ file: c.file, type: c.type }))
+          }
+        )
 
         // Analyze conflicts using SDK
         const analysis = await this.analyzeConflicts(result.conflicts)
@@ -250,6 +331,9 @@ export class MergeAgent extends EventEmitter {
         this.state.status = 'failed'
         this.state.error = result.error || 'Merge failed'
 
+        // Log merge failure
+        await this.logToSessionManager('assistant', `Merge failed: ${this.state.error}`)
+
         // MergeAgent is autonomous - emit event for orchestrator
         // Orchestrator handles task status transition
 
@@ -261,6 +345,9 @@ export class MergeAgent extends EventEmitter {
       const errorMsg = (error as Error).message
       this.state.status = 'failed'
       this.state.error = errorMsg
+
+      // Log merge error
+      await this.logToSessionManager('assistant', `Merge error: ${errorMsg}`)
 
       // MergeAgent is autonomous - emit event for orchestrator
       // Orchestrator handles task status transition
@@ -322,9 +409,20 @@ export class MergeAgent extends EventEmitter {
         }
       }
 
-      return this.parseConflictAnalysis(responseText, conflicts)
+      const analysis = this.parseConflictAnalysis(responseText, conflicts)
+
+      // Log conflict analysis results to session
+      await this.logToSessionManager('assistant', `Conflict analysis complete`, {
+        autoResolvable: analysis.autoResolvable,
+        recommendation: analysis.recommendation,
+        conflictCount: analysis.conflictDetails.length,
+        suggestions: analysis.suggestions
+      })
+
+      return analysis
     } catch (error) {
       console.error('Conflict analysis failed:', error)
+      await this.logToSessionManager('assistant', `Conflict analysis failed: ${(error as Error).message}`)
       return null
     }
   }
@@ -517,8 +615,12 @@ export class MergeAgent extends EventEmitter {
 }
 
 // Factory for creating merge agents
-export function createMergeAgent(featureId: string, taskId: string): MergeAgent {
-  return new MergeAgent(featureId, taskId)
+export function createMergeAgent(
+  featureId: string,
+  taskId: string,
+  sessionId?: string
+): MergeAgent {
+  return new MergeAgent(featureId, taskId, sessionId)
 }
 
 // Active merge agents registry
