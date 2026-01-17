@@ -81,10 +81,13 @@ export class PMAgentManager {
         chatHistory = { entries: [] }
       }
 
-      // Add initial user prompt to chat history
+      // Add user-friendly initial message to chat history (not the full system prompt)
+      const userMessage = description
+        ? `Plan feature: ${featureName}\n\n${description}`
+        : `Plan feature: ${featureName}`
       chatHistory.entries.push({
         role: 'user',
-        content: prompt,
+        content: userMessage,
         timestamp: new Date().toISOString()
       })
 
