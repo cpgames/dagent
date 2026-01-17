@@ -17,8 +17,9 @@
 }
 
 .task-node--selected {
-  background: linear-gradient(135deg, rgba(40, 20, 70, 0.95), rgba(30, 15, 55, 0.95));
-  box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4), 0 0 0 2px var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: rgba(0, 240, 255, 0.15);
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 240, 255, 0.4), 0 0 0 2px var(--accent-primary);
   backdrop-filter: blur(12px);
   opacity: 1;
 }
