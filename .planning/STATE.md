@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.8 Vertical DAG Flow and Auto-Placement
 **Roadmap:** .planning/milestones/v2.8-ROADMAP.md
 
-Phase: 93 of 94 (PM Agent DAG Integration)
-Plan: 93-01 planned, ready for execution
+Phase: 94 of 94 (Layout Refinements)
+Plan: 94-01 planned, ready for execution
 Status: Ready to execute
-Last activity: 2026-01-16 — Phase 93-01 planned (PM agent DAG tools via MCP)
+Last activity: 2026-01-16 — Phase 94-01 planned (layout polish: persistence, animations, constraints, controls)
 
-Progress: ██████░░░ 75% (3/4 phases)
+Progress: ████████░ 87.5% (3.5/4 phases - Phase 93 complete, Phase 94 planned)
 
-Next action: /gsd:execute-plan .planning/phases/93-pm-agent-dag-integration/93-01-PLAN.md
+Next action: /gsd:execute-plan .planning/phases/94-layout-refinements/94-01-PLAN.md
 
 ## Performance Metrics
 
