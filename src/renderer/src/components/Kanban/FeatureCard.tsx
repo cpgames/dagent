@@ -97,7 +97,7 @@ function MergeIcon(): React.JSX.Element {
  * merge button with dropdown for completed features, and delete button on hover.
  */
 export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMerge, isStarting }: FeatureCardProps) {
-  const canStart = feature.status === 'planning' || feature.status === 'backlog' || feature.status === 'needs_attention';
+  const showStart = feature.status === 'backlog';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
   // Close dropdown when clicking outside
@@ -117,10 +117,20 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMe
     onDelete?.(feature.id);
   };
 
-  const handleStart = (e: React.MouseEvent) => {
+  const handleStart = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering onSelect
     if (!isStarting) {
-      onStart?.(feature.id);
+      // First update status to in_progress, then start execution
+      try {
+        const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'in_progress');
+        if (updateResult.success) {
+          onStart?.(feature.id);
+        } else {
+          console.error('Failed to update feature status:', updateResult.error);
+        }
+      } catch (error) {
+        console.error('Error updating feature status:', error);
+      }
     }
   };
 
@@ -156,8 +166,8 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onMe
         </h3>
 
         <div className="feature-card__actions">
-          {/* Start button - shown on hover for not_started/needs_attention features */}
-          {canStart && onStart && (
+          {/* Start button - shown on hover for backlog features only */}
+          {showStart && onStart && (
             <button
               className={startBtnClasses}
               onClick={handleStart}

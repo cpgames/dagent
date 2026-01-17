@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import { Dialog, DialogHeader, DialogBody, DialogFooter, Input, Button, Textarea, Checkbox } from '../UI';
 import './NewFeatureDialog.css';
 
-interface FeatureCreateData {
+export interface FeatureCreateData {
   name: string;
   description?: string;
   attachments?: string[];
@@ -136,14 +136,15 @@ export function NewFeatureDialog({
   };
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} size="sm">
+    <Dialog open={isOpen} onClose={handleClose} size="md">
       <DialogHeader title="Create New Feature" />
 
       <form onSubmit={handleSubmit}>
         <DialogBody>
           <div className="new-feature-dialog__form">
+            {/* Feature Name */}
             <div className="new-feature-dialog__field">
-              <label className="new-feature-dialog__label">Feature Name</label>
+              <label className="new-feature-dialog__label">Feature Name *</label>
               <Input
                 type="text"
                 value={name}
@@ -151,7 +152,87 @@ export function NewFeatureDialog({
                 placeholder="Enter feature name"
                 autoFocus
                 disabled={isSubmitting}
+                error={uniqueNameError}
               />
+            </div>
+
+            {/* Description */}
+            <div className="new-feature-dialog__field">
+              <label className="new-feature-dialog__label">Description (optional)</label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the feature (optional)"
+                rows={4}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* File Attachments */}
+            <div className="new-feature-dialog__field">
+              <label className="new-feature-dialog__label">Attachments (optional)</label>
+              <div
+                className="new-feature-dialog__dropzone"
+                onDrop={handleFileDrop}
+                onDragOver={handleDragOver}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="new-feature-dialog__file-input"
+                  disabled={isSubmitting}
+                />
+                <div className="new-feature-dialog__dropzone-content">
+                  <svg className="new-feature-dialog__dropzone-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="new-feature-dialog__dropzone-text">
+                    Drop files here or{' '}
+                    <button
+                      type="button"
+                      className="new-feature-dialog__dropzone-button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSubmitting}
+                    >
+                      browse
+                    </button>
+                  </p>
+                </div>
+              </div>
+
+              {/* File list */}
+              {files.length > 0 && (
+                <div className="new-feature-dialog__file-list">
+                  {files.map((file, index) => (
+                    <div key={index} className="new-feature-dialog__file-item">
+                      <span className="new-feature-dialog__file-name">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleFileRemove(index)}
+                        className="new-feature-dialog__file-remove"
+                        disabled={isSubmitting}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Auto-merge checkbox */}
+            <div className="new-feature-dialog__field">
+              <Checkbox
+                checked={autoMerge}
+                onChange={(e) => setAutoMerge(e.target.checked)}
+                label="Auto-merge when completed"
+                disabled={isSubmitting}
+              />
+              <p className="new-feature-dialog__helper-text">
+                Automatically create PR/merge when feature is complete
+              </p>
             </div>
 
             {/* Error display */}
