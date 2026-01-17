@@ -24,7 +24,17 @@ import type {
   CreateSessionOptions,
   SessionUpdateEvent
 } from '../../shared/types/session'
-import { estimateRequest, estimateMessagesTokens } from './token-estimator'
+import {
+  estimateRequest,
+  estimateMessagesTokens,
+  formatContextAsPrompt,
+  formatCheckpointAsPrompt,
+  formatMessagesAsPrompt,
+  estimateAgentDescriptionTokens,
+  estimateContextTokens,
+  estimateCheckpointTokens,
+  estimateTokens
+} from './token-estimator'
 import { BrowserWindow } from 'electron'
 import { buildCompactionPrompt, parseCompactionResult } from './compaction-prompts'
 import { getAgentService } from '../agent/agent-service'
@@ -726,6 +736,193 @@ export class SessionManager {
       action: 'archived',
       timestamp: new Date().toISOString()
     })
+  }
+
+  // ============================================
+  // Request Building
+  // ============================================
+
+  /**
+   * Build complete request ready for Claude Agent SDK.
+   * Combines all session components into system and user prompts.
+   *
+   * @param sessionId - Session ID
+   * @param featureId - Feature ID
+   * @param userMessage - User's message
+   * @returns Complete request with prompts and token estimate
+   */
+  async buildRequest(
+    sessionId: string,
+    featureId: string,
+    userMessage: string
+  ): Promise<{
+    systemPrompt: string
+    userPrompt: string
+    totalTokens: number
+  }> {
+    // Load session
+    const session = await this.getSessionById(sessionId, featureId)
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`)
+    }
+
+    // Load all components
+    const chatSession = await this.loadChatSession(session)
+    const checkpoint = await this.loadCheckpoint(session)
+    const context = await this.loadContext(session)
+    const agentDescription = await this.loadAgentDescription(session)
+
+    if (!chatSession) {
+      throw new Error(`Chat session not found for: ${sessionId}`)
+    }
+    if (!context) {
+      throw new Error(`Context not found for: ${sessionId}`)
+    }
+    if (!agentDescription) {
+      throw new Error(`Agent description not found for: ${sessionId}`)
+    }
+
+    // Build system prompt from all components
+    const systemPromptParts: string[] = []
+
+    // Agent description
+    systemPromptParts.push(agentDescription.roleInstructions)
+    if (agentDescription.toolInstructions) {
+      systemPromptParts.push('')
+      systemPromptParts.push(agentDescription.toolInstructions)
+    }
+
+    // Context
+    systemPromptParts.push('')
+    systemPromptParts.push(formatContextAsPrompt(context))
+
+    // Checkpoint (if exists)
+    if (checkpoint) {
+      systemPromptParts.push('')
+      systemPromptParts.push(formatCheckpointAsPrompt(checkpoint))
+    }
+
+    // Recent messages
+    if (chatSession.messages.length > 0) {
+      systemPromptParts.push('')
+      systemPromptParts.push(formatMessagesAsPrompt(chatSession.messages))
+    }
+
+    const systemPrompt = systemPromptParts.join('\n')
+    const userPrompt = userMessage
+
+    // Estimate total tokens
+    const estimate = estimateRequest({
+      agentDescription,
+      context,
+      checkpoint: checkpoint || undefined,
+      messages: chatSession.messages,
+      userPrompt: userMessage
+    })
+
+    return {
+      systemPrompt,
+      userPrompt,
+      totalTokens: estimate.total
+    }
+  }
+
+  /**
+   * Preview request with detailed token breakdown.
+   * Useful for debugging and UI display.
+   *
+   * @param sessionId - Session ID
+   * @param featureId - Feature ID
+   * @param userMessage - Optional user message (defaults to empty string)
+   * @returns Request preview with token breakdown
+   */
+  async previewRequest(
+    sessionId: string,
+    featureId: string,
+    userMessage?: string
+  ): Promise<{
+    systemPrompt: string
+    userPrompt: string
+    breakdown: {
+      agentDescTokens: number
+      contextTokens: number
+      checkpointTokens: number
+      messagesTokens: number
+      userPromptTokens: number
+      total: number
+    }
+  }> {
+    // Load session
+    const session = await this.getSessionById(sessionId, featureId)
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`)
+    }
+
+    // Load all components
+    const chatSession = await this.loadChatSession(session)
+    const checkpoint = await this.loadCheckpoint(session)
+    const context = await this.loadContext(session)
+    const agentDescription = await this.loadAgentDescription(session)
+
+    if (!chatSession) {
+      throw new Error(`Chat session not found for: ${sessionId}`)
+    }
+    if (!context) {
+      throw new Error(`Context not found for: ${sessionId}`)
+    }
+    if (!agentDescription) {
+      throw new Error(`Agent description not found for: ${sessionId}`)
+    }
+
+    // Build system prompt from all components
+    const systemPromptParts: string[] = []
+
+    // Agent description
+    systemPromptParts.push(agentDescription.roleInstructions)
+    if (agentDescription.toolInstructions) {
+      systemPromptParts.push('')
+      systemPromptParts.push(agentDescription.toolInstructions)
+    }
+
+    // Context
+    systemPromptParts.push('')
+    systemPromptParts.push(formatContextAsPrompt(context))
+
+    // Checkpoint (if exists)
+    if (checkpoint) {
+      systemPromptParts.push('')
+      systemPromptParts.push(formatCheckpointAsPrompt(checkpoint))
+    }
+
+    // Recent messages
+    if (chatSession.messages.length > 0) {
+      systemPromptParts.push('')
+      systemPromptParts.push(formatMessagesAsPrompt(chatSession.messages))
+    }
+
+    const systemPrompt = systemPromptParts.join('\n')
+    const userPrompt = userMessage || ''
+
+    // Calculate detailed token breakdown
+    const agentDescTokens = estimateAgentDescriptionTokens(agentDescription)
+    const contextTokens = estimateContextTokens(context)
+    const checkpointTokens = checkpoint ? estimateCheckpointTokens(checkpoint) : 0
+    const messagesTokens = estimateMessagesTokens(chatSession.messages)
+    const userPromptTokens = estimateTokens(userPrompt)
+    const total = agentDescTokens + contextTokens + checkpointTokens + messagesTokens + userPromptTokens
+
+    return {
+      systemPrompt,
+      userPrompt,
+      breakdown: {
+        agentDescTokens,
+        contextTokens,
+        checkpointTokens,
+        messagesTokens,
+        userPromptTokens,
+        total
+      }
+    }
   }
 
   // ============================================
