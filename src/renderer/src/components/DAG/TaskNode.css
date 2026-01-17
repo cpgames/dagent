@@ -23,45 +23,38 @@
   opacity: 1;
 }
 
-/* Status border colors */
+/* Status background tints - border stays purple */
 .task-node--blocked {
-  border-color: var(--accent-primary);
   background: rgba(0, 240, 255, 0.15);
   backdrop-filter: blur(12px);
 }
 
 .task-node--ready_for_dev {
-  border-color: var(--accent-primary);
   background: rgba(0, 240, 255, 0.15);
   backdrop-filter: blur(12px);
 }
 
 .task-node--in_progress {
-  border-color: var(--color-warning);
   background: rgba(255, 149, 0, 0.15);
   backdrop-filter: blur(12px);
 }
 
 .task-node--ready_for_qa {
-  border-color: var(--accent-secondary);
   background: rgba(255, 0, 255, 0.15);
   backdrop-filter: blur(12px);
 }
 
 .task-node--ready_for_merge {
-  border-color: var(--color-warning);
   background: rgba(255, 149, 0, 0.15);
   backdrop-filter: blur(12px);
 }
 
 .task-node--completed {
-  border-color: var(--color-success);
   background: rgba(0, 255, 136, 0.15);
   backdrop-filter: blur(12px);
 }
 
 .task-node--failed {
-  border-color: var(--color-error);
   background: rgba(255, 51, 102, 0.15);
   backdrop-filter: blur(12px);
 }
