@@ -748,6 +748,20 @@ const electronAPI = {
       ipcRenderer.invoke('session:getMetrics', projectRoot, sessionId, featureId),
     forceCompact: (projectRoot: string, sessionId: string, featureId: string): Promise<void> =>
       ipcRenderer.invoke('session:forceCompact', projectRoot, sessionId, featureId),
+    buildRequest: (
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      userMessage: string
+    ): Promise<any> =>
+      ipcRenderer.invoke('session:buildRequest', projectRoot, sessionId, featureId, userMessage),
+    previewRequest: (
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      userMessage?: string
+    ): Promise<any> =>
+      ipcRenderer.invoke('session:previewRequest', projectRoot, sessionId, featureId, userMessage),
     onCompactionStart: (callback: (data: any) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
       ipcRenderer.on('session:compaction-start', handler)

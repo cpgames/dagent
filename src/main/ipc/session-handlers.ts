@@ -277,5 +277,58 @@ export function registerSessionHandlers(): void {
     }
   )
 
+  // ============================================
+  // Request Building Operations
+  // ============================================
+
+  /**
+   * Build complete request ready for Claude Agent SDK.
+   */
+  ipcMain.handle(
+    'session:buildRequest',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      userMessage: string
+    ): Promise<{
+      systemPrompt: string
+      userPrompt: string
+      totalTokens: number
+    }> => {
+      const manager = getSessionManager(projectRoot)
+      return await manager.buildRequest(sessionId, featureId, userMessage)
+    }
+  )
+
+  /**
+   * Preview request with detailed token breakdown.
+   */
+  ipcMain.handle(
+    'session:previewRequest',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      userMessage?: string
+    ): Promise<{
+      systemPrompt: string
+      userPrompt: string
+      breakdown: {
+        agentDescTokens: number
+        contextTokens: number
+        checkpointTokens: number
+        messagesTokens: number
+        userPromptTokens: number
+        total: number
+      }
+    }> => {
+      const manager = getSessionManager(projectRoot)
+      return await manager.previewRequest(sessionId, featureId, userMessage)
+    }
+  )
+
   console.log('[SessionHandlers] Registered all session IPC handlers')
 }

@@ -1480,6 +1480,41 @@ export interface SessionAPI {
   ) => Promise<void>
 
   /**
+   * Build complete request ready for Claude Agent SDK
+   */
+  buildRequest: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    userMessage: string
+  ) => Promise<{
+    systemPrompt: string
+    userPrompt: string
+    totalTokens: number
+  }>
+
+  /**
+   * Preview request with detailed token breakdown
+   */
+  previewRequest: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    userMessage?: string
+  ) => Promise<{
+    systemPrompt: string
+    userPrompt: string
+    breakdown: {
+      agentDescTokens: number
+      contextTokens: number
+      checkpointTokens: number
+      messagesTokens: number
+      userPromptTokens: number
+      total: number
+    }
+  }>
+
+  /**
    * Subscribe to compaction start events
    */
   onCompactionStart: (callback: (data: {
