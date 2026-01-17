@@ -12,6 +12,7 @@ import {
 } from '../git'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
+import { getFeatureStore } from '../ipc/storage-handlers'
 import * as path from 'path'
 
 export class MergeAgent extends EventEmitter {
@@ -224,6 +225,9 @@ export class MergeAgent extends EventEmitter {
       if (result.success && result.merged) {
         this.state.status = 'completed'
         this.state.completedAt = new Date().toISOString()
+
+        // Check if all tasks in the feature are now complete
+        await this.checkAndArchiveFeature()
 
         // MergeAgent is autonomous - emit event for orchestrator
         // Orchestrator handles task status transition and cascade
@@ -454,6 +458,48 @@ export class MergeAgent extends EventEmitter {
    */
   getStatus(): MergeAgentStatus {
     return this.state.status
+  }
+
+  /**
+   * Check if all tasks in the feature are complete, and if so, archive the feature.
+   * Called after successful task merge to detect when the entire feature is done.
+   */
+  private async checkAndArchiveFeature(): Promise<void> {
+    try {
+      const featureStore = getFeatureStore()
+      if (!featureStore) {
+        console.warn('[MergeAgent] Cannot check feature completion - FeatureStore not available')
+        return
+      }
+
+      // Load the feature's DAG
+      const dag = await featureStore.loadDag(this.state.featureId)
+      if (!dag) {
+        console.warn(`[MergeAgent] Cannot check feature completion - DAG not found for feature ${this.state.featureId}`)
+        return
+      }
+
+      // Check if all tasks are completed
+      const allTasksComplete = dag.nodes.every(task => task.status === 'completed')
+
+      if (allTasksComplete) {
+        console.log(`[MergeAgent] All tasks complete for feature ${this.state.featureId} - updating to completed status`)
+
+        // Load feature and update status to completed
+        // Note: We transition to 'completed' here, not 'archived'
+        // The feature will be archived later when merged to main (Phase 99 Task 2)
+        const feature = await featureStore.loadFeature(this.state.featureId)
+        if (feature && feature.status !== 'completed') {
+          feature.status = 'completed'
+          feature.updatedAt = new Date().toISOString()
+          await featureStore.saveFeature(feature)
+          console.log(`[MergeAgent] Feature ${this.state.featureId} transitioned to completed`)
+        }
+      }
+    } catch (error) {
+      console.error('[MergeAgent] Error checking feature completion:', error)
+      // Don't fail the merge if status update fails
+    }
   }
 
   /**
