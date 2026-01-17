@@ -138,6 +138,7 @@ export interface StorageAPI {
   loadFeature: (featureId: string) => Promise<Feature | null>
   deleteFeature: (featureId: string) => Promise<boolean>
   listFeatures: () => Promise<string[]>
+  featureExists: (name: string) => Promise<boolean>
 
   // DAG operations
   saveDag: (featureId: string, dag: DAGGraph) => Promise<boolean>

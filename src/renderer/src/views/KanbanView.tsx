@@ -5,7 +5,6 @@ import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
 import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
-import './KanbanView.css';
 
 /**
  * Column configuration for the Kanban board.
