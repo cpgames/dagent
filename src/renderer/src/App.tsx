@@ -80,6 +80,19 @@ function App(): React.JSX.Element {
     })
     if (feature) {
       setNewFeatureDialogOpen(false)
+
+      // Start PM agent planning in background
+      try {
+        await window.electronAPI.feature.startPlanning(
+          feature.id,
+          feature.name,
+          data.description,
+          data.attachments
+        )
+      } catch (error) {
+        console.error('Failed to start planning:', error)
+        // Don't block UI - planning will fail and move to needs_attention
+      }
     }
     // Error case is handled in store (toast displayed)
   }

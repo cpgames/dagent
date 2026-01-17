@@ -1007,6 +1007,28 @@ export interface FeatureAPI {
    * Returns an unsubscribe function.
    */
   onStatusChanged: (callback: (data: FeatureStatusChangeEvent) => void) => () => void
+
+  /**
+   * Save an attachment file for a feature.
+   * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
+   */
+  saveAttachment: (featureId: string, fileName: string, fileBuffer: ArrayBuffer) => Promise<string>
+
+  /**
+   * List all attachments for a feature.
+   */
+  listAttachments: (featureId: string) => Promise<string[]>
+
+  /**
+   * Start PM agent planning for a feature.
+   * Runs asynchronously - does not block the response.
+   */
+  startPlanning: (
+    featureId: string,
+    featureName: string,
+    description?: string,
+    attachments?: string[]
+  ) => Promise<{ success: boolean; error?: string }>
 }
 
 /**

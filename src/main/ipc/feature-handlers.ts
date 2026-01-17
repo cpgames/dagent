@@ -2,9 +2,11 @@ import { ipcMain } from 'electron'
 import { EventEmitter } from 'events'
 import { getGitManager } from '../git/git-manager'
 import { getAgentPool } from '../agents/agent-pool'
-import { getFeatureStore } from './storage-handlers'
+import { getFeatureStore, getProjectRoot } from './storage-handlers'
 import { getFeatureWorktreeName, getFeatureBranchName } from '../git/types'
 import { FeatureStatusManager } from '../services/feature-status-manager'
+import { createPMAgentManager } from '../agent/pm-agent-manager'
+import { getAgentService } from '../agent/agent-service'
 import type { FeatureStatus } from '@shared/types/feature'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -268,6 +270,56 @@ export function registerFeatureHandlers(): void {
         throw new Error('FeatureStore not initialized. Call initializeStorage first.')
       }
       return await featureStore.listAttachments(featureId)
+    }
+  )
+
+  /**
+   * Start PM agent planning for a feature.
+   * Runs asynchronously - does not block the response.
+   */
+  ipcMain.handle(
+    'feature:startPlanning',
+    async (
+      _event,
+      featureId: string,
+      featureName: string,
+      description?: string,
+      attachments?: string[]
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const featureStore = getFeatureStore()
+        const projectRoot = getProjectRoot()
+
+        if (!featureStore || !projectRoot) {
+          throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+        }
+
+        const statusManager = getStatusManager()
+        const agentService = getAgentService()
+        const eventEmitter = new EventEmitter()
+
+        // Create PM agent manager
+        const pmManager = createPMAgentManager(
+          agentService,
+          featureStore,
+          statusManager,
+          eventEmitter,
+          projectRoot
+        )
+
+        // Start planning asynchronously (don't await - let it run in background)
+        pmManager.startPlanningForFeature(featureId, featureName, description, attachments)
+          .catch(error => {
+            console.error(`[FeatureHandlers] Planning failed for ${featureId}:`, error)
+          })
+
+        return { success: true }
+      } catch (error) {
+        return {
+          success: false,
+          error: (error as Error).message
+        }
+      }
     }
   )
 }

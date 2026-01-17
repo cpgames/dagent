@@ -610,7 +610,16 @@ const electronAPI = {
 
     // List all attachments for a feature
     listAttachments: (featureId: string): Promise<string[]> =>
-      ipcRenderer.invoke('feature:listAttachments', featureId)
+      ipcRenderer.invoke('feature:listAttachments', featureId),
+
+    // Start PM agent planning for a feature
+    startPlanning: (
+      featureId: string,
+      featureName: string,
+      description?: string,
+      attachments?: string[]
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('feature:startPlanning', featureId, featureName, description, attachments)
   },
 
   // Context API (project/feature/task context for agents)
