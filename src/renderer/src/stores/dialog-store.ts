@@ -14,7 +14,7 @@ interface DialogState {
   logDialogSource: LogDialogSource
 
   // Actions
-  openNodeDialog: (taskId: string) => void
+  openNodeDialog: (taskId: string | null) => void
   closeNodeDialog: () => void
   openLogDialog: (title: string, taskId?: string | null, source?: LogDialogSource) => void
   closeLogDialog: () => void

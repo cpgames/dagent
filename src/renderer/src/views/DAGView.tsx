@@ -214,10 +214,12 @@ function DAGViewInner({
     [setSelectedNode]
   )
 
-  // Find the task for the open dialog
+  // Find the task for the open dialog (null means create mode)
   const dialogTask = useMemo(() => {
-    if (!nodeDialogOpen || !nodeDialogTaskId || !dag) return null
-    return dag.nodes.find((n) => n.id === nodeDialogTaskId) || null
+    if (!nodeDialogOpen) return undefined // Dialog not open
+    if (!nodeDialogTaskId) return null // Create mode
+    if (!dag) return undefined // No DAG loaded
+    return dag.nodes.find((n) => n.id === nodeDialogTaskId) || undefined
   }, [nodeDialogOpen, nodeDialogTaskId, dag])
 
   // Handlers for task node actions
@@ -236,6 +238,26 @@ function DAGViewInner({
       }
     },
     [nodeDialogTaskId, updateNode]
+  )
+
+  // Handle create task from dialog
+  const handleCreateTask = useCallback(
+    async (title: string, description: string) => {
+      if (!activeFeatureId) return
+
+      // Send message to PM agent to create the task
+      const chatInput = document.querySelector('.chat-panel__textarea') as HTMLTextAreaElement | null
+      if (chatInput) {
+        const message = `Add a new task:\nTitle: ${title}\nDescription: ${description}`
+        chatInput.value = message
+        // Trigger submit by finding and clicking the send button
+        const sendButton = document.querySelector('.chat-panel__send-btn') as HTMLButtonElement | null
+        if (sendButton) {
+          sendButton.click()
+        }
+      }
+    },
+    [activeFeatureId]
   )
 
   const handleDeleteTask = useCallback(
@@ -542,14 +564,7 @@ function DAGViewInner({
                 <LayoutControls
                   featureId={activeFeatureId}
                   onResetLayout={handleResetLayout}
-                  onNewTask={() => {
-                    // Scroll chat into view and focus input
-                    const chatInput = document.querySelector('.chat-panel__textarea') as HTMLTextAreaElement | null
-                    if (chatInput) {
-                      chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                      setTimeout(() => chatInput.focus(), 300)
-                    }
-                  }}
+                  onNewTask={() => openNodeDialog(null)}
                 />
 
                 {/* Mutation loading indicator */}
@@ -609,11 +624,12 @@ function DAGViewInner({
       )}
 
       {/* Node Dialog */}
-      {dialogTask && (
+      {dialogTask !== undefined && (
         <NodeDialog
           task={dialogTask}
-          loopStatus={loopStatuses[dialogTask.id] || null}
+          loopStatus={dialogTask ? loopStatuses[dialogTask.id] || null : null}
           onSave={handleDialogSave}
+          onCreate={handleCreateTask}
           onClose={closeNodeDialog}
           onAbortLoop={handleAbortLoop}
         />

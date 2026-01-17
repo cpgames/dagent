@@ -6,9 +6,10 @@ import { Dialog, DialogHeader, DialogBody, DialogFooter, Input, Textarea, Button
 import './NodeDialog.css';
 
 export interface NodeDialogProps {
-  task: Task;
+  task: Task | null;
   loopStatus?: TaskLoopStatus | null;
   onSave: (updates: Partial<Task>) => void;
+  onCreate?: (title: string, description: string) => void;
   onClose: () => void;
   onAbortLoop?: (taskId: string) => void;
 }
@@ -47,33 +48,39 @@ export default function NodeDialog({
   task,
   loopStatus,
   onSave,
+  onCreate,
   onClose,
   onAbortLoop,
 }: NodeDialogProps): JSX.Element {
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description);
-  const [locked, setLocked] = useState(task.locked);
+  const isCreateMode = task === null;
+  const [title, setTitle] = useState(task?.title || '');
+  const [description, setDescription] = useState(task?.description || '');
+  const [locked, setLocked] = useState(task?.locked || false);
 
   // Reset form when task changes
   useEffect(() => {
-    setTitle(task.title);
-    setDescription(task.description);
-    setLocked(task.locked);
+    setTitle(task?.title || '');
+    setDescription(task?.description || '');
+    setLocked(task?.locked || false);
   }, [task]);
 
   const handleSubmit = (e: FormEvent): void => {
     e.preventDefault();
-    onSave({
-      title: title.trim(),
-      description: description.trim(),
-      locked,
-    });
+    if (isCreateMode && onCreate) {
+      onCreate(title.trim(), description.trim());
+    } else if (!isCreateMode) {
+      onSave({
+        title: title.trim(),
+        description: description.trim(),
+        locked,
+      });
+    }
     onClose();
   };
 
   return (
     <Dialog open={true} onClose={onClose} size="lg">
-      <DialogHeader title="Edit Task" />
+      <DialogHeader title={isCreateMode ? "New Task" : "Edit Task"} />
 
       <form onSubmit={handleSubmit}>
         <DialogBody>
@@ -107,13 +114,15 @@ export default function NodeDialog({
               />
             </div>
 
-            {/* Status display (read-only) */}
-            <div className="node-dialog__status-row">
-              <span className="node-dialog__status-label">Status</span>
-              <span className={`node-dialog__status-badge node-dialog__status-badge--${task.status}`}>
-                {getTaskStatusLabel(task.status)}
-              </span>
-            </div>
+            {/* Status display (read-only) - only in edit mode */}
+            {!isCreateMode && task && (
+              <div className="node-dialog__status-row">
+                <span className="node-dialog__status-label">Status</span>
+                <span className={`node-dialog__status-badge node-dialog__status-badge--${task.status}`}>
+                  {getTaskStatusLabel(task.status)}
+                </span>
+              </div>
+            )}
 
             {/* Loop Status Section */}
             {loopStatus && (
@@ -145,7 +154,7 @@ export default function NodeDialog({
                 </div>
 
                 {/* Abort button - only show if running */}
-                {loopStatus.status === 'running' && onAbortLoop && (
+                {loopStatus.status === 'running' && onAbortLoop && task && (
                   <button
                     type="button"
                     onClick={() => onAbortLoop(task.id)}
@@ -174,39 +183,41 @@ export default function NodeDialog({
               </div>
             )}
 
-            {/* Lock toggle and Chat button row */}
-            <div className="node-dialog__controls-row">
-              {/* Lock toggle */}
-              <button
-                type="button"
-                onClick={() => setLocked(!locked)}
-                className={`node-dialog__lock-btn ${locked ? 'node-dialog__lock-btn--locked' : ''}`}
-              >
-                {locked ? (
-                  <svg className="node-dialog__lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                ) : (
-                  <svg className="node-dialog__lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                  </svg>
-                )}
-                <span>{locked ? 'Locked' : 'Unlocked'}</span>
-              </button>
+            {/* Lock toggle and Chat button row - only in edit mode */}
+            {!isCreateMode && (
+              <div className="node-dialog__controls-row">
+                {/* Lock toggle */}
+                <button
+                  type="button"
+                  onClick={() => setLocked(!locked)}
+                  className={`node-dialog__lock-btn ${locked ? 'node-dialog__lock-btn--locked' : ''}`}
+                >
+                  {locked ? (
+                    <svg className="node-dialog__lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  ) : (
+                    <svg className="node-dialog__lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                  <span>{locked ? 'Locked' : 'Unlocked'}</span>
+                </button>
 
-              {/* Chat button (placeholder - disabled for now) */}
-              <button
-                type="button"
-                disabled
-                className="node-dialog__chat-btn"
-                title="Coming soon: Chat with AI about this task"
-              >
-                <svg className="node-dialog__chat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <span>Chat <span style={{ fontSize: '0.75rem' }}>(Soon)</span></span>
-              </button>
-            </div>
+                {/* Chat button (placeholder - disabled for now) */}
+                <button
+                  type="button"
+                  disabled
+                  className="node-dialog__chat-btn"
+                  title="Coming soon: Chat with AI about this task"
+                >
+                  <svg className="node-dialog__chat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span>Chat <span style={{ fontSize: '0.75rem' }}>(Soon)</span></span>
+                </button>
+              </div>
+            )}
           </div>
         </DialogBody>
 
@@ -215,7 +226,7 @@ export default function NodeDialog({
             Cancel
           </Button>
           <Button type="submit" variant="primary">
-            Save
+            {isCreateMode ? 'Create' : 'Save'}
           </Button>
         </DialogFooter>
       </form>
