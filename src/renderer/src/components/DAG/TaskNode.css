@@ -5,12 +5,14 @@
 
 .task-node {
   min-width: 200px;
+  max-width: 240px;
   border-radius: var(--radius-lg);
   border: 2px solid var(--border-default);
   background: linear-gradient(135deg, rgba(40, 20, 70, 0.95), rgba(30, 15, 55, 0.95));
   box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4);
   transition: all var(--transition-fast);
   backdrop-filter: blur(12px);
+  position: relative;
 }
 
 .task-node--selected {
@@ -60,77 +62,29 @@
   backdrop-filter: blur(12px);
 }
 
-.task-node__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.task-node__title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.task-node__title-text {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 120px;
-}
-
-.task-node__lock-icon {
-  width: 1rem;
-  height: 1rem;
-  color: var(--text-muted);
-}
-
-.task-node__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.task-node__action-btn {
-  padding: var(--space-xs);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.task-node__action-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.task-node__action-btn--delete:hover {
-  color: var(--color-error);
-}
-
-.task-node__action-icon {
-  width: 1rem;
-  height: 1rem;
-}
-
-/* State badge section */
+/* Status badge at top */
 .task-node__badge-section {
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-xs) var(--space-md) 0;
 }
 
 .task-node__badge {
   display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 0.125rem var(--space-sm);
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem var(--space-xs);
   border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.task-node__badge--blocked {
+  background: rgba(0, 240, 255, 0.2);
+  color: var(--accent-primary);
+}
+
+.task-node__badge--ready {
+  background: rgba(0, 240, 255, 0.2);
+  color: var(--accent-primary);
 }
 
 .task-node__badge--dev {
@@ -148,19 +102,91 @@
   color: var(--accent-secondary);
 }
 
+.task-node__badge--completed {
+  background: rgba(0, 255, 136, 0.2);
+  color: var(--color-success);
+}
+
 .task-node__badge--failed {
   background: var(--color-error-dim);
   color: var(--color-error);
 }
 
-/* Status text */
-.task-node__status {
+/* Body with title */
+.task-node__body {
   padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-height: 48px;
 }
 
-.task-node__status-text {
-  font-size: 0.75rem;
+.task-node__lock-icon {
+  width: 1rem;
+  height: 1rem;
   color: var(--text-muted);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.task-node__title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Action buttons - absolute positioned, only show on hover */
+.task-node__actions {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.task-node:hover .task-node__actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.task-node__action-btn {
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: rgba(40, 20, 70, 0.95);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-node__action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.task-node__action-btn--delete:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.task-node__action-icon {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 /* React Flow handle overrides */
