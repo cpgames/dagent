@@ -5,28 +5,28 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** v2.9 Create Feature Workflow
+**Current focus:** v3.0 Session & Checkpoint Architecture
 
 ## Current Position
 
-**Milestone:** v2.9 Create Feature Workflow
-**Roadmap:** .planning/milestones/v2.9-create-feature-workflow.md
+**Milestone:** v3.0 Session & Checkpoint Architecture
+**Roadmap:** .planning/milestones/v3.0-session-checkpoint-ROADMAP.md
 
-Phase: 99 (Auto-Archive on Merge)
-Plan: 99-01 complete
-Status: Complete
-Last activity: 2026-01-17 — Phase 99-01 executed (automatic archive on merge to main or PR creation, orchestrator handles archived features)
+Phase: v3.0-05-dev-agent-integration (Dev Agent Integration)
+Plan: 05-01 complete
+Status: In Progress
+Last activity: 2026-01-17 — Phase 05-01 executed (session tracking field in Task type, sessionId in TaskControllerState, SessionManager integration in TaskController)
 
-Progress: ██████████ 100% (7/7 phases complete - Phases 100, 95, 96, 101, 97, 98, 99 complete)
+Progress: █░░░░░░░░░ 10% (1/3 plans complete in phase)
 
-Next action: v2.9 milestone complete - all features now auto-archive when merged
+Next action: /gsd:execute-plan 05-02 (Update DevAgent to use SessionManager)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 119 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7)
+- Total plans completed: 120 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 1)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~490 min
+- Total execution time: ~500 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: v2.9 milestone complete - all features now auto-archive when merged
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: 100-01, 95-01, 96-01, 101-01, 97-01, 98-01, 99-01
-- Trend: v2.9 complete (full workflow automation: planning → archive)
+- Last 7 plans: 95-01, 96-01, 101-01, 97-01, 98-01, 99-01, v3.0-05-01
+- Trend: v3.0 started (session & checkpoint architecture for agent context management)
 
 ## Accumulated Context
 
@@ -59,6 +59,8 @@ Recent decisions affecting current work:
 - **TaskPlan singleton pattern**: TaskPlanStore follows FeatureStore singleton-per-projectRoot pattern for consistency
 - **Fresh context per iteration**: TaskController creates new DevAgent each iteration to avoid context bloat
 - **useLayoutEffect for RAF**: Canvas animations use useLayoutEffect (not useEffect) for proper RAF cleanup timing
+- **Session per task state**: Tasks track sessions separately for in_dev and in_qa states via sessions field
+- **Iteration results in session**: Ralph Loop iteration results logged to session as internal assistant messages with verification metadata
 
 ### Deferred Issues
 
@@ -851,4 +853,16 @@ The application now provides:
 - Rich feature context capture (description, attachments, auto-merge preference)
 - Automatic archive on merge (both AI merge and PR creation paths)
 - Orchestrator protection against re-execution of archived features
+
+---
+
+## v3.0 Milestone - Session & Checkpoint Architecture (In Progress)
+
+### Phase v3.0-05: Dev Agent Integration (In Progress)
+
+- **05-01**: Session Management for Tasks and TaskController
+  - Added sessions tracking field to Task type (in_dev, in_qa session arrays)
+  - Added sessionId field to TaskControllerState
+  - Integrated SessionManager into TaskController (creates session at loop start, logs iterations)
+  - Extended ChatMessage metadata with verificationResults for iteration tracking
 
