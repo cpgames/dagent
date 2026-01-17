@@ -7,7 +7,7 @@
   min-width: 200px;
   max-width: 240px;
   border-radius: var(--radius-lg);
-  border: 2px solid var(--border-default);
+  border: 2px solid rgba(106, 80, 128, 0.6);
   background: linear-gradient(135deg, rgba(40, 20, 70, 0.7), rgba(30, 15, 55, 0.7));
   box-shadow: var(--shadow-md), 0 0 8px rgba(106, 80, 128, 0.3);
   transition: all var(--transition-fast);
