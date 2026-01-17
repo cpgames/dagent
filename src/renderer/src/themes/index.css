@@ -5,6 +5,7 @@
  * the data-theme attribute on the document root element.
  */
 
+@import '../styles/scrollbar.css';
 @import './synthwave.css';
 
 /* Future themes can be added here:
