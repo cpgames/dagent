@@ -483,7 +483,7 @@ function DAGViewInner({
   return (
     <div className="flex h-full overflow-hidden">
       {/* React Flow canvas */}
-      <div className="flex-1 flex flex-col bg-[var(--bg-base)]">
+      <div className="flex-1 flex flex-col">
         <div className="flex-1 relative">
           {error && (
             <div className="absolute top-2 left-2 right-2 z-10 bg-[var(--color-error-dim)] text-[var(--color-error)] px-3 py-2 rounded-lg text-sm flex justify-between items-center">
@@ -522,10 +522,10 @@ function DAGViewInner({
                     [3000, 3000]
                   ]}
                   defaultEdgeOptions={{ animated: false }}
-                  className="bg-[var(--bg-base)]"
+                  className="!bg-transparent"
                   proOptions={{ hideAttribution: true }}
                 >
-                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#6a5080" />
+                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(106, 80, 128, 0.3)" className="opacity-40" />
                   <Controls className="!bg-[var(--bg-surface)] !border-[var(--border-default)] [&>button]:!bg-[var(--bg-elevated)] [&>button]:!border-[var(--border-subtle)] [&>button]:!text-[var(--text-primary)] [&>button:hover]:!bg-[var(--bg-hover)]" />
                   <MiniMap
                     className="!bg-[var(--bg-surface)] !border-[var(--border-default)]"
