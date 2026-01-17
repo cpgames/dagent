@@ -235,4 +235,39 @@ export function registerFeatureHandlers(): void {
       }
     }
   )
+
+  /**
+   * Save an attachment file for a feature.
+   * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
+   */
+  ipcMain.handle(
+    'feature:saveAttachment',
+    async (
+      _event,
+      featureId: string,
+      fileName: string,
+      fileBuffer: ArrayBuffer
+    ): Promise<string> => {
+      const featureStore = getFeatureStore()
+      if (!featureStore) {
+        throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+      }
+      const buffer = Buffer.from(fileBuffer)
+      return await featureStore.saveAttachment(featureId, fileName, buffer)
+    }
+  )
+
+  /**
+   * List all attachments for a feature.
+   */
+  ipcMain.handle(
+    'feature:listAttachments',
+    async (_event, featureId: string): Promise<string[]> => {
+      const featureStore = getFeatureStore()
+      if (!featureStore) {
+        throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+      }
+      return await featureStore.listAttachments(featureId)
+    }
+  )
 }

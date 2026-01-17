@@ -596,7 +596,19 @@ const electronAPI = {
       ): void => callback(data)
       ipcRenderer.on('feature:status-changed', handler)
       return () => ipcRenderer.removeListener('feature:status-changed', handler)
-    }
+    },
+
+    // Save an attachment file for a feature
+    saveAttachment: (
+      featureId: string,
+      fileName: string,
+      fileBuffer: ArrayBuffer
+    ): Promise<string> =>
+      ipcRenderer.invoke('feature:saveAttachment', featureId, fileName, fileBuffer),
+
+    // List all attachments for a feature
+    listAttachments: (featureId: string): Promise<string[]> =>
+      ipcRenderer.invoke('feature:listAttachments', featureId)
   },
 
   // Context API (project/feature/task context for agents)

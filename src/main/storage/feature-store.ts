@@ -2,6 +2,7 @@ import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgen
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
+import path from 'path';
 import { getFeatureBranchName } from '../git/types';
 
 /**
@@ -273,6 +274,42 @@ export class FeatureStore {
         }
       }
       return featureIds;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Save an attachment file for a feature.
+   * Stores in .dagent-worktrees/{featureId}/.dagent/attachments/
+   * @param featureId - Feature ID
+   * @param fileName - Original file name
+   * @param fileBuffer - File data as Buffer
+   * @returns Relative path: attachments/{fileName}
+   */
+  async saveAttachment(featureId: string, fileName: string, fileBuffer: Buffer): Promise<string> {
+    const attachmentsDir = path.join(paths.getFeatureDir(this.projectRoot, featureId), 'attachments');
+    await fs.mkdir(attachmentsDir, { recursive: true });
+
+    const filePath = path.join(attachmentsDir, fileName);
+    await fs.writeFile(filePath, fileBuffer);
+
+    return `attachments/${fileName}`;
+  }
+
+  /**
+   * List all attachments for a feature.
+   * @param featureId - Feature ID
+   * @returns Array of attachment relative paths
+   */
+  async listAttachments(featureId: string): Promise<string[]> {
+    const attachmentsDir = path.join(paths.getFeatureDir(this.projectRoot, featureId), 'attachments');
+    try {
+      const entries = await fs.readdir(attachmentsDir);
+      return entries.map(fileName => `attachments/${fileName}`);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return [];
