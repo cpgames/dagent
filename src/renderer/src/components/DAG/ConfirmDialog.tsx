@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { Dialog, DialogHeader, DialogBody, DialogFooter, Button } from '../UI'
+import './ConfirmDialog.css'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -31,7 +32,7 @@ export default function ConfirmDialog({
     <Dialog open={open} onClose={onCancel} size="sm">
       <DialogHeader title={title} />
       <DialogBody>
-        <p style={{ lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{message}</p>
+        <p className="confirm-dialog__message">{message}</p>
       </DialogBody>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>

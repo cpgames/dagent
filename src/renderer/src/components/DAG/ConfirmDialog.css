@@ -1,0 +1,12 @@
+/**
+ * ConfirmDialog Component Styles
+ * Confirmation dialog for destructive actions
+ */
+
+.confirm-dialog__message {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+}
