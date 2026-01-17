@@ -78,6 +78,8 @@ export interface TaskControllerState {
   taskId: string
   /** Path to task worktree (null if not yet created) */
   worktreePath: string | null
+  /** Active session ID for this loop (null if not yet created) */
+  sessionId: string | null
   /** Current iteration number (1-based) */
   currentIteration: number
   /** Maximum iterations allowed (safety backstop) */
