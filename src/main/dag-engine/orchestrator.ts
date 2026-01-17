@@ -69,7 +69,7 @@ export class ExecutionOrchestrator extends EventEmitter {
   /**
    * Initialize orchestrator with a feature's DAG graph.
    */
-  initialize(featureId: string, graph: DAGGraph): void {
+  async initialize(featureId: string, graph: DAGGraph): Promise<void> {
     this.state.featureId = featureId
     this.state.graph = graph
     this.state.status = 'idle'
@@ -79,6 +79,15 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.events = []
     this.failedThisTick.clear()
     this.initFailureCounts.clear()
+
+    // Check if feature is archived
+    const featureStore = getFeatureStore()
+    if (featureStore) {
+      const feature = await featureStore.loadFeature(featureId)
+      if (feature) {
+        this.currentFeatureStatus = feature.status
+      }
+    }
 
     // Recalculate all task statuses based on dependencies
     const { changes } = recalculateAllStatuses(graph)
@@ -98,6 +107,15 @@ export class ExecutionOrchestrator extends EventEmitter {
 
     if (this.state.status === 'running') {
       return { success: false, error: 'Execution already running' }
+    }
+
+    // Check if feature is archived - cannot start execution on archived features
+    const featureStore = getFeatureStore()
+    if (featureStore) {
+      const feature = await featureStore.loadFeature(this.state.featureId)
+      if (feature && feature.status === 'archived') {
+        return { success: false, error: 'Cannot start execution on archived feature' }
+      }
     }
 
     // Validate git repository is ready for execution
@@ -1101,8 +1119,34 @@ export class ExecutionOrchestrator extends EventEmitter {
         previousStatus: this.currentFeatureStatus
       })
 
+      // Handle feature archived - stop orchestrator
+      if (newStatus === 'archived') {
+        await this.handleFeatureArchived()
+      }
+
       this.currentFeatureStatus = newStatus
     }
+  }
+
+  /**
+   * Handle feature archival - stop orchestrator and cleanup.
+   * Called when feature transitions to archived status.
+   */
+  private async handleFeatureArchived(): Promise<void> {
+    if (!this.state.featureId) return
+
+    console.log(`[Orchestrator] Feature ${this.state.featureId} archived - stopping execution`)
+
+    // Stop execution if running
+    if (this.state.status === 'running') {
+      this.stop()
+    }
+
+    // Emit event for UI updates
+    this.emit('orchestrator:feature-archived', {
+      featureId: this.state.featureId,
+      timestamp: new Date().toISOString()
+    })
   }
 
   /**

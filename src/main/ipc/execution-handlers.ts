@@ -73,7 +73,7 @@ export function registerExecutionHandlers(): void {
     'execution:initialize',
     async (_event, featureId: string, graph: DAGGraph) => {
       const orchestrator = getOrchestrator()
-      orchestrator.initialize(featureId, graph)
+      await orchestrator.initialize(featureId, graph)
       return orchestrator.getSnapshot()
     }
   )
