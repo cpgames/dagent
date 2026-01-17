@@ -1,0 +1,221 @@
+/**
+ * CheckpointViewer Component Styles
+ * Expandable checkpoint summary display
+ */
+
+/* Main container */
+.checkpoint-viewer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.checkpoint-viewer--empty,
+.checkpoint-viewer--loading {
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.checkpoint-viewer__empty-text,
+.checkpoint-viewer__loading-text {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.checkpoint-viewer__empty-hint {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-top: var(--space-xs);
+}
+
+/* Header */
+.checkpoint-viewer__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.checkpoint-viewer__header:hover {
+  background: var(--bg-active);
+}
+
+.checkpoint-viewer__header-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.checkpoint-viewer__header-meta {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.checkpoint-viewer__header-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.checkpoint-viewer__header-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Sections container */
+.checkpoint-viewer__sections {
+  padding: var(--space-xs);
+}
+
+/* Individual section */
+.checkpoint-viewer__section {
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+}
+
+.checkpoint-viewer__section:last-child {
+  margin-bottom: 0;
+}
+
+/* Section header */
+.checkpoint-viewer__section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.checkpoint-viewer__section-header:hover {
+  background: var(--bg-hover);
+}
+
+.checkpoint-viewer__section-icon {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkpoint-viewer__section-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.checkpoint-viewer__section-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.checkpoint-viewer__section-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.checkpoint-viewer__section-chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.checkpoint-viewer__section-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Section content */
+.checkpoint-viewer__section-content {
+  padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  animation: checkpoint-viewer-slide-down 0.15s ease-out;
+}
+
+@keyframes checkpoint-viewer-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.checkpoint-viewer__section-empty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-left: var(--space-md);
+}
+
+/* Item list */
+.checkpoint-viewer__item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checkpoint-viewer__item {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: var(--space-xs) 0 var(--space-xs) var(--space-md);
+  border-left: 2px solid var(--border-default);
+  line-height: 1.4;
+}
+
+/* Section color variants */
+
+/* Completed - green */
+.checkpoint-viewer__section--completed .checkpoint-viewer__section-icon {
+  color: var(--color-success, #10b981);
+}
+
+.checkpoint-viewer__section--completed .checkpoint-viewer__item {
+  border-left-color: var(--color-success, #10b981);
+}
+
+/* In Progress - blue */
+.checkpoint-viewer__section--in-progress .checkpoint-viewer__section-icon {
+  color: var(--accent-primary, #3b82f6);
+}
+
+.checkpoint-viewer__section--in-progress .checkpoint-viewer__item {
+  border-left-color: var(--accent-primary, #3b82f6);
+}
+
+/* Pending - gray */
+.checkpoint-viewer__section--pending .checkpoint-viewer__section-icon {
+  color: var(--text-secondary);
+}
+
+.checkpoint-viewer__section--pending .checkpoint-viewer__item {
+  border-left-color: var(--text-secondary);
+}
+
+/* Blockers - red */
+.checkpoint-viewer__section--blockers .checkpoint-viewer__section-icon {
+  color: var(--color-error, #ef4444);
+}
+
+.checkpoint-viewer__section--blockers .checkpoint-viewer__item {
+  border-left-color: var(--color-error, #ef4444);
+}
+
+/* Decisions - purple */
+.checkpoint-viewer__section--decisions .checkpoint-viewer__section-icon {
+  color: var(--accent-secondary, #8b5cf6);
+}
+
+.checkpoint-viewer__section--decisions .checkpoint-viewer__item {
+  border-left-color: var(--accent-secondary, #8b5cf6);
+}
