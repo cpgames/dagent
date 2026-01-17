@@ -4,7 +4,7 @@ import { KanbanView, DAGView, ContextView, AgentsView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
-import { NewFeatureDialog } from './components/Feature'
+import { NewFeatureDialog, type FeatureCreateData } from './components/Feature'
 import {
   ProjectSelectionDialog,
   NewProjectDialog,
@@ -72,9 +72,11 @@ function App(): React.JSX.Element {
     window.electronAPI.setWindowTitle(title)
   }, [projectPath])
 
-  const handleCreateFeature = async (name: string): Promise<void> => {
-    const feature = await createFeature(name)
+  const handleCreateFeature = async (data: FeatureCreateData): Promise<void> => {
+    const feature = await createFeature(data.name)
     if (feature) {
+      // TODO: Handle description, attachments, and autoMerge in Task 4
+      // For now, we just create the feature with the name
       setNewFeatureDialogOpen(false)
     }
     // Error case is handled in store (toast displayed)

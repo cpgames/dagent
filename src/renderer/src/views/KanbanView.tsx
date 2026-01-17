@@ -27,7 +27,7 @@ const columns: { title: string; status: FeatureStatus }[] = [
 export default function KanbanView() {
   const { features, isLoading, setActiveFeature, deleteFeature } = useFeatureStore();
   const setView = useViewStore((state) => state.setView);
-  const { start: startExecution } = useExecutionStore();
+  const { start: startExecution, stop: stopExecution } = useExecutionStore();
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -93,6 +93,15 @@ export default function KanbanView() {
     }
   };
 
+  // Handle stop execution
+  const handleStopFeature = async (_featureId: string) => {
+    try {
+      await stopExecution();
+    } catch (error) {
+      console.error('Failed to stop execution:', error);
+    }
+  };
+
   // Handle merge feature - opens merge dialog
   const handleMergeFeature = (featureId: string, type: MergeType) => {
     const feature = features.find((f) => f.id === featureId);
@@ -125,6 +134,7 @@ export default function KanbanView() {
               onSelectFeature={handleSelectFeature}
               onDeleteFeature={handleDeleteFeature}
               onStartFeature={handleStartFeature}
+              onStopFeature={handleStopFeature}
               onMergeFeature={handleMergeFeature}
               startingFeatureId={startingFeatureId}
             />

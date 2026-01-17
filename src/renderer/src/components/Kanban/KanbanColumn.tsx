@@ -9,6 +9,7 @@ interface KanbanColumnProps {
   onSelectFeature: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
   onStartFeature?: (featureId: string) => void;
+  onStopFeature?: (featureId: string) => void;
   onMergeFeature?: (featureId: string, mergeType: MergeType) => void;
   startingFeatureId?: string | null;
 }
@@ -24,6 +25,7 @@ export default function KanbanColumn({
   onSelectFeature,
   onDeleteFeature,
   onStartFeature,
+  onStopFeature,
   onMergeFeature,
   startingFeatureId,
 }: KanbanColumnProps) {
@@ -57,6 +59,7 @@ export default function KanbanColumn({
                 onSelect={onSelectFeature}
                 onDelete={onDeleteFeature}
                 onStart={onStartFeature}
+                onStop={onStopFeature}
                 onMerge={status === 'completed' ? onMergeFeature : undefined}
                 isStarting={feature.id === startingFeatureId}
               />
