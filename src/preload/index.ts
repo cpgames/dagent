@@ -579,6 +579,13 @@ const electronAPI = {
       error?: string
     }> => ipcRenderer.invoke('feature:delete', featureId, options),
 
+    // Update feature status with validation
+    updateStatus: (
+      featureId: string,
+      newStatus: string
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('feature:updateStatus', featureId, newStatus),
+
     // Listen for feature status changes from orchestrator
     onStatusChanged: (
       callback: (data: { featureId: string; status: string }) => void

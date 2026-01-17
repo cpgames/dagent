@@ -982,7 +982,7 @@ export interface FeatureStatusChangeEvent {
 
 /**
  * Feature API for feature-level operations.
- * Handles feature deletion with comprehensive cleanup.
+ * Handles feature deletion with comprehensive cleanup and status management.
  */
 export interface FeatureAPI {
   /**
@@ -994,6 +994,12 @@ export interface FeatureAPI {
    * - Deletes feature storage
    */
   delete: (featureId: string, options?: FeatureDeleteOptions) => Promise<FeatureDeleteResult>
+
+  /**
+   * Update feature status with validation.
+   * Uses FeatureStatusManager to ensure valid transitions.
+   */
+  updateStatus: (featureId: string, newStatus: string) => Promise<{ success: boolean; error?: string }>
 
   /**
    * Subscribe to feature status changes from the orchestrator.

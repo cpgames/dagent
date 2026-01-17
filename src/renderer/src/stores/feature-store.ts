@@ -22,6 +22,7 @@ interface FeatureState {
   saveFeature: (feature: Feature) => Promise<void>;
   createFeature: (name: string) => Promise<Feature | null>;
   deleteFeature: (featureId: string, deleteBranch?: boolean) => Promise<boolean>;
+  updateFeatureStatus: (featureId: string, newStatus: FeatureStatus) => Promise<boolean>;
 }
 
 // Track the cleanup function for status change listener
@@ -177,6 +178,31 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
       set({ error: message, isLoading: false });
       toast.error(`Failed to delete feature: ${message}`);
       console.error('Failed to delete feature:', error);
+      return false;
+    }
+  },
+
+  updateFeatureStatus: async (featureId, newStatus) => {
+    try {
+      const result = await window.electronAPI.feature.updateStatus(featureId, newStatus);
+
+      if (result.success) {
+        // Update local state
+        get().updateFeature(featureId, { status: newStatus });
+        toast.success(`Feature status updated to ${newStatus}`);
+        return true;
+      } else {
+        const message = result.error || 'Unknown error';
+        set({ error: message });
+        toast.error(`Failed to update status: ${message}`);
+        console.error('Failed to update feature status:', result.error);
+        return false;
+      }
+    } catch (error) {
+      const message = (error as Error).message;
+      set({ error: message });
+      toast.error(`Failed to update status: ${message}`);
+      console.error('Failed to update feature status:', error);
       return false;
     }
   },

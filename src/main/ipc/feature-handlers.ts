@@ -1,8 +1,11 @@
 import { ipcMain } from 'electron'
+import { EventEmitter } from 'events'
 import { getGitManager } from '../git/git-manager'
 import { getAgentPool } from '../agents/agent-pool'
 import { getFeatureStore } from './storage-handlers'
 import { getFeatureWorktreeName, getFeatureBranchName } from '../git/types'
+import { FeatureStatusManager } from '../services/feature-status-manager'
+import type { FeatureStatus } from '@shared/types/feature'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 
@@ -17,6 +20,26 @@ export interface FeatureDeleteResult {
   deletedWorktrees?: number
   terminatedAgents?: number
   error?: string
+}
+
+// Singleton instance of FeatureStatusManager
+let statusManager: FeatureStatusManager | null = null
+
+/**
+ * Get or create the FeatureStatusManager singleton.
+ * Requires FeatureStore to be initialized.
+ */
+function getStatusManager(): FeatureStatusManager {
+  if (!statusManager) {
+    const featureStore = getFeatureStore()
+    if (!featureStore) {
+      throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+    }
+    // Create a dedicated EventEmitter for status changes
+    const eventEmitter = new EventEmitter()
+    statusManager = new FeatureStatusManager(featureStore, eventEmitter)
+  }
+  return statusManager
 }
 
 /**
@@ -183,6 +206,30 @@ export function registerFeatureHandlers(): void {
           deletedBranch: deletedBranchSuccess,
           deletedWorktrees,
           terminatedAgents,
+          error: (error as Error).message
+        }
+      }
+    }
+  )
+
+  /**
+   * Update feature status with validation.
+   * Uses FeatureStatusManager to ensure valid transitions.
+   */
+  ipcMain.handle(
+    'feature:updateStatus',
+    async (
+      _event,
+      featureId: string,
+      newStatus: FeatureStatus
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const manager = getStatusManager()
+        await manager.updateFeatureStatus(featureId, newStatus)
+        return { success: true }
+      } catch (error) {
+        return {
+          success: false,
           error: (error as Error).message
         }
       }
