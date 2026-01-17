@@ -14,6 +14,7 @@ export interface HarnessState {
   startedAt: string | null
   stoppedAt: string | null
   projectRoot: string | null
+  sessionId: string | null // Session ID for SessionManager logging
 }
 
 export interface TaskExecutionState {
@@ -79,5 +80,6 @@ export const DEFAULT_HARNESS_STATE: Omit<
   graph: null,
   startedAt: null,
   stoppedAt: null,
-  projectRoot: null
+  projectRoot: null,
+  sessionId: null
 }

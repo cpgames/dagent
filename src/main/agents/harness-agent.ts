@@ -77,7 +77,8 @@ export class HarnessAgent extends EventEmitter {
       messageHistory: [],
       startedAt: null,
       stoppedAt: null,
-      projectRoot: projectRoot || null
+      projectRoot: projectRoot || null,
+      sessionId: null
     }
 
     this.log('info', `Harness initialized for feature: ${featureId}`)
