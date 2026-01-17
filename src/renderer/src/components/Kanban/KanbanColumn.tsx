@@ -7,7 +7,6 @@ interface KanbanColumnProps {
   status: FeatureStatus;
   features: Feature[];
   onSelectFeature: (featureId: string) => void;
-  onArchiveFeature: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
   onStartFeature?: (featureId: string) => void;
   onMergeFeature?: (featureId: string, mergeType: MergeType) => void;
@@ -23,7 +22,6 @@ export default function KanbanColumn({
   status,
   features,
   onSelectFeature,
-  onArchiveFeature,
   onDeleteFeature,
   onStartFeature,
   onMergeFeature,
@@ -43,26 +41,28 @@ export default function KanbanColumn({
         </span>
       </div>
 
-      {/* Cards Container */}
-      <div className="kanban-column__cards">
-        {features.length === 0 ? (
-          <div className="kanban-column__empty">
-            <p className="kanban-column__empty-text">No features</p>
-          </div>
-        ) : (
-          features.map((feature) => (
-            <FeatureCard
-              key={feature.id}
-              feature={feature}
-              onSelect={onSelectFeature}
-              onArchive={status === 'completed' ? onArchiveFeature : undefined}
-              onDelete={onDeleteFeature}
-              onStart={onStartFeature}
-              onMerge={status === 'completed' ? onMergeFeature : undefined}
-              isStarting={feature.id === startingFeatureId}
-            />
-          ))
-        )}
+      {/* Scrollable Content */}
+      <div className="kanban-column__content">
+        {/* Cards Container */}
+        <div className="kanban-column__cards">
+          {features.length === 0 ? (
+            <div className="kanban-column__empty">
+              <p className="kanban-column__empty-text">No features</p>
+            </div>
+          ) : (
+            features.map((feature) => (
+              <FeatureCard
+                key={feature.id}
+                feature={feature}
+                onSelect={onSelectFeature}
+                onDelete={onDeleteFeature}
+                onStart={onStartFeature}
+                onMerge={status === 'completed' ? onMergeFeature : undefined}
+                isStarting={feature.id === startingFeatureId}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

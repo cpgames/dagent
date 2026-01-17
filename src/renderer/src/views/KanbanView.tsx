@@ -5,6 +5,7 @@ import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
 import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
+import './KanbanView.css';
 
 /**
  * Column configuration for the Kanban board.
@@ -24,7 +25,7 @@ const columns: { title: string; status: FeatureStatus }[] = [
  * Shows the workflow state of all features with navigation to DAG view.
  */
 export default function KanbanView() {
-  const { features, isLoading, setActiveFeature, removeFeature, deleteFeature } = useFeatureStore();
+  const { features, isLoading, setActiveFeature, deleteFeature } = useFeatureStore();
   const setView = useViewStore((state) => state.setView);
   const { start: startExecution } = useExecutionStore();
 
@@ -62,13 +63,6 @@ export default function KanbanView() {
   const handleSelectFeature = (featureId: string) => {
     setActiveFeature(featureId);
     setView('dag');
-  };
-
-  // Handle feature archive
-  const handleArchiveFeature = (featureId: string) => {
-    // For now, just remove from the store
-    // Later will call storage.archiveFeature via IPC
-    removeFeature(featureId);
   };
 
   // Handle feature delete - opens confirmation dialog
@@ -121,7 +115,7 @@ export default function KanbanView() {
   return (
     <>
       <div className="h-full p-6 pb-4">
-        <div className="flex gap-3 h-full overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-[var(--border-default)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className="kanban-view__board flex gap-3 min-w-fit">
           {columns.map((column) => (
             <KanbanColumn
               key={column.status}
@@ -129,7 +123,6 @@ export default function KanbanView() {
               status={column.status}
               features={featuresByStatus[column.status]}
               onSelectFeature={handleSelectFeature}
-              onArchiveFeature={handleArchiveFeature}
               onDeleteFeature={handleDeleteFeature}
               onStartFeature={handleStartFeature}
               onMergeFeature={handleMergeFeature}
