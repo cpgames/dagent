@@ -84,9 +84,12 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
     try {
       const featureIds = await window.electronAPI.storage.listFeatures();
       const features: Feature[] = [];
-      for (const id of featureIds) {
-        const feature = await window.electronAPI.storage.loadFeature(id);
-        if (feature) features.push(feature);
+      // Guard against undefined/null featureIds
+      if (featureIds) {
+        for (const id of featureIds) {
+          const feature = await window.electronAPI.storage.loadFeature(id);
+          if (feature) features.push(feature);
+        }
       }
       set({ features, isLoading: false });
     } catch (error) {
