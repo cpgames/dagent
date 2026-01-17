@@ -240,9 +240,14 @@ function DAGViewInner({
 
   const handleDeleteTask = useCallback(
     (taskId: string) => {
-      removeNode(taskId)
+      const task = dag?.nodes.find(n => n.id === taskId)
+      const taskTitle = task?.title || 'this task'
+
+      if (window.confirm(`Delete "${taskTitle}"?\n\nThis will remove the task and all its connections.`)) {
+        removeNode(taskId)
+      }
     },
-    [removeNode]
+    [removeNode, dag]
   )
 
   // Handle log button click on task
@@ -539,7 +544,7 @@ function DAGViewInner({
                   onResetLayout={handleResetLayout}
                   onNewTask={() => {
                     // Scroll chat into view and focus input
-                    const chatInput = document.querySelector('.chat-panel__input') as HTMLTextAreaElement | null
+                    const chatInput = document.querySelector('.chat-panel__textarea') as HTMLTextAreaElement | null
                     if (chatInput) {
                       chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
                       setTimeout(() => chatInput.focus(), 300)
