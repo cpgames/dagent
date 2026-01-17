@@ -14,10 +14,6 @@ interface SessionMetrics {
   lastCompactionAt?: string
 }
 
-interface CheckpointInfo {
-  version: number
-}
-
 export function SessionStatus({ sessionId, featureId, projectRoot }: SessionStatusProps): JSX.Element {
   const [metrics, setMetrics] = useState<SessionMetrics | null>(null)
   const [checkpointVersion, setCheckpointVersion] = useState<number | null>(null)

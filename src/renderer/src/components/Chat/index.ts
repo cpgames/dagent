@@ -1,2 +1,6 @@
 export { ChatMessage } from './ChatMessage'
+export { ChatPanel } from './ChatPanel'
+export { CheckpointViewer } from './CheckpointViewer'
 export { FeatureChat } from './FeatureChat'
+export { SessionStatus } from './SessionStatus'
+export { ToolUsageDisplay } from './ToolUsageDisplay'
