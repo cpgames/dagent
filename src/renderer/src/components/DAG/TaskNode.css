@@ -23,41 +23,7 @@
   opacity: 1;
 }
 
-/* Status background tints - border stays purple */
-.task-node--blocked {
-  background: rgba(0, 240, 255, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.task-node--ready_for_dev {
-  background: rgba(0, 240, 255, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.task-node--in_progress {
-  background: rgba(255, 149, 0, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.task-node--ready_for_qa {
-  background: rgba(255, 0, 255, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.task-node--ready_for_merge {
-  background: rgba(255, 149, 0, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.task-node--completed {
-  background: rgba(0, 255, 136, 0.15);
-  backdrop-filter: blur(12px);
-}
-
-.task-node--failed {
-  background: rgba(255, 51, 102, 0.15);
-  backdrop-filter: blur(12px);
-}
+/* All statuses use same purple background - status shown via badge only */
 
 /* Status badge at top */
 .task-node__badge-section {
