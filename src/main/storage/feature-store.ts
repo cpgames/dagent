@@ -15,9 +15,19 @@ export class FeatureStore {
   /**
    * Create a new feature with generated ID and branch name.
    * @param name - Human-readable feature name (e.g., "My Feature")
+   * @param options - Optional feature configuration (description, attachments, autoMerge)
    * @returns Created Feature object
    */
-  async createFeature(name: string): Promise<Feature> {
+  async createFeature(name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}): Promise<Feature> {
+    // Check if feature with same name already exists
+    const features = await this.listFeatures();
+    for (const featureId of features) {
+      const existingFeature = await this.loadFeature(featureId);
+      if (existingFeature && existingFeature.name === name) {
+        throw new Error('Feature with this name already exists');
+      }
+    }
+
     // Generate kebab-case slug from name: "My Feature" -> "my-feature"
     const slug = name
       .toLowerCase()
@@ -40,7 +50,10 @@ export class FeatureStore {
       status: 'planning',
       branchName: getFeatureBranchName(id),
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      description: options?.description,
+      attachments: options?.attachments,
+      autoMerge: options?.autoMerge ?? false
     };
 
     // Persist to storage

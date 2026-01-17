@@ -67,8 +67,8 @@ export function registerStorageHandlers(): void {
     return getStore().listFeatures();
   });
 
-  ipcMain.handle('storage:createFeature', async (_event, name: string) => {
-    return getStore().createFeature(name);
+  ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}) => {
+    return getStore().createFeature(name, options);
   });
 
   ipcMain.handle('storage:featureExists', async (_event, name: string) => {

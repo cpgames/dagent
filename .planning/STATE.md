@@ -12,21 +12,21 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.9 Create Feature Workflow
 **Roadmap:** .planning/milestones/v2.9-create-feature-workflow.md
 
-Phase: 95 of 99 (Kanban Column Restructure)
-Plan: 95-01 complete
+Phase: 96 of 99 (Kanban Feature Card Updates)
+Plan: 96-01 complete
 Status: Complete
-Last activity: 2026-01-17 — Phase 95-01 executed (updated Kanban with 6 columns, added horizontal/vertical scrolling, centralized status management ready)
+Last activity: 2026-01-17 — Phase 96-01 executed (removed Archive button, updated Merge icon to Git branch merge, added context-aware Start/Stop buttons)
 
-Progress: ███████░░ 75% (2/3 phases complete - Phases 100, 95 complete)
+Progress: ████████░ 100% (3/3 phases complete - Phases 100, 95, 96 complete)
 
-Next action: Phase 96 (Kanban Feature Card Updates) or Phase 97 (App-Wide Scrollbar Styling)
+Next action: Milestone complete - begin Phase 97 (App-Wide Scrollbar Styling) or Phase 98 (Automatic Planning Workflow)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 114 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 2)
+- Total plans completed: 115 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 3)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~365 min
+- Total execution time: ~385 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: Phase 96 (Kanban Feature Card Updates) or Phase 97 (App-Wide Scroll
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 84-01, 85-01, 86-01, 87-01
-- Trend: v2.7 in progress (shooting stars layer complete)
+- Last 5 plans: 85-01, 86-01, 87-01, 100-01, 95-01, 96-01
+- Trend: v2.9 complete (Kanban feature cards updated with context-aware buttons)
 
 ## Accumulated Context
 
@@ -670,6 +670,7 @@ The application now provides:
 
 This lays the foundation for:
 - Phase 95: Kanban column restructure with drag-and-drop validation
+- Phase 96: Kanban feature card updates with context-aware Start/Stop buttons
 - Phase 98: Automatic planning workflow with PM agent transitions
 - Phase 99: Auto-archive on merge (completed → archived)
 - Phase 101: Enhanced feature dialog with validated status transitions
@@ -678,28 +679,72 @@ This lays the foundation for:
 
 ## Phase 95: Kanban Column Restructure ✓
 
-- **95-01**: Updated Kanban board with 6 columns, horizontal/vertical scrolling, centralized status management
+- **95-01**: Updated KanbanView with 6 columns, added horizontal and vertical scrolling
 
 All verification items passed. Phase 95 Complete.
 
 ### Summary
 
-Kanban Column Restructure is complete. The Kanban board now supports the new feature workflow with proper scrolling UX:
+Kanban Column Restructure is complete. The application now has a restructured Kanban board with 6 columns and proper scrolling:
 
-1. **6-Column Configuration**: Planning → Backlog → In Progress → Needs Attention → Completed → Archived
-2. **Horizontal Scrolling**: Board container scrolls horizontally to accommodate all columns
-3. **Vertical Scrolling**: Each column scrolls independently with fixed header
-4. **Fixed Column Width**: Columns are 300px wide for consistent layout
-5. **Status Colors**: Updated title colors for planning (cyan), backlog (gray), archived (dim gray)
+1. **6-Column Layout**: Planning, Backlog, In Progress, Needs Attention, Completed, Archived
+2. **Horizontal Scrolling**: Board container is horizontally scrollable to accommodate all columns
+3. **Vertical Scrolling**: Each column is independently vertically scrollable with fixed headers
+4. **Fixed Column Width**: Columns set to 300px (min and max) for consistent layout
 
 The application now provides:
-- Horizontally scrollable board with `kanban-view__board` CSS class
-- Independently scrollable columns with `.kanban-column__content` wrapper
-- Fixed 300px column width prevents layout shifts
-- Custom scrollbar styling for board and columns
-- Centralized status management ready for drag-and-drop (when implemented)
+- 6 columns matching the new workflow: Planning → Backlog → In Progress → Needs Attention → Completed → Archived
+- Horizontal scrolling for board navigation
+- Independent vertical scrolling per column
+- Fixed column width for consistent sizing
+- Custom scrollbar styling (to be enhanced in Phase 97)
 
 This enables:
-- Phase 96: Context-aware Start/Stop buttons on feature cards
-- Phase 97: Custom synthwave scrollbar styling throughout app
-- Phase 98: Automatic planning workflow with PM agent
+- Phase 96: Kanban feature card updates with context-aware Start/Stop buttons
+- Phase 97: App-wide scrollbar styling with synthwave theme
+- Phase 98: Automatic planning workflow (PM agent moves features through columns)
+
+---
+
+## Phase 96: Kanban Feature Card Updates ✓
+
+- **96-01**: Removed Archive button, updated Merge icon, added context-aware Start/Stop buttons
+
+All verification items passed. Phase 96 Complete.
+
+### Summary
+
+Kanban Feature Card Updates is complete. The application now has context-aware feature card actions:
+
+1. **Archive Button Removed**: Manual archive button removed (will be auto-archive in Phase 99)
+2. **Updated Merge Icon**: Git branch merge visualization with three circles and converging paths
+3. **Context-Aware Start Button**: Only appears on Backlog features, moves to In Progress before starting execution
+4. **Context-Aware Stop Button**: Only appears on In Progress features, stops execution and moves back to Backlog
+
+The application now provides:
+- Merge icon that clearly represents Git branch merge operation
+- Start button only on Backlog features (status === 'backlog')
+- Stop button only on In Progress features (status === 'in_progress')
+- Sequential status updates (status first, then execution) for correct workflow state
+- Warning color for Stop button to indicate caution
+
+This enables:
+- Phase 98: Automatic planning workflow (PM agent can move features to Backlog, Start button will be available)
+- Phase 99: Auto-archive on merge (completed features auto-archived, no manual Archive needed)
+
+## v2.9 Milestone Summary (Phases 100, 95, 96)
+
+Create Feature Workflow is complete. Users now have a streamlined workflow for creating and executing features:
+
+1. **Phase 100 - Feature Status System**: 6-status workflow (planning → backlog → in_progress → needs_attention → completed → archived) with centralized status management
+2. **Phase 95 - Kanban Column Restructure**: 6-column Kanban board with horizontal/vertical scrolling
+3. **Phase 96 - Kanban Feature Card Updates**: Context-aware Start/Stop buttons, Git branch merge icon, Archive button removed
+
+The application now provides:
+- Streamlined feature creation workflow with proper status management
+- Kanban board with 6 columns matching the new workflow
+- Context-aware Start button (Backlog features only) that moves to In Progress before starting execution
+- Context-aware Stop button (In Progress features only) that stops execution and moves back to Backlog
+- Clear Git branch merge icon for completed features
+- Automatic archive on merge (Phase 99) instead of manual Archive button
+
