@@ -2,7 +2,7 @@
  * DAGView - Displays features and their dependencies as a directed acyclic graph.
  * Shows task dependencies and execution flow using React Flow.
  */
-import { useCallback, useEffect, useMemo, useState, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef, type JSX } from 'react'
 import {
   ReactFlow,
   Background,
@@ -10,6 +10,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   type Connection,
@@ -29,6 +30,7 @@ import {
   LogDialog,
   SessionLogDialog,
   ExecutionControls,
+  LayoutControls,
   SelectableEdge,
   type TaskNodeData,
   type SelectableEdgeData
@@ -104,15 +106,19 @@ function dagToEdges(
   })
 }
 
-export default function DAGView(): JSX.Element {
-  const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
+// Inner component that has access to useReactFlow
+function DAGViewInner({
+  activeFeatureId
+}: {
+  activeFeatureId: string | null
+}): JSX.Element {
+  const { fitView } = useReactFlow()
   const {
     dag,
     loopStatuses,
     isMutating,
     error,
     setError,
-    loadDag,
     updateNode,
     addConnection,
     removeNode,
@@ -140,6 +146,9 @@ export default function DAGView(): JSX.Element {
 
   // Task session for SessionLogDialog
   const [taskSession, setTaskSession] = useState<DevAgentSession | null>(null)
+
+  // Debounce timer for layout persistence
+  const saveLayoutTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Chat panel width state with localStorage persistence
   const [chatWidth, setChatWidth] = useState(() => {
@@ -314,12 +323,60 @@ export default function DAGView(): JSX.Element {
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
   }, [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
-  // Load DAG when active feature changes
+  // Load layout positions when active feature changes
   useEffect(() => {
-    if (activeFeatureId) {
-      loadDag(activeFeatureId)
+    if (!activeFeatureId) return
+
+    const loadLayout = async () => {
+      try {
+        const result = await window.electronAPI.dagLayout.load(activeFeatureId)
+        if (result.success && result.layout && result.layout.positions) {
+          // Merge saved positions into current nodes
+          setNodes((currentNodes) =>
+            currentNodes.map((node) => {
+              const savedPos = result.layout?.positions[node.id]
+              if (savedPos) {
+                return { ...node, position: savedPos }
+              }
+              return node
+            })
+          )
+        }
+      } catch (error) {
+        console.error('[DAGView] Failed to load layout:', error)
+      }
     }
-  }, [activeFeatureId, loadDag])
+
+    loadLayout()
+  }, [activeFeatureId, setNodes])
+
+  // Handle layout reset
+  const handleResetLayout = useCallback(async () => {
+    if (!activeFeatureId) return
+
+    try {
+      // Clear saved layout
+      await window.electronAPI.dagLayout.save(activeFeatureId, {})
+
+      // Reset nodes to default positions (center all nodes and let React Flow auto-arrange)
+      setNodes((currentNodes) =>
+        currentNodes.map((node, index) => ({
+          ...node,
+          position: { x: 100 + (index % 5) * 200, y: 100 + Math.floor(index / 5) * 150 }
+        }))
+      )
+
+      // Recenter view
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 300 })
+      }, 50)
+
+      toast.success('Layout reset to default positions')
+    } catch (error) {
+      console.error('[DAGView] Failed to reset layout:', error)
+      toast.error('Failed to reset layout')
+    }
+  }, [activeFeatureId, setNodes, fitView])
 
   // Poll for real-time session updates when task log dialog is open
   useEffect(() => {
@@ -364,8 +421,29 @@ export default function DAGView(): JSX.Element {
           })
         }
       })
+
+      // Debounce layout save (500ms after last position change)
+      if (activeFeatureId && changes.some((c) => c.type === 'position')) {
+        if (saveLayoutTimerRef.current) {
+          clearTimeout(saveLayoutTimerRef.current)
+        }
+
+        saveLayoutTimerRef.current = setTimeout(async () => {
+          try {
+            // Collect all current positions
+            const positions: Record<string, { x: number; y: number }> = {}
+            nodes.forEach((node) => {
+              positions[node.id] = { x: node.position.x, y: node.position.y }
+            })
+
+            await window.electronAPI.dagLayout.save(activeFeatureId, positions)
+          } catch (error) {
+            console.error('[DAGView] Failed to save layout:', error)
+          }
+        }, 500)
+      }
     },
-    [onNodesChange, updateNode]
+    [onNodesChange, updateNode, activeFeatureId, nodes]
   )
 
   // Handle new connections
@@ -402,38 +480,25 @@ export default function DAGView(): JSX.Element {
   )
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Feature tabs at top */}
-      <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
-        <FeatureTabs
-          features={features}
-          activeFeatureId={activeFeatureId}
-          onSelectFeature={setActiveFeature}
-        />
-      </div>
-
-      {/* Main content area: React Flow canvas + Chat sidebar */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* React Flow canvas */}
-        <div className="flex-1 flex flex-col bg-[var(--bg-base)]">
-          <div className="flex-1 relative">
-            {activeFeatureId ? (
-              <>
-                {error && (
-                  <div className="absolute top-2 left-2 right-2 z-10 bg-[var(--color-error-dim)] text-[var(--color-error)] px-3 py-2 rounded-lg text-sm flex justify-between items-center">
-                    <span>
-                      <span className="font-medium">Error:</span> {error}
-                    </span>
-                    <button
-                      onClick={() => setError(null)}
-                      className="ml-2 hover:text-[var(--text-primary)] text-[var(--color-error)]"
-                      aria-label="Dismiss error"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                <ReactFlow
+    <div className="flex h-full overflow-hidden">
+      {/* React Flow canvas */}
+      <div className="flex-1 flex flex-col bg-[var(--bg-base)]">
+        <div className="flex-1 relative">
+          {error && (
+            <div className="absolute top-2 left-2 right-2 z-10 bg-[var(--color-error-dim)] text-[var(--color-error)] px-3 py-2 rounded-lg text-sm flex justify-between items-center">
+              <span>
+                <span className="font-medium">Error:</span> {error}
+              </span>
+              <button
+                onClick={() => setError(null)}
+                className="ml-2 hover:text-[var(--text-primary)] text-[var(--color-error)]"
+                aria-label="Dismiss error"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <ReactFlow
                   nodes={nodes}
                   edges={edges}
                   onNodesChange={handleNodesChange}
@@ -449,6 +514,13 @@ export default function DAGView(): JSX.Element {
                   minZoom={0.25}
                   maxZoom={2}
                   nodesDraggable
+                  snapToGrid={true}
+                  snapGrid={[20, 20]}
+                  translateExtent={[
+                    [-500, -500],
+                    [3000, 3000]
+                  ]}
+                  defaultEdgeOptions={{ animated: false }}
                   className="bg-[var(--bg-base)]"
                   proOptions={{ hideAttribution: true }}
                 >
@@ -460,6 +532,8 @@ export default function DAGView(): JSX.Element {
                     maskColor="rgba(10, 0, 21, 0.6)"
                   />
                 </ReactFlow>
+                {/* Layout controls */}
+                <LayoutControls featureId={activeFeatureId} onResetLayout={handleResetLayout} />
                 {/* Mutation loading indicator */}
                 {isMutating && (
                   <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-md">
@@ -467,61 +541,54 @@ export default function DAGView(): JSX.Element {
                     <span className="text-sm text-[var(--text-secondary)]">Saving...</span>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
-                Select a feature to view its task graph
-              </div>
-            )}
-          </div>
-
-          {/* Control bar at bottom */}
-          <div className="border-t border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2">
-            <ExecutionControls
-              featureId={activeFeatureId}
-              onUndo={undo}
-              onRedo={redo}
-              canUndo={historyState.canUndo}
-              canRedo={historyState.canRedo}
-            />
-          </div>
         </div>
 
-        {/* Chat sidebar */}
-        {activeFeatureId && (
-          <div className="relative flex flex-col h-full" style={{ width: chatWidth }}>
-            <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
-            {/* Spec toggle bar */}
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
-              <button
-                onClick={handleToggleSpec}
-                className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                title={showSpec ? 'Hide feature spec' : 'Show feature spec'}
-              >
-                <svg
-                  className={`w-3.5 h-3.5 transition-transform ${showSpec ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                <span>Spec</span>
-              </button>
-            </div>
-            {/* Feature spec viewer (collapsible) */}
-            {showSpec && (
-              <div className="border-b border-[var(--border-default)] max-h-64 overflow-y-auto">
-                <FeatureSpecViewer featureId={activeFeatureId} />
-              </div>
-            )}
-            {/* Chat takes remaining space */}
-            <div className="flex-1 min-h-0">
-              <FeatureChat featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
-            </div>
-          </div>
-        )}
+        {/* Control bar at bottom */}
+        <div className="border-t border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2">
+          <ExecutionControls
+            featureId={activeFeatureId}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={historyState.canUndo}
+            canRedo={historyState.canRedo}
+          />
+        </div>
       </div>
+
+      {/* Chat sidebar */}
+      {activeFeatureId && (
+        <div className="relative flex flex-col h-full" style={{ width: chatWidth }}>
+          <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
+          {/* Spec toggle bar */}
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+            <button
+              onClick={handleToggleSpec}
+              className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              title={showSpec ? 'Hide feature spec' : 'Show feature spec'}
+            >
+              <svg
+                className={`w-3.5 h-3.5 transition-transform ${showSpec ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>Spec</span>
+            </button>
+          </div>
+          {/* Feature spec viewer (collapsible) */}
+          {showSpec && (
+            <div className="border-b border-[var(--border-default)] max-h-64 overflow-y-auto">
+              <FeatureSpecViewer featureId={activeFeatureId} />
+            </div>
+          )}
+          {/* Chat takes remaining space */}
+          <div className="flex-1 min-h-0">
+            <FeatureChat featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
+          </div>
+        </div>
+      )}
 
       {/* Node Dialog */}
       {dialogTask && (
@@ -543,6 +610,43 @@ export default function DAGView(): JSX.Element {
       {logDialogOpen && logDialogTitle && logDialogSource === 'pm' && (
         <LogDialog entries={logEntries} title={logDialogTitle} onClose={closeLogDialog} />
       )}
+    </div>
+  )
+}
+
+// Outer component wrapper
+export default function DAGView(): JSX.Element {
+  const { features, activeFeatureId, setActiveFeature } = useFeatureStore()
+  const { loadDag } = useDAGStore()
+
+  // Load DAG when active feature changes
+  useEffect(() => {
+    if (activeFeatureId) {
+      loadDag(activeFeatureId)
+    }
+  }, [activeFeatureId, loadDag])
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Feature tabs at top */}
+      <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+        <FeatureTabs
+          features={features}
+          activeFeatureId={activeFeatureId}
+          onSelectFeature={setActiveFeature}
+        />
+      </div>
+
+      {/* React Flow wrapper with inner component */}
+      <div className="flex-1 overflow-hidden">
+        {activeFeatureId ? (
+          <DAGViewInner activeFeatureId={activeFeatureId} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
+            Select a feature to view its task graph
+          </div>
+        )}
+      </div>
     </div>
   )
 }
