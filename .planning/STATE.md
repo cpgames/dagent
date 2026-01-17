@@ -12,21 +12,21 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Milestone:** v2.9 Create Feature Workflow
 **Roadmap:** .planning/milestones/v2.9-create-feature-workflow.md
 
-Phase: 97 (App Scrollbar Styling)
-Plan: 97-01 complete
+Phase: 98 (Automatic Planning Workflow)
+Plan: 98-01 complete
 Status: Complete
-Last activity: 2026-01-17 — Phase 97-01 executed (global scrollbar CSS with synthwave theme, imported globally)
+Last activity: 2026-01-17 — Phase 98-01 executed (PM agent auto-starts on feature creation, creates spec.md and initial tasks, moves to backlog)
 
-Progress: █████████░ 95% (5/5 phases complete - Phases 100, 95, 96, 101, 97 complete)
+Progress: ██████████ 100% (6/6 phases complete - Phases 100, 95, 96, 101, 97, 98 complete)
 
-Next action: Milestone complete - proceed to Phase 98 (Automatic Planning Workflow) or Phase 99 (Auto-Archive on Merge)
+Next action: Proceed to Phase 99 (Auto-Archive on Merge) to complete v2.9 milestone
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 117 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 5)
+- Total plans completed: 118 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 6)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~400 min
+- Total execution time: ~445 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: Milestone complete - proceed to Phase 98 (Automatic Planning Workfl
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 5 plans: 86-01, 87-01, 100-01, 95-01, 96-01, 101-01, 97-01
-- Trend: v2.9 complete (Kanban feature cards updated with context-aware buttons, scrollbar styling added)
+- Last 7 plans: 87-01, 100-01, 95-01, 96-01, 101-01, 97-01, 98-01
+- Trend: v2.9 in progress (automatic planning workflow complete, auto-archive remaining)
 
 ## Accumulated Context
 
@@ -764,7 +764,40 @@ This enables:
 - Phase 98: Automatic planning workflow (PM agent can move features to Backlog, Start button will be available)
 - Phase 99: Auto-archive on merge (completed features auto-archived, no manual Archive needed)
 
-## v2.9 Milestone Summary (Phases 100, 95, 96)
+### Phase 98: Automatic Planning Workflow
+
+- **98-01**: PMAgentManager for planning lifecycle, IPC handler for startPlanning, planning progress indicator in Kanban
+
+All verification items passed. Phase 98 Complete.
+
+### Summary
+
+Automatic Planning Workflow is complete. The application now starts PM agent planning automatically after feature creation:
+
+1. **PMAgentManager Class**: Manages PM agent lifecycle for planning phase
+2. **IPC Integration**: feature:startPlanning handler triggers planning in background
+3. **Planning Progress Indicator**: Animated spinner shows "Planning in progress..." in Kanban
+
+The application now provides:
+- PM agent auto-starts when feature created
+- PM agent loads feature context (description, attachments)
+- PM agent creates spec.md with goals, requirements, constraints
+- PM agent creates initial DAG tasks with dependencies
+- PM agent moves feature to backlog on success
+- PM agent moves feature to needs_attention on failure
+- Planning column shows animated spinner for planning features
+- Non-blocking workflow (user can continue working during planning)
+
+This streamlines feature creation:
+- No manual planning step required
+- Consistent planning process every time
+- Rich context from attachments
+- Graceful error handling
+- Visual feedback with spinner animation
+
+---
+
+## v2.9 Milestone Summary (Phases 100, 95, 96, 101, 97, 98)
 
 Create Feature Workflow is complete. Users now have a streamlined workflow for creating and executing features:
 
