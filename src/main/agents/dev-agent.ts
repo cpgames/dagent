@@ -24,6 +24,7 @@ import { getFeatureStore } from '../ipc/storage-handlers'
 import { getMessageBus, createDevToHarnessMessage } from './message-bus'
 import type { IntentionApprovedPayload, IntentionRejectedPayload } from '@shared/types'
 import type { FeatureSpec } from './feature-spec-types'
+import { getSessionManager } from '../services/session-manager'
 
 export class DevAgent extends EventEmitter {
   private state: DevAgentState
@@ -40,6 +41,8 @@ export class DevAgent extends EventEmitter {
       taskId
     }
     this.config = { ...DEFAULT_DEV_AGENT_CONFIG, ...config }
+    // Set sessionId from config if provided
+    this.state.sessionId = config.sessionId || null
   }
 
   /**
@@ -82,6 +85,47 @@ export class DevAgent extends EventEmitter {
     session.status = status
     session.completedAt = new Date().toISOString()
     await store.saveTaskSession(this.state.featureId, this.state.taskId, session)
+  }
+
+  /**
+   * Log to session if sessionId is set, otherwise fallback to existing logToSession.
+   */
+  private async logToSessionManager(
+    role: 'user' | 'assistant',
+    content: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.state.sessionId) {
+      // Fallback to existing session logging
+      await this.logToSession(
+        role === 'user' ? 'task_to_harness' : 'harness_to_task',
+        'progress',
+        content,
+        metadata as DevAgentMessage['metadata']
+      )
+      return
+    }
+
+    try {
+      const sessionManager = getSessionManager()
+      await sessionManager.addMessage(
+        this.state.sessionId,
+        this.state.featureId,
+        {
+          role,
+          content,
+          metadata: {
+            ...metadata,
+            agentId: this.state.agentId || undefined,
+            taskId: this.state.taskId || undefined,
+            internal: true // Mark as internal so it doesn't show in chat UI
+          }
+        }
+      )
+    } catch (error) {
+      console.warn(`[DevAgent] Failed to log to session: ${(error as Error).message}`)
+      // Don't fail execution if logging fails
+    }
   }
 
   /**
@@ -402,8 +446,10 @@ export class DevAgent extends EventEmitter {
     this.state.status = 'working'
     this.emit('dev-agent:executing')
 
-    // Log execution start
-    await this.logToSession('task_to_harness', 'progress', 'Starting task execution')
+    // Log execution start (uses SessionManager if sessionId is set)
+    await this.logToSessionManager('user', `Starting task execution in worktree: ${this.state.worktreePath}`, {
+      executionStart: true
+    })
 
     try {
       // Build execution prompt from context
@@ -454,6 +500,12 @@ export class DevAgent extends EventEmitter {
             toolInput: event.message.toolInput
           }
           this.emit('dev-agent:tool-use', progressEvent)
+
+          // Log tool usage to session
+          await this.logToSessionManager('assistant', `Using tool: ${event.message.toolName}`, {
+            toolName: event.message.toolName,
+            toolUse: true
+          })
         }
 
         if (event.type === 'tool_result' && event.message) {
@@ -485,8 +537,11 @@ export class DevAgent extends EventEmitter {
 
       const completionSummary = summary || `Completed: ${this.state.task?.title}`
 
-      // Log completion to session (but don't mark session as completed yet)
-      await this.logToSession('task_to_harness', 'completion', completionSummary)
+      // Log completion to session (uses SessionManager if sessionId is set)
+      await this.logToSessionManager('assistant', `Execution complete: ${completionSummary}`, {
+        executionComplete: true,
+        success: true
+      })
 
       // Publish task_ready_for_merge message via MessageBus
       // Note: No commitHash - QA will commit if review passes
@@ -510,8 +565,12 @@ export class DevAgent extends EventEmitter {
       this.state.status = 'failed'
       this.state.error = (error as Error).message
 
-      // Log error and update session status
-      await this.logToSession('task_to_harness', 'error', this.state.error)
+      // Log error to session (uses SessionManager if sessionId is set)
+      await this.logToSessionManager('assistant', `Execution failed: ${this.state.error}`, {
+        executionComplete: true,
+        success: false,
+        error: this.state.error
+      })
       await this.updateSessionStatus('failed')
 
       // Publish task_failed message via MessageBus
@@ -707,6 +766,11 @@ export class DevAgent extends EventEmitter {
     this.state.status = 'working'
     this.emit('dev-agent:executing')
 
+    // Log iteration start to session
+    await this.logToSessionManager('user', `Starting iteration in worktree: ${this.state.worktreePath}`, {
+      iterationStart: true
+    })
+
     try {
       // Execute via SDK in the task worktree
       const agentService = getAgentService()
@@ -779,6 +843,12 @@ export class DevAgent extends EventEmitter {
           }
           this.emit('dev-agent:tool-use', progressEvent)
           console.log(`[DevAgent ${this.state.taskId}] Tool use #${toolUseCount}: ${event.message.toolName}`)
+
+          // Log tool usage to session
+          await this.logToSessionManager('assistant', `Using tool: ${event.message.toolName}`, {
+            toolName: event.message.toolName,
+            toolUse: true
+          })
         }
 
         if (event.type === 'tool_result' && event.message) {
@@ -818,6 +888,13 @@ export class DevAgent extends EventEmitter {
           totalTokens
         }
       }
+
+      // Log iteration completion to session
+      await this.logToSessionManager('assistant', `Iteration complete: ${result.summary}`, {
+        iterationComplete: true,
+        success: result.success,
+        tokenUsage: result.tokenUsage
+      })
 
       this.emit('dev-agent:ready_for_merge', result)
       return result
