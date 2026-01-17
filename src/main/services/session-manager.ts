@@ -373,6 +373,52 @@ export class SessionManager {
   }
 
   /**
+   * Get compaction metrics for a session.
+   *
+   * @param sessionId - Session ID
+   * @param featureId - Feature ID
+   * @returns Compaction metrics or null if session/checkpoint not found
+   */
+  async getCompactionMetrics(
+    sessionId: string,
+    featureId: string
+  ): Promise<{
+    totalCompactions: number
+    totalMessagesCompacted: number
+    totalTokens: number
+    lastCompactionAt?: string
+  } | null> {
+    const session = await this.getSessionById(sessionId, featureId)
+    if (!session) return null
+
+    const checkpoint = await this.loadCheckpoint(session)
+    if (!checkpoint) return null
+
+    return {
+      totalCompactions: checkpoint.stats.totalCompactions,
+      totalMessagesCompacted: checkpoint.stats.totalMessages,
+      totalTokens: checkpoint.stats.totalTokens,
+      lastCompactionAt: checkpoint.compactionInfo.compactedAt
+    }
+  }
+
+  /**
+   * Manually trigger compaction for a session.
+   * Useful for testing or user-initiated compaction.
+   *
+   * @param sessionId - Session ID
+   * @param featureId - Feature ID
+   */
+  async forceCompact(sessionId: string, featureId: string): Promise<void> {
+    const session = await this.getSessionById(sessionId, featureId)
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`)
+    }
+
+    await this.compact(sessionId)
+  }
+
+  /**
    * Check if compaction is needed and trigger it.
    * This is called automatically after adding messages.
    *
@@ -448,11 +494,25 @@ export class SessionManager {
 
       console.log(`[SessionManager] Compacting ${chatSession.messages.length} messages for ${sessionId}`)
 
-      // Build compaction prompt
-      const prompt = buildCompactionPrompt(checkpoint, chatSession.messages)
-
       // Estimate tokens before compaction
       const estimatedTokens = estimateMessagesTokens(chatSession.messages)
+
+      // Emit start event
+      const windows = BrowserWindow.getAllWindows()
+      for (const win of windows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('session:compaction-start', {
+            sessionId,
+            featureId: session.featureId,
+            taskId: session.taskId,
+            messagesCount: chatSession.messages.length,
+            estimatedTokens
+          })
+        }
+      }
+
+      // Build compaction prompt
+      const prompt = buildCompactionPrompt(checkpoint, chatSession.messages)
 
       // Call Claude to compact messages into checkpoint
       const agentService = getAgentService()
@@ -519,8 +579,37 @@ export class SessionManager {
       console.log(
         `[SessionManager] Compacted ${chatSession.messages.length} messages for session ${sessionId} (checkpoint v${newCheckpoint.version})`
       )
+
+      // Emit complete event
+      for (const win of windows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('session:compaction-complete', {
+            sessionId,
+            featureId: session.featureId,
+            taskId: session.taskId,
+            messagesCompacted: chatSession.messages.length,
+            tokensReclaimed: estimatedTokens,
+            newCheckpointVersion: newCheckpoint.version,
+            compactedAt: now
+          })
+        }
+      }
     } catch (error) {
       console.error(`[SessionManager] Compaction failed for ${sessionId}:`, error)
+
+      // Emit error event
+      const session = this.activeSessions.get(sessionId)
+      if (session) {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('session:compaction-error', {
+              sessionId,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            })
+          }
+        }
+      }
       // Don't throw - allow session to continue even if compaction fails
       // User can try manual compaction later
     } finally {

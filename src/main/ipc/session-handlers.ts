@@ -236,5 +236,46 @@ export function registerSessionHandlers(): void {
     }
   )
 
+  // ============================================
+  // Compaction Operations
+  // ============================================
+
+  /**
+   * Get compaction metrics for a session.
+   */
+  ipcMain.handle(
+    'session:getMetrics',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string
+    ): Promise<{
+      totalCompactions: number
+      totalMessagesCompacted: number
+      totalTokens: number
+      lastCompactionAt?: string
+    } | null> => {
+      const manager = getSessionManager(projectRoot)
+      return await manager.getCompactionMetrics(sessionId, featureId)
+    }
+  )
+
+  /**
+   * Manually trigger compaction for a session.
+   */
+  ipcMain.handle(
+    'session:forceCompact',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string
+    ): Promise<void> => {
+      const manager = getSessionManager(projectRoot)
+      await manager.forceCompact(sessionId, featureId)
+    }
+  )
+
   console.log('[SessionHandlers] Registered all session IPC handlers')
 }

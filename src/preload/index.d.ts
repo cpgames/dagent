@@ -1457,6 +1457,61 @@ export interface SessionAPI {
   ) => Promise<void>
 
   /**
+   * Get compaction metrics for a session
+   */
+  getMetrics: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<{
+    totalCompactions: number
+    totalMessagesCompacted: number
+    totalTokens: number
+    lastCompactionAt?: string
+  } | null>
+
+  /**
+   * Manually trigger compaction for a session
+   */
+  forceCompact: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<void>
+
+  /**
+   * Subscribe to compaction start events
+   */
+  onCompactionStart: (callback: (data: {
+    sessionId: string
+    featureId: string
+    taskId?: string
+    messagesCount: number
+    estimatedTokens: number
+  }) => void) => () => void
+
+  /**
+   * Subscribe to compaction complete events
+   */
+  onCompactionComplete: (callback: (data: {
+    sessionId: string
+    featureId: string
+    taskId?: string
+    messagesCompacted: number
+    tokensReclaimed: number
+    newCheckpointVersion: number
+    compactedAt: string
+  }) => void) => () => void
+
+  /**
+   * Subscribe to compaction error events
+   */
+  onCompactionError: (callback: (data: {
+    sessionId: string
+    error: string
+  }) => void) => () => void
+
+  /**
    * Subscribe to session update events
    */
   onUpdated: (callback: (event: SessionUpdateEvent) => void) => () => void

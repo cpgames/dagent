@@ -744,6 +744,25 @@ const electronAPI = {
       ipcRenderer.invoke('session:getAgentDescription', projectRoot, sessionId, featureId),
     setAgentDescription: (projectRoot: string, sessionId: string, featureId: string, description: any): Promise<void> =>
       ipcRenderer.invoke('session:setAgentDescription', projectRoot, sessionId, featureId, description),
+    getMetrics: (projectRoot: string, sessionId: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:getMetrics', projectRoot, sessionId, featureId),
+    forceCompact: (projectRoot: string, sessionId: string, featureId: string): Promise<void> =>
+      ipcRenderer.invoke('session:forceCompact', projectRoot, sessionId, featureId),
+    onCompactionStart: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('session:compaction-start', handler)
+      return () => ipcRenderer.removeListener('session:compaction-start', handler)
+    },
+    onCompactionComplete: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('session:compaction-complete', handler)
+      return () => ipcRenderer.removeListener('session:compaction-complete', handler)
+    },
+    onCompactionError: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('session:compaction-error', handler)
+      return () => ipcRenderer.removeListener('session:compaction-error', handler)
+    },
     onUpdated: (callback: (event: any) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
       ipcRenderer.on('session:updated', handler)
