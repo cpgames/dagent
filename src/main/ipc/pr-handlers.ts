@@ -6,6 +6,7 @@
 import { ipcMain } from 'electron'
 import { getPRService } from '../github'
 import type { CreatePRRequest } from '../github'
+import { getFeatureStatusManager } from './feature-handlers'
 
 /**
  * Register IPC handlers for PR operations.
@@ -18,6 +19,20 @@ export function registerPRHandlers(): void {
 
   // Create a pull request
   ipcMain.handle('pr:create', async (_event, request: CreatePRRequest) => {
-    return getPRService().createPullRequest(request)
+    const result = await getPRService().createPullRequest(request)
+
+    // Archive feature after successful PR creation
+    if (result.success && request.featureId) {
+      try {
+        const statusManager = getFeatureStatusManager()
+        await statusManager.updateFeatureStatus(request.featureId, 'archived')
+        console.log(`[PR] Feature ${request.featureId} archived after PR creation`)
+      } catch (error) {
+        // Log error but don't fail PR creation - PR is already created
+        console.error(`[PR] Failed to archive feature ${request.featureId}:`, error)
+      }
+    }
+
+    return result
   })
 }

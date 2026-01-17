@@ -169,7 +169,8 @@ Merge completed feature "${feature.name}" into main branch.
         title: prTitle,
         body: prBody,
         head: feature.branchName,
-        base: 'main'
+        base: 'main',
+        featureId: feature.id
       })
 
       if (result.success && result.prUrl) {

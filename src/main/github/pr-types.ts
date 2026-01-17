@@ -24,6 +24,8 @@ export interface CreatePRRequest {
   base: string
   /** Create as draft PR */
   draft?: boolean
+  /** Feature ID (optional, for auto-archive on PR creation) */
+  featureId?: string
 }
 
 /**

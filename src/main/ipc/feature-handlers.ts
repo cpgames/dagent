@@ -45,6 +45,14 @@ function getStatusManager(): FeatureStatusManager {
 }
 
 /**
+ * Export as getFeatureStatusManager for use in other modules.
+ * Alias for getStatusManager().
+ */
+export function getFeatureStatusManager(): FeatureStatusManager {
+  return getStatusManager()
+}
+
+/**
  * Register feature-level IPC handlers.
  * Handles feature lifecycle operations like deletion with full cleanup.
  */

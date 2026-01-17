@@ -23,6 +23,7 @@ import { getAgentPool } from './agent-pool'
 import { getGitManager, getFeatureBranchName } from '../git'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
+import { getFeatureStatusManager } from '../ipc/feature-handlers'
 
 export class FeatureMergeAgent extends EventEmitter {
   private state: FeatureMergeAgentState
@@ -232,6 +233,9 @@ export class FeatureMergeAgent extends EventEmitter {
       if (result.success && result.merged) {
         this.state.status = 'completed'
         this.state.completedAt = new Date().toISOString()
+
+        // Archive feature after successful merge to main
+        await this.archiveFeature()
 
         this.emit('feature-merge-agent:completed', result)
       } else if (result.conflicts && result.conflicts.length > 0) {
@@ -456,6 +460,28 @@ export class FeatureMergeAgent extends EventEmitter {
    */
   getStatus(): FeatureMergeAgentStatus {
     return this.state.status
+  }
+
+  /**
+   * Archive the feature after successful merge.
+   * Transitions feature from 'completed' to 'archived' status.
+   */
+  private async archiveFeature(): Promise<void> {
+    try {
+      const statusManager = getFeatureStatusManager()
+      await statusManager.updateFeatureStatus(this.state.featureId, 'archived')
+
+      console.log(`[FeatureMergeAgent] Feature ${this.state.featureId} archived after successful merge`)
+
+      this.emit('feature-archived', {
+        featureId: this.state.featureId,
+        mergeType: 'ai'
+      })
+    } catch (error) {
+      // Log error but don't fail the merge - merge is already complete
+      console.error(`[FeatureMergeAgent] Failed to archive feature ${this.state.featureId}:`, error)
+      // User can manually archive if auto-archive fails
+    }
   }
 
   /**
