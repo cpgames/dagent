@@ -20,6 +20,8 @@ import { createDevAgent, type DevAgent } from '../agents/dev-agent'
 import type { TaskExecutionResult } from '../agents/dev-types'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import type { FeatureSpec } from '../agents/feature-spec-types'
+import { getSessionManager } from '../services/session-manager'
+import type { SessionContext, AgentDescription } from '../../shared/types/session'
 
 export interface TaskStateChange {
   taskId: string
@@ -198,6 +200,7 @@ export class TaskController extends EventEmitter {
       featureId,
       taskId,
       worktreePath: null,
+      sessionId: null,
       currentIteration: 0,
       maxIterations: this.config.maxIterations,
       iterationResults: [],
@@ -254,6 +257,20 @@ export class TaskController extends EventEmitter {
       // Load feature spec for DevAgent context
       const specStore = getFeatureSpecStore(this.projectRoot)
       this.featureSpec = await specStore.loadSpec(this.state.featureId)
+
+      // Create dev session for this Ralph Loop
+      const sessionManager = getSessionManager(this.projectRoot)
+      const session = await sessionManager.getOrCreateSession({
+        type: 'task',
+        agentType: 'dev',
+        featureId: this.state.featureId,
+        taskId: this.state.taskId,
+        taskState: 'in_dev'
+      })
+      this.state.sessionId = session.id
+
+      // Initialize context and agent description
+      await this.initializeSessionContext(session.id)
 
       // Enter iteration loop
       await this.runIterationLoop()
@@ -348,6 +365,26 @@ export class TaskController extends EventEmitter {
         })
       }
 
+      // Add iteration result to session checkpoint
+      if (this.state.sessionId) {
+        const sessionManager = getSessionManager(this.projectRoot)
+
+        // Add iteration as a message
+        await sessionManager.addMessage(this.state.sessionId, this.state.featureId, {
+          role: 'assistant',
+          content: iterationResult.summary,
+          metadata: {
+            internal: true,
+            iteration: this.state.currentIteration,
+            verificationResults: iterationResult.verificationResults.map((r) => ({
+              checkId: r.checkId,
+              passed: r.passed,
+              error: r.error
+            }))
+          }
+        })
+      }
+
       // Check if DevAgent failure should abort
       if (!devResult.success && this.config.abortOnDevAgentFail) {
         this.state.exitReason = 'error'
@@ -362,6 +399,52 @@ export class TaskController extends EventEmitter {
     }
 
     this.emit('loop:complete', this.getState())
+  }
+
+  /**
+   * Initialize session context and agent description for the dev session.
+   */
+  private async initializeSessionContext(sessionId: string): Promise<void> {
+    const sessionManager = getSessionManager(this.projectRoot)
+
+    // Build context from task/feature info
+    const context: SessionContext = {
+      projectRoot: this.projectRoot,
+      featureId: this.state.featureId,
+      featureName: this.featureGoal || this.state.featureId,
+      featureGoal: this.featureGoal,
+      taskId: this.state.taskId,
+      taskTitle: this.task?.title,
+      taskState: 'in_dev',
+      dependencies: [],
+      dependents: []
+    }
+
+    await sessionManager.updateContext(sessionId, this.state.featureId, context)
+
+    // Set agent description
+    const agentDesc: AgentDescription = {
+      agentType: 'dev',
+      roleInstructions: this.buildDevAgentRoleInstructions(),
+      createdAt: new Date().toISOString()
+    }
+
+    await sessionManager.setAgentDescription(sessionId, this.state.featureId, agentDesc)
+  }
+
+  /**
+   * Build role instructions for the Dev Agent.
+   */
+  private buildDevAgentRoleInstructions(): string {
+    return `You are a Dev Agent implementing a task in an isolated git worktree.
+
+Your job is to:
+1. Implement the task as described
+2. Make all necessary file changes
+3. Ensure code builds and tests pass
+4. Follow project conventions from CLAUDE.md
+
+Work in the current directory only. Do not navigate elsewhere.`
   }
 
   /**

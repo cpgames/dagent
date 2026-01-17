@@ -28,6 +28,15 @@ export type TaskState =
   | 'merged'
 
 /**
+ * Verification result summary for message metadata.
+ */
+export interface VerificationResultSummary {
+  checkId: string
+  passed: boolean
+  error?: string
+}
+
+/**
  * Individual chat message in a session.
  */
 export interface ChatMessage {
@@ -38,6 +47,7 @@ export interface ChatMessage {
   metadata?: {
     agentType?: AgentType
     iteration?: number
+    iterationNumber?: number  // Alias for iteration (used by TaskController)
     toolUse?: {
       name: string
       input?: unknown
@@ -48,6 +58,7 @@ export interface ChatMessage {
       output: number
     }
     internal?: boolean  // Don't show in user-facing UI
+    verificationResults?: VerificationResultSummary[]  // Results from Ralph Loop iteration
   }
 }
 
