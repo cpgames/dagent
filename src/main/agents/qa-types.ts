@@ -35,6 +35,7 @@ export interface QAAgentState {
   error: string | null
   startedAt: string | null
   completedAt: string | null
+  sessionId: string | null // Session ID for SessionManager logging
 }
 
 /**
@@ -66,7 +67,8 @@ export const DEFAULT_QA_AGENT_STATE: Omit<QAAgentState, 'featureId' | 'taskId'> 
   reviewResult: null,
   error: null,
   startedAt: null,
-  completedAt: null
+  completedAt: null,
+  sessionId: null
 }
 
 /**
