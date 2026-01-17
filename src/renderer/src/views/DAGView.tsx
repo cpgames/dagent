@@ -522,10 +522,10 @@ function DAGViewInner({
                     [3000, 3000]
                   ]}
                   defaultEdgeOptions={{ animated: false }}
-                  className="!bg-transparent"
+                  className="!bg-[rgba(10,0,21,0.5)]"
                   proOptions={{ hideAttribution: true }}
                 >
-                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(106, 80, 128, 0.3)" className="opacity-40" />
+                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(106, 80, 128, 0.5)" className="opacity-50" />
                   <Controls className="!bg-[var(--bg-surface)] !border-[var(--border-default)] [&>button]:!bg-[var(--bg-elevated)] [&>button]:!border-[var(--border-subtle)] [&>button]:!text-[var(--text-primary)] [&>button:hover]:!bg-[var(--bg-hover)]" />
                   <MiniMap
                     className="!bg-[var(--bg-surface)] !border-[var(--border-default)]"
