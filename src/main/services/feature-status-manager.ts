@@ -5,14 +5,19 @@ import type { FeatureStore } from '../storage/feature-store'
 /**
  * Valid status transitions map.
  * Each status can only transition to specific next statuses.
+ *
+ * Archive transition rules:
+ * - Only 'completed' features can transition to 'archived'
+ * - 'archived' is a final state - no transitions out allowed
+ * - Archive happens after merge to main or PR creation (Phase 99)
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
   planning: ['backlog'],
   backlog: ['in_progress'],
   in_progress: ['needs_attention', 'completed', 'backlog'],
   needs_attention: ['in_progress'],
-  completed: ['archived'],
-  archived: []
+  completed: ['archived'],  // Only from completed
+  archived: []  // Final state - no transitions out
 }
 
 /**
