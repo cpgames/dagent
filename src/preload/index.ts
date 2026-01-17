@@ -799,7 +799,13 @@ const electronAPI = {
     migrateAllPMChats: (projectRoot: string): Promise<any[]> =>
       ipcRenderer.invoke('session:migrateAllPMChats', projectRoot),
     needsMigration: (projectRoot: string, featureId: string): Promise<boolean> =>
-      ipcRenderer.invoke('session:needsMigration', projectRoot, featureId)
+      ipcRenderer.invoke('session:needsMigration', projectRoot, featureId),
+    migrateDevSession: (projectRoot: string, featureId: string, taskId: string): Promise<any> =>
+      ipcRenderer.invoke('session:migrateDevSession', projectRoot, featureId, taskId),
+    migrateAllDevSessions: (projectRoot: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:migrateAllDevSessions', projectRoot, featureId),
+    needsDevSessionMigration: (projectRoot: string, featureId: string, taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('session:needsDevSessionMigration', projectRoot, featureId, taskId)
   }
 }
 

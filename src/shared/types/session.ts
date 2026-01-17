@@ -46,6 +46,8 @@ export interface ChatMessage {
   timestamp: string
   metadata?: {
     agentType?: AgentType
+    agentId?: string  // Agent instance ID for tracking (DevAgent)
+    taskId?: string   // Task ID for context (DevAgent)
     iteration?: number
     iterationNumber?: number  // Alias for iteration (used by TaskController)
     toolUse?: {
@@ -59,6 +61,10 @@ export interface ChatMessage {
     }
     internal?: boolean  // Don't show in user-facing UI
     verificationResults?: VerificationResultSummary[]  // Results from Ralph Loop iteration
+    // Migration metadata
+    migratedFrom?: string
+    originalTimestamp?: string
+    originalType?: string
   }
 }
 

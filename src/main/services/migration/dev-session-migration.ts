@@ -119,7 +119,7 @@ export async function migrateDevSession(
           originalTimestamp: msg.timestamp,
           originalType: msg.type,
           internal: true
-        } as any
+        }
       })
     }
 

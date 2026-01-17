@@ -12,6 +12,12 @@ import {
   needsMigration,
   MigrationResult
 } from '../services/migration/chat-to-session'
+import {
+  migrateDevSession,
+  migrateAllDevSessions,
+  needsDevSessionMigration,
+  DevMigrationResult
+} from '../services/migration/dev-session-migration'
 import type {
   CreateSessionOptions,
   ChatMessage,
@@ -439,6 +445,61 @@ export function registerSessionHandlers(): void {
       featureId: string
     ): Promise<boolean> => {
       return await needsMigration(projectRoot, featureId)
+    }
+  )
+
+  // ============================================
+  // Dev Session Migration Operations
+  // ============================================
+
+  /**
+   * Migrate a single task's dev session from old format to session format.
+   */
+  ipcMain.handle(
+    'session:migrateDevSession',
+    async (
+      _event,
+      projectRoot: string,
+      featureId: string,
+      taskId: string
+    ): Promise<DevMigrationResult> => {
+      return await migrateDevSession(projectRoot, featureId, taskId)
+    }
+  )
+
+  /**
+   * Migrate all dev sessions for a feature.
+   */
+  ipcMain.handle(
+    'session:migrateAllDevSessions',
+    async (
+      _event,
+      projectRoot: string,
+      featureId: string
+    ): Promise<{
+      results: Record<string, DevMigrationResult>
+      totalMigrated: number
+    }> => {
+      const { results, totalMigrated } = await migrateAllDevSessions(projectRoot, featureId)
+      return {
+        results: Object.fromEntries(results),
+        totalMigrated
+      }
+    }
+  )
+
+  /**
+   * Check if a task needs dev session migration.
+   */
+  ipcMain.handle(
+    'session:needsDevSessionMigration',
+    async (
+      _event,
+      projectRoot: string,
+      featureId: string,
+      taskId: string
+    ): Promise<boolean> => {
+      return await needsDevSessionMigration(projectRoot, featureId, taskId)
     }
   )
 

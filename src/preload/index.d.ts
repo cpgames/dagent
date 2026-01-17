@@ -1617,6 +1617,46 @@ export interface SessionAPI {
     projectRoot: string,
     featureId: string
   ) => Promise<boolean>
+
+  /**
+   * Migrate a single task's dev session from old format to session format
+   */
+  migrateDevSession: (
+    projectRoot: string,
+    featureId: string,
+    taskId: string
+  ) => Promise<{
+    success: boolean
+    sessionId?: string
+    messagesImported?: number
+    backupPath?: string
+    error?: string
+  }>
+
+  /**
+   * Migrate all dev sessions for a feature
+   */
+  migrateAllDevSessions: (
+    projectRoot: string,
+    featureId: string
+  ) => Promise<{
+    results: Record<string, {
+      success: boolean
+      sessionId?: string
+      messagesImported?: number
+      error?: string
+    }>
+    totalMigrated: number
+  }>
+
+  /**
+   * Check if a task needs dev session migration
+   */
+  needsDevSessionMigration: (
+    projectRoot: string,
+    featureId: string,
+    taskId: string
+  ) => Promise<boolean>
 }
 
 export interface ElectronAPI {
