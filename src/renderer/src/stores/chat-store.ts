@@ -4,7 +4,7 @@ import { useAuthStore } from './auth-store'
 import { useProjectStore } from './project-store'
 import { useDAGStore } from './dag-store'
 import { useFeatureStore } from './feature-store'
-import type { ChatHistory, AgentStreamEvent } from '@shared/types'
+import type { AgentStreamEvent } from '@shared/types'
 
 export interface ChatMessage {
   id: string
@@ -21,6 +21,14 @@ export interface ActiveToolUse {
 
 export type ChatContextType = 'feature' | 'task' | 'agent'
 
+/**
+ * Compute PM session ID from feature ID.
+ * Session ID format: "pm-feature-{featureId}"
+ */
+function getPMSessionId(featureId: string): string {
+  return `pm-feature-${featureId}`
+}
+
 interface ChatState {
   messages: ChatMessage[]
   isLoading: boolean
@@ -28,6 +36,7 @@ interface ChatState {
   streamingContent: string // Partial response being built
   activeToolUse: ActiveToolUse | null // Current tool operation
   currentFeatureId: string | null
+  sessionId: string | null // Session ID for session API
   contextType: ChatContextType | null
   systemPrompt: string | null
   contextLoaded: boolean
@@ -51,26 +60,86 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingContent: '',
   activeToolUse: null,
   currentFeatureId: null,
+  sessionId: null,
   contextType: null,
   systemPrompt: null,
   contextLoaded: false,
 
   loadChat: async (contextId: string, contextType: ChatContextType = 'feature') => {
+    const sessionId = getPMSessionId(contextId)
+
     // Clear previous messages before loading new context's chat
     set({
       isLoading: true,
       messages: [],
       currentFeatureId: contextId,
+      sessionId,
       contextType,
       systemPrompt: null,
       contextLoaded: false
     })
     try {
-      // Load chat messages (currently only feature context is supported)
-      if (contextType === 'feature' && window.electronAPI?.storage?.loadChat) {
+      // Get project root from project store
+      const projectRoot = useProjectStore.getState().projectPath
+
+      // Check if migration is needed and perform it transparently
+      if (contextType === 'feature' && projectRoot && window.electronAPI?.session?.needsMigration) {
+        try {
+          const needsMigration = await window.electronAPI.session.needsMigration(projectRoot, contextId)
+          if (needsMigration && window.electronAPI?.session?.migratePMChat) {
+            console.log('[ChatStore] Migrating old chat format for', contextId)
+            const result = await window.electronAPI.session.migratePMChat(projectRoot, contextId)
+            if (result.success) {
+              console.log('[ChatStore] Migration successful:', result.messagesImported, 'messages imported')
+            } else {
+              console.error('[ChatStore] Migration failed:', result.error)
+            }
+          }
+        } catch (migrationError) {
+          console.error('[ChatStore] Migration check failed:', migrationError)
+          // Continue loading - migration is optional
+        }
+      }
+
+      // Load chat messages from session API (preferred) or fall back to storage API
+      if (contextType === 'feature' && projectRoot && window.electronAPI?.session?.loadMessages) {
+        try {
+          const sessionMessages = await window.electronAPI.session.loadMessages(
+            projectRoot,
+            sessionId,
+            contextId
+          )
+
+          if (sessionMessages && sessionMessages.length > 0) {
+            // Convert session ChatMessage to store ChatMessage format
+            const messages: ChatMessage[] = sessionMessages.map((msg, index) => ({
+              id: msg.id || `${contextId}-${index}-${msg.timestamp}`,
+              role: msg.role === 'system' ? 'assistant' : msg.role as 'user' | 'assistant',
+              content: msg.content,
+              timestamp: msg.timestamp
+            }))
+            set({ messages })
+          }
+        } catch (sessionError) {
+          console.warn('[ChatStore] Session API failed, falling back to storage:', sessionError)
+          // Fall back to old storage API
+          if (window.electronAPI?.storage?.loadChat) {
+            const chat = await window.electronAPI.storage.loadChat(contextId)
+            if (chat && chat.entries) {
+              const messages: ChatMessage[] = chat.entries.map((entry, index) => ({
+                id: `${contextId}-${index}-${entry.timestamp}`,
+                role: entry.role,
+                content: entry.content,
+                timestamp: entry.timestamp
+              }))
+              set({ messages })
+            }
+          }
+        }
+      } else if (contextType === 'feature' && window.electronAPI?.storage?.loadChat) {
+        // Fallback: Load from old storage if session API not available
         const chat = await window.electronAPI.storage.loadChat(contextId)
         if (chat && chat.entries) {
-          // Convert ChatEntry to ChatMessage (adding id field)
           const messages: ChatMessage[] = chat.entries.map((entry, index) => ({
             id: `${contextId}-${index}-${entry.timestamp}`,
             role: entry.role,
@@ -109,21 +178,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [...state.messages, newMessage]
     }))
 
-    // Persist to storage asynchronously
-    const { currentFeatureId, messages } = get()
-    if (currentFeatureId && window.electronAPI?.storage?.saveChat) {
-      // Build ChatHistory from current messages (including the new one)
-      const chatHistory: ChatHistory = {
-        entries: [...messages, newMessage].map((m) => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp
-        }))
+    // Persist to session API asynchronously (only user messages - assistant messages handled in sendToAgent)
+    const { currentFeatureId, sessionId } = get()
+    const projectRoot = useProjectStore.getState().projectPath
+
+    if (currentFeatureId && sessionId && projectRoot && message.role === 'user') {
+      // Use session API if available
+      if (window.electronAPI?.session?.addUserMessage) {
+        window.electronAPI.session.addUserMessage(
+          projectRoot,
+          sessionId,
+          currentFeatureId,
+          message.content
+        ).catch((err) => {
+          console.error('Failed to save message to session:', err)
+          toast.error('Failed to save chat message')
+        })
       }
-      window.electronAPI.storage.saveChat(currentFeatureId, chatHistory).catch((err) => {
-        console.error('Failed to save chat:', err)
-        toast.error('Failed to save chat message')
-      })
     }
   },
 
@@ -243,7 +314,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }))
       } else if (event.type === 'done') {
         // Finalize response
-        const { streamingContent, currentFeatureId: featId } = get()
+        const { streamingContent, currentFeatureId: featId, sessionId: sessId } = get()
         if (streamingContent && featId) {
           const assistantMessage: ChatMessage = {
             id: crypto.randomUUID(),
@@ -258,15 +329,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
             activeToolUse: null
           }))
 
-          // Persist
-          const { messages: updated } = get()
-          window.electronAPI.storage.saveChat(featId, {
-            entries: updated.map((m) => ({
-              role: m.role,
-              content: m.content,
-              timestamp: m.timestamp
-            }))
-          })
+          // Persist assistant message to session API
+          const projectRoot = useProjectStore.getState().projectPath
+          if (sessId && projectRoot && window.electronAPI?.session?.addAssistantMessage) {
+            window.electronAPI.session.addAssistantMessage(
+              projectRoot,
+              sessId,
+              featId,
+              streamingContent
+            ).catch((err) => {
+              console.error('Failed to save assistant message to session:', err)
+            })
+          }
         } else {
           set({ isResponding: false, streamingContent: '', activeToolUse: null })
         }
@@ -338,6 +412,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: [],
       currentFeatureId: null,
+      sessionId: null,
       contextType: null,
       isResponding: false,
       streamingContent: '',
@@ -347,7 +422,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
 
   clearMessages: () => {
-    const { currentFeatureId, contextType } = get()
+    const { currentFeatureId, sessionId, contextType } = get()
 
     // Clear messages but keep context/ID
     set({
@@ -357,10 +432,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeToolUse: null
     })
 
-    // Persist empty chat to storage
-    if (currentFeatureId && contextType === 'feature' && window.electronAPI?.storage?.saveChat) {
-      window.electronAPI.storage.saveChat(currentFeatureId, { entries: [] }).catch((err) => {
-        console.error('Failed to clear chat:', err)
+    // Clear messages via session API (preferred) or fall back to storage
+    const projectRoot = useProjectStore.getState().projectPath
+    if (currentFeatureId && sessionId && contextType === 'feature' && projectRoot && window.electronAPI?.session?.clearMessages) {
+      window.electronAPI.session.clearMessages(projectRoot, sessionId, currentFeatureId).catch((err) => {
+        console.error('Failed to clear session messages:', err)
         toast.error('Failed to clear chat')
       })
     }

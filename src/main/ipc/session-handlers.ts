@@ -6,6 +6,12 @@
 
 import { ipcMain } from 'electron'
 import { getSessionManager } from '../services/session-manager'
+import {
+  migratePMChat,
+  migrateAllPMChats,
+  needsMigration,
+  MigrationResult
+} from '../services/migration/chat-to-session'
 import type {
   CreateSessionOptions,
   ChatMessage,
@@ -78,6 +84,67 @@ export function registerSessionHandlers(): void {
     ): Promise<ChatMessage> => {
       const manager = getSessionManager(projectRoot)
       return await manager.addMessage(sessionId, featureId, message)
+    }
+  )
+
+  /**
+   * Load all messages from a session for PM chat display.
+   * Convenience wrapper that creates session if needed.
+   */
+  ipcMain.handle(
+    'session:loadMessages',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string
+    ): Promise<ChatMessage[]> => {
+      const manager = getSessionManager(projectRoot)
+      return await manager.getAllMessages(sessionId, featureId)
+    }
+  )
+
+  /**
+   * Add a user message to a session.
+   * Convenience wrapper for PM chat.
+   */
+  ipcMain.handle(
+    'session:addUserMessage',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      content: string
+    ): Promise<void> => {
+      const manager = getSessionManager(projectRoot)
+      await manager.addMessage(sessionId, featureId, {
+        role: 'user',
+        content
+      })
+    }
+  )
+
+  /**
+   * Add an assistant message to a session.
+   * Convenience wrapper for PM chat.
+   */
+  ipcMain.handle(
+    'session:addAssistantMessage',
+    async (
+      _event,
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      content: string,
+      metadata?: Record<string, unknown>
+    ): Promise<void> => {
+      const manager = getSessionManager(projectRoot)
+      await manager.addMessage(sessionId, featureId, {
+        role: 'assistant',
+        content,
+        metadata: metadata as ChatMessage['metadata']
+      })
     }
   )
 
@@ -327,6 +394,51 @@ export function registerSessionHandlers(): void {
     }> => {
       const manager = getSessionManager(projectRoot)
       return await manager.previewRequest(sessionId, featureId, userMessage)
+    }
+  )
+
+  // ============================================
+  // Migration Operations
+  // ============================================
+
+  /**
+   * Migrate PM chat for a single feature from old format to session format.
+   */
+  ipcMain.handle(
+    'session:migratePMChat',
+    async (
+      _event,
+      projectRoot: string,
+      featureId: string
+    ): Promise<MigrationResult> => {
+      return await migratePMChat(projectRoot, featureId)
+    }
+  )
+
+  /**
+   * Migrate PM chats for all features in a project.
+   */
+  ipcMain.handle(
+    'session:migrateAllPMChats',
+    async (
+      _event,
+      projectRoot: string
+    ): Promise<MigrationResult[]> => {
+      return await migrateAllPMChats(projectRoot)
+    }
+  )
+
+  /**
+   * Check if a feature needs migration.
+   */
+  ipcMain.handle(
+    'session:needsMigration',
+    async (
+      _event,
+      projectRoot: string,
+      featureId: string
+    ): Promise<boolean> => {
+      return await needsMigration(projectRoot, featureId)
     }
   )
 

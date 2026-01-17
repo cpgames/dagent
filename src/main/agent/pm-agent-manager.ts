@@ -5,6 +5,8 @@ import { getFeatureDir } from '../storage/paths'
 import { AgentService } from './agent-service'
 import { FeatureStatusManager } from '../services/feature-status-manager'
 import { setPMToolsFeatureContext } from '../ipc/pm-tools-handlers'
+import { getSessionManager } from '../services/session-manager'
+import type { CreateSessionOptions } from '../../shared/types/session'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 
@@ -75,20 +77,24 @@ export class PMAgentManager {
       let retryCount = 0
       const maxRetries = 1
 
-      // Load or initialize chat history for this feature
-      let chatHistory = await this.featureStore.loadChat(featureId)
-      if (!chatHistory) {
-        chatHistory = { entries: [] }
+      // Get session manager and create/get PM session for this feature
+      const sessionManager = getSessionManager(this.projectRoot)
+      const sessionOptions: CreateSessionOptions = {
+        type: 'feature',
+        agentType: 'pm',
+        featureId
       }
+      const session = await sessionManager.getOrCreateSession(sessionOptions)
+      const sessionId = session.id
+      console.log(`[PMAgentManager] Created/loaded PM session: ${sessionId}`)
 
-      // Add user-friendly initial message to chat history (not the full system prompt)
+      // Add user-friendly initial message to session (not the full system prompt)
       const userMessage = description
         ? `Plan feature: ${featureName}\n\n${description}`
         : `Plan feature: ${featureName}`
-      chatHistory.entries.push({
+      await sessionManager.addMessage(sessionId, featureId, {
         role: 'user',
-        content: userMessage,
-        timestamp: new Date().toISOString()
+        content: userMessage
       })
 
       while (retryCount <= maxRetries && !hasError) {
@@ -103,11 +109,11 @@ export class PMAgentManager {
             autoContext: false, // We're providing explicit context
             permissionMode: 'acceptEdits'
           })) {
-            // Log progress and save messages to chat history
+            // Log progress and save messages to session
             if (event.type === 'message' && event.message) {
               console.log(`[PMAgentManager] PM: ${event.message.content.slice(0, 100)}...`)
 
-              // Save assistant message to chat history
+              // Save assistant message to session
               // Note: event.message.type (not role) is 'assistant' for assistant messages
               // Filter out system initialization messages and other internal messages
               if (event.message.type === 'assistant' && event.message.content) {
@@ -118,10 +124,9 @@ export class PMAgentManager {
                                        content.length === 0
 
                 if (!isSystemMessage) {
-                  chatHistory.entries.push({
+                  await sessionManager.addMessage(sessionId, featureId, {
                     role: 'assistant',
-                    content: event.message.content,
-                    timestamp: new Date().toISOString()
+                    content: event.message.content
                   })
                 }
               }
@@ -149,12 +154,9 @@ export class PMAgentManager {
         }
       }
 
-      // Save chat history so it appears in DAG view PM chat
+      // Session messages are saved automatically via SessionManager.addMessage()
+      // Broadcast chat update to UI so it reloads the messages
       try {
-        await this.featureStore.saveChat(featureId, chatHistory)
-        console.log(`[PMAgentManager] Saved planning conversation to chat history`)
-
-        // Broadcast chat update to UI so it reloads the messages
         const windows = BrowserWindow.getAllWindows()
         for (const win of windows) {
           if (!win.isDestroyed()) {
@@ -163,8 +165,7 @@ export class PMAgentManager {
         }
         console.log(`[PMAgentManager] Broadcast chat update for ${featureId}`)
       } catch (error) {
-        console.error(`[PMAgentManager] Failed to save chat history:`, error)
-        // Don't fail planning if chat save fails
+        console.error(`[PMAgentManager] Failed to broadcast chat update:`, error)
       }
 
       // Step 4: Verify completion

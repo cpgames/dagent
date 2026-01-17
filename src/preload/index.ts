@@ -726,6 +726,18 @@ const electronAPI = {
       ipcRenderer.invoke('session:archive', projectRoot, sessionId, featureId),
     addMessage: (projectRoot: string, sessionId: string, featureId: string, message: any): Promise<any> =>
       ipcRenderer.invoke('session:addMessage', projectRoot, sessionId, featureId, message),
+    loadMessages: (projectRoot: string, sessionId: string, featureId: string): Promise<any[]> =>
+      ipcRenderer.invoke('session:loadMessages', projectRoot, sessionId, featureId),
+    addUserMessage: (projectRoot: string, sessionId: string, featureId: string, content: string): Promise<void> =>
+      ipcRenderer.invoke('session:addUserMessage', projectRoot, sessionId, featureId, content),
+    addAssistantMessage: (
+      projectRoot: string,
+      sessionId: string,
+      featureId: string,
+      content: string,
+      metadata?: Record<string, unknown>
+    ): Promise<void> =>
+      ipcRenderer.invoke('session:addAssistantMessage', projectRoot, sessionId, featureId, content, metadata),
     getRecentMessages: (projectRoot: string, sessionId: string, featureId: string, limit?: number): Promise<any[]> =>
       ipcRenderer.invoke('session:getRecentMessages', projectRoot, sessionId, featureId, limit),
     getAllMessages: (projectRoot: string, sessionId: string, featureId: string): Promise<any[]> =>
@@ -781,7 +793,13 @@ const electronAPI = {
       const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
       ipcRenderer.on('session:updated', handler)
       return () => ipcRenderer.removeListener('session:updated', handler)
-    }
+    },
+    migratePMChat: (projectRoot: string, featureId: string): Promise<any> =>
+      ipcRenderer.invoke('session:migratePMChat', projectRoot, featureId),
+    migrateAllPMChats: (projectRoot: string): Promise<any[]> =>
+      ipcRenderer.invoke('session:migrateAllPMChats', projectRoot),
+    needsMigration: (projectRoot: string, featureId: string): Promise<boolean> =>
+      ipcRenderer.invoke('session:needsMigration', projectRoot, featureId)
   }
 }
 

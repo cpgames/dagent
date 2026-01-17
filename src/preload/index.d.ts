@@ -1372,6 +1372,36 @@ export interface SessionAPI {
   ) => Promise<ChatMessage>
 
   /**
+   * Load all messages from a session (convenience for PM chat)
+   */
+  loadMessages: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string
+  ) => Promise<ChatMessage[]>
+
+  /**
+   * Add a user message to a session (convenience for PM chat)
+   */
+  addUserMessage: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    content: string
+  ) => Promise<void>
+
+  /**
+   * Add an assistant message to a session (convenience for PM chat)
+   */
+  addAssistantMessage: (
+    projectRoot: string,
+    sessionId: string,
+    featureId: string,
+    content: string,
+    metadata?: Record<string, unknown>
+  ) => Promise<void>
+
+  /**
    * Get recent messages from a session
    */
   getRecentMessages: (
@@ -1550,6 +1580,43 @@ export interface SessionAPI {
    * Subscribe to session update events
    */
   onUpdated: (callback: (event: SessionUpdateEvent) => void) => () => void
+
+  /**
+   * Migrate PM chat for a single feature from old format to session format
+   */
+  migratePMChat: (
+    projectRoot: string,
+    featureId: string
+  ) => Promise<{
+    success: boolean
+    featureId: string
+    messagesImported: number
+    sessionId?: string
+    error?: string
+    backupPath?: string
+  }>
+
+  /**
+   * Migrate PM chats for all features in a project
+   */
+  migrateAllPMChats: (
+    projectRoot: string
+  ) => Promise<Array<{
+    success: boolean
+    featureId: string
+    messagesImported: number
+    sessionId?: string
+    error?: string
+    backupPath?: string
+  }>>
+
+  /**
+   * Check if a feature needs migration
+   */
+  needsMigration: (
+    projectRoot: string,
+    featureId: string
+  ) => Promise<boolean>
 }
 
 export interface ElectronAPI {
