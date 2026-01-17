@@ -41,4 +41,11 @@ export interface Task {
   position: TaskPosition;
   qaFeedback?: string; // Feedback from QA agent when task fails QA
   assignedAgentId?: string; // ID of agent currently working on this task
+
+  // NEW: Session tracking per task state
+  sessions?: {
+    in_dev?: string[];      // Session IDs for dev iterations
+    in_qa?: string[];       // Session IDs for QA iterations
+  };
+  currentSessionId?: string;  // Active session ID
 }
