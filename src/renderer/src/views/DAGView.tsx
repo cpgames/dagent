@@ -28,6 +28,7 @@ import {
   TaskNode,
   FeatureTabs,
   NodeDialog,
+  ConfirmDialog,
   LogDialog,
   SessionLogDialog,
   ExecutionControls,
@@ -187,6 +188,13 @@ function DAGViewInner({
   // Edge selection state
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
 
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; taskId: string | null; taskTitle: string }>({
+    open: false,
+    taskId: null,
+    taskTitle: ''
+  })
+
   // Handle edge selection
   const handleSelectEdge = useCallback((edgeId: string) => {
     setSelectedEdgeId(edgeId)
@@ -267,12 +275,21 @@ function DAGViewInner({
       const task = dag?.nodes.find(n => n.id === taskId)
       const taskTitle = task?.title || 'this task'
 
-      if (window.confirm(`Delete "${taskTitle}"?\n\nThis will remove the task and all its connections.`)) {
-        removeNode(taskId)
-      }
+      setDeleteConfirm({
+        open: true,
+        taskId,
+        taskTitle
+      })
     },
-    [removeNode, dag]
+    [dag]
   )
+
+  const confirmDeleteTask = useCallback(() => {
+    if (deleteConfirm.taskId) {
+      removeNode(deleteConfirm.taskId)
+      setDeleteConfirm({ open: false, taskId: null, taskTitle: '' })
+    }
+  }, [deleteConfirm.taskId, removeNode])
 
   // Handle log button click on task
   const handleLogTask = useCallback(
@@ -646,6 +663,17 @@ function DAGViewInner({
       {logDialogOpen && logDialogTitle && logDialogSource === 'pm' && (
         <LogDialog entries={logEntries} title={logDialogTitle} onClose={closeLogDialog} />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title="Delete Task"
+        message={`Delete "${deleteConfirm.taskTitle}"?\n\nThis will remove the task and all its connections.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setDeleteConfirm({ open: false, taskId: null, taskTitle: '' })}
+      />
     </div>
   )
 }
