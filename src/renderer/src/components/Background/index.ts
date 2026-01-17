@@ -6,10 +6,7 @@
 
 export { UnifiedCanvas } from './UnifiedCanvas';
 export {
-  GridLayer,
   HorizonGlowLayer,
   ShootingStarsLayer,
-  SkyLayer,
-  StarsLayer,
-  TerrainLayer
+  StarsLayer
 } from './layers';

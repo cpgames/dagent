@@ -73,13 +73,28 @@ function App(): React.JSX.Element {
   }, [projectPath])
 
   const handleCreateFeature = async (data: FeatureCreateData): Promise<void> => {
+    // First, create the feature (without file paths yet)
     const feature = await createFeature(data.name, {
       description: data.description,
-      attachments: data.attachments,
       autoMerge: data.autoMerge
     })
+
     if (feature) {
       setNewFeatureDialogOpen(false)
+
+      // Upload attachments if provided
+      let attachmentPaths: string[] = []
+      if (data.attachments && data.attachments.length > 0) {
+        try {
+          attachmentPaths = await window.electronAPI.feature.uploadAttachments(
+            feature.id,
+            data.attachments
+          )
+        } catch (error) {
+          console.error('Failed to upload attachments:', error)
+          // Continue - planning can still work without attachments
+        }
+      }
 
       // Start PM agent planning in background
       try {
@@ -87,7 +102,7 @@ function App(): React.JSX.Element {
           feature.id,
           feature.name,
           data.description,
-          data.attachments
+          attachmentPaths
         )
       } catch (error) {
         console.error('Failed to start planning:', error)

@@ -929,6 +929,11 @@ export interface ChatAPI {
   getContext: (
     featureId: string
   ) => Promise<{ context: FeatureContext; systemPrompt: string } | null>
+
+  /**
+   * Subscribe to chat update events.
+   */
+  onUpdated: (callback: (data: { featureId: string }) => void) => () => void
 }
 
 /**
@@ -1029,6 +1034,12 @@ export interface FeatureAPI {
     description?: string,
     attachments?: string[]
   ) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Upload attachment files to feature worktree.
+   * Returns array of relative paths where files were saved.
+   */
+  uploadAttachments: (featureId: string, files: File[]) => Promise<string[]>
 }
 
 /**

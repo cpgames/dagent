@@ -142,6 +142,11 @@ export function registerDagHandlers(): void {
     'dag-manager:create',
     async (event, featureId: string, projectRoot: string) => {
       const manager = await getDAGManager(featureId, projectRoot)
+
+      // Always reload from storage to ensure we have the latest graph
+      // This is important when returning to a view after tasks were created elsewhere
+      await manager.reload()
+
       const window = BrowserWindow.fromWebContents(event.sender)
       if (window) {
         setupEventForwarding(manager, window, featureId)

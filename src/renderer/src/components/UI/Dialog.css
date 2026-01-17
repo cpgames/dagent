@@ -55,16 +55,19 @@
 .ui-dialog--sm {
   width: 100%;
   max-width: 400px;
+  max-height: 80vh;
 }
 
 .ui-dialog--md {
   width: 100%;
   max-width: 500px;
+  max-height: 80vh;
 }
 
 .ui-dialog--lg {
   width: 100%;
   max-width: 700px;
+  max-height: 85vh;
 }
 
 .ui-dialog--full {
@@ -132,8 +135,33 @@
 /* Body */
 .ui-dialog__body {
   padding: var(--space-lg);
-  overflow-y: auto;
-  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  height: 60vh;
+  min-height: 0; /* Critical for flex scrolling */
+}
+
+/* Scrollbar styling for dialog body */
+.ui-dialog__body::-webkit-scrollbar {
+  width: 30px;
+}
+
+.ui-dialog__body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  margin: 4px 0;
+}
+
+.ui-dialog__body::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.3); /* cyan with transparency */
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.ui-dialog__body::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 108, 230, 0.5); /* purple with transparency */
+  background-clip: padding-box;
 }
 
 /* Footer */

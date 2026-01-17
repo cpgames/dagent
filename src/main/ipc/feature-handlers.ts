@@ -282,6 +282,33 @@ export function registerFeatureHandlers(): void {
   )
 
   /**
+   * Upload multiple attachment files for a feature.
+   * Returns array of relative paths where files were saved.
+   */
+  ipcMain.handle(
+    'feature:uploadAttachments',
+    async (
+      _event,
+      featureId: string,
+      files: Array<{ name: string; buffer: ArrayBuffer }>
+    ): Promise<string[]> => {
+      const featureStore = getFeatureStore()
+      if (!featureStore) {
+        throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+      }
+
+      const savedPaths: string[] = []
+      for (const file of files) {
+        const buffer = Buffer.from(file.buffer)
+        const savedPath = await featureStore.saveAttachment(featureId, file.name, buffer)
+        savedPaths.push(savedPath)
+      }
+
+      return savedPaths
+    }
+  )
+
+  /**
    * Start PM agent planning for a feature.
    * Runs asynchronously - does not block the response.
    */

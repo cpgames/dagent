@@ -64,11 +64,24 @@ export function registerStorageHandlers(): void {
   });
 
   ipcMain.handle('storage:listFeatures', async () => {
-    return getStore().listFeatures();
+    console.log('[storage:listFeatures] Called');
+    try {
+      const result = await getStore().listFeatures();
+      console.log('[storage:listFeatures] Returning:', result, 'type:', typeof result, 'is array:', Array.isArray(result));
+      return result;
+    } catch (error) {
+      console.error('[storage:listFeatures] Error:', error);
+      throw error;
+    }
   });
 
   ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}) => {
-    return getStore().createFeature(name, options);
+    console.log('[storage:createFeature] Called with:', { name, options });
+    console.log('[storage:createFeature] options type:', typeof options);
+    console.log('[storage:createFeature] options.attachments:', options?.attachments, 'type:', typeof options?.attachments);
+    const feature = await getStore().createFeature(name, options);
+    console.log('[storage:createFeature] Feature created:', feature);
+    return feature;
   });
 
   ipcMain.handle('storage:featureExists', async (_event, name: string) => {

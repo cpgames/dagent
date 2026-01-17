@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, forwardRef } from 'react';
+import React, { useEffect, useRef, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import './Dialog.css';
 
@@ -35,17 +35,14 @@ export const Dialog: React.FC<DialogProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<Element | null>(null);
+  const onCloseRef = useRef(onClose);
+  const closeOnEscapeRef = useRef(closeOnEscape);
 
-  // Handle Escape key
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (closeOnEscape && e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    },
-    [closeOnEscape, onClose]
-  );
+  // Keep refs up to date
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscapeRef.current = closeOnEscape;
+  }, [onClose, closeOnEscape]);
 
   // Handle backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -96,7 +93,15 @@ export const Dialog: React.FC<DialogProps> = ({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    // Handle escape key
+    const handleEscape = (e: KeyboardEvent) => {
+      if (closeOnEscapeRef.current && e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
     document.addEventListener('keydown', handleTab);
 
     // Prevent body scroll
@@ -104,7 +109,7 @@ export const Dialog: React.FC<DialogProps> = ({
     document.body.style.overflow = 'hidden';
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('keydown', handleTab);
       document.body.style.overflow = originalOverflow;
 
@@ -113,7 +118,7 @@ export const Dialog: React.FC<DialogProps> = ({
         previousActiveElement.current.focus();
       }
     };
-  }, [open, handleKeyDown]);
+  }, [open]); // Only re-run when open changes, not on every render
 
   if (!open) return null;
 

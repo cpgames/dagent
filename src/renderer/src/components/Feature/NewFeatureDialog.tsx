@@ -6,7 +6,7 @@ import './NewFeatureDialog.css';
 export interface FeatureCreateData {
   name: string;
   description?: string;
-  attachments?: string[];
+  attachments?: File[];
   autoMerge?: boolean;
 }
 
@@ -73,11 +73,9 @@ export function NewFeatureDialog({
         autoMerge
       };
 
-      // Upload attachments if any (we'll handle this after feature creation)
-      // Note: We can't upload before feature exists, so we pass file names
-      // and the parent component will handle actual upload after feature creation
+      // Pass File objects if any - parent will handle uploading to worktree
       if (files.length > 0) {
-        data.attachments = files.map(f => f.name);
+        data.attachments = files;
       }
 
       await onSubmit(data);
@@ -136,7 +134,7 @@ export function NewFeatureDialog({
   };
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} size="md">
+    <Dialog open={isOpen} onClose={handleClose} size="md" closeOnBackdrop={false} closeOnEscape={false}>
       <DialogHeader title="Create New Feature" />
 
       <form onSubmit={handleSubmit}>

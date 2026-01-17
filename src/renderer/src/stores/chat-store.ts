@@ -366,3 +366,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   }
 }))
+
+// Subscribe to chat update events from main process
+if (typeof window !== 'undefined' && window.electronAPI?.chat?.onUpdated) {
+  window.electronAPI.chat.onUpdated((data: { featureId: string }) => {
+    const state = useChatStore.getState()
+    // Only reload if this is the currently active feature
+    if (state.currentFeatureId === data.featureId && state.contextType === 'feature') {
+      console.log('[ChatStore] Received chat update, reloading messages')
+      state.loadChat(data.featureId, 'feature')
+    }
+  })
+}

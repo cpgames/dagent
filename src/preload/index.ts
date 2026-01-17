@@ -502,7 +502,12 @@ const electronAPI = {
   // Chat API (AI chat integration)
   chat: {
     send: (request) => ipcRenderer.invoke('chat:send', request),
-    getContext: (featureId: string) => ipcRenderer.invoke('chat:getContext', featureId)
+    getContext: (featureId: string) => ipcRenderer.invoke('chat:getContext', featureId),
+    onUpdated: (callback: (data: { featureId: string }) => void) => {
+      const handler = (_event: unknown, data: { featureId: string }) => callback(data)
+      ipcRenderer.on('chat:updated', handler)
+      return () => ipcRenderer.removeListener('chat:updated', handler)
+    }
   },
 
   // SDK Agent API (Agent SDK streaming)
@@ -619,7 +624,19 @@ const electronAPI = {
       description?: string,
       attachments?: string[]
     ): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('feature:startPlanning', featureId, featureName, description, attachments)
+      ipcRenderer.invoke('feature:startPlanning', featureId, featureName, description, attachments),
+
+    // Upload attachment files to feature worktree
+    uploadAttachments: async (featureId: string, files: File[]): Promise<string[]> => {
+      // Convert File objects to ArrayBuffers for IPC transfer
+      const fileData = await Promise.all(
+        files.map(async (file) => ({
+          name: file.name,
+          buffer: await file.arrayBuffer()
+        }))
+      )
+      return ipcRenderer.invoke('feature:uploadAttachments', featureId, fileData)
+    }
   },
 
   // Context API (project/feature/task context for agents)

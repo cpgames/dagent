@@ -42,7 +42,7 @@
 }
 
 .new-feature-dialog__dropzone:hover {
-  border-color: var(--color-primary);
+  border-color: var(--accent-primary);
   background: var(--bg-elevated-hover);
 }
 
@@ -67,12 +67,14 @@
 .new-feature-dialog__dropzone-icon {
   width: 48px;
   height: 48px;
-  color: var(--text-muted);
+  color: var(--accent-secondary);
+  opacity: 0.5;
 }
 
 .new-feature-dialog__dropzone-text {
   font-size: 0.875rem;
-  color: var(--text-default);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .new-feature-dialog__dropzone-button {
@@ -111,7 +113,7 @@
 
 .new-feature-dialog__file-name {
   font-size: 0.875rem;
-  color: var(--text-default);
+  color: var(--accent-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

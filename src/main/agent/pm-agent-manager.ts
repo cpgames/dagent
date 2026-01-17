@@ -1,8 +1,10 @@
 import { EventEmitter } from 'events'
+import { BrowserWindow } from 'electron'
 import type { FeatureStore } from '../storage/feature-store'
 import { getFeatureDir } from '../storage/paths'
 import { AgentService } from './agent-service'
 import { FeatureStatusManager } from '../services/feature-status-manager'
+import { setPMToolsFeatureContext } from '../ipc/pm-tools-handlers'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 
@@ -55,6 +57,10 @@ export class PMAgentManager {
     console.log(`[PMAgentManager] Starting planning for feature: ${featureName} (${featureId})`)
 
     try {
+      // Step 0: Set PM tools feature context (CRITICAL - tools won't work without this!)
+      setPMToolsFeatureContext(featureId)
+      console.log(`[PMAgentManager] Set PM tools feature context to: ${featureId}`)
+
       // Step 1: Load feature context
       const context = await this.loadFeatureContext(featureId, featureName, description, attachments)
 
@@ -69,6 +75,19 @@ export class PMAgentManager {
       let retryCount = 0
       const maxRetries = 1
 
+      // Load or initialize chat history for this feature
+      let chatHistory = await this.featureStore.loadChat(featureId)
+      if (!chatHistory) {
+        chatHistory = { entries: [] }
+      }
+
+      // Add initial user prompt to chat history
+      chatHistory.entries.push({
+        role: 'user',
+        content: prompt,
+        timestamp: new Date().toISOString()
+      })
+
       while (retryCount <= maxRetries && !hasError) {
         try {
           // Stream PM agent execution
@@ -81,9 +100,19 @@ export class PMAgentManager {
             autoContext: false, // We're providing explicit context
             permissionMode: 'acceptEdits'
           })) {
-            // Log progress
+            // Log progress and save messages to chat history
             if (event.type === 'message' && event.message) {
               console.log(`[PMAgentManager] PM: ${event.message.content.slice(0, 100)}...`)
+
+              // Save assistant message to chat history
+              // Note: event.message.type (not role) is 'assistant' for assistant messages
+              if (event.message.type === 'assistant' && event.message.content) {
+                chatHistory.entries.push({
+                  role: 'assistant',
+                  content: event.message.content,
+                  timestamp: new Date().toISOString()
+                })
+              }
             } else if (event.type === 'error') {
               console.error(`[PMAgentManager] PM error: ${event.error}`)
               hasError = true
@@ -108,6 +137,24 @@ export class PMAgentManager {
         }
       }
 
+      // Save chat history so it appears in DAG view PM chat
+      try {
+        await this.featureStore.saveChat(featureId, chatHistory)
+        console.log(`[PMAgentManager] Saved planning conversation to chat history`)
+
+        // Broadcast chat update to UI so it reloads the messages
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('chat:updated', { featureId })
+          }
+        }
+        console.log(`[PMAgentManager] Broadcast chat update for ${featureId}`)
+      } catch (error) {
+        console.error(`[PMAgentManager] Failed to save chat history:`, error)
+        // Don't fail planning if chat save fails
+      }
+
       // Step 4: Verify completion
       if (!hasError) {
         const verified = await this.verifyPlanningComplete(featureId)
@@ -116,6 +163,18 @@ export class PMAgentManager {
           // Step 5: Move feature to backlog
           console.log(`[PMAgentManager] Planning complete for ${featureId}, moving to backlog`)
           await this.statusManager.updateFeatureStatus(featureId, 'backlog')
+
+          // Broadcast DAG update to UI so it shows the new tasks
+          const dag = await this.featureStore.loadDag(featureId)
+          if (dag) {
+            const windows = BrowserWindow.getAllWindows()
+            for (const win of windows) {
+              if (!win.isDestroyed()) {
+                win.webContents.send('dag:updated', { featureId, graph: dag })
+              }
+            }
+            console.log(`[PMAgentManager] Broadcast DAG update for ${featureId}`)
+          }
 
           // Emit completion event
           this.eventEmitter.emit('planning-complete', {
@@ -158,20 +217,29 @@ export class PMAgentManager {
     description?: string,
     attachmentPaths?: string[]
   ): Promise<string> {
+    console.log('[PMAgentManager] loadFeatureContext called with:', { featureId, description, attachmentPaths })
+    console.log('[PMAgentManager] attachmentPaths type:', typeof attachmentPaths, 'is array:', Array.isArray(attachmentPaths))
+
     const contextParts: string[] = []
+    console.log('[PMAgentManager] contextParts initialized:', Array.isArray(contextParts))
 
     // Add description if provided
     if (description) {
+      console.log('[PMAgentManager] Adding description to context')
       contextParts.push(`## Feature Description\n\n${description}`)
     }
 
     // Add attachment contents if provided
+    console.log('[PMAgentManager] Checking attachmentPaths?.length:', attachmentPaths?.length)
     if (attachmentPaths?.length) {
+      console.log('[PMAgentManager] attachmentPaths has length, adding to context')
       contextParts.push('\n## Attached Files\n')
 
       const featureDir = getFeatureDir(this.projectRoot, featureId)
+      console.log('[PMAgentManager] featureDir:', featureDir)
 
       for (const relPath of attachmentPaths) {
+        console.log('[PMAgentManager] Processing attachment:', relPath)
         try {
           const fullPath = path.join(featureDir, '..', relPath) // relPath is relative to feature worktree root
           const fileName = path.basename(fullPath)
@@ -223,8 +291,8 @@ ${context ? `\n${context}\n` : ''}
      - Feature goals and objectives
      - Requirements and acceptance criteria
      - Constraints and considerations
-     - Technical approach (if applicable)
-   - Base the spec on the feature name${context ? ', description, and attached files' : ' (no additional context provided)'}
+     - Technical approach (if applicable)${context ? '\n     - Reference to attached files (if any) in an "Attachments" section' : ''}
+   - Base the spec on the feature name${context ? ', description, and attached files' : ' (no additional context provided)'}${context ? '\n   - If there are attached files, add an "Attachments" section at the end of the spec listing each file' : ''}
 
 2. **Design Initial Task Breakdown**:
    - Use your PM tools (CreateTask, AddDependency) to create an initial DAG of tasks
