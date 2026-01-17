@@ -162,3 +162,17 @@
   background: var(--text-muted) !important;
   border: 2px solid var(--bg-elevated) !important;
 }
+
+/* Top handle - incoming dependencies */
+.task-node__handle[data-handlepos="top"] {
+  top: -6px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}
+
+/* Bottom handle - outgoing to dependents */
+.task-node__handle[data-handlepos="bottom"] {
+  bottom: -6px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}

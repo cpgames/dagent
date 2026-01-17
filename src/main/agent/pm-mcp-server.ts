@@ -19,6 +19,12 @@ import {
   pmUpdateSpec,
   pmGetSpec
 } from '../ipc/pm-spec-handlers'
+import {
+  pmDAGAddNode,
+  pmDAGAddConnection,
+  pmDAGRemoveNode,
+  pmDAGRemoveConnection
+} from '../ipc/pm-dag-handlers'
 
 // Dynamic SDK imports for ES module compatibility
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -501,6 +507,82 @@ export async function createPMMcpServer(): Promise<unknown | null> {
             }]
           }
         }
+      ),
+      tool(
+        'DAGAddNode',
+        'Add a new task node to the DAG with automatic vertical placement. Use this instead of CreateTask when you want DAGManager to handle positioning.',
+        {
+          title: z.string().describe('The title of the task'),
+          description: z.string().describe('Detailed description of what the task should accomplish'),
+          dependsOn: z.array(z.string()).optional().describe('Array of task IDs that must complete before this task can start')
+        },
+        async (args: { title: string; description: string; dependsOn?: string[] }) => {
+          const result = await pmDAGAddNode(args)
+          return {
+            content: [{
+              type: 'text',
+              text: result.success
+                ? `Task created successfully with ID: ${result.taskId}`
+                : `Failed to create task: ${result.error}`
+            }]
+          }
+        }
+      ),
+      tool(
+        'DAGAddConnection',
+        'Add a dependency connection between tasks with cycle validation. Creates edge from source to target (source must complete before target starts).',
+        {
+          sourceTaskId: z.string().describe('ID of the task that must complete first'),
+          targetTaskId: z.string().describe('ID of the task that depends on sourceTaskId')
+        },
+        async (args: { sourceTaskId: string; targetTaskId: string }) => {
+          const result = await pmDAGAddConnection(args)
+          return {
+            content: [{
+              type: 'text',
+              text: result.success
+                ? `Connection added: ${args.sourceTaskId} -> ${args.targetTaskId}`
+                : `Failed to add connection: ${result.error}`
+            }]
+          }
+        }
+      ),
+      tool(
+        'DAGRemoveNode',
+        'Remove a task node and all connected edges from the DAG.',
+        {
+          taskId: z.string().describe('The ID of the task to remove')
+        },
+        async (args: { taskId: string }) => {
+          const result = await pmDAGRemoveNode(args)
+          return {
+            content: [{
+              type: 'text',
+              text: result.success
+                ? `Task ${args.taskId} removed successfully`
+                : `Failed to remove task: ${result.error}`
+            }]
+          }
+        }
+      ),
+      tool(
+        'DAGRemoveConnection',
+        'Remove a dependency connection between two tasks.',
+        {
+          sourceTaskId: z.string().describe('ID of the dependency task to remove'),
+          targetTaskId: z.string().describe('ID of the task that currently depends on sourceTaskId')
+        },
+        async (args: { sourceTaskId: string; targetTaskId: string }) => {
+          const result = await pmDAGRemoveConnection(args)
+          return {
+            content: [{
+              type: 'text',
+              text: result.success
+                ? `Connection removed: ${args.sourceTaskId} -> ${args.targetTaskId}`
+                : `Failed to remove connection: ${result.error}`
+            }]
+          }
+        }
       )
     ]
   })
@@ -521,6 +603,10 @@ export function getPMToolNamesForAllowedTools(): string[] {
     'mcp__pm-tools__CreateSpec',
     'mcp__pm-tools__UpdateSpec',
     'mcp__pm-tools__GetSpec',
-    'mcp__pm-tools__DecomposeSpec'
+    'mcp__pm-tools__DecomposeSpec',
+    'mcp__pm-tools__DAGAddNode',
+    'mcp__pm-tools__DAGAddConnection',
+    'mcp__pm-tools__DAGRemoveNode',
+    'mcp__pm-tools__DAGRemoveConnection'
   ]
 }

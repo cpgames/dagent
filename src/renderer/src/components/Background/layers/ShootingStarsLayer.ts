@@ -12,9 +12,9 @@ interface ShootingStar {
   vx: number;
   /** Velocity y in pixels per ms (positive for downward movement) */
   vy: number;
-  /** Trail length in pixels (35-50) */
+  /** Trail length in pixels (80-120) */
   trailLength: number;
-  /** Current opacity (fades out near end of life) */
+  /** Current opacity (fades out gradually over lifetime) */
   opacity: number;
   /** Remaining lifetime in ms */
   life: number;
@@ -26,16 +26,16 @@ interface ShootingStar {
  * ShootingStarsLayer renders animated shooting stars with gradient trails.
  *
  * Features:
- * - Random spawn at ~1% chance per frame
- * - Maximum 3 shooting stars visible at any time
- * - Gradient trail 35-50px in length
+ * - Random spawn at ~0.3% chance per frame (fewer stars)
+ * - Maximum 2 shooting stars visible at any time
+ * - Gradient trail 80-120px in length (longer trails)
  * - Stars move diagonally across upper portion of viewport
- * - Fade out in last 500ms of life
+ * - Fade out gradually over entire lifetime
  */
 export class ShootingStarsLayer implements Layer {
   private stars: ShootingStar[] = [];
-  private readonly MAX_STARS = 3;
-  private readonly SPAWN_CHANCE = 0.01;
+  private readonly MAX_STARS = 2;
+  private readonly SPAWN_CHANCE = 0.003;
   private canvasWidth = 0;
   private canvasHeight = 0;
 
@@ -60,10 +60,8 @@ export class ShootingStarsLayer implements Layer {
       // Decrease life
       star.life -= deltaTime;
 
-      // Calculate opacity - fade out in last 500ms
-      if (star.life <= 500) {
-        star.opacity = Math.max(0, star.life / 500);
-      }
+      // Calculate opacity - fade out gradually over entire lifetime
+      star.opacity = Math.max(0, star.life / star.maxLife);
     }
 
     // Remove dead or off-screen stars
@@ -84,10 +82,11 @@ export class ShootingStarsLayer implements Layer {
       const tailX = star.x + star.trailLength * Math.cos(angle);
       const tailY = star.y + star.trailLength * Math.sin(angle);
 
-      // Create linear gradient from tail (transparent) to head (bright)
+      // Create linear gradient from tail (transparent) to head (bright purple/magenta)
       const gradient = ctx.createLinearGradient(tailX, tailY, star.x, star.y);
-      gradient.addColorStop(0, `rgba(255, 255, 255, 0)`);
-      gradient.addColorStop(1, `rgba(255, 255, 255, ${star.opacity})`);
+      gradient.addColorStop(0, `rgba(138, 43, 226, 0)`); // Transparent purple
+      gradient.addColorStop(0.5, `rgba(186, 85, 211, ${star.opacity * 0.6})`); // Medium orchid
+      gradient.addColorStop(1, `rgba(255, 0, 255, ${star.opacity})`); // Bright magenta at head
 
       // Draw trail line
       ctx.beginPath();
@@ -101,7 +100,7 @@ export class ShootingStarsLayer implements Layer {
       // Draw bright circle at head
       ctx.beginPath();
       ctx.arc(star.x, star.y, 2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+      ctx.fillStyle = `rgba(255, 0, 255, ${star.opacity})`; // Bright magenta
       ctx.fill();
     }
   }
@@ -118,15 +117,15 @@ export class ShootingStarsLayer implements Layer {
     const x = Math.random() * this.canvasWidth;
     const y = Math.random() * this.canvasHeight * 0.2;
 
-    // Velocity: leftward and downward
-    const vx = -0.3 - Math.random() * 0.2; // -0.3 to -0.5 px/ms
-    const vy = 0.15 + Math.random() * 0.1; // 0.15 to 0.25 px/ms
+    // Velocity: slower, leftward and downward
+    const vx = -0.15 - Math.random() * 0.1; // -0.15 to -0.25 px/ms (50% slower)
+    const vy = 0.08 + Math.random() * 0.05; // 0.08 to 0.13 px/ms (50% slower)
 
-    // Trail length: 35-50px
-    const trailLength = 35 + Math.random() * 15;
+    // Trail length: 80-120px (longer trails)
+    const trailLength = 80 + Math.random() * 40;
 
-    // Life: 2000-3000ms
-    const life = 2000 + Math.random() * 1000;
+    // Life: 4000-6000ms (longer lifetime for gradual fade)
+    const life = 4000 + Math.random() * 2000;
 
     this.stars.push({
       x,

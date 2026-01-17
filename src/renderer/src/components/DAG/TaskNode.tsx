@@ -36,8 +36,8 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
 
   return (
     <div className={nodeClasses}>
-      {/* Target handle (left) - input from dependencies */}
-      <Handle type="target" position={Position.Left} className="task-node__handle" />
+      {/* Target handle (top) - input from dependencies */}
+      <Handle type="target" position={Position.Top} className="task-node__handle" />
 
       {/* Header */}
       <div className="task-node__header">
@@ -146,8 +146,8 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
         <span className="task-node__status-text">{getTaskStatusLabel(task.status)}</span>
       </div>
 
-      {/* Source handle (right) - output to dependents */}
-      <Handle type="source" position={Position.Right} className="task-node__handle" />
+      {/* Source handle (bottom) - output to dependents */}
+      <Handle type="source" position={Position.Bottom} className="task-node__handle" />
     </div>
   )
 }

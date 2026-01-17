@@ -657,6 +657,16 @@ const electronAPI = {
       ipcRenderer.on('dag-manager:event', handler)
       return () => ipcRenderer.removeListener('dag-manager:event', handler)
     }
+  },
+
+  // DAG Layout API (layout persistence)
+  dagLayout: {
+    save: (featureId: string, positions: Record<string, { x: number; y: number }>): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('dag-layout:save', featureId, positions),
+    load: (featureId: string): Promise<{ success: boolean; layout: { featureId: string; positions: Record<string, { x: number; y: number }>; updatedAt: string } | null; error?: string }> =>
+      ipcRenderer.invoke('dag-layout:load', featureId),
+    delete: (featureId: string): Promise<{ success: boolean; deleted: boolean; error?: string }> =>
+      ipcRenderer.invoke('dag-layout:delete', featureId)
   }
 }
 

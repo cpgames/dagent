@@ -15,14 +15,12 @@ export class GridLayer implements Layer {
   // Configuration constants
   private readonly lineCount = 15;
   private readonly verticalLineCount = 21; // Odd for center line
-  private readonly scrollSpeed = 0.05;
 
   // State
   private scrollOffset = 0;
-  private baseSpacing = 0;
 
-  init(_ctx: CanvasRenderingContext2D, context: LayerContext): void {
-    this.baseSpacing = context.height / this.lineCount;
+  init(_ctx: CanvasRenderingContext2D, _context: LayerContext): void {
+    // Grid spacing is calculated dynamically in render
   }
 
   update(_deltaTime: number): void {

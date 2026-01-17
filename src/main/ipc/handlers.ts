@@ -19,6 +19,7 @@ import { registerContextHandlers } from './context-handlers'
 import { registerPRHandlers } from './pr-handlers'
 import { registerFeatureMergeAgentHandlers } from './feature-merge-agent-handlers'
 import { registerPMSpecHandlers } from './pm-spec-handlers'
+import { registerDAGLayoutHandlers } from './dag-layout-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -65,6 +66,8 @@ export function registerIpcHandlers(): void {
   registerFeatureMergeAgentHandlers()
   // Register PM spec handlers (feature specification management)
   registerPMSpecHandlers()
+  // Register DAG layout handlers (layout persistence)
+  registerDAGLayoutHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

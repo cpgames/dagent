@@ -1,8 +1,10 @@
 import { ipcMain } from 'electron';
 import { FeatureStore } from '../storage/feature-store';
+import { initializeLayoutStore } from '../storage/dag-layout-store';
 import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types';
 
 let featureStore: FeatureStore | null = null;
+let currentProjectRoot: string | null = null;
 
 /**
  * Initialize the storage layer with a project root.
@@ -10,6 +12,9 @@ let featureStore: FeatureStore | null = null;
  */
 export function initializeStorage(projectRoot: string): void {
   featureStore = new FeatureStore(projectRoot);
+  currentProjectRoot = projectRoot;
+  // Initialize layout store alongside feature store
+  initializeLayoutStore(projectRoot);
 }
 
 /**
@@ -18,6 +23,14 @@ export function initializeStorage(projectRoot: string): void {
  */
 export function getFeatureStore(): FeatureStore | null {
   return featureStore;
+}
+
+/**
+ * Get the current project root.
+ * Returns null if storage not initialized.
+ */
+export function getProjectRoot(): string | null {
+  return currentProjectRoot;
 }
 
 /**

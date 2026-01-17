@@ -1163,6 +1163,34 @@ export interface DAGManagerAPI {
 }
 
 /**
+ * DAG Layout API for persisting node positions.
+ */
+export interface DAGLayoutAPI {
+  /**
+   * Save layout positions for a feature.
+   */
+  save: (featureId: string, positions: Record<string, { x: number; y: number }>) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Load layout positions for a feature.
+   */
+  load: (featureId: string) => Promise<{
+    success: boolean;
+    layout: {
+      featureId: string;
+      positions: Record<string, { x: number; y: number }>;
+      updatedAt: string
+    } | null;
+    error?: string
+  }>
+
+  /**
+   * Delete layout data for a feature.
+   */
+  delete: (featureId: string) => Promise<{ success: boolean; deleted: boolean; error?: string }>
+}
+
+/**
  * PM Tools API for task management.
  * Enables PM Agent to create, read, update, and delete tasks with dependency inference.
  */
@@ -1403,6 +1431,11 @@ export interface ElectronAPI {
    * DAGManager API for validated DAG operations with cycle detection
    */
   dagManager: DAGManagerAPI
+
+  /**
+   * DAG Layout API for persisting node positions
+   */
+  dagLayout: DAGLayoutAPI
 }
 
 declare global {

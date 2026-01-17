@@ -14,11 +14,8 @@ import {
 import { ViewSidebar, StatusBar } from './components/Layout'
 import {
   UnifiedCanvas,
-  SkyLayer,
-  StarsLayer,
   HorizonGlowLayer,
-  TerrainLayer,
-  GridLayer,
+  StarsLayer,
   ShootingStarsLayer
 } from './components/Background'
 import { Button } from './components/UI'
@@ -127,19 +124,17 @@ function App(): React.JSX.Element {
   }
 
   // Instantiate background layers (back to front)
+  // Using hybrid approach: static image background + horizon glow + stars + shooting stars
   const backgroundLayers = useMemo(() => [
-    new SkyLayer(),
-    new StarsLayer(),
     new HorizonGlowLayer(),
-    new TerrainLayer(),
-    new GridLayer(),
+    new StarsLayer(),
     new ShootingStarsLayer()
   ], []);
 
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <UnifiedCanvas layers={backgroundLayers} />
+        <UnifiedCanvas layers={backgroundLayers} backgroundImage="/synthwave.png" />
         <div className="h-screen text-white flex flex-col overflow-hidden relative z-0">
           {/* Header */}
           <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">

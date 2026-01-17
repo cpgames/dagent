@@ -25,7 +25,7 @@ const dagManagers = new Map<string, DAGManager>()
 /**
  * Get or create DAGManager for a feature.
  */
-async function getDAGManager(featureId: string, projectRoot: string): Promise<DAGManager> {
+export async function getDAGManager(featureId: string, projectRoot: string): Promise<DAGManager> {
   const key = `${projectRoot}:${featureId}`
 
   if (!dagManagers.has(key)) {

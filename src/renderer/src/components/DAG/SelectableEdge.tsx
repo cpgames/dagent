@@ -16,6 +16,13 @@ export interface SelectableEdgeData {
   [key: string]: unknown // Index signature for React Flow compatibility
 }
 
+interface EdgeMarker {
+  type: 'arrow' | 'arrowclosed'
+  width?: number
+  height?: number
+  color?: string
+}
+
 interface SelectableEdgeProps {
   id: string
   sourceX: number
@@ -27,7 +34,7 @@ interface SelectableEdgeProps {
   source: string
   target: string
   data?: SelectableEdgeData
-  markerEnd?: string
+  markerEnd?: string | EdgeMarker
 }
 
 export default function SelectableEdge({
@@ -78,13 +85,22 @@ export default function SelectableEdge({
     setShowConfirm(false)
   }
 
+  // Override marker color based on selection state
+  const markerConfig: string | EdgeMarker | undefined =
+    markerEnd && typeof markerEnd === 'object'
+      ? {
+          ...markerEnd,
+          color: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR_DEFAULT
+        }
+      : markerEnd
+
   return (
     <>
       {/* Visible edge with click handler */}
       <BaseEdge
         id={id}
         path={edgePath}
-        markerEnd={markerEnd}
+        markerEnd={markerConfig as string}
         interactionWidth={20}
         style={{
           stroke: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR_DEFAULT,

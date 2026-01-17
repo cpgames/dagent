@@ -9,6 +9,8 @@ export interface UnifiedCanvasProps {
   layers: Layer[];
   /** Additional CSS class name */
   className?: string;
+  /** Optional static background image URL */
+  backgroundImage?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export interface UnifiedCanvasProps {
 export const UnifiedCanvas: React.FC<UnifiedCanvasProps> = ({
   layers,
   className = '',
+  backgroundImage,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<LayerContext>({ width: 0, height: 0, dpr: 1 });
@@ -146,6 +149,25 @@ export const UnifiedCanvas: React.FC<UnifiedCanvasProps> = ({
     () => ['unified-canvas', className].filter(Boolean).join(' '),
     [className]
   );
+
+  // If backgroundImage is provided, render it as a static image behind the canvas
+  if (backgroundImage) {
+    return (
+      <div className="unified-canvas-container">
+        <img
+          src={backgroundImage}
+          alt=""
+          className="unified-canvas-background"
+          aria-hidden="true"
+        />
+        <canvas
+          ref={canvasRef}
+          className={classes}
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
 
   return (
     <canvas

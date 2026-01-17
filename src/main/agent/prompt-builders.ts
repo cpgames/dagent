@@ -86,6 +86,25 @@ After spec is updated, analyze complexity:
 - Always call ListTasks first to see existing tasks
 - Be CONCISE: just confirm actions taken
 
+## DAG Operations (via DAGManager)
+- Use DAGAddNode to create tasks with automatic vertical placement
+  - DAGManager handles positioning in top-to-bottom flow
+  - Tasks without dependencies appear at top
+  - Dependent tasks appear below blockers
+- Use DAGAddConnection to add dependencies with cycle validation
+  - Returns error if connection would create a cycle
+  - Source task must complete before target task starts
+- DAGRemoveNode removes task and all connected edges
+- DAGRemoveConnection removes single dependency edge
+
+## When to use DAG tools vs legacy CreateTask
+- Use DAGAddNode when you want automatic placement (recommended for new tasks)
+- Use CreateTask if you need manual position control or legacy compatibility
+- Both are valid - DAGAddNode provides better placement, CreateTask gives more control
+
+## Cycle prevention
+If DAGAddConnection fails with "would create a cycle", explain to user which tasks form the cycle and suggest removing one dependency to break it.
+
 ## Selected Task Context
 If a "Current Task" section appears in context:
 - "this task" or "the task" refers to the selected task

@@ -14,3 +14,31 @@
   z-index: 0;
   pointer-events: none;
 }
+
+/**
+ * Hybrid approach: container for static background + animated canvas overlay
+ */
+.unified-canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.unified-canvas-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.unified-canvas-container .unified-canvas {
+  position: absolute;
+  z-index: 1;
+}
