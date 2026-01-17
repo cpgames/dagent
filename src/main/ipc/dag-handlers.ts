@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import type { DAGGraph, Task, TaskStatus } from '@shared/types'
 import type { StateTransitionEvent } from '../dag-engine/state-machine'
 import {
@@ -16,6 +16,50 @@ import {
   resetTaskAndDependents,
   recalculateAllStatuses
 } from '../dag-engine'
+import { DAGManager } from '../dag-engine/dag-manager'
+import type { DAGManagerConfig, DAGEvent } from '../dag-engine/dag-api-types'
+
+// Store DAGManager instances per featureId
+const dagManagers = new Map<string, DAGManager>()
+
+/**
+ * Get or create DAGManager for a feature.
+ */
+async function getDAGManager(featureId: string, projectRoot: string): Promise<DAGManager> {
+  const key = `${projectRoot}:${featureId}`
+
+  if (!dagManagers.has(key)) {
+    const config: DAGManagerConfig = {
+      featureId,
+      projectRoot,
+      autoSave: true
+    }
+    const manager = await DAGManager.create(config)
+    dagManagers.set(key, manager)
+  }
+
+  return dagManagers.get(key)!
+}
+
+/**
+ * Forward DAGManager events to renderer process.
+ */
+function setupEventForwarding(manager: DAGManager, window: BrowserWindow, featureId: string): void {
+  const events: Array<DAGEvent['type']> = [
+    'node-added',
+    'node-removed',
+    'connection-added',
+    'connection-removed',
+    'node-moved',
+    'graph-reset'
+  ]
+
+  events.forEach((eventType) => {
+    manager.on(eventType, (event: DAGEvent) => {
+      window.webContents.send('dag-manager:event', { featureId, event })
+    })
+  })
+}
 
 export function registerDagHandlers(): void {
   ipcMain.handle('dag:topological-sort', async (_event, graph: DAGGraph) => {
@@ -91,5 +135,68 @@ export function registerDagHandlers(): void {
 
   ipcMain.handle('dag:recalculate-statuses', async (_event, graph: DAGGraph) => {
     return recalculateAllStatuses(graph)
+  })
+
+  // DAGManager IPC handlers
+  ipcMain.handle(
+    'dag-manager:create',
+    async (event, featureId: string, projectRoot: string) => {
+      const manager = await getDAGManager(featureId, projectRoot)
+      const window = BrowserWindow.fromWebContents(event.sender)
+      if (window) {
+        setupEventForwarding(manager, window, featureId)
+      }
+      return { success: true, graph: manager.getGraph() }
+    }
+  )
+
+  ipcMain.handle('dag-manager:add-node', async (_event, featureId: string, projectRoot: string, task: Partial<Task>) => {
+    const manager = await getDAGManager(featureId, projectRoot)
+    const node = await manager.addNode(task)
+    return node
+  })
+
+  ipcMain.handle('dag-manager:remove-node', async (_event, featureId: string, projectRoot: string, nodeId: string) => {
+    const manager = await getDAGManager(featureId, projectRoot)
+    await manager.removeNode(nodeId)
+    return { success: true }
+  })
+
+  ipcMain.handle(
+    'dag-manager:add-connection',
+    async (_event, featureId: string, projectRoot: string, sourceId: string, targetId: string) => {
+      const manager = await getDAGManager(featureId, projectRoot)
+      const connection = await manager.addConnection(sourceId, targetId)
+      return connection // null if validation failed
+    }
+  )
+
+  ipcMain.handle(
+    'dag-manager:remove-connection',
+    async (_event, featureId: string, projectRoot: string, connectionId: string) => {
+      const manager = await getDAGManager(featureId, projectRoot)
+      await manager.removeConnection(connectionId)
+      return { success: true }
+    }
+  )
+
+  ipcMain.handle(
+    'dag-manager:move-node',
+    async (_event, featureId: string, projectRoot: string, nodeId: string, position: { x: number; y: number }) => {
+      const manager = await getDAGManager(featureId, projectRoot)
+      await manager.moveNode(nodeId, position)
+      return { success: true }
+    }
+  )
+
+  ipcMain.handle('dag-manager:get-graph', async (_event, featureId: string, projectRoot: string) => {
+    const manager = await getDAGManager(featureId, projectRoot)
+    return manager.getGraph()
+  })
+
+  ipcMain.handle('dag-manager:reset-graph', async (_event, featureId: string, projectRoot: string, graph: DAGGraph) => {
+    const manager = await getDAGManager(featureId, projectRoot)
+    await manager.resetGraph(graph)
+    return { success: true }
   })
 }

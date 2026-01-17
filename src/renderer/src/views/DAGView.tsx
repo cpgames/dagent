@@ -10,7 +10,6 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  addEdge,
   type Node,
   type Edge,
   type Connection,
@@ -91,6 +90,11 @@ function dagToEdges(
       source: conn.from,
       target: conn.to,
       type: 'selectable',
+      markerEnd: {
+        type: 'arrowclosed',
+        width: 20,
+        height: 20
+      },
       data: {
         selected: edgeId === selectedEdgeId,
         onSelect: onSelectEdge,
@@ -366,15 +370,16 @@ export default function DAGView(): JSX.Element {
 
   // Handle new connections
   const handleConnect: OnConnect = useCallback(
-    (connection: Connection) => {
+    async (connection: Connection) => {
       if (connection.source && connection.target) {
-        // Add to React Flow state
-        setEdges((eds) => addEdge(connection, eds))
-        // Add to DAG store
-        addConnection({ from: connection.source, to: connection.target })
+        // Add to DAG store (with validation)
+        // Don't add directly to React Flow - let event-driven updates handle it
+        await addConnection({ from: connection.source, to: connection.target })
+        // Note: If validation fails, addConnection will show an error toast
+        // and the connection won't be added (no edge will appear)
       }
     },
-    [setEdges, addConnection]
+    [addConnection]
   )
 
   // Handle edge changes including deletion

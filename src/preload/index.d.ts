@@ -9,6 +9,7 @@ import type {
   ChatHistory,
   AgentLog,
   Task,
+  Connection,
   AuthState,
   HistoryState,
   AgentConfig,
@@ -1108,6 +1109,60 @@ export interface PMSpecAPI {
 }
 
 /**
+ * DAGManager API for validated DAG operations with cycle detection.
+ * Provides centralized DAG mutation operations with validation and event emission.
+ */
+export interface DAGManagerAPI {
+  /**
+   * Create/initialize DAGManager for a feature.
+   * Sets up event forwarding to renderer process.
+   */
+  create: (featureId: string, projectRoot: string) => Promise<{ success: boolean; graph: DAGGraph }>
+
+  /**
+   * Add a node to the graph with validation.
+   */
+  addNode: (featureId: string, projectRoot: string, task: Partial<Task>) => Promise<Task>
+
+  /**
+   * Remove a node from the graph (also removes related connections).
+   */
+  removeNode: (featureId: string, projectRoot: string, nodeId: string) => Promise<{ success: boolean }>
+
+  /**
+   * Add a connection to the graph with cycle detection.
+   * Returns null if validation fails (e.g., would create a cycle).
+   */
+  addConnection: (featureId: string, projectRoot: string, sourceId: string, targetId: string) => Promise<Connection | null>
+
+  /**
+   * Remove a connection from the graph.
+   */
+  removeConnection: (featureId: string, projectRoot: string, connectionId: string) => Promise<{ success: boolean }>
+
+  /**
+   * Move a node to a new position.
+   */
+  moveNode: (featureId: string, projectRoot: string, nodeId: string, position: { x: number; y: number }) => Promise<{ success: boolean }>
+
+  /**
+   * Get the current graph state.
+   */
+  getGraph: (featureId: string, projectRoot: string) => Promise<DAGGraph>
+
+  /**
+   * Replace the entire graph.
+   */
+  resetGraph: (featureId: string, projectRoot: string, graph: DAGGraph) => Promise<{ success: boolean }>
+
+  /**
+   * Subscribe to DAGManager events (node-added, connection-added, etc.).
+   * Returns an unsubscribe function.
+   */
+  onEvent: (callback: (data: { featureId: string; event: any }) => void) => () => void
+}
+
+/**
  * PM Tools API for task management.
  * Enables PM Agent to create, read, update, and delete tasks with dependency inference.
  */
@@ -1343,6 +1398,11 @@ export interface ElectronAPI {
    * PM Spec API for feature specification management
    */
   pmSpec: PMSpecAPI
+
+  /**
+   * DAGManager API for validated DAG operations with cycle detection
+   */
+  dagManager: DAGManagerAPI
 }
 
 declare global {

@@ -5,6 +5,7 @@ import type {
   ChatHistory,
   AgentLog,
   Task,
+  Connection,
   AuthState,
   HistoryState,
   AgentConfig,
@@ -630,6 +631,32 @@ const electronAPI = {
       ipcRenderer.invoke('pm-spec:updateSpec', input),
     getSpec: (input: GetSpecInput): Promise<GetSpecResult> =>
       ipcRenderer.invoke('pm-spec:getSpec', input)
+  },
+
+  // DAGManager API (validated DAG operations with cycle detection)
+  dagManager: {
+    create: (featureId: string, projectRoot: string): Promise<{ success: boolean; graph: DAGGraph }> =>
+      ipcRenderer.invoke('dag-manager:create', featureId, projectRoot),
+    addNode: (featureId: string, projectRoot: string, task: Partial<Task>): Promise<Task> =>
+      ipcRenderer.invoke('dag-manager:add-node', featureId, projectRoot, task),
+    removeNode: (featureId: string, projectRoot: string, nodeId: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('dag-manager:remove-node', featureId, projectRoot, nodeId),
+    addConnection: (featureId: string, projectRoot: string, sourceId: string, targetId: string): Promise<Connection | null> =>
+      ipcRenderer.invoke('dag-manager:add-connection', featureId, projectRoot, sourceId, targetId),
+    removeConnection: (featureId: string, projectRoot: string, connectionId: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('dag-manager:remove-connection', featureId, projectRoot, connectionId),
+    moveNode: (featureId: string, projectRoot: string, nodeId: string, position: { x: number; y: number }): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('dag-manager:move-node', featureId, projectRoot, nodeId, position),
+    getGraph: (featureId: string, projectRoot: string): Promise<DAGGraph> =>
+      ipcRenderer.invoke('dag-manager:get-graph', featureId, projectRoot),
+    resetGraph: (featureId: string, projectRoot: string, graph: DAGGraph): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('dag-manager:reset-graph', featureId, projectRoot, graph),
+    onEvent: (callback: (data: { featureId: string; event: any }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { featureId: string; event: any }): void =>
+        callback(data)
+      ipcRenderer.on('dag-manager:event', handler)
+      return () => ipcRenderer.removeListener('dag-manager:event', handler)
+    }
   }
 }
 

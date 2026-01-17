@@ -7,6 +7,8 @@ import { toast } from './toast-store'
 let dagUpdateUnsubscribe: (() => void) | null = null
 // Track if we've already subscribed to loop status updates
 let loopStatusUnsubscribe: (() => void) | null = null
+// Track if we've already subscribed to DAGManager events
+let dagManagerEventUnsubscribe: (() => void) | null = null
 
 interface DAGStoreState {
   // Current DAG (for active feature)
@@ -55,6 +57,21 @@ interface DAGStoreState {
 
   // Loop status actions
   loadLoopStatuses: () => Promise<void>
+
+  // DAGManager initialization
+  initializeDAGManager: (featureId: string, projectRoot: string) => Promise<void>
+}
+
+/**
+ * Get current project root from the project store.
+ * Helper to avoid circular dependencies.
+ */
+async function getProjectRoot(): Promise<string> {
+  const projectRoot = await window.electronAPI.project.getCurrent()
+  if (!projectRoot) {
+    throw new Error('No project selected')
+  }
+  return projectRoot
 }
 
 export const useDAGStore = create<DAGStoreState>((set, get) => ({
@@ -80,31 +97,38 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
   setError: (error) => set({ error }),
 
   addNode: async (node) => {
-    const { dag, currentFeatureId } = get()
-    if (!dag) return
+    const { currentFeatureId } = get()
+    if (!currentFeatureId) return
 
     set({ isMutating: true })
     try {
-      const newDag: DAGGraph = {
-        ...dag,
-        nodes: [...dag.nodes, node]
-      }
-      set({ dag: newDag })
+      const projectRoot = await getProjectRoot()
 
-      // Push version after change
-      if (currentFeatureId) {
-        try {
-          await window.electronAPI.history.pushVersion(
-            currentFeatureId,
-            newDag,
-            `Added node ${node.title || node.id}`
-          )
-          await get().loadHistoryState(currentFeatureId)
-        } catch (error) {
-          console.error('Failed to push version:', error)
-          toast.warning('Changes saved but history snapshot failed')
-        }
+      // Use DAGManager to add node (with validation)
+      const createdNode = await window.electronAPI.dagManager.addNode(
+        currentFeatureId,
+        projectRoot,
+        node
+      )
+
+      // DAGManager events will update the local state
+      // But we also push to history for undo/redo
+      const newDag = await window.electronAPI.dagManager.getGraph(currentFeatureId, projectRoot)
+
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Added node ${createdNode.title || createdNode.id}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+        toast.warning('Changes saved but history snapshot failed')
       }
+    } catch (error) {
+      console.error('Failed to add node:', error)
+      toast.error(`Failed to add node: ${(error as Error).message}`)
     } finally {
       set({ isMutating: false })
     }
@@ -142,98 +166,115 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
   },
 
   removeNode: async (nodeId) => {
-    const { dag, currentFeatureId, selectedNodeId } = get()
-    if (!dag) return
+    const { currentFeatureId, selectedNodeId } = get()
+    if (!currentFeatureId) return
 
     set({ isMutating: true })
     try {
-      const newDag: DAGGraph = {
-        nodes: dag.nodes.filter((n) => n.id !== nodeId),
-        connections: dag.connections.filter((c) => c.from !== nodeId && c.to !== nodeId)
-      }
-      set({
-        dag: newDag,
-        selectedNodeId: selectedNodeId === nodeId ? null : selectedNodeId
-      })
+      const projectRoot = await getProjectRoot()
 
-      // Push version after change
-      if (currentFeatureId) {
-        try {
-          await window.electronAPI.history.pushVersion(currentFeatureId, newDag, `Removed node ${nodeId}`)
-          await get().loadHistoryState(currentFeatureId)
-        } catch (error) {
-          console.error('Failed to push version:', error)
-          toast.warning('Changes saved but history snapshot failed')
-        }
+      // Use DAGManager to remove node (also removes related connections)
+      await window.electronAPI.dagManager.removeNode(currentFeatureId, projectRoot, nodeId)
+
+      // Clear selection if we removed the selected node
+      if (selectedNodeId === nodeId) {
+        set({ selectedNodeId: null })
       }
+
+      // DAGManager events will update the local state
+      // But we also push to history for undo/redo
+      const newDag = await window.electronAPI.dagManager.getGraph(currentFeatureId, projectRoot)
+
+      try {
+        await window.electronAPI.history.pushVersion(currentFeatureId, newDag, `Removed node ${nodeId}`)
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+        toast.warning('Changes saved but history snapshot failed')
+      }
+    } catch (error) {
+      console.error('Failed to remove node:', error)
+      toast.error(`Failed to remove node: ${(error as Error).message}`)
     } finally {
       set({ isMutating: false })
     }
   },
 
   addConnection: async (connection) => {
-    const { dag, currentFeatureId } = get()
-    if (!dag) return
-
-    // Check if connection already exists
-    const exists = dag.connections.some(
-      (c) => c.from === connection.from && c.to === connection.to
-    )
-    if (exists) return
+    const { currentFeatureId } = get()
+    if (!currentFeatureId) return
 
     set({ isMutating: true })
     try {
-      const newDag: DAGGraph = {
-        ...dag,
-        connections: [...dag.connections, connection]
-      }
-      set({ dag: newDag })
+      const projectRoot = await getProjectRoot()
 
-      // Push version after change
-      if (currentFeatureId) {
-        try {
-          await window.electronAPI.history.pushVersion(
-            currentFeatureId,
-            newDag,
-            `Added connection ${connection.from} -> ${connection.to}`
-          )
-          await get().loadHistoryState(currentFeatureId)
-        } catch (error) {
-          console.error('Failed to push version:', error)
-          toast.warning('Changes saved but history snapshot failed')
-        }
+      // Use DAGManager to add connection (with cycle detection validation)
+      const result = await window.electronAPI.dagManager.addConnection(
+        currentFeatureId,
+        projectRoot,
+        connection.from,
+        connection.to
+      )
+
+      // If validation failed (null returned), show error toast
+      if (!result) {
+        toast.error('Cannot add connection: would create a cycle in the graph')
+        return
       }
+
+      // DAGManager events will update the local state
+      // But we also push to history for undo/redo
+      const newDag = await window.electronAPI.dagManager.getGraph(currentFeatureId, projectRoot)
+
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Added connection ${connection.from} -> ${connection.to}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+        toast.warning('Changes saved but history snapshot failed')
+      }
+    } catch (error) {
+      console.error('Failed to add connection:', error)
+      toast.error(`Failed to add connection: ${(error as Error).message}`)
     } finally {
       set({ isMutating: false })
     }
   },
 
   removeConnection: async (from, to) => {
-    const { dag, currentFeatureId } = get()
-    if (!dag) return
+    const { currentFeatureId } = get()
+    if (!currentFeatureId) return
 
     set({ isMutating: true })
     try {
-      const newDag: DAGGraph = {
-        ...dag,
-        connections: dag.connections.filter((c) => !(c.from === from && c.to === to))
-      }
-      set({ dag: newDag })
+      const projectRoot = await getProjectRoot()
 
-      // Push version after change
-      if (currentFeatureId) {
-        try {
-          await window.electronAPI.history.pushVersion(
-            currentFeatureId,
-            newDag,
-            `Removed connection ${from} -> ${to}`
-          )
-          await get().loadHistoryState(currentFeatureId)
-        } catch (error) {
-          console.error('Failed to push version:', error)
-          toast.warning('Changes saved but history snapshot failed')
-        }
+      // Use DAGManager to remove connection
+      const connectionId = `${from}->${to}`
+      await window.electronAPI.dagManager.removeConnection(currentFeatureId, projectRoot, connectionId)
+
+      // DAGManager events will update the local state
+      // But we also push to history for undo/redo
+      const newDag = await window.electronAPI.dagManager.getGraph(currentFeatureId, projectRoot)
+
+      try {
+        await window.electronAPI.history.pushVersion(
+          currentFeatureId,
+          newDag,
+          `Removed connection ${from} -> ${to}`
+        )
+        await get().loadHistoryState(currentFeatureId)
+      } catch (error) {
+        console.error('Failed to push version:', error)
+        toast.warning('Changes saved but history snapshot failed')
       }
+    } catch (error) {
+      console.error('Failed to remove connection:', error)
+      toast.error(`Failed to remove connection: ${(error as Error).message}`)
     } finally {
       set({ isMutating: false })
     }
@@ -242,8 +283,15 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
   loadDag: async (featureId) => {
     set({ isLoading: true, error: null, currentFeatureId: featureId })
     try {
-      const dag = await window.electronAPI.storage.loadDag(featureId)
-      set({ dag: dag || { nodes: [], connections: [] }, isLoading: false })
+      const projectRoot = await getProjectRoot()
+
+      // Initialize DAGManager for this feature
+      await get().initializeDAGManager(featureId, projectRoot)
+
+      // Load the graph from DAGManager
+      const dag = await window.electronAPI.dagManager.getGraph(featureId, projectRoot)
+      set({ dag, isLoading: false })
+
       // Load history state after DAG is loaded
       await get().loadHistoryState(featureId)
 
@@ -350,6 +398,101 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       set({ loopStatuses: statuses })
     } catch (error) {
       console.error('Failed to load loop statuses:', error)
+    }
+  },
+
+  initializeDAGManager: async (featureId: string, projectRoot: string) => {
+    try {
+      // Create/get DAGManager instance for this feature
+      await window.electronAPI.dagManager.create(featureId, projectRoot)
+      console.log('[DAGStore] DAGManager initialized:', featureId)
+
+      // Subscribe to DAGManager events (only once)
+      if (dagManagerEventUnsubscribe) {
+        dagManagerEventUnsubscribe()
+      }
+
+      dagManagerEventUnsubscribe = window.electronAPI.dagManager.onEvent((data) => {
+        const { currentFeatureId } = get()
+        // Only update if it's for the current feature
+        if (data.featureId !== currentFeatureId) return
+
+        console.log('[DAGStore] Received DAGManager event:', data.event.type)
+
+        // Update local state based on event type
+        switch (data.event.type) {
+          case 'node-added': {
+            const { dag } = get()
+            if (dag) {
+              set({
+                dag: {
+                  ...dag,
+                  nodes: [...dag.nodes, data.event.node]
+                }
+              })
+            }
+            break
+          }
+          case 'node-removed': {
+            const { dag } = get()
+            if (dag) {
+              set({
+                dag: {
+                  ...dag,
+                  nodes: dag.nodes.filter((n) => n.id !== data.event.nodeId)
+                }
+              })
+            }
+            break
+          }
+          case 'connection-added': {
+            const { dag } = get()
+            if (dag) {
+              set({
+                dag: {
+                  ...dag,
+                  connections: [...dag.connections, data.event.connection]
+                }
+              })
+            }
+            break
+          }
+          case 'connection-removed': {
+            const { dag } = get()
+            if (dag) {
+              const [from, to] = data.event.connectionId.split('->')
+              set({
+                dag: {
+                  ...dag,
+                  connections: dag.connections.filter((c) => !(c.from === from && c.to === to))
+                }
+              })
+            }
+            break
+          }
+          case 'node-moved': {
+            const { dag } = get()
+            if (dag) {
+              set({
+                dag: {
+                  ...dag,
+                  nodes: dag.nodes.map((n) =>
+                    n.id === data.event.nodeId ? { ...n, position: data.event.position } : n
+                  )
+                }
+              })
+            }
+            break
+          }
+          case 'graph-reset': {
+            set({ dag: data.event.graph })
+            break
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Failed to initialize DAGManager:', error)
+      toast.error(`Failed to initialize DAG: ${(error as Error).message}`)
     }
   }
 }))
