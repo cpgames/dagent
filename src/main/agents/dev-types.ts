@@ -44,6 +44,7 @@ export interface DevAgentState {
   agentId: string | null
   featureId: string
   taskId: string
+  sessionId: string | null // Active session for this agent
   task: Task | null
   context: TaskContext | null
   intention: string | null
@@ -90,6 +91,7 @@ export interface DevAgentConfig {
   iterationMode: boolean // Iteration mode for Ralph Loop (default: false)
   iterationPrompt: string | undefined // Prompt for iteration mode
   existingWorktreePath: string | undefined // Use existing worktree instead of creating new one
+  sessionId?: string // Session ID for logging (set by TaskController)
 }
 
 /** Token usage for an iteration */
@@ -130,6 +132,7 @@ export const DEFAULT_DEV_AGENT_CONFIG: DevAgentConfig = {
 export const DEFAULT_DEV_AGENT_STATE: Omit<DevAgentState, 'featureId' | 'taskId'> = {
   status: 'initializing',
   agentId: null,
+  sessionId: null,
   task: null,
   context: null,
   intention: null,
