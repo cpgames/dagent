@@ -8,15 +8,19 @@
   max-width: 240px;
   border-radius: var(--radius-lg);
   border: 2px solid var(--border-default);
-  background: linear-gradient(135deg, rgba(40, 20, 70, 0.95), rgba(30, 15, 55, 0.95));
-  box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, rgba(40, 20, 70, 0.7), rgba(30, 15, 55, 0.7));
+  box-shadow: var(--shadow-md), 0 0 8px rgba(106, 80, 128, 0.3);
   transition: all var(--transition-fast);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
   position: relative;
+  opacity: 0.85;
 }
 
 .task-node--selected {
-  box-shadow: 0 0 0 2px var(--accent-primary-dim);
+  background: linear-gradient(135deg, rgba(40, 20, 70, 0.95), rgba(30, 15, 55, 0.95));
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4), 0 0 0 2px var(--accent-primary);
+  backdrop-filter: blur(12px);
+  opacity: 1;
 }
 
 /* Status border colors */
