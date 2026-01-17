@@ -1,28 +1,32 @@
 import type { Layer, LayerContext } from './types';
 
 /**
- * HorizonGlowLayer renders a pulsing radial gradient glow at the horizon.
+ * HorizonGlowLayer renders a very faint pulsing purple glow at the horizon.
  *
  * Features:
- * - Radial gradient centered at horizon (65% from top)
- * - Height spans 30% of canvas (from 50% to 80% vertically)
- * - Sinusoidal pulsing between intensity 0.3 and 0.8
- * - Hot pink/magenta color (#ff2975)
- * - Uses 'lighter' blend mode for glow intensity
+ * - Linear gradient band at horizon (85% from top)
+ * - Very faint purple color for subtle effect
+ * - Slow sinusoidal pulsing between low intensities
+ * - Thin band (8% of canvas height)
  */
 export class HorizonGlowLayer implements Layer {
   private time = 0;
+  private offscreenCanvas: HTMLCanvasElement | null = null;
+  private offscreenCtx: CanvasRenderingContext2D | null = null;
 
-  // Configuration
-  private readonly color = '#ff006e';
-  private readonly positionY = 0.85; // 85% from top (lower horizon line to match reference)
-  private readonly heightFraction = 0.08; // Thin glow band (8% of canvas height)
-  private readonly minIntensity = 0.8;
-  private readonly maxIntensity = 1.0;
-  private readonly pulseSpeed = 0.0005; // radians/ms for slower, subtle pulsing
+  // Configuration - pink glow with color shift
+  private readonly colorPink = { r: 236, g: 72, b: 153 }; // #ec4899 (hot pink)
+  private readonly colorCyan = { r: 0, g: 255, b: 255 }; // #00ffff (cyan)
+  private readonly positionY = 0.95; // 75% from top (25% from bottom)
+  private readonly intensity = 0.759375; // Static intensity (no pulsing)
+  private readonly colorShiftSpeed = 0.0002; // Very slow color shift
 
-  init(_ctx: CanvasRenderingContext2D, _context: LayerContext): void {
-    // No initialization needed - gradient computed each frame
+  init(_ctx: CanvasRenderingContext2D, context: LayerContext): void {
+    // Create offscreen canvas for masking
+    this.offscreenCanvas = document.createElement('canvas');
+    this.offscreenCanvas.width = context.width;
+    this.offscreenCanvas.height = context.height;
+    this.offscreenCtx = this.offscreenCanvas.getContext('2d');
   }
 
   update(deltaTime: number): void {
@@ -32,55 +36,71 @@ export class HorizonGlowLayer implements Layer {
   render(ctx: CanvasRenderingContext2D, context: LayerContext): void {
     const { width, height } = context;
 
-    // Calculate pulsing intensity using sinusoidal animation
-    // sin returns [-1, 1], map to [0, 1], then scale to [minIntensity, maxIntensity]
-    const pulse = Math.sin(this.time * this.pulseSpeed);
-    const normalizedPulse = (pulse + 1) / 2; // [0, 1]
-    const intensity = this.minIntensity + normalizedPulse * (this.maxIntensity - this.minIntensity);
+    if (!this.offscreenCanvas || !this.offscreenCtx) return;
 
-    // Save context for blend mode
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    // Clear offscreen canvas
+    this.offscreenCtx.clearRect(0, 0, width, height);
 
-    // Radial gradient centered at horizon
-    const centerX = width / 2;
+    // Calculate color shift using slower sinusoidal animation
+    const colorShift = Math.sin(this.time * this.colorShiftSpeed);
+    const normalizedColorShift = (colorShift + 1) / 2; // [0, 1]
+
+    // Interpolate between pink and cyan
+    const r = Math.floor(this.colorPink.r + (this.colorCyan.r - this.colorPink.r) * normalizedColorShift);
+    const g = Math.floor(this.colorPink.g + (this.colorCyan.g - this.colorPink.g) * normalizedColorShift);
+    const b = Math.floor(this.colorPink.b + (this.colorCyan.b - this.colorPink.b) * normalizedColorShift);
+
+    // Calculate horizon position
     const centerY = height * this.positionY;
-    const radiusX = width * 0.8; // Wide horizontal spread
-    const radiusY = height * this.heightFraction;
+    const centerX = width / 2;
+    const radius = width * 0.45;
 
-    // Create radial gradient
-    const gradient = ctx.createRadialGradient(
+    // Step 1: Draw the glow to offscreen canvas
+    const gradient = this.offscreenCtx.createRadialGradient(
       centerX, centerY, 0,
-      centerX, centerY, Math.max(radiusX, radiusY)
+      centerX, centerY, radius
     );
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${this.intensity})`);
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
 
-    // Color stops for thin gradient band
-    gradient.addColorStop(0, this.hexToRgba(this.color, intensity));
-    gradient.addColorStop(0.5, this.hexToRgba(this.color, intensity * 0.8));
-    gradient.addColorStop(1, this.hexToRgba(this.color, 0));
+    this.offscreenCtx.beginPath();
+    this.offscreenCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    this.offscreenCtx.fillStyle = gradient;
+    this.offscreenCtx.fill();
 
-    // Draw elliptical glow using scale transform
-    ctx.translate(centerX, centerY);
-    ctx.scale(radiusX / radiusY, 1);
-    ctx.translate(-centerX, -centerY);
+    // Step 2: Apply vertical fade mask using destination-in composite
+    const maskGradient = this.offscreenCtx.createLinearGradient(0, 0, 0, height);
 
-    ctx.fillStyle = gradient;
-    ctx.fillRect(centerX - radiusY, centerY - radiusY, radiusY * 2, radiusY * 2);
+    // Match getVerticalFade logic:
+    // - Top to 60%: full opacity (1.0)
+    // - 60% to 80%: linear fade (1.0 -> 0.0)
+    // - 80% to bottom: no opacity (0.0)
+    const fadeEnd = height * 0.6;    // 60% - end of full opacity zone
+    const fadeStart = height * 0.8;  // 80% - start of no opacity zone
 
+    // Top to fadeEnd (60%): full white (full opacity)
+    maskGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    maskGradient.addColorStop(fadeEnd / height, 'rgba(255, 255, 255, 1)');
+    // fadeEnd (60%) to fadeStart (80%): linear fade from white to transparent
+    maskGradient.addColorStop(fadeStart / height, 'rgba(255, 255, 255, 0)');
+    // fadeStart (80%) to bottom: transparent
+    maskGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    this.offscreenCtx.globalCompositeOperation = 'destination-in';
+    this.offscreenCtx.fillStyle = maskGradient;
+    this.offscreenCtx.fillRect(0, 0, width, height);
+
+    // Reset composite operation
+    this.offscreenCtx.globalCompositeOperation = 'source-over';
+
+    // Step 3: Composite offscreen canvas to main canvas with screen blend mode
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighten';
+    ctx.drawImage(this.offscreenCanvas, 0, 0);
     ctx.restore();
   }
 
   reset(): void {
     this.time = 0;
-  }
-
-  /**
-   * Convert hex color to rgba string with specified alpha.
-   */
-  private hexToRgba(hex: string, alpha: number): string {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 }

@@ -52,3 +52,25 @@ export interface Layer {
    */
   reset?(): void;
 }
+
+/**
+ * Calculate vertical fade factor for masking.
+ * Fade out bottom 20%, then ramp up to full opacity at 40%, stay full above that.
+ *
+ * @param y - Vertical position in pixels
+ * @param height - Canvas height in pixels
+ * @returns Fade factor from 0 to 1
+ */
+export function getVerticalFade(y: number, height: number): number {
+  const fadeStart = height * 0.8; // Start fading at 80% down (20% from bottom)
+  const fadeEnd = height * 0.6; // Full opacity at 60% down (40% from bottom)
+
+  if (y <= fadeEnd) {
+    return 1; // Full opacity above 60% (top 60%)
+  } else if (y >= fadeStart) {
+    return 0; // No opacity below 80% (bottom 20%)
+  } else {
+    // Linear fade between 60% and 80%
+    return 1 - ((y - fadeEnd) / (fadeStart - fadeEnd));
+  }
+}
