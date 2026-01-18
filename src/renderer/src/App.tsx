@@ -18,6 +18,7 @@ import {
   StarsLayer,
   ShootingStarsLayer
 } from './components/Background'
+import { SplashScreen } from './components/Loading'
 import { Button } from './components/UI'
 import { ThemeProvider } from './contexts/ThemeContext'
 
@@ -188,6 +189,7 @@ function App(): React.JSX.Element {
   return (
     <ThemeProvider>
       <ErrorBoundary>
+        <SplashScreen isReady={initialized} />
         <UnifiedCanvas layers={backgroundLayers} backgroundImage="/synthwave.png" />
         <div className="h-screen text-white flex flex-col overflow-hidden relative z-0">
           {/* Header */}
