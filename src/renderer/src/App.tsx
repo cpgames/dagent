@@ -26,8 +26,8 @@ import { ThemeProvider } from './contexts/ThemeContext'
  * Provides the application shell with vertical sidebar navigation and view switching.
  */
 function App(): React.JSX.Element {
-  const { loadFeatures, createFeature, features, activeFeatureId } = useFeatureStore()
-  const { activeView } = useViewStore()
+  const { loadFeatures, createFeature, features, activeFeatureId, setActiveFeature } = useFeatureStore()
+  const { activeView, setView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
   const { loadCurrentProject, projectPath, initGitRepo, checkGitStatus } = useProjectStore()
 
@@ -81,6 +81,10 @@ function App(): React.JSX.Element {
 
     if (feature) {
       setNewFeatureDialogOpen(false)
+
+      // Switch to DAG view for the new feature
+      setActiveFeature(feature.id)
+      setView('dag')
 
       // Upload attachments if provided
       let attachmentPaths: string[] = []

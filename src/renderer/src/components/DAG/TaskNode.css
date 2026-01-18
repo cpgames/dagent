@@ -46,12 +46,38 @@
   color: rgb(192, 132, 252);
 }
 
-/* Analysis icon styling */
-.task-node__analysis-icon {
-  display: inline-flex;
+/* Analyzing spinner styling - positioned in top right corner */
+.task-node__analyzing {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  display: flex;
   align-items: center;
-  margin-left: var(--space-xs);
   color: rgb(192, 132, 252);
+  z-index: 5;
+}
+
+.task-node__spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  animation: spin-analysis 1s linear infinite;
+}
+
+.task-node__spinner-track {
+  opacity: 0.25;
+}
+
+.task-node__spinner-head {
+  opacity: 0.9;
+}
+
+@keyframes spin-analysis {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .task-node__badge--blocked {

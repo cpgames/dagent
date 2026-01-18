@@ -39,9 +39,16 @@ export function subscribeToFeatureStatusChanges(): void {
   }
 
   statusChangeCleanup = window.electronAPI.feature.onStatusChanged((data) => {
+    console.log(`[FeatureStore] Received status change event: ${data.featureId} -> ${data.status}`);
     const store = useFeatureStore.getState();
-    store.updateFeature(data.featureId, { status: data.status as FeatureStatus });
-    console.log(`[FeatureStore] Status changed for ${data.featureId}: ${data.status}`);
+    const existingFeature = store.features.find(f => f.id === data.featureId);
+    if (existingFeature) {
+      store.updateFeature(data.featureId, { status: data.status as FeatureStatus });
+      console.log(`[FeatureStore] Updated feature ${data.featureId}: ${existingFeature.status} -> ${data.status}`);
+    } else {
+      console.log(`[FeatureStore] Feature ${data.featureId} not found in store, reloading features...`);
+      store.loadFeatures();
+    }
   });
 }
 

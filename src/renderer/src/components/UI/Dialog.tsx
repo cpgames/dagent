@@ -13,6 +13,8 @@ export interface DialogProps {
   closeOnBackdrop?: boolean;
   /** Close when pressing Escape */
   closeOnEscape?: boolean;
+  /** Show the X close button (default: true) */
+  showCloseButton?: boolean;
   /** Dialog content */
   children: React.ReactNode;
   /** Additional class name for dialog panel */
@@ -30,6 +32,7 @@ export const Dialog: React.FC<DialogProps> = ({
   size = 'md',
   closeOnBackdrop = true,
   closeOnEscape = true,
+  showCloseButton = true,
   children,
   className = '',
 }) => {
@@ -135,25 +138,27 @@ export const Dialog: React.FC<DialogProps> = ({
         aria-modal="true"
         tabIndex={-1}
       >
-        <button
-          type="button"
-          className="ui-dialog__close"
-          onClick={onClose}
-          aria-label="Close dialog"
-        >
-          <svg
-            className="ui-dialog__close-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {showCloseButton && (
+          <button
+            type="button"
+            className="ui-dialog__close"
+            onClick={onClose}
+            aria-label="Close dialog"
           >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+            <svg
+              className="ui-dialog__close-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
         {children}
       </div>
     </div>

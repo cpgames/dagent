@@ -139,14 +139,19 @@ export function ProjectSelectionDialog({
     await removeFromRecent(path)
   }
 
-  const handleClose = (): void => {
-    if (!isLoading) {
-      onClose()
-    }
-  }
+  // Dialog can only be closed by successfully opening/creating a project
+  // No backdrop click, no escape key, no X button
+  const noop = (): void => {}
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} size="md" closeOnBackdrop={!isLoading}>
+    <Dialog
+      open={isOpen}
+      onClose={noop}
+      size="md"
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+      showCloseButton={false}
+    >
       <DialogHeader title="Open Project" />
 
       <DialogBody>
@@ -211,9 +216,7 @@ export function ProjectSelectionDialog({
             disabled={isLoading}
             className="project-selection-dialog__action-btn"
           >
-            <div className="project-selection-dialog__action-icon project-selection-dialog__action-icon--blue">
-              <FolderIcon />
-            </div>
+            <FolderIcon className="project-selection-dialog__action-icon project-selection-dialog__action-icon--folder" />
             <div className="project-selection-dialog__action-text">
               <div className="project-selection-dialog__action-title">Open Folder</div>
               <div className="project-selection-dialog__action-desc">Open an existing project folder</div>
@@ -225,9 +228,7 @@ export function ProjectSelectionDialog({
             disabled={isLoading || !onCreateNew}
             className="project-selection-dialog__action-btn"
           >
-            <div className="project-selection-dialog__action-icon project-selection-dialog__action-icon--green">
-              <PlusIcon />
-            </div>
+            <PlusIcon className="project-selection-dialog__action-icon project-selection-dialog__action-icon--plus" />
             <div className="project-selection-dialog__action-text">
               <div className="project-selection-dialog__action-title">Create New Project</div>
               <div className="project-selection-dialog__action-desc">Create a new DAGent project folder</div>

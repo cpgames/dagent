@@ -1,4 +1,4 @@
-import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage, Task } from '@shared/types';
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
@@ -58,6 +58,25 @@ export class FeatureStore {
 
     // Persist to storage
     await this.saveFeature(feature);
+
+    // Create initial task for the feature
+    const initialTask: Task = {
+      id: `task-${slug}-initial`,
+      title: name,  // Feature name becomes task title
+      description: options?.description || '',  // Feature description becomes task description
+      status: 'needs_analysis',
+      locked: false,
+      position: { x: 250, y: 100 }  // Centered position
+    };
+
+    // Create initial DAG with the single task
+    const initialDag: DAGGraph = {
+      nodes: [initialTask],
+      connections: []
+    };
+
+    // Save the DAG
+    await this.saveDag(id, initialDag);
 
     return feature;
   }

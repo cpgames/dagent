@@ -171,8 +171,11 @@ export class PMAgentManager {
       }
 
       // Step 4: Verify completion
+      console.log(`[PMAgentManager] PM agent stream finished for ${featureId}, hasError=${hasError}`)
       if (!hasError) {
+        console.log(`[PMAgentManager] Verifying planning completion for ${featureId}...`)
         const verified = await this.verifyPlanningComplete(featureId)
+        console.log(`[PMAgentManager] Verification result for ${featureId}: ${verified}`)
 
         if (verified) {
           console.log(`[PMAgentManager] Planning complete for ${featureId}`)
@@ -221,6 +224,15 @@ export class PMAgentManager {
           console.log(`[PMAgentManager] Moving ${featureId} to backlog`)
           await this.statusManager.updateFeatureStatus(featureId, 'backlog')
 
+          // Broadcast feature status change to UI
+          const statusWindows = BrowserWindow.getAllWindows()
+          for (const win of statusWindows) {
+            if (!win.isDestroyed()) {
+              win.webContents.send('feature:status-changed', { featureId, status: 'backlog' })
+            }
+          }
+          console.log(`[PMAgentManager] Broadcast status change for ${featureId}: backlog`)
+
           // Broadcast DAG update to UI so it shows the new tasks
           const dag = await this.featureStore.loadDag(featureId)
           if (dag) {
@@ -251,6 +263,15 @@ export class PMAgentManager {
 
       try {
         await this.statusManager.updateFeatureStatus(featureId, 'needs_attention')
+
+        // Broadcast feature status change to UI
+        const failWindows = BrowserWindow.getAllWindows()
+        for (const win of failWindows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:status-changed', { featureId, status: 'needs_attention' })
+          }
+        }
+        console.log(`[PMAgentManager] Broadcast status change for ${featureId}: needs_attention`)
       } catch (statusError) {
         console.error(`[PMAgentManager] Failed to update status to needs_attention:`, statusError)
       }

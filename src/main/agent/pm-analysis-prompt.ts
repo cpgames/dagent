@@ -12,6 +12,10 @@ import type { Task } from '@shared/types'
  */
 export interface ParsedAnalysisResponse {
   decision: 'keep' | 'split'
+  /** Refined title (for keep decisions) */
+  refinedTitle?: string
+  /** Refined description (for keep decisions) */
+  refinedDescription?: string
   tasks?: Array<{
     title: string
     description: string
@@ -63,7 +67,9 @@ Respond with ONLY a JSON object (no markdown code blocks, no explanation):
 
 If KEEP:
 {
-  "decision": "keep"
+  "decision": "keep",
+  "title": "Refined, clear task title",
+  "description": "Detailed description of what needs to be done, implementation approach, and expected outcome"
 }
 
 If SPLIT:
@@ -83,6 +89,10 @@ If SPLIT:
   ]
 }
 
+**For KEEP decisions, ALWAYS provide refined title and description:**
+- Title should be clear, action-oriented (e.g., "Add user authentication endpoint" not "Auth stuff")
+- Description should explain WHAT needs to be built, HOW to approach it, and acceptance criteria
+
 ## IMPORTANT RULES
 
 1. **Never create verification/QA tasks** - Verification is automatic
@@ -92,6 +102,50 @@ If SPLIT:
 5. **No circular dependencies** - Task A cannot depend on Task B if B depends on A
 6. **Prefer KEEP over SPLIT** - Only split if clearly too complex
 7. **2-5 subtasks max** - If you need more, consider if the parent task is well-defined`
+}
+
+/**
+ * Extract a balanced JSON object from a string.
+ * Handles nested braces correctly.
+ */
+function extractJsonObject(str: string): string | null {
+  const start = str.indexOf('{')
+  if (start === -1) return null
+
+  let depth = 0
+  let inString = false
+  let escape = false
+
+  for (let i = start; i < str.length; i++) {
+    const char = str[i]
+
+    if (escape) {
+      escape = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      escape = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === '{') depth++
+    if (char === '}') {
+      depth--
+      if (depth === 0) {
+        return str.slice(start, i + 1)
+      }
+    }
+  }
+
+  return null
 }
 
 /**
@@ -115,9 +169,9 @@ export function parseAnalysisResponse(response: string): ParsedAnalysisResponse 
     jsonStr = codeBlockMatch[1].trim()
   }
 
-  // Try to find JSON object in the response
-  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
+  // Try to find balanced JSON object in the response
+  const jsonObject = extractJsonObject(jsonStr)
+  if (!jsonObject) {
     return {
       decision: 'keep',
       error: 'No JSON object found in response'
@@ -125,7 +179,7 @@ export function parseAnalysisResponse(response: string): ParsedAnalysisResponse 
   }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0])
+    const parsed = JSON.parse(jsonObject)
 
     // Validate decision field
     if (parsed.decision !== 'keep' && parsed.decision !== 'split') {
@@ -187,10 +241,19 @@ export function parseAnalysisResponse(response: string): ParsedAnalysisResponse 
       }
     }
 
-    // Keep decision
-    return {
+    // Keep decision - extract refined title/description if provided
+    const result: ParsedAnalysisResponse = {
       decision: 'keep'
     }
+
+    if (parsed.title && typeof parsed.title === 'string') {
+      result.refinedTitle = parsed.title
+    }
+    if (parsed.description && typeof parsed.description === 'string') {
+      result.refinedDescription = parsed.description
+    }
+
+    return result
   } catch (err) {
     return {
       decision: 'keep',

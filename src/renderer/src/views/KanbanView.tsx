@@ -51,15 +51,22 @@ export default function KanbanView() {
   // Analysis status per feature
   const [analysisStatus, setAnalysisStatus] = useState<Record<string, AnalysisStatus>>({});
 
-  // Fetch initial pending counts for all features
+  // Fetch initial pending counts for features in planning status only
+  // Features in backlog or later stages cannot have needs_analysis tasks
   useEffect(() => {
     const fetchPendingCounts = async () => {
       const statuses: Record<string, AnalysisStatus> = {};
       for (const feature of features) {
-        try {
-          const result = await window.electronAPI.analysis.pending(feature.id);
-          statuses[feature.id] = { analyzing: false, pendingCount: result.count };
-        } catch {
+        // Only check pending analysis for features in planning status
+        if (feature.status === 'planning') {
+          try {
+            const result = await window.electronAPI.analysis.pending(feature.id);
+            statuses[feature.id] = { analyzing: false, pendingCount: result.count };
+          } catch {
+            statuses[feature.id] = { analyzing: false, pendingCount: 0 };
+          }
+        } else {
+          // Features not in planning have no pending analysis
           statuses[feature.id] = { analyzing: false, pendingCount: 0 };
         }
       }
