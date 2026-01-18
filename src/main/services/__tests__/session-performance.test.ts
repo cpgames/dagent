@@ -57,9 +57,9 @@ jest.mock('electron', () => ({
   }
 }))
 
-// Use real uuid for unique message IDs
-jest.mock('uuid', () => ({
-  v4: jest.fn().mockImplementation(() => {
+// Use crypto for unique message IDs
+jest.mock('crypto', () => ({
+  randomUUID: jest.fn().mockImplementation(() => {
     return `uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   })
 }))

@@ -13,7 +13,7 @@
 
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID } from 'crypto'
 import type {
   Session,
   ChatSession,
@@ -227,7 +227,7 @@ export class SessionManager {
     // Create full message
     const fullMessage: ChatMessage = {
       ...message,
-      id: uuidv4(),
+      id: randomUUID(),
       timestamp: new Date().toISOString()
     }
 

@@ -46,10 +46,10 @@ jest.mock('electron', () => ({
   }
 }))
 
-// Mock uuid
+// Mock crypto
 let uuidCounter = 0
-jest.mock('uuid', () => ({
-  v4: jest.fn().mockImplementation(() => `test-uuid-${++uuidCounter}`)
+jest.mock('crypto', () => ({
+  randomUUID: jest.fn().mockImplementation(() => `test-uuid-${++uuidCounter}`)
 }))
 
 // Mock agent service for compaction

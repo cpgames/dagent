@@ -26,9 +26,9 @@ jest.mock('electron', () => ({
   }
 }))
 
-// Mock uuid for predictable IDs in tests
-jest.mock('uuid', () => ({
-  v4: jest.fn().mockReturnValue('test-uuid-1234')
+// Mock crypto for predictable IDs in tests
+jest.mock('crypto', () => ({
+  randomUUID: jest.fn().mockReturnValue('test-uuid-1234')
 }))
 
 // Mock agent service for compaction
