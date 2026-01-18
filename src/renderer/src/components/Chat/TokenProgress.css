@@ -136,18 +136,17 @@
 }
 
 .token-progress__count {
-  color: var(--accent-primary, #00f0ff);
-  text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
-  font-weight: 600;
+  color: var(--text-secondary, #888);
+  font-weight: 500;
 }
 
 .token-progress__count--warning {
-  color: #ff00ff;
-  text-shadow: 0 0 6px rgba(255, 0, 255, 0.5);
+  color: var(--accent-secondary, #ff00ff);
+  text-shadow: 0 0 4px rgba(255, 0, 255, 0.4);
 }
 
 .token-progress__separator {
-  color: var(--text-muted, #666);
+  color: var(--text-secondary, #888);
 }
 
 .token-progress__limit {

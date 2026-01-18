@@ -11,7 +11,6 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  useReactFlow,
   type Node,
   type Edge,
   type Connection,
@@ -113,7 +112,6 @@ function DAGViewInner({
 }: {
   activeFeatureId: string | null
 }): JSX.Element {
-  const { fitView } = useReactFlow()
   const {
     dag,
     loopStatuses,
@@ -403,35 +401,6 @@ function DAGViewInner({
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
   }, [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
-  // Handle layout reset
-  const handleResetLayout = useCallback(async () => {
-    if (!activeFeatureId) return
-
-    try {
-      // Clear saved layout
-      layoutPositionsRef.current = {}
-      await window.electronAPI.dagLayout.save(activeFeatureId, {})
-
-      // Reset nodes to default positions (center all nodes and let React Flow auto-arrange)
-      setNodes((currentNodes) =>
-        currentNodes.map((node, index) => ({
-          ...node,
-          position: { x: 100 + (index % 5) * 200, y: 100 + Math.floor(index / 5) * 150 }
-        }))
-      )
-
-      // Recenter view
-      setTimeout(() => {
-        fitView({ padding: 0.2, duration: 300 })
-      }, 50)
-
-      toast.success('Layout reset to default positions')
-    } catch (error) {
-      console.error('[DAGView] Failed to reset layout:', error)
-      toast.error('Failed to reset layout')
-    }
-  }, [activeFeatureId, setNodes, fitView])
-
   // Poll for real-time session updates when task log dialog is open
   useEffect(() => {
     if (!logDialogOpen || logDialogSource !== 'task' || !logDialogTaskId || !activeFeatureId) {
@@ -621,7 +590,6 @@ function DAGViewInner({
                 {/* Layout controls */}
                 <LayoutControls
                   featureId={activeFeatureId}
-                  onResetLayout={handleResetLayout}
                   onNewTask={() => openNodeDialog(null)}
                 />
 

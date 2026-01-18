@@ -387,7 +387,7 @@ export class SessionManager {
    *
    * @param sessionId - Session ID
    * @param featureId - Feature ID
-   * @returns Compaction metrics or null if session/checkpoint not found
+   * @returns Compaction metrics or null if session not found
    */
   async getCompactionMetrics(
     sessionId: string,
@@ -402,13 +402,40 @@ export class SessionManager {
     if (!session) return null
 
     const checkpoint = await this.loadCheckpoint(session)
-    if (!checkpoint) return null
+    const chatSession = await this.loadChatSession(session)
 
+    // If we have a checkpoint, use its stats
+    if (checkpoint) {
+      // Add current message tokens to checkpoint total
+      const currentMessageTokens = chatSession
+        ? estimateMessagesTokens(chatSession.messages)
+        : 0
+
+      return {
+        totalCompactions: checkpoint.stats.totalCompactions,
+        totalMessagesCompacted: checkpoint.stats.totalMessages,
+        totalTokens: checkpoint.stats.totalTokens + currentMessageTokens,
+        lastCompactionAt: checkpoint.compactionInfo.compactedAt
+      }
+    }
+
+    // No checkpoint yet - estimate tokens from current messages
+    if (chatSession) {
+      const currentTokens = estimateMessagesTokens(chatSession.messages)
+      return {
+        totalCompactions: 0,
+        totalMessagesCompacted: 0,
+        totalTokens: currentTokens,
+        lastCompactionAt: undefined
+      }
+    }
+
+    // No chat session either - return zeros
     return {
-      totalCompactions: checkpoint.stats.totalCompactions,
-      totalMessagesCompacted: checkpoint.stats.totalMessages,
-      totalTokens: checkpoint.stats.totalTokens,
-      lastCompactionAt: checkpoint.compactionInfo.compactedAt
+      totalCompactions: 0,
+      totalMessagesCompacted: 0,
+      totalTokens: 0,
+      lastCompactionAt: undefined
     }
   }
 
