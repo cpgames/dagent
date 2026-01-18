@@ -1009,10 +1009,13 @@ All verification items passed. Phase v3.1-01 Complete.
 
 - **02-03**: Analysis execution implementation (Complete)
   - Implemented analyzeTask method with PM query execution
-  - Added buildAnalysisContext for feature context assembly
-  - Integrated getAgentService for PM queries
-  - Uses parseAnalysisResponse for response parsing
-  - Proper error handling with AnalysisResult error responses
+  - Loads task from DAG and feature spec from FeatureSpecStore
+  - Builds analysis prompt using buildAnalysisPrompt(task, featureSpec)
+  - Executes PM query via AgentService with streaming response collection
+  - Parses response using parseAnalysisResponse
+  - Updated analyzeFeatureTasks loop to process until no needs_analysis tasks remain
+  - Added transitionToReady helper (sets ready_for_dev or blocked based on dependencies)
+  - Added createSubtasks helper with UUID generation, dependency resolution, edge rewiring
 
 - **02-04**: IPC handlers for analysis (Complete)
   - Created analysis-handlers.ts with analysis:start, analysis:status, analysis:pending
