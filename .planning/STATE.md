@@ -14,17 +14,17 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 
 Phase: v3.0-08-testing-polish (Testing & Polish)
 Plan: 4 plans created (08-01, 08-02, 08-03, 08-04)
-Status: PLANNING COMPLETE
-Last activity: 2026-01-17 — Phase planned (4 plans in 3 waves)
+Status: IN PROGRESS
+Last activity: 2026-01-17 — Plan 08-01 complete (SessionManager unit tests)
 
-Progress: ░░░░░░░░░░ 0% (0/4 plans executed)
+Progress: ██░░░░░░░░ 25% (1/4 plans executed)
 
-Next action: /gsd:execute-phase v3.0-08
+Next action: /gsd:execute-plan 08-02
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 127 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 8)
+- Total plans completed: 128 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 9)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -61,6 +61,7 @@ Recent decisions affecting current work:
 - **useLayoutEffect for RAF**: Canvas animations use useLayoutEffect (not useEffect) for proper RAF cleanup timing
 - **Session per task state**: Tasks track sessions separately for in_dev and in_qa states via sessions field
 - **Iteration results in session**: Ralph Loop iteration results logged to session as internal assistant messages with verification metadata
+- **Jest over vitest**: Chose Jest for unit testing due to vitest issues with Node.js v24 test collection (describe callbacks not executing)
 
 ### Deferred Issues
 
@@ -894,4 +895,13 @@ The application now provides:
   - Export Session: downloads session as JSON file
   - Reset Session: destructive action with confirmation dialog
   - Toast notifications for feedback, disabled state handling
+
+### Phase v3.0-08: Testing & Polish (In Progress)
+
+- **08-01**: SessionManager Unit Tests (Complete)
+  - Set up Jest test infrastructure (switched from vitest due to Node.js v24 compatibility)
+  - Created session-manager.test.ts with 20 core tests (singleton, lifecycle, archiving)
+  - Created session-manager-crud.test.ts with 32 CRUD tests (messages, checkpoints, context)
+  - Created session-manager-compaction.test.ts with 38 compaction/token tests
+  - Total: 90 tests, 1744 lines of test code, all passing
 
