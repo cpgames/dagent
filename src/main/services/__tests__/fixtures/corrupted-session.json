@@ -1,0 +1,69 @@
+{
+  "_comment": "This file contains various corruption test cases as separate objects",
+
+  "malformed_json": "{ \"entries\": [ { \"role\": \"user\", \"content\": \"incomplete",
+
+  "missing_required_fields": {
+    "entries": [
+      {
+        "content": "Message without role field"
+      },
+      {
+        "role": "user"
+      }
+    ]
+  },
+
+  "invalid_data_types": {
+    "entries": "should be an array not a string",
+    "taskId": 12345
+  },
+
+  "empty_entries": {
+    "entries": []
+  },
+
+  "null_entries": {
+    "entries": null
+  },
+
+  "mixed_corruption": {
+    "entries": [
+      {
+        "role": "user",
+        "content": "Valid message",
+        "timestamp": "2024-12-15T10:00:00.000Z"
+      },
+      null,
+      {
+        "role": 123,
+        "content": ["should", "be", "string"]
+      },
+      "not an object"
+    ]
+  },
+
+  "dev_session_corrupted": {
+    "taskId": null,
+    "agentId": "",
+    "status": "invalid_status",
+    "messages": "should be array"
+  },
+
+  "deeply_nested_corruption": {
+    "entries": [
+      {
+        "role": "user",
+        "content": "Valid",
+        "timestamp": "2024-12-15T10:00:00.000Z",
+        "metadata": {
+          "deeply": {
+            "nested": {
+              "circular": "[Circular]"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
