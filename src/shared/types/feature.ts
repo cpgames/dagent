@@ -1,5 +1,8 @@
 export type FeatureStatus = 'planning' | 'backlog' | 'in_progress' | 'needs_attention' | 'completed' | 'archived';
 
+/** Action to take when feature is completed */
+export type CompletionAction = 'manual' | 'auto_pr' | 'auto_merge';
+
 export interface Feature {
   id: string;
   name: string;
@@ -9,5 +12,8 @@ export interface Feature {
   updatedAt: string;  // ISO timestamp
   description?: string;  // Optional multi-line description
   attachments?: string[];  // Optional array of file paths relative to feature directory
-  autoMerge?: boolean;  // Optional flag for auto-merge when completed (defaults to false)
+  completionAction?: CompletionAction;  // Action when feature completes (defaults to 'manual')
+  autoStart?: boolean;  // Auto-start execution when planning completes (defaults to false)
+  /** @deprecated Use completionAction instead */
+  autoMerge?: boolean;  // Legacy field for backwards compatibility
 }

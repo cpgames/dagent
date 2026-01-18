@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Feature, FeatureStatus } from '@shared/types';
+import type { Feature, FeatureStatus, CompletionAction } from '@shared/types';
 import { toast } from './toast-store';
 
 interface FeatureState {
@@ -20,7 +20,7 @@ interface FeatureState {
   // Async actions (call IPC)
   loadFeatures: () => Promise<void>;
   saveFeature: (feature: Feature) => Promise<void>;
-  createFeature: (name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}) => Promise<Feature | null>;
+  createFeature: (name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => Promise<Feature | null>;
   deleteFeature: (featureId: string, deleteBranch?: boolean) => Promise<boolean>;
   updateFeatureStatus: (featureId: string, newStatus: FeatureStatus) => Promise<boolean>;
 }
@@ -171,12 +171,14 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
   },
 
   deleteFeature: async (featureId, deleteBranch = true) => {
-    set({ isLoading: true, error: null });
+    // Don't set isLoading - we just remove the feature from local state
+    // Setting isLoading causes full Kanban re-render and scroll reset
+    set({ error: null });
     try {
       const result = await window.electronAPI.feature.delete(featureId, { deleteBranch });
 
       if (result.success) {
-        // Remove from local state
+        // Remove from local state - this smoothly removes the card
         get().removeFeature(featureId);
 
         // Show success toast with details
@@ -194,18 +196,17 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
         const detailsStr = details.length > 0 ? ` (cleaned up ${details.join(', ')})` : '';
         toast.success(`Feature deleted${detailsStr}`);
 
-        set({ isLoading: false });
         return true;
       } else {
         const message = result.error || 'Unknown error';
-        set({ error: message, isLoading: false });
+        set({ error: message });
         toast.error(`Failed to delete feature: ${message}`);
         console.error('Failed to delete feature:', result.error);
         return false;
       }
     } catch (error) {
       const message = (error as Error).message;
-      set({ error: message, isLoading: false });
+      set({ error: message });
       toast.error(`Failed to delete feature: ${message}`);
       console.error('Failed to delete feature:', error);
       return false;

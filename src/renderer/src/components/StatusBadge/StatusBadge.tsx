@@ -5,6 +5,7 @@ type Status = TaskStatus | FeatureStatus;
 
 const statusConfig: Record<Status, { color: string; bg: string; label: string }> = {
   // Task statuses
+  needs_analysis: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Needs Analysis' },
   blocked: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Blocked' },
   ready_for_dev: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Ready' },
   in_progress: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'In Progress' },

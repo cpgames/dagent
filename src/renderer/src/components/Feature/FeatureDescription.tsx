@@ -3,6 +3,7 @@ import { useFeatureStore } from '../../stores'
 import { Button } from '../UI'
 import { ConfirmDialog } from '../DAG'
 import { toast } from '../../stores/toast-store'
+import type { CompletionAction } from '@shared/types'
 import './FeatureDescription.css'
 
 export interface FeatureDescriptionProps {
@@ -23,6 +24,8 @@ export function FeatureDescription({
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [completionAction, setCompletionAction] = useState<CompletionAction>('manual')
+  const [autoStart, setAutoStart] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isReplanning, setIsReplanning] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -33,6 +36,8 @@ export function FeatureDescription({
     if (feature) {
       setName(feature.name)
       setDescription(feature.description || '')
+      setCompletionAction(feature.completionAction || 'manual')
+      setAutoStart(feature.autoStart || false)
       setHasChanges(false)
     }
   }, [feature])
@@ -42,9 +47,11 @@ export function FeatureDescription({
     if (feature) {
       const nameChanged = name !== feature.name
       const descChanged = description !== (feature.description || '')
-      setHasChanges(nameChanged || descChanged)
+      const actionChanged = completionAction !== (feature.completionAction || 'manual')
+      const autoStartChanged = autoStart !== (feature.autoStart || false)
+      setHasChanges(nameChanged || descChanged || actionChanged || autoStartChanged)
     }
-  }, [name, description, feature])
+  }, [name, description, completionAction, autoStart, feature])
 
   const handleSave = async (): Promise<void> => {
     if (!feature || !hasChanges) return
@@ -54,7 +61,9 @@ export function FeatureDescription({
       await saveFeature({
         ...feature,
         name: name.trim(),
-        description: description.trim() || undefined
+        description: description.trim() || undefined,
+        completionAction,
+        autoStart
       })
       setHasChanges(false)
     } finally {
@@ -83,7 +92,9 @@ export function FeatureDescription({
         await saveFeature({
           ...feature,
           name: name.trim(),
-          description: description.trim() || undefined
+          description: description.trim() || undefined,
+          completionAction,
+          autoStart
         })
         setHasChanges(false)
       }
@@ -146,6 +157,71 @@ export function FeatureDescription({
             placeholder="Describe what this feature does..."
             rows={6}
           />
+        </div>
+
+        {/* Completion Action */}
+        <div className="feature-description__field">
+          <label className="feature-description__label">When Complete</label>
+          <div className="feature-description__radio-group">
+            <label className="feature-description__radio-option">
+              <input
+                type="radio"
+                name="completionAction"
+                value="manual"
+                checked={completionAction === 'manual'}
+                onChange={() => setCompletionAction('manual')}
+                className="feature-description__radio-input"
+              />
+              <div className="feature-description__radio-content">
+                <span className="feature-description__radio-label">Manual</span>
+                <span className="feature-description__radio-desc">Review and merge manually</span>
+              </div>
+            </label>
+            <label className="feature-description__radio-option">
+              <input
+                type="radio"
+                name="completionAction"
+                value="auto_pr"
+                checked={completionAction === 'auto_pr'}
+                onChange={() => setCompletionAction('auto_pr')}
+                className="feature-description__radio-input"
+              />
+              <div className="feature-description__radio-content">
+                <span className="feature-description__radio-label">Auto PR</span>
+                <span className="feature-description__radio-desc">Create pull request automatically</span>
+              </div>
+            </label>
+            <label className="feature-description__radio-option">
+              <input
+                type="radio"
+                name="completionAction"
+                value="auto_merge"
+                checked={completionAction === 'auto_merge'}
+                onChange={() => setCompletionAction('auto_merge')}
+                className="feature-description__radio-input"
+              />
+              <div className="feature-description__radio-content">
+                <span className="feature-description__radio-label">Auto Merge</span>
+                <span className="feature-description__radio-desc">Merge into main automatically</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Auto Start */}
+        <div className="feature-description__field">
+          <label className="feature-description__checkbox-option">
+            <input
+              type="checkbox"
+              checked={autoStart}
+              onChange={(e) => setAutoStart(e.target.checked)}
+              className="feature-description__checkbox-input"
+            />
+            <div className="feature-description__checkbox-content">
+              <span className="feature-description__checkbox-label">Auto Start</span>
+              <span className="feature-description__checkbox-desc">Begin execution automatically when planning completes</span>
+            </div>
+          </label>
         </div>
 
         {/* Metadata (read-only) */}

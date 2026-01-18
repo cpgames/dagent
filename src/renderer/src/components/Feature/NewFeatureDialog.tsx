@@ -1,13 +1,15 @@
 import type { JSX } from 'react';
 import { useState, useRef } from 'react';
-import { Dialog, DialogHeader, DialogBody, DialogFooter, Input, Button, Textarea, Checkbox } from '../UI';
+import { Dialog, DialogHeader, DialogBody, DialogFooter, Input, Button, Textarea } from '../UI';
+import type { CompletionAction } from '@shared/types/feature';
 import './NewFeatureDialog.css';
 
 export interface FeatureCreateData {
   name: string;
   description?: string;
   attachments?: File[];
-  autoMerge?: boolean;
+  completionAction?: CompletionAction;
+  autoStart?: boolean;
 }
 
 interface NewFeatureDialogProps {
@@ -24,7 +26,8 @@ export function NewFeatureDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [autoMerge, setAutoMerge] = useState(false);
+  const [completionAction, setCompletionAction] = useState<CompletionAction>('manual');
+  const [autoStart, setAutoStart] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uniqueNameError, setUniqueNameError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +73,8 @@ export function NewFeatureDialog({
       const data: FeatureCreateData = {
         name: trimmedName,
         description: description.trim() || undefined,
-        autoMerge
+        completionAction,
+        autoStart
       };
 
       // Pass File objects if any - parent will handle uploading to worktree
@@ -84,7 +88,8 @@ export function NewFeatureDialog({
       setName('');
       setDescription('');
       setFiles([]);
-      setAutoMerge(false);
+      setCompletionAction('manual');
+      setAutoStart(false);
       setError(null);
       setUniqueNameError(false);
       onClose();
@@ -99,7 +104,8 @@ export function NewFeatureDialog({
     setName('');
     setDescription('');
     setFiles([]);
-    setAutoMerge(false);
+    setCompletionAction('manual');
+    setAutoStart(false);
     setError(null);
     setUniqueNameError(false);
     onClose();
@@ -220,17 +226,73 @@ export function NewFeatureDialog({
               )}
             </div>
 
-            {/* Auto-merge checkbox */}
+            {/* Completion Action */}
             <div className="new-feature-dialog__field">
-              <Checkbox
-                checked={autoMerge}
-                onChange={(e) => setAutoMerge(e.target.checked)}
-                label="Auto-merge when completed"
-                disabled={isSubmitting}
-              />
-              <p className="new-feature-dialog__helper-text">
-                Automatically create PR/merge when feature is complete
-              </p>
+              <label className="new-feature-dialog__label">When Completed</label>
+              <div className="new-feature-dialog__radio-group">
+                <label className="new-feature-dialog__radio-option">
+                  <input
+                    type="radio"
+                    name="completionAction"
+                    value="manual"
+                    checked={completionAction === 'manual'}
+                    onChange={() => setCompletionAction('manual')}
+                    disabled={isSubmitting}
+                    className="new-feature-dialog__radio-input"
+                  />
+                  <div className="new-feature-dialog__radio-content">
+                    <span className="new-feature-dialog__radio-title">Manual</span>
+                    <span className="new-feature-dialog__radio-desc">I'll create the PR myself</span>
+                  </div>
+                </label>
+                <label className="new-feature-dialog__radio-option">
+                  <input
+                    type="radio"
+                    name="completionAction"
+                    value="auto_pr"
+                    checked={completionAction === 'auto_pr'}
+                    onChange={() => setCompletionAction('auto_pr')}
+                    disabled={isSubmitting}
+                    className="new-feature-dialog__radio-input"
+                  />
+                  <div className="new-feature-dialog__radio-content">
+                    <span className="new-feature-dialog__radio-title">Auto PR</span>
+                    <span className="new-feature-dialog__radio-desc">Create Pull Request automatically</span>
+                  </div>
+                </label>
+                <label className="new-feature-dialog__radio-option">
+                  <input
+                    type="radio"
+                    name="completionAction"
+                    value="auto_merge"
+                    checked={completionAction === 'auto_merge'}
+                    onChange={() => setCompletionAction('auto_merge')}
+                    disabled={isSubmitting}
+                    className="new-feature-dialog__radio-input"
+                  />
+                  <div className="new-feature-dialog__radio-content">
+                    <span className="new-feature-dialog__radio-title">Auto Merge</span>
+                    <span className="new-feature-dialog__radio-desc">Merge into main directly</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Auto Start */}
+            <div className="new-feature-dialog__field">
+              <label className="new-feature-dialog__checkbox-option">
+                <input
+                  type="checkbox"
+                  checked={autoStart}
+                  onChange={(e) => setAutoStart(e.target.checked)}
+                  disabled={isSubmitting}
+                  className="new-feature-dialog__checkbox-input"
+                />
+                <div className="new-feature-dialog__checkbox-content">
+                  <span className="new-feature-dialog__checkbox-title">Auto Start</span>
+                  <span className="new-feature-dialog__checkbox-desc">Begin execution automatically when planning completes</span>
+                </div>
+              </label>
             </div>
 
             {/* Error display */}

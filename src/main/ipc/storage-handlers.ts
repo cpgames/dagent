@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { FeatureStore } from '../storage/feature-store';
 import { initializeLayoutStore } from '../storage/dag-layout-store';
-import type { Feature, DAGGraph, ChatHistory, AgentLog } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, CompletionAction } from '@shared/types';
 
 let featureStore: FeatureStore | null = null;
 let currentProjectRoot: string | null = null;
@@ -75,7 +75,7 @@ export function registerStorageHandlers(): void {
     }
   });
 
-  ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}) => {
+  ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => {
     console.log('[storage:createFeature] Called with:', { name, options });
     console.log('[storage:createFeature] options type:', typeof options);
     console.log('[storage:createFeature] options.attachments:', options?.attachments, 'type:', typeof options?.attachments);

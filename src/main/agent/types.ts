@@ -18,6 +18,21 @@ export interface AgentMessage {
   toolResult?: string // Result from tool execution
 }
 
+/** Hook matcher configuration for SDK hooks */
+export interface HookMatcher {
+  matcher?: string
+  hooks: Array<(input: unknown, toolUseId: string | null, context: { signal?: AbortSignal }) => Promise<unknown>>
+  timeout?: number
+}
+
+/** Hooks configuration for agent queries */
+export interface AgentHooks {
+  PreToolUse?: HookMatcher[]
+  PostToolUse?: HookMatcher[]
+  Stop?: HookMatcher[]
+  SubagentStop?: HookMatcher[]
+}
+
 export interface AgentQueryOptions {
   prompt: string
   systemPrompt?: string
@@ -25,6 +40,7 @@ export interface AgentQueryOptions {
   toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'qaAgent' | 'pmAgent' | 'none'
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
   cwd?: string // Working directory for file operations
+  hooks?: AgentHooks // SDK hooks for intercepting tool calls
   // Context options for autoContext
   featureId?: string
   taskId?: string

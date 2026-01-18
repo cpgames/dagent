@@ -336,7 +336,7 @@ export async function createPMMcpServer(): Promise<unknown | null> {
       ),
       tool(
         'DecomposeSpec',
-        'Analyze the feature spec and suggest task decomposition. Call after creating or updating a spec to determine if multiple tasks are needed.',
+        'Analyze the feature spec and suggest task decomposition. Only use for complex features with 5+ requirements or multiple distinct system layers (API + UI + database). For simple features, always recommend a single task.',
         {
           forceDecompose: z.boolean().optional().describe('Force decomposition even for simple specs')
         },
@@ -363,141 +363,61 @@ export async function createPMMcpServer(): Promise<unknown | null> {
           const spec = result.spec
           const requirementCount = spec.requirements.length
 
-          // Detect cross-cutting concerns by analyzing requirement text
-          const crossCuttingKeywords = ['api', 'ui', 'database', 'backend', 'frontend', 'migration', 'auth']
-          const concernsFound = new Set<string>()
+          // Only detect truly distinct system layers (need at least 3 different layers)
+          const layerKeywords = {
+            api: ['api', 'endpoint', 'rest', 'graphql'],
+            ui: ['ui', 'component', 'frontend', 'display', 'view', 'page'],
+            database: ['database', 'migration', 'schema', 'model', 'table']
+          }
+          const layersFound = new Set<string>()
           for (const req of spec.requirements) {
             const lower = req.description.toLowerCase()
-            for (const keyword of crossCuttingKeywords) {
-              if (lower.includes(keyword)) {
-                concernsFound.add(keyword)
+            for (const [layer, keywords] of Object.entries(layerKeywords)) {
+              if (keywords.some(kw => lower.includes(kw))) {
+                layersFound.add(layer)
               }
             }
           }
-          const hasCrossCuttingConcerns = concernsFound.size >= 2
+          // Only consider it cross-cutting if we have 3+ distinct layers
+          const hasCrossCuttingConcerns = layersFound.size >= 3
 
-          // Determine complexity
-          const isComplex = args.forceDecompose || requirementCount >= 3 || hasCrossCuttingConcerns
+          // Be much more conservative - only decompose for truly complex features
+          // Require 5+ requirements OR forced OR all 3 layers present
+          const isComplex = args.forceDecompose || requirementCount >= 5 || hasCrossCuttingConcerns
 
           let reason: string
           if (args.forceDecompose) {
             reason = 'Forced decomposition requested'
-          } else if (requirementCount >= 3) {
-            reason = `${requirementCount} requirements detected (3+ = complex)`
+          } else if (requirementCount >= 5) {
+            reason = `${requirementCount} requirements detected (5+ = complex)`
           } else if (hasCrossCuttingConcerns) {
-            reason = `Cross-cutting concerns detected: ${Array.from(concernsFound).join(', ')}`
+            reason = `Multiple system layers detected: ${Array.from(layersFound).join(', ')}`
           } else {
-            reason = `Simple feature with ${requirementCount} requirement(s)`
+            reason = `Simple feature with ${requirementCount} requirement(s) - use single task`
           }
 
-          // Generate suggested tasks for complex specs
-          interface SuggestedTask {
-            title: string
-            description: string
-            requirementIds: string[]
-            dependsOn: string[]
-          }
-          const suggestedTasks: SuggestedTask[] = []
-
-          if (isComplex && spec.requirements.length > 0) {
-            // Group requirements by detected concern
-            const apiReqs: typeof spec.requirements = []
-            const uiReqs: typeof spec.requirements = []
-            const dataReqs: typeof spec.requirements = []
-            const otherReqs: typeof spec.requirements = []
-
-            for (const req of spec.requirements) {
-              const lower = req.description.toLowerCase()
-              if (lower.includes('api') || lower.includes('endpoint') || lower.includes('backend')) {
-                apiReqs.push(req)
-              } else if (lower.includes('ui') || lower.includes('component') || lower.includes('frontend') || lower.includes('display')) {
-                uiReqs.push(req)
-              } else if (lower.includes('database') || lower.includes('migration') || lower.includes('schema') || lower.includes('model')) {
-                dataReqs.push(req)
-              } else {
-                otherReqs.push(req)
-              }
-            }
-
-            // Create tasks for each group
-            let taskIndex = 0
-            if (dataReqs.length > 0) {
-              suggestedTasks.push({
-                title: 'Data layer changes',
-                description: `Implement data/model changes: ${dataReqs.map(r => r.description).join('; ')}`,
-                requirementIds: dataReqs.map(r => r.id),
-                dependsOn: []
-              })
-              taskIndex++
-            }
-            if (apiReqs.length > 0) {
-              suggestedTasks.push({
-                title: 'API implementation',
-                description: `Implement API endpoints: ${apiReqs.map(r => r.description).join('; ')}`,
-                requirementIds: apiReqs.map(r => r.id),
-                dependsOn: dataReqs.length > 0 ? ['task-0'] : []
-              })
-              taskIndex++
-            }
-            if (uiReqs.length > 0) {
-              suggestedTasks.push({
-                title: 'UI implementation',
-                description: `Implement UI components: ${uiReqs.map(r => r.description).join('; ')}`,
-                requirementIds: uiReqs.map(r => r.id),
-                dependsOn: apiReqs.length > 0 ? ['task-1'] : (dataReqs.length > 0 ? ['task-0'] : [])
-              })
-              taskIndex++
-            }
-            if (otherReqs.length > 0) {
-              suggestedTasks.push({
-                title: 'Additional requirements',
-                description: `Implement: ${otherReqs.map(r => r.description).join('; ')}`,
-                requirementIds: otherReqs.map(r => r.id),
-                dependsOn: taskIndex > 0 ? [`task-${taskIndex - 1}`] : []
-              })
-            }
-
-            // If no grouping worked, create one task per requirement
-            if (suggestedTasks.length === 0) {
-              for (let i = 0; i < spec.requirements.length; i++) {
-                const req = spec.requirements[i]
-                suggestedTasks.push({
-                  title: req.description.substring(0, 50),
-                  description: req.description,
-                  requirementIds: [req.id],
-                  dependsOn: i > 0 ? [`task-${i - 1}`] : []
-                })
-              }
-            }
-          }
-
-          // Format response
+          // Format response - prefer single task recommendation
           const lines = [
             `## Complexity Analysis`,
             '',
             `**Complex:** ${isComplex ? 'Yes' : 'No'}`,
             `**Reason:** ${reason}`,
+            '',
+            '## Recommendation',
             ''
           ]
 
-          if (isComplex && suggestedTasks.length > 0) {
-            lines.push('## Suggested Tasks')
+          if (!isComplex) {
+            lines.push('**Create a single task** covering all requirements.')
             lines.push('')
-            for (let i = 0; i < suggestedTasks.length; i++) {
-              const task = suggestedTasks[i]
-              lines.push(`### Task ${i + 1}: ${task.title}`)
-              lines.push(`- Description: ${task.description}`)
-              lines.push(`- Requirements: ${task.requirementIds.join(', ')}`)
-              if (task.dependsOn.length > 0) {
-                lines.push(`- Depends on: Task ${task.dependsOn.map(d => parseInt(d.split('-')[1]) + 1).join(', Task ')}`)
-              }
-              lines.push('')
-            }
-            lines.push('Use CreateTask to create these tasks, adding dependencies as indicated.')
-          } else if (!isComplex) {
-            lines.push('## Recommendation')
+            lines.push('Remember: Each task has built-in QA verification. Do NOT create separate verification tasks.')
+          } else {
+            lines.push('This feature may benefit from multiple tasks. Group by system layer:')
+            if (layersFound.has('database')) lines.push('- Data layer task')
+            if (layersFound.has('api')) lines.push('- API layer task')
+            if (layersFound.has('ui')) lines.push('- UI layer task')
             lines.push('')
-            lines.push('Create a single task covering all requirements.')
+            lines.push('Keep task count minimal. Each task has built-in QA - no separate verification tasks needed.')
           }
 
           return {

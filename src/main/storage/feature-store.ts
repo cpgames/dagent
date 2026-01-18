@@ -1,4 +1,4 @@
-import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage, Task } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage, Task, CompletionAction } from '@shared/types';
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
@@ -15,10 +15,10 @@ export class FeatureStore {
   /**
    * Create a new feature with generated ID and branch name.
    * @param name - Human-readable feature name (e.g., "My Feature")
-   * @param options - Optional feature configuration (description, attachments, autoMerge)
+   * @param options - Optional feature configuration (description, attachments, completionAction)
    * @returns Created Feature object
    */
-  async createFeature(name: string, options?: {description?: string, attachments?: string[], autoMerge?: boolean}): Promise<Feature> {
+  async createFeature(name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}): Promise<Feature> {
     // Check if feature with same name already exists
     const features = await this.listFeatures();
     for (const featureId of features) {
@@ -53,7 +53,8 @@ export class FeatureStore {
       updatedAt: now,
       description: options?.description,
       attachments: options?.attachments,
-      autoMerge: options?.autoMerge ?? false
+      completionAction: options?.completionAction ?? 'manual',
+      autoStart: options?.autoStart ?? false
     };
 
     // Persist to storage

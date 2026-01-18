@@ -8,6 +8,7 @@ import { setPMToolsFeatureContext } from '../ipc/pm-tools-handlers'
 import { getSessionManager } from '../services/session-manager'
 import { getSettingsStore } from '../storage/settings-store'
 import { getTaskAnalysisOrchestrator } from '../services/task-analysis-orchestrator'
+import { getOrchestrator } from '../dag-engine/orchestrator'
 import type { CreateSessionOptions } from '../../shared/types/session'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -243,6 +244,31 @@ export class PMAgentManager {
               }
             }
             console.log(`[PMAgentManager] Broadcast DAG update for ${featureId}`)
+          }
+
+          // Check for auto-start and trigger execution if enabled
+          const feature = await this.featureStore.loadFeature(featureId)
+          if (feature?.autoStart && dag) {
+            console.log(`[PMAgentManager] Auto-start enabled for ${featureId}, starting execution`)
+            try {
+              const orchestrator = getOrchestrator()
+              await orchestrator.initialize(featureId, dag)
+              const startResult = await orchestrator.start()
+              if (startResult.success) {
+                console.log(`[PMAgentManager] Auto-start execution started for ${featureId}`)
+                // Broadcast execution started to UI
+                const execWindows = BrowserWindow.getAllWindows()
+                for (const win of execWindows) {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('execution:auto-started', { featureId })
+                  }
+                }
+              } else {
+                console.error(`[PMAgentManager] Auto-start execution failed for ${featureId}: ${startResult.error}`)
+              }
+            } catch (autoStartError) {
+              console.error(`[PMAgentManager] Auto-start error for ${featureId}:`, autoStartError)
+            }
           }
 
           // Emit completion event

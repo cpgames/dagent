@@ -1,4 +1,5 @@
 export type TaskStatus =
+  | 'needs_analysis'    // Needs PM complexity analysis
   | 'blocked'           // Waiting on dependencies
   | 'ready_for_dev'     // Ready for dev agent assignment
   | 'in_progress'       // Being worked on (dev, qa, or merge)
@@ -11,6 +12,7 @@ export type TaskStatus =
  * Human-readable labels for task statuses.
  */
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  needs_analysis: 'Needs Analysis',
   blocked: 'Blocked',
   ready_for_dev: 'Ready for dev',
   in_progress: 'In progress',

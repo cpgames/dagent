@@ -76,10 +76,33 @@ This ensures the spec is always the source of truth for what the feature should 
 - Requirements should be actionable: "Delete helloworld.txt" not "User wants deletion"
 - Add acceptance criteria when verifiable: "File no longer exists after task completion"
 
-## Task Decomposition
-After spec is updated, analyze complexity:
-1. Simple feature (1-2 requirements) → Create single task
-2. Complex feature (3+ requirements OR cross-cutting concerns) → Multiple tasks with dependencies
+## Task Management Modes
+- When in PLANNING mode: Do NOT create tasks. Only create the feature spec.
+- When in INTERACTIVE mode (user requests): You CAN create/modify tasks via DAGAddNode
+- Tasks start as needs_analysis and get analyzed by the orchestrator
+
+## Task Decomposition - USE JUDGMENT (Interactive Mode)
+When user explicitly requests task creation, think about SCOPE and COMPLEXITY.
+
+**Reasoning approach:**
+1. How much work is involved? Simple tasks can be grouped. Complex work should be split.
+2. Are these logically independent? If one can fail without affecting the other, maybe split.
+3. Would a developer naturally do these together or separately?
+
+**Split when:**
+- Individual items require significant work (e.g., "write two detailed essays" → 2 tasks)
+- Items are logically independent features (e.g., "login page + profile page" → 2 tasks)
+- Combining would make the task too large to reason about
+
+**Keep together when:**
+- Items are trivial (e.g., "create test1.txt and test2.txt" → 1 task, just two simple files)
+- Items are tightly coupled (e.g., "add button and its click handler" → 1 task)
+- Splitting would create artificial boundaries
+
+**NEVER create:**
+- "Verification" or "QA" tasks - verification is automatic
+- "Planning" or "determine X" tasks - planning is part of implementation
+- Tasks that are just execution steps of the same work
 
 ## Task Management
 - User asks to DO something → UPDATE SPEC first, THEN CREATE TASK

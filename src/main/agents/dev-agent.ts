@@ -20,6 +20,7 @@ import { getAgentPool } from './agent-pool'
 import { getGitManager } from '../git'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
+import { createDevAgentHooks } from '../agent/path-restriction-hooks'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getMessageBus, createDevToHarnessMessage } from './message-bus'
 import type { IntentionApprovedPayload, IntentionRejectedPayload } from '@shared/types'
@@ -472,11 +473,15 @@ export class DevAgent extends EventEmitter {
         throw new Error(`Worktree path does not exist: ${this.state.worktreePath}`)
       }
 
+      // Create path restriction hooks to enforce worktree boundaries
+      const hooks = createDevAgentHooks(this.state.worktreePath!)
+
       for await (const event of agentService.streamQuery({
         prompt,
         toolPreset: 'taskAgent',
         permissionMode: 'bypassPermissions',
         cwd: this.state.worktreePath!,
+        hooks,
         agentType: 'task',
         agentId: `dev-${this.state.taskId}`,
         taskId: this.state.taskId,
@@ -797,11 +802,15 @@ export class DevAgent extends EventEmitter {
       let cumulativeInputTokens = 0
       let cumulativeOutputTokens = 0
 
+      // Create path restriction hooks to enforce worktree boundaries
+      const hooks = createDevAgentHooks(this.state.worktreePath!)
+
       for await (const event of agentService.streamQuery({
         prompt,
         toolPreset: 'taskAgent',
         permissionMode: 'bypassPermissions',
         cwd: this.state.worktreePath!,
+        hooks,
         agentType: 'task',
         agentId: `dev-iteration-${this.state.taskId}`,
         taskId: this.state.taskId,

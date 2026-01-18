@@ -76,7 +76,8 @@ function App(): React.JSX.Element {
     // First, create the feature (without file paths yet)
     const feature = await createFeature(data.name, {
       description: data.description,
-      autoMerge: data.autoMerge
+      completionAction: data.completionAction,
+      autoStart: data.autoStart
     })
 
     if (feature) {

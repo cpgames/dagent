@@ -108,6 +108,7 @@ export class TaskPoolManager {
    */
   getCounts(): Record<TaskStatus, number> {
     const counts: Record<TaskStatus, number> = {
+      needs_analysis: 0,
       blocked: 0,
       ready_for_dev: 0,
       in_progress: 0,

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { BrowserWindow } from 'electron'
 import type { FeatureStatus } from '@shared/types/feature'
 import type { FeatureStore } from '../storage/feature-store'
 
@@ -12,10 +13,10 @@ import type { FeatureStore } from '../storage/feature-store'
  * - Archive happens after merge to main or PR creation (Phase 99)
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
-  planning: ['backlog'],
-  backlog: ['in_progress'],
+  planning: ['backlog', 'needs_attention'],  // needs_attention if planning fails
+  backlog: ['in_progress', 'planning'],  // planning if replan requested
   in_progress: ['needs_attention', 'completed', 'backlog'],
-  needs_attention: ['in_progress'],
+  needs_attention: ['in_progress', 'planning'],  // planning if replan requested
   completed: ['archived'],  // Only from completed
   archived: []  // Final state - no transitions out
 }
@@ -30,10 +31,10 @@ const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
  * - Ensure all status changes are tracked and persisted
  *
  * Status workflow:
- * - planning → backlog
- * - backlog → in_progress
+ * - planning → backlog | needs_attention (if planning fails)
+ * - backlog → in_progress | planning (replan)
  * - in_progress → needs_attention | completed | backlog (stop)
- * - needs_attention → in_progress
+ * - needs_attention → in_progress | planning (replan)
  * - completed → archived
  */
 export class FeatureStatusManager {
@@ -83,13 +84,22 @@ export class FeatureStatusManager {
     // Persist to storage
     await this.featureStore.saveFeature(feature)
 
-    // Emit event for UI reactivity
+    // Emit event for internal listeners
     this.eventEmitter.emit('feature-status-changed', {
       featureId,
       status: newStatus,
       previousStatus: feature.status,
       timestamp: feature.updatedAt
     })
+
+    // Broadcast to all renderer windows for UI reactivity
+    const windows = BrowserWindow.getAllWindows()
+    console.log(`[FeatureStatusManager] Broadcasting status change to ${windows.length} windows: ${featureId} -> ${newStatus}`)
+    for (const win of windows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('feature:status-changed', { featureId, status: newStatus })
+      }
+    }
   }
 
   /**

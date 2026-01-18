@@ -255,6 +255,40 @@ export class GitManager {
   }
 
   // ============================================
+  // Stash Operations
+  // ============================================
+
+  /**
+   * Stash current changes with an optional message.
+   */
+  async stash(message?: string): Promise<GitOperationResult> {
+    this.ensureInitialized()
+    try {
+      if (message) {
+        await this.git.stash(['push', '-m', message])
+      } else {
+        await this.git.stash(['push'])
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Pop the most recent stash.
+   */
+  async stashPop(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+    try {
+      await this.git.stash(['pop'])
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  // ============================================
   // Worktree Operations
   // ============================================
 

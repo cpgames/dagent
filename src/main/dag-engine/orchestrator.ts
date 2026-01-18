@@ -18,6 +18,9 @@ import { getTaskPoolManager, resetTaskPoolManager } from './task-pool'
 import { getDevAgent, getAllDevAgents, removeDevAgent, getAgentPool } from '../agents'
 import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
 import { createMergeAgent, registerMergeAgent, removeMergeAgent } from '../agents/merge-agent'
+import { createFeatureMergeAgent, registerFeatureMergeAgent, removeFeatureMergeAgent } from '../agents/feature-merge-agent'
+import { getPRService } from '../github'
+import { getFeatureStatusManager } from '../ipc/feature-handlers'
 import { createQAAgent, registerQAAgent, getQAAgent, removeQAAgent, getAllQAAgents, clearQAAgents } from '../agents/qa-agent'
 import type { QAReviewResult } from '../agents/qa-types'
 import type { HarnessMessage } from '../agents/harness-types'
@@ -1124,8 +1127,202 @@ export class ExecutionOrchestrator extends EventEmitter {
         await this.handleFeatureArchived()
       }
 
+      // Handle feature completed - trigger completion action if configured
+      if (newStatus === 'completed' && feature) {
+        await this.handleFeatureCompleted(feature)
+      }
+
       this.currentFeatureStatus = newStatus
     }
+  }
+
+  /**
+   * Handle feature completion - trigger configured completion action.
+   * Called when feature transitions to completed status.
+   */
+  private async handleFeatureCompleted(feature: { id: string; name: string; branchName: string; completionAction?: string }): Promise<void> {
+    const completionAction = feature.completionAction || 'manual'
+
+    if (completionAction === 'manual') {
+      console.log(`[Orchestrator] Feature ${feature.id} completed - manual action configured, no auto-trigger`)
+      return
+    }
+
+    console.log(`[Orchestrator] Feature ${feature.id} completed - triggering ${completionAction}`)
+
+    // Emit event for UI notification
+    this.emit('completion_action_started', {
+      featureId: feature.id,
+      action: completionAction
+    })
+
+    try {
+      if (completionAction === 'auto_merge') {
+        await this.executeAutoMerge(feature)
+      } else if (completionAction === 'auto_pr') {
+        await this.executeAutoPR(feature)
+      }
+    } catch (error) {
+      console.error(`[Orchestrator] Completion action ${completionAction} failed for feature ${feature.id}:`, error)
+      this.emit('completion_action_failed', {
+        featureId: feature.id,
+        action: completionAction,
+        error: (error as Error).message
+      })
+    }
+  }
+
+  /**
+   * Execute auto_merge completion action.
+   * Creates FeatureMergeAgent and performs direct merge to main.
+   */
+  private async executeAutoMerge(feature: { id: string; branchName: string }): Promise<void> {
+    console.log(`[Orchestrator] Executing auto_merge for feature ${feature.id}`)
+
+    const gitManager = getGitManager()
+    const targetBranch = await gitManager.getDefaultBranch()
+
+    // Check for uncommitted changes and stash them if present
+    let stashed = false
+    try {
+      const statusResult = await gitManager.getStatus()
+      const statusData = statusResult.data as { isClean?: boolean } | undefined
+      if (statusResult.success && statusData && !statusData.isClean) {
+        console.log(`[Orchestrator] Stashing uncommitted changes before auto_merge`)
+        const stashResult = await gitManager.stash(`auto_merge_${feature.id}_${Date.now()}`)
+        if (stashResult.success) {
+          stashed = true
+        } else {
+          console.warn(`[Orchestrator] Failed to stash changes: ${stashResult.error}`)
+        }
+      }
+    } catch (stashError) {
+      console.warn(`[Orchestrator] Could not check/stash changes:`, stashError)
+      // Continue anyway - the merge will fail with a clear message if needed
+    }
+
+    // Create and initialize merge agent
+    const agent = createFeatureMergeAgent(feature.id, targetBranch, feature.branchName)
+    const initialized = await agent.initialize()
+
+    if (!initialized) {
+      // Pop stash if we stashed
+      if (stashed) {
+        try {
+          await gitManager.stashPop()
+        } catch { /* ignore */ }
+      }
+      throw new Error(`Failed to initialize merge agent: ${agent.getState().error}`)
+    }
+
+    registerFeatureMergeAgent(agent)
+
+    try {
+      // Check branches
+      const branchesOk = await agent.checkBranches()
+      if (!branchesOk) {
+        throw new Error(`Branch check failed: ${agent.getState().error}`)
+      }
+
+      // Auto-approve and execute merge
+      agent.receiveApproval({ approved: true, type: 'approved' })
+      const result = await agent.executeMerge(true) // Delete branch on success
+
+      if (!result.success || !result.merged) {
+        if (result.conflicts && result.conflicts.length > 0) {
+          throw new Error(`Merge conflicts in ${result.conflicts.length} files: ${result.conflicts.join(', ')}`)
+        }
+        throw new Error(result.error || 'Merge failed')
+      }
+
+      console.log(`[Orchestrator] Auto merge completed successfully for feature ${feature.id}`)
+
+      // Archive feature after successful merge (if not already archived)
+      try {
+        const featureStore = getFeatureStore()
+        const currentFeature = featureStore ? await featureStore.loadFeature(feature.id) : null
+        if (currentFeature && currentFeature.status !== 'archived') {
+          const statusManager = getFeatureStatusManager()
+          await statusManager.updateFeatureStatus(feature.id, 'archived')
+          console.log(`[Orchestrator] Feature ${feature.id} archived after auto_merge`)
+        }
+      } catch (archiveError) {
+        console.error(`[Orchestrator] Failed to archive feature ${feature.id}:`, archiveError)
+      }
+
+      this.emit('completion_action_completed', {
+        featureId: feature.id,
+        action: 'auto_merge',
+        result: { merged: true, branchDeleted: result.branchDeleted }
+      })
+    } finally {
+      // Cleanup agent
+      await agent.cleanup()
+      removeFeatureMergeAgent(feature.id)
+
+      // Pop stash if we stashed
+      if (stashed) {
+        try {
+          console.log(`[Orchestrator] Restoring stashed changes after auto_merge`)
+          await gitManager.stashPop()
+        } catch (popError) {
+          console.warn(`[Orchestrator] Could not restore stashed changes:`, popError)
+        }
+      }
+    }
+  }
+
+  /**
+   * Execute auto_pr completion action.
+   * Creates a pull request using GitHub CLI.
+   */
+  private async executeAutoPR(feature: { id: string; name: string; branchName: string }): Promise<void> {
+    console.log(`[Orchestrator] Executing auto_pr for feature ${feature.id}`)
+
+    const prService = getPRService()
+
+    // Check gh CLI status first
+    const ghStatus = await prService.checkGhCli()
+    if (!ghStatus.installed) {
+      throw new Error('GitHub CLI (gh) is not installed. Please install it to use Auto PR.')
+    }
+    if (!ghStatus.authenticated) {
+      throw new Error('GitHub CLI is not authenticated. Run: gh auth login')
+    }
+
+    // Create PR
+    const result = await prService.createPullRequest({
+      title: feature.name,
+      body: `## Summary\n\nAutomatically generated PR for feature: ${feature.name}\n\n---\n*Created by DAGent Auto PR*`,
+      head: feature.branchName,
+      base: 'main',
+      featureId: feature.id
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create pull request')
+    }
+
+    console.log(`[Orchestrator] Auto PR created successfully for feature ${feature.id}: ${result.htmlUrl || result.prUrl}`)
+
+    // Archive feature after successful PR creation (if not already archived)
+    try {
+      const featureStore = getFeatureStore()
+      const currentFeature = featureStore ? await featureStore.loadFeature(feature.id) : null
+      if (currentFeature && currentFeature.status !== 'archived') {
+        const statusManager = getFeatureStatusManager()
+        await statusManager.updateFeatureStatus(feature.id, 'archived')
+        console.log(`[Orchestrator] Feature ${feature.id} archived after PR creation`)
+      }
+    } catch (archiveError) {
+      console.error(`[Orchestrator] Failed to archive feature ${feature.id}:`, archiveError)
+    }
+
+    this.emit('completion_action_completed', {
+      featureId: feature.id,
+      action: 'auto_pr',
+      result: { prNumber: result.prNumber, prUrl: result.htmlUrl || result.prUrl }
+    })
   }
 
   /**

@@ -141,7 +141,12 @@ export class AgentService {
         permissionMode: options.permissionMode || 'default'
       }
 
-      console.log(`[AgentService] SDK query options: cwd=${options.cwd}, tools=${tools.join(',')}, permissionMode=${queryOptions.permissionMode}`)
+      // Add hooks if provided (for path restrictions, etc.)
+      if (options.hooks) {
+        queryOptions.hooks = options.hooks
+      }
+
+      console.log(`[AgentService] SDK query options: cwd=${options.cwd}, tools=${tools.join(',')}, permissionMode=${queryOptions.permissionMode}, hooks=${options.hooks ? 'configured' : 'none'}`)
 
       // Add PM MCP server if PM tools are needed
       if (isPMAgent) {
