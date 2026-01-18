@@ -209,3 +209,34 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Analysis progress indicator */
+.feature-card__analysis-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  color: rgb(192, 132, 252); /* purple-400 */
+}
+
+.feature-card__analysis-spinner-icon {
+  width: 12px;
+  height: 12px;
+  color: rgb(147, 51, 234); /* purple-600 */
+  animation: spin 1s linear infinite;
+}
+
+.feature-card__analysis-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-xs);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  background: rgb(147, 51, 234); /* purple-600 */
+  border-radius: 9999px;
+}
