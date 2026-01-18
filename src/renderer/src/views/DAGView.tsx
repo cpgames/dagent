@@ -197,6 +197,10 @@ function DAGViewInner({
   // Currently analyzing task ID (for analysis animation)
   const [analyzingTaskId, setAnalyzingTaskId] = useState<string | null>(null)
 
+  // Analysis state for ExecutionControls
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false)
+  const [pendingAnalysisCount, setPendingAnalysisCount] = useState<number>(0)
+
   // Handle edge selection
   const handleSelectEdge = useCallback((edgeId: string) => {
     setSelectedEdgeId(edgeId)
@@ -353,6 +357,24 @@ function DAGViewInner({
     }
   }, [activeFeatureId, openLogDialog])
 
+  // Handle analyze tasks button click
+  const handleAnalyze = useCallback(async () => {
+    if (!activeFeatureId) return
+
+    try {
+      setIsAnalyzing(true)
+      const result = await window.electronAPI.analysis.start(activeFeatureId)
+      if (!result.success) {
+        toast.error(`Failed to start analysis: ${result.error}`)
+        setIsAnalyzing(false)
+      }
+      // Analysis events will update state via the IPC listener
+    } catch (error) {
+      toast.error(`Failed to start analysis: ${(error as Error).message}`)
+      setIsAnalyzing(false)
+    }
+  }, [activeFeatureId])
+
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
     () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId),
@@ -393,6 +415,32 @@ function DAGViewInner({
     loadLayout()
   }, [activeFeatureId])
 
+  // Fetch initial pending analysis count on feature change
+  useEffect(() => {
+    if (!activeFeatureId) {
+      setPendingAnalysisCount(0)
+      setIsAnalyzing(false)
+      setAnalyzingTaskId(null)
+      return
+    }
+
+    const fetchPendingCount = async (): Promise<void> => {
+      try {
+        const result = await window.electronAPI.analysis.pending(activeFeatureId)
+        setPendingAnalysisCount(result.count)
+        // Also check if analysis is currently running
+        const statusResult = await window.electronAPI.analysis.status(activeFeatureId)
+        setIsAnalyzing(statusResult.running)
+      } catch (error) {
+        console.error('[DAGView] Failed to fetch analysis status:', error)
+        setPendingAnalysisCount(0)
+        setIsAnalyzing(false)
+      }
+    }
+
+    fetchPendingCount()
+  }, [activeFeatureId])
+
   // Listen for analysis events to track which task is being analyzed
   useEffect(() => {
     if (!activeFeatureId) {
@@ -407,12 +455,27 @@ function DAGViewInner({
       const { event } = data
       if (event.type === 'analyzing') {
         setAnalyzingTaskId(event.taskId ?? null)
-      } else if (event.type === 'kept' || event.type === 'split' || event.type === 'error') {
-        // Clear analyzing state when task analysis completes
+        setIsAnalyzing(true)
+      } else if (event.type === 'kept') {
+        // Task was kept as-is, decrement pending count
         setAnalyzingTaskId(null)
+        setPendingAnalysisCount((prev) => Math.max(0, prev - 1))
+      } else if (event.type === 'split') {
+        // Task was split into subtasks, the original is gone but new ones may need analysis
+        setAnalyzingTaskId(null)
+        // Refresh pending count after split since new tasks were created
+        window.electronAPI.analysis.pending(activeFeatureId).then((result) => {
+          setPendingAnalysisCount(result.count)
+        })
+      } else if (event.type === 'error') {
+        // Clear analyzing state on error
+        setAnalyzingTaskId(null)
+        setIsAnalyzing(false)
       } else if (event.type === 'complete') {
-        // Analysis complete for feature, clear any lingering state
+        // Analysis complete for feature, clear all state
         setAnalyzingTaskId(null)
+        setIsAnalyzing(false)
+        setPendingAnalysisCount(0)
       }
     })
 
@@ -643,6 +706,9 @@ function DAGViewInner({
             onRedo={redo}
             canUndo={historyState.canUndo}
             canRedo={historyState.canRedo}
+            pendingAnalysisCount={pendingAnalysisCount}
+            isAnalyzing={isAnalyzing}
+            onAnalyze={handleAnalyze}
           />
         </div>
       </div>
