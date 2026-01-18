@@ -12,6 +12,8 @@ interface FeatureCardProps {
   onStop?: (featureId: string) => void;
   onMerge?: (featureId: string, mergeType: MergeType) => void;
   isStarting?: boolean;
+  isAnalyzing?: boolean;
+  pendingAnalysisCount?: number;
 }
 
 /**
@@ -108,11 +110,38 @@ function MergeIcon(): React.JSX.Element {
 }
 
 /**
+ * Analysis spinner icon for analysis indicator
+ */
+function AnalysisSpinnerIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="feature-card__analysis-spinner-icon"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
+  );
+}
+
+/**
  * FeatureCard - Displays a single feature in the Kanban board.
  * Shows feature name, task progress placeholder,
  * merge button with dropdown for completed features, and delete button on hover.
  */
-export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting }: FeatureCardProps) {
+export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount }: FeatureCardProps) {
   const showStart = feature.status === 'backlog';
   const showStop = feature.status === 'in_progress';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
@@ -241,6 +270,20 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
         <div className="feature-card__planning-indicator">
           <div className="feature-card__planning-spinner" />
           <span>Planning in progress...</span>
+        </div>
+      )}
+
+      {/* Analysis progress indicator - shown when analyzing or tasks pending analysis */}
+      {isAnalyzing && (
+        <div className="feature-card__analysis-indicator">
+          <AnalysisSpinnerIcon />
+          <span>Analyzing...</span>
+        </div>
+      )}
+      {!isAnalyzing && pendingAnalysisCount !== undefined && pendingAnalysisCount > 0 && (
+        <div className="feature-card__analysis-indicator">
+          <span className="feature-card__analysis-count">{pendingAnalysisCount}</span>
+          <span>{pendingAnalysisCount === 1 ? 'task needs analysis' : 'tasks need analysis'}</span>
         </div>
       )}
 
