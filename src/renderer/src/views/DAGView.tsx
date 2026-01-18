@@ -58,7 +58,8 @@ function dagToNodes(
   loopStatuses: Record<string, TaskLoopStatus>,
   onEdit: (taskId: string) => void,
   onDelete: (taskId: string) => void,
-  onLog: (taskId: string) => void
+  onLog: (taskId: string) => void,
+  analyzingTaskId: string | null = null
 ): Node[] {
   if (!dag) return []
 
@@ -69,6 +70,7 @@ function dagToNodes(
     data: {
       task,
       loopStatus: loopStatuses[task.id] || null,
+      isBeingAnalyzed: task.id === analyzingTaskId,
       onEdit,
       onDelete,
       onLog
@@ -191,6 +193,9 @@ function DAGViewInner({
     taskId: null,
     taskTitle: ''
   })
+
+  // Currently analyzing task ID (for analysis animation)
+  const [analyzingTaskId, setAnalyzingTaskId] = useState<string | null>(null)
 
   // Handle edge selection
   const handleSelectEdge = useCallback((edgeId: string) => {
@@ -350,8 +355,8 @@ function DAGViewInner({
 
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
-    () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask),
-    [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask]
+    () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId),
+    [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId]
   )
   const initialEdges = useMemo(
     () => dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge),
@@ -388,9 +393,37 @@ function DAGViewInner({
     loadLayout()
   }, [activeFeatureId])
 
+  // Listen for analysis events to track which task is being analyzed
+  useEffect(() => {
+    if (!activeFeatureId) {
+      setAnalyzingTaskId(null)
+      return
+    }
+
+    const unsubscribe = window.electronAPI.analysis.onEvent((data) => {
+      // Only update if the event is for this feature
+      if (data.featureId !== activeFeatureId) return
+
+      const { event } = data
+      if (event.type === 'analyzing') {
+        setAnalyzingTaskId(event.taskId ?? null)
+      } else if (event.type === 'kept' || event.type === 'split' || event.type === 'error') {
+        // Clear analyzing state when task analysis completes
+        setAnalyzingTaskId(null)
+      } else if (event.type === 'complete') {
+        // Analysis complete for feature, clear any lingering state
+        setAnalyzingTaskId(null)
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [activeFeatureId])
+
   // Update nodes/edges when DAG or selection changes, merging in saved layout positions
   useEffect(() => {
-    const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask).map((node) => {
+    const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId).map((node) => {
       const savedPos = layoutPositionsRef.current[node.id]
       if (savedPos) {
         return { ...node, position: savedPos }
@@ -399,7 +432,7 @@ function DAGViewInner({
     })
     setNodes(newNodes)
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
-  }, [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
+  }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
 
   // Poll for real-time session updates when task log dialog is open
   useEffect(() => {
