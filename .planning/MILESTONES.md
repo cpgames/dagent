@@ -1,5 +1,33 @@
 # Project Milestones: DAGent
 
+## v3.1 Task Analysis Orchestrator (Shipped: 2026-01-18)
+
+**Delivered:** Orchestrator-controlled task analysis loop replacing prompt-based task decomposition. Features auto-create a single `needs_analysis` task, PM iteratively analyzes each task (keep or split), and the workflow seamlessly integrates with existing execution.
+
+**Phases completed:** v3.1-01 through v3.1-04 (12 plans total)
+
+**Key accomplishments:**
+
+- `needs_analysis` task status — new status with purple/violet UI for tasks awaiting complexity analysis
+- Feature auto-creates initial task — creating a feature generates one `needs_analysis` task (PM only creates spec)
+- TaskAnalysisOrchestrator — service iteratively analyzing tasks, deciding keep-as-is or split into subtasks
+- PM analysis prompt — framework for PM to evaluate complexity with structured keep/split JSON decisions
+- Analysis UI — spinner indicators in Kanban, "Analyze Tasks" button in DAG View, pulsing task animation
+- Auto-analysis setting — `autoAnalyzeNewFeatures` (default: true) triggers analysis automatically after planning
+
+**Stats:**
+
+- 4 phases, 12 plans executed
+- 38 files modified, +3,596 lines added
+- 42,310 LOC TypeScript total
+- 5 days development time (2026-01-13 → 2026-01-18)
+
+**Git range:** `9b25d58` → `0f312f4`
+
+**What's next:** Next milestone planning with `/gsd:discuss-milestone`
+
+---
+
 ## v3.0 Session & Checkpoint Architecture (Shipped: 2026-01-17)
 
 **Delivered:** Centralized session management system for all agent interactions with automatic checkpoint compaction, replacing fragmented chat storage with unified SessionManager that never exceeds token limits.

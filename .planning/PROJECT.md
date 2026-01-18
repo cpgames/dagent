@@ -10,9 +10,21 @@ Tasks execute in correct dependency order with context handoff between agents - 
 
 ## Current Milestone: Planning Next Version
 
-**Status:** v3.0 complete. Ready for next milestone planning.
+**Status:** v3.1 complete. Ready for next milestone planning.
 
-## Current State (v3.0 Session & Checkpoint Architecture)
+## Current State (v3.1 Task Analysis Orchestrator)
+
+Shipped 2026-01-18. Orchestrator-controlled task analysis loop:
+- 4 phases (v3.1-01 through v3.1-04) completed, 12 plans executed
+- `needs_analysis` task status with purple/violet UI
+- Feature creation auto-creates single `needs_analysis` task
+- TaskAnalysisOrchestrator iteratively analyzes tasks (keep/split)
+- PM analysis prompt with structured JSON decision format
+- Analysis UI in Kanban (spinner) and DAG View (button, animation)
+- `autoAnalyzeNewFeatures` setting (default: true)
+- 42,310 lines TypeScript total
+
+## Previous State (v3.0 Session & Checkpoint Architecture)
 
 Shipped 2026-01-17. Centralized session management system:
 - 8 phases (v3.0-02 through v3.0-09) completed, 19 plans executed
