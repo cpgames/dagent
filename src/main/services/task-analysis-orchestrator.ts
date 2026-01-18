@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import type { Task } from '@shared/types'
 import type { FeatureStore } from '../storage/feature-store'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '../agent/pm-analysis-prompt'
@@ -139,13 +140,13 @@ export class TaskAnalysisOrchestrator {
   }
 
   /**
-   * Transition a task from needs_analysis to ready_for_dev.
+   * Transition a task from needs_analysis to ready_for_dev or blocked.
+   * Sets to 'blocked' if dependencies are not complete, otherwise 'ready_for_dev'.
    *
    * @param featureId - Feature ID
    * @param taskId - Task ID to transition
    */
   async transitionToReady(featureId: string, taskId: string): Promise<void> {
-    // Placeholder - will be implemented in Task 3
     const dag = await this.featureStore.loadDag(featureId)
     if (!dag) {
       throw new Error(`DAG not found for feature ${featureId}`)
@@ -156,12 +157,26 @@ export class TaskAnalysisOrchestrator {
       throw new Error(`Task ${taskId} not found in DAG`)
     }
 
-    dag.nodes[taskIndex].status = 'ready_for_dev'
+    // Check if task has incomplete dependencies
+    const dependencies = dag.connections
+      .filter((c) => c.to === taskId)
+      .map((c) => c.from)
+
+    const allDepsComplete = dependencies.every((depId) => {
+      const dep = dag.nodes.find((n) => n.id === depId)
+      return dep && dep.status === 'completed'
+    })
+
+    // Set to ready_for_dev only if no dependencies or all complete
+    dag.nodes[taskIndex].status =
+      dependencies.length === 0 || allDepsComplete ? 'ready_for_dev' : 'blocked'
+
     await this.featureStore.saveDag(featureId, dag)
   }
 
   /**
    * Create subtasks from analysis result and remove parent task.
+   * Tasks inherit parent's incoming connections and split among children.
    *
    * @param featureId - Feature ID
    * @param parentTaskId - Parent task ID to remove
@@ -173,7 +188,6 @@ export class TaskAnalysisOrchestrator {
     parentTaskId: string,
     taskDefs: NewTaskDef[]
   ): Promise<Task[]> {
-    // Placeholder - will be fully implemented in Task 3
     const dag = await this.featureStore.loadDag(featureId)
     if (!dag) {
       throw new Error(`DAG not found for feature ${featureId}`)
@@ -184,14 +198,21 @@ export class TaskAnalysisOrchestrator {
       throw new Error(`Parent task ${parentTaskId} not found`)
     }
 
-    // Simple placeholder: create tasks without proper positioning
     const createdTasks: Task[] = []
     const titleToIdMap = new Map<string, string>()
 
-    // First pass: create all tasks
+    // Get parent's incoming and outgoing connections
+    const parentIncoming = dag.connections.filter((c) => c.to === parentTaskId)
+    const parentOutgoing = dag.connections.filter((c) => c.from === parentTaskId)
+
+    // First pass: create all tasks with UUID and calculate positions
+    const baseX = parentTask.position.x
+    const baseY = parentTask.position.y
+    const spacing = 120 // Vertical spacing between subtasks
+
     for (let i = 0; i < taskDefs.length; i++) {
       const def = taskDefs[i]
-      const taskId = `${parentTaskId}-${i + 1}-${Date.now()}`
+      const taskId = randomUUID()
       const newTask: Task = {
         id: taskId,
         title: def.title,
@@ -199,8 +220,8 @@ export class TaskAnalysisOrchestrator {
         status: 'needs_analysis',
         locked: false,
         position: {
-          x: parentTask.position.x,
-          y: parentTask.position.y + (i + 1) * 100
+          x: baseX + (i % 2 === 0 ? 0 : 200), // Stagger horizontal position
+          y: baseY + Math.floor(i / 2) * spacing
         }
       }
       dag.nodes.push(newTask)
@@ -208,7 +229,7 @@ export class TaskAnalysisOrchestrator {
       titleToIdMap.set(def.title, taskId)
     }
 
-    // Second pass: add dependencies
+    // Second pass: add internal dependencies between subtasks
     for (const def of taskDefs) {
       if (def.dependsOnTitles && def.dependsOnTitles.length > 0) {
         const taskId = titleToIdMap.get(def.title)
@@ -220,6 +241,37 @@ export class TaskAnalysisOrchestrator {
             dag.connections.push({ from: depId, to: taskId })
           }
         }
+      }
+    }
+
+    // Third pass: connect parent's incoming connections to subtasks without dependencies
+    const subtasksWithoutDeps = taskDefs
+      .filter((def) => !def.dependsOnTitles || def.dependsOnTitles.length === 0)
+      .map((def) => titleToIdMap.get(def.title)!)
+      .filter((id) => id !== undefined)
+
+    for (const incoming of parentIncoming) {
+      for (const subtaskId of subtasksWithoutDeps) {
+        dag.connections.push({ from: incoming.from, to: subtaskId })
+      }
+    }
+
+    // Fourth pass: connect subtasks to parent's outgoing targets
+    // Find subtasks that nothing depends on (leaf subtasks)
+    const dependedOn = new Set<string>()
+    for (const def of taskDefs) {
+      for (const depTitle of def.dependsOnTitles || []) {
+        const depId = titleToIdMap.get(depTitle)
+        if (depId) dependedOn.add(depId)
+      }
+    }
+    const leafSubtasks = createdTasks
+      .map((t) => t.id)
+      .filter((id) => !dependedOn.has(id))
+
+    for (const outgoing of parentOutgoing) {
+      for (const leafId of leafSubtasks) {
+        dag.connections.push({ from: leafId, to: outgoing.to })
       }
     }
 
