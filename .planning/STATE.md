@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-17)
 **Milestone:** v3.1 Task Analysis Orchestrator
 **Roadmap:** .planning/milestones/v3.1-task-analysis-orchestrator-ROADMAP.md
 
-Phase: v3.1-03-ui-integration (UI Integration)
-Plan: 03-02 complete — All UI integration plans complete
-Status: COMPLETE
-Last activity: 2026-01-18 — Plan 03-02 complete (Analysis controls in DAG View)
+Phase: v3.1-04-auto-analysis-trigger (Automatic Analysis Trigger)
+Plan: 04-01 COMPLETE (Settings Infrastructure)
+Status: IN PROGRESS
+Last activity: 2026-01-18 — Plan 04-01 complete (settings infrastructure)
 
-Progress: ███████░░░ 70% (Phase 1 complete, Phase 2 complete, Phase 3 complete)
+Progress: ███████░░░ 80% (Phases 1-3 complete, Phase 4 plan 1/2 done)
 
-Next action: Plan next phase (v3.1-04) or milestone verification
+Next action: Execute plan 04-02 (Auto-Analysis Trigger)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 142 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 10)
+- Total plans completed: 143 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 11)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -41,8 +41,8 @@ Next action: Plan next phase (v3.1-04) or milestone verification
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-02-02 to v3.1-02-04, v3.1-03-01 to v3.1-03-03, v3.1-03-02
-- Trend: v3.1 phase 03 complete (UI Integration - all 3 plans done)
+- Last 7 plans: v3.1-02-03, v3.1-02-04, v3.1-03-01 to v3.1-03-03, v3.1-04-01
+- Trend: v3.1 phase 04 in progress (Auto-Analysis Trigger - plan 1/2 done)
 
 ## Accumulated Context
 
@@ -62,6 +62,7 @@ Recent decisions affecting current work:
 - **Session per task state**: Tasks track sessions separately for in_dev and in_qa states via sessions field
 - **Iteration results in session**: Ralph Loop iteration results logged to session as internal assistant messages with verification metadata
 - **Jest over vitest**: Chose Jest for unit testing due to vitest issues with Node.js v24 test collection (describe callbacks not executing)
+- **SettingsStore singleton**: Settings use same pattern as other stores - initializeSettingsStore(projectRoot) on project open, getSettingsStore() for access
 
 ### Deferred Issues
 
@@ -1051,4 +1052,13 @@ All verification items passed. Phase v3.1-02 Complete.
   - TaskNode shows analyzing state during task analysis
 
 All verification items passed. Phase v3.1-03 Complete.
+
+### Phase v3.1-04: Auto-Analysis Trigger (In Progress)
+
+- **04-01**: Settings Infrastructure (Complete)
+  - Created AppSettings type with autoAnalyzeNewFeatures boolean (defaults true)
+  - Created SettingsStore class with load/save/get/set CRUD operations
+  - Created settings IPC handlers (settings:load, settings:save, settings:get, settings:set)
+  - Added settings API to preload with full TypeScript types
+  - Initialize SettingsStore on project open/create and app startup
 
