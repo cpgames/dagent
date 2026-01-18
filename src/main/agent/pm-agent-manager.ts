@@ -6,6 +6,8 @@ import { AgentService } from './agent-service'
 import { FeatureStatusManager } from '../services/feature-status-manager'
 import { setPMToolsFeatureContext } from '../ipc/pm-tools-handlers'
 import { getSessionManager } from '../services/session-manager'
+import { getSettingsStore } from '../storage/settings-store'
+import { getTaskAnalysisOrchestrator } from '../services/task-analysis-orchestrator'
 import type { CreateSessionOptions } from '../../shared/types/session'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -173,8 +175,50 @@ export class PMAgentManager {
         const verified = await this.verifyPlanningComplete(featureId)
 
         if (verified) {
-          // Step 5: Move feature to backlog
-          console.log(`[PMAgentManager] Planning complete for ${featureId}, moving to backlog`)
+          console.log(`[PMAgentManager] Planning complete for ${featureId}`)
+
+          // Step 5: Check if auto-analysis is enabled and run analysis
+          const settingsStore = getSettingsStore()
+          const autoAnalyze = settingsStore
+            ? await settingsStore.get('autoAnalyzeNewFeatures')
+            : true // Default to true if store not available
+
+          if (autoAnalyze) {
+            console.log(`[PMAgentManager] Auto-analysis enabled, starting analysis for ${featureId}`)
+
+            // Run analysis - iterate through all needs_analysis tasks
+            const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
+            try {
+              for await (const event of orchestrator.analyzeFeatureTasks(featureId)) {
+                console.log(`[PMAgentManager] Analysis event: ${event.type}`)
+
+                // Broadcast analysis events to renderer for UI updates
+                const windows = BrowserWindow.getAllWindows()
+                for (const win of windows) {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('analysis:event', { featureId, event })
+                  }
+                }
+
+                if (event.type === 'complete') {
+                  console.log(`[PMAgentManager] Analysis complete for ${featureId}`)
+                  break
+                }
+                if (event.type === 'error') {
+                  console.error(`[PMAgentManager] Analysis error: ${event.error}`)
+                  // Continue - individual task errors shouldn't stop the process
+                }
+              }
+            } catch (error) {
+              console.error(`[PMAgentManager] Analysis failed:`, error)
+              // Analysis failure shouldn't prevent feature from going to backlog
+            }
+          } else {
+            console.log(`[PMAgentManager] Auto-analysis disabled, skipping analysis for ${featureId}`)
+          }
+
+          // Step 6: Move feature to backlog (after analysis if enabled)
+          console.log(`[PMAgentManager] Moving ${featureId} to backlog`)
           await this.statusManager.updateFeatureStatus(featureId, 'backlog')
 
           // Broadcast DAG update to UI so it shows the new tasks
@@ -287,12 +331,12 @@ export class PMAgentManager {
 
   /**
    * Build planning prompt for PM agent.
-   * Instructs PM to create spec.md and initial DAG tasks.
+   * Instructs PM to create spec.md only (tasks are created via orchestrator analysis).
    */
   private buildPlanningPrompt(featureName: string, context: string): string {
     return `You are the PM Agent for a new feature: "${featureName}".
 
-Your task is to create a comprehensive feature specification and initial task breakdown.
+Your task is to create a feature specification.
 
 ${context ? `\n${context}\n` : ''}
 
@@ -300,44 +344,29 @@ ${context ? `\n${context}\n` : ''}
 
 1. **Create Feature Specification**:
    - Use the CreateSpec tool to create a feature-spec.md file
-   - Include:
-     - Feature goals and objectives
-     - Requirements and acceptance criteria
-     - Constraints and considerations
-     - Technical approach (if applicable)${context ? '\n     - Reference to attached files (if any) in an "Attachments" section' : ''}
-   - Base the spec on the feature name${context ? ', description, and attached files' : ' (no additional context provided)'}${context ? '\n   - If there are attached files, add an "Attachments" section at the end of the spec listing each file' : ''}
+   - Include goals, requirements, and acceptance criteria
+   - Base the spec on the feature name${context ? ', description, and attached files' : ''}
 
-2. **Design Initial Task Breakdown**:
-   - Use your PM tools (CreateTask, AddDependency) to create an initial DAG of tasks
-   - Break the feature into logical, manageable tasks
-   - Create at least 2-3 initial tasks
-   - Set up dependencies between tasks as needed
-   - Each task should have:
-     - Clear, descriptive name
-     - Detailed description of what needs to be done
-     - Proper dependencies (tasks that must complete first)
-
-3. **Verification**:
-   - Ensure spec.md is created with comprehensive content
-   - Ensure DAG has at least one task created
-   - Your work is complete when both spec and tasks are saved
+2. **Verification**:
+   - Ensure spec is created with meaningful content
+   - Your work is complete when the spec is saved
 
 **Important:**
-- This is a fully autonomous planning phase
-- Do not wait for user input or approval
-- Create the spec and tasks, then finish
-- The system will automatically move the feature to the Backlog once you're done
+- This is autonomous - do not wait for user input
+- Create the spec, then finish
+- Do NOT create tasks - task creation happens in the analysis phase
+- The system will analyze and create tasks after planning completes
 
 Begin planning for "${featureName}".`
   }
 
   /**
    * Verify that planning completed successfully.
-   * Checks for spec.md and at least one DAG task.
+   * Checks for spec.md existence only (tasks are created by analysis orchestrator).
    */
   private async verifyPlanningComplete(featureId: string): Promise<boolean> {
     try {
-      // Check 1: Verify spec.md exists
+      // Check: Verify spec.md exists
       const featureDir = getFeatureDir(this.projectRoot, featureId)
       const specPath = path.join(featureDir, 'feature-spec.md')
 
@@ -348,14 +377,9 @@ Begin planning for "${featureName}".`
         return false
       }
 
-      // Check 2: Verify DAG has at least one task
-      const dag = await this.featureStore.loadDag(featureId)
-      if (!dag || !dag.nodes || dag.nodes.length === 0) {
-        console.error(`[PMAgentManager] Verification failed: DAG has no tasks`)
-        return false
-      }
-
-      console.log(`[PMAgentManager] Verification passed: spec.md exists, ${dag.nodes.length} task(s) created`)
+      // Spec exists - planning complete
+      // Note: Tasks are created by the analysis orchestrator, not during planning
+      console.log(`[PMAgentManager] Verification passed: spec.md exists`)
       return true
     } catch (error) {
       console.error(`[PMAgentManager] Verification error:`, error)
