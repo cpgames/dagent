@@ -1,5 +1,34 @@
 # Project Milestones: DAGent
 
+## v3.0 Session & Checkpoint Architecture (Shipped: 2026-01-17)
+
+**Delivered:** Centralized session management system for all agent interactions with automatic checkpoint compaction, replacing fragmented chat storage with unified SessionManager that never exceeds token limits.
+
+**Phases completed:** v3.0-02 through v3.0-09 (19 plans total)
+
+**Key accomplishments:**
+
+- SessionManager Service (1,146 lines) — centralized session management with file-based persistence
+- Automatic Compaction — context compression at 90k tokens with checkpoint preservation
+- Universal Agent Integration — PM, Dev, QA, Harness, Merge all use SessionManager
+- UI Components — SessionStatus, CheckpointViewer, SessionActions for session management
+- Comprehensive Testing — 143 tests (unit, CRUD, compaction, performance, migration)
+- Documentation — 2,067 lines (session-architecture, api-reference, compaction-guide, file-structure)
+- Migration System — auto-migration from legacy chat.json/session.json with backup
+
+**Stats:**
+
+- 8 phases, 19 plans executed
+- 97 files modified, +26,827 / -3,633 lines changed
+- 40,907 LOC TypeScript total
+- 1 day development time (2026-01-17)
+
+**Git range:** `b569fcd` → `v3.0`
+
+**What's next:** Next milestone planning with `/gsd:discuss-milestone`
+
+---
+
 ## v2.7 Canvas Background System (Shipped: 2026-01-16)
 
 **Delivered:** Unified canvas-based background rendering system with six composable visual effect layers, replacing deprecated CSS components with a performant single-RAF animation loop.

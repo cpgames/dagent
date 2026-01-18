@@ -10,19 +10,20 @@ Tasks execute in correct dependency order with context handoff between agents - 
 
 ## Current Milestone: Planning Next Version
 
-**Status:** v2.7 complete. Ready for next milestone planning.
+**Status:** v3.0 complete. Ready for next milestone planning.
 
-## Current State (v2.7 Canvas Background System)
+## Current State (v3.0 Session & Checkpoint Architecture)
 
-Shipped 2026-01-16. Unified canvas background rendering system:
-- 7 phases (83-89) completed
-- Canvas Infrastructure with Layer interface (init/update/render/reset)
-- 6 visual effect layers (Sky, Stars, HorizonGlow, Terrain, Grid, ShootingStars)
-- Single requestAnimationFrame loop for all animations
-- UnifiedCanvas component with HiDPI support and reduced motion
-- Replaced 5 deprecated CSS components (311 lines removed)
-- ResizeObserver with 100ms debounce for performance
-- Object pooling and context caching deferred to v2
+Shipped 2026-01-17. Centralized session management system:
+- 8 phases (v3.0-02 through v3.0-09) completed, 19 plans executed
+- SessionManager service (1,146 lines) for all agent types
+- Automatic compaction at 90k tokens with checkpoint preservation
+- Universal agent integration (PM, Dev, QA, Harness, Merge)
+- UI components: SessionStatus, CheckpointViewer, SessionActions
+- 143 tests (unit, CRUD, compaction, performance, migration)
+- 2,067 lines documentation (architecture, API, compaction guide, file structure)
+- Migration system with auto-migration and backup
+- Old chat APIs deprecated with migration path
 
 ## Requirements
 
@@ -120,6 +121,24 @@ Shipped 2026-01-16. Unified canvas background rendering system:
 - [x] Single requestAnimationFrame loop for all layers - v2.7
 - [x] Removed deprecated Starfield, Horizon, and SynthwaveBackground CSS components - v2.7
 - [x] ResizeObserver with 100ms debounce - v2.7
+- [x] SessionManager service for centralized session storage - v3.0
+- [x] Automatic compaction at 100k tokens with checkpoint preservation - v3.0
+- [x] Token estimation (character-based, 4 chars = 1 token) - v3.0
+- [x] PM Agent SessionManager integration - v3.0
+- [x] Dev Agent SessionManager integration with task sessions - v3.0
+- [x] QA Agent SessionManager integration - v3.0
+- [x] Harness Agent SessionManager integration - v3.0
+- [x] Merge Agent SessionManager integration - v3.0
+- [x] SessionStatus UI component (token count, version, compaction count) - v3.0
+- [x] CheckpointViewer UI component (collapsible sections) - v3.0
+- [x] SessionActions menu (clear, compact, export, reset) - v3.0
+- [x] Migration from legacy chat.json format - v3.0
+- [x] Migration from legacy dev session.json format - v3.0
+- [x] Old chat APIs deprecated with console warnings - v3.0
+- [x] Session architecture documentation (486 lines) - v3.0
+- [x] Compaction guide documentation (366 lines) - v3.0
+- [x] API reference documentation (896 lines) - v3.0
+- [x] File structure documentation (319 lines) - v3.0
 
 ### Backlog
 
@@ -177,6 +196,10 @@ Key reference material:
 
 | Webkit scrollbar styling | Tailwind v4 lacks scrollbar utilities | Good |
 | Feature status from tasks | Priority rules for column placement | Good |
+| SessionManager singleton | Centralized session management | Good |
+| Token estimation (char-based) | 4 chars = 1 token, fast and accurate | Good |
+| Auto-compaction at 90k | Leaves buffer before 100k limit | Good |
+| Jest over Vitest | Node.js v24 compatibility issues | Good |
 
 ---
-*Last updated: 2026-01-16 after v2.7 milestone*
+*Last updated: 2026-01-17 after v3.0 milestone*
