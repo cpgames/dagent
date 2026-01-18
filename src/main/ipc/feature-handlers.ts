@@ -7,7 +7,9 @@ import { getFeatureWorktreeName, getFeatureBranchName } from '../git/types'
 import { FeatureStatusManager } from '../services/feature-status-manager'
 import { createPMAgentManager } from '../agent/pm-agent-manager'
 import { getAgentService } from '../agent/agent-service'
+import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import type { FeatureStatus } from '@shared/types/feature'
+import type { Task } from '@shared/types/task'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 
@@ -346,6 +348,92 @@ export function registerFeatureHandlers(): void {
         pmManager.startPlanningForFeature(featureId, featureName, description, attachments)
           .catch(error => {
             console.error(`[FeatureHandlers] Planning failed for ${featureId}:`, error)
+          })
+
+        return { success: true }
+      } catch (error) {
+        return {
+          success: false,
+          error: (error as Error).message
+        }
+      }
+    }
+  )
+
+  /**
+   * Replan a feature - delete all tasks and spec, then restart planning.
+   * Only allowed when feature is in 'backlog' status.
+   */
+  ipcMain.handle(
+    'feature:replan',
+    async (
+      _event,
+      featureId: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const featureStore = getFeatureStore()
+        const projectRoot = getProjectRoot()
+
+        if (!featureStore || !projectRoot) {
+          return { success: false, error: 'Storage not initialized' }
+        }
+
+        // Load and verify feature status
+        const feature = await featureStore.loadFeature(featureId)
+        if (!feature) {
+          return { success: false, error: 'Feature not found' }
+        }
+
+        if (feature.status !== 'backlog') {
+          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be in 'backlog' status.` }
+        }
+
+        // Delete spec
+        const specStore = getFeatureSpecStore(projectRoot)
+        await specStore.deleteSpec(featureId)
+
+        // Create initial task for the feature (same as feature creation)
+        // Extract slug from featureId (e.g., "feature-my-feature" -> "my-feature")
+        const slug = featureId.replace(/^feature-/, '')
+        const initialTask: Task = {
+          id: `task-${slug}-initial`,
+          title: feature.name,
+          description: feature.description || '',
+          status: 'needs_analysis',
+          locked: false,
+          position: { x: 250, y: 100 }
+        }
+
+        // Reset DAG with initial task
+        await featureStore.saveDag(featureId, { nodes: [initialTask], connections: [] })
+
+        // Update feature status to planning
+        feature.status = 'planning'
+        feature.updatedAt = new Date().toISOString()
+        await featureStore.saveFeature(feature)
+
+        // Get services for PM agent
+        const agentService = getAgentService()
+        if (!agentService) {
+          return { success: false, error: 'Agent service not available' }
+        }
+
+        const statusManager = getStatusManager()
+        const eventEmitter = new EventEmitter()
+
+        // Create PM agent manager and start planning
+        const pmManager = createPMAgentManager(
+          agentService,
+          featureStore,
+          statusManager,
+          eventEmitter,
+          projectRoot
+        )
+
+        // Start planning asynchronously
+        pmManager.startPlanningForFeature(featureId, feature.name, feature.description)
+          .catch(error => {
+            console.error(`[FeatureHandlers] Replanning failed for ${featureId}:`, error)
           })
 
         return { success: true }

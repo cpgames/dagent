@@ -627,6 +627,11 @@ const electronAPI = {
     ): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('feature:startPlanning', featureId, featureName, description, attachments),
 
+    // Replan a feature - deletes all tasks and spec, restarts planning
+    // Only allowed when feature is in 'backlog' status
+    replan: (featureId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('feature:replan', featureId),
+
     // Upload attachment files to feature worktree
     uploadAttachments: async (featureId: string, files: File[]): Promise<string[]> => {
       // Convert File objects to ArrayBuffers for IPC transfer

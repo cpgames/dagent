@@ -1,0 +1,125 @@
+/**
+ * FeatureDescription Component Styles
+ * Editable feature name and description panel
+ */
+
+.feature-description {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-surface);
+}
+
+.feature-description__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  overflow-y: auto;
+}
+
+.feature-description__empty {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Field styling */
+.feature-description__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.feature-description__field--grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.feature-description__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.feature-description__input {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.feature-description__input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.2);
+}
+
+.feature-description__input::placeholder {
+  color: var(--text-muted);
+}
+
+.feature-description__textarea {
+  flex: 1;
+  min-height: 100px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  resize: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.feature-description__textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.2);
+}
+
+.feature-description__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Metadata section */
+.feature-description__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.feature-description__meta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.75rem;
+}
+
+.feature-description__meta-label {
+  color: var(--text-muted);
+}
+
+.feature-description__meta-value {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* Footer with buttons */
+.feature-description__footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}

@@ -37,9 +37,8 @@ import {
 } from '../components/DAG'
 import type { LogEntry, DevAgentSession } from '@shared/types'
 import type { TaskLoopStatus } from '../../../main/dag-engine/orchestrator-types'
-import { FeatureChat } from '../components/Chat'
 import { ResizeHandle } from '../components/Layout'
-import { FeatureSpecViewer } from '../components/Feature/FeatureSpecViewer'
+import { FeatureSidebar } from '../components/Feature'
 import type { DAGGraph, Task } from '@shared/types'
 import { toast } from '../stores/toast-store'
 
@@ -157,21 +156,6 @@ function DAGViewInner({
     const saved = localStorage.getItem('dagent.chatPanelWidth')
     return saved ? parseInt(saved, 10) : 320
   })
-
-  // Spec viewer visibility state with localStorage persistence
-  const [showSpec, setShowSpec] = useState(() => {
-    const saved = localStorage.getItem('dagent.showSpecViewer')
-    return saved === 'true'
-  })
-
-  // Toggle spec viewer visibility
-  const handleToggleSpec = useCallback(() => {
-    setShowSpec((prev) => {
-      const newValue = !prev
-      localStorage.setItem('dagent.showSpecViewer', String(newValue))
-      return newValue
-    })
-  }, [])
 
   // Handle chat panel resize
   const handleChatResize = useCallback((deltaX: number) => {
@@ -713,38 +697,11 @@ function DAGViewInner({
         </div>
       </div>
 
-      {/* Chat sidebar */}
+      {/* Feature sidebar with tabs */}
       {activeFeatureId && (
         <div className="relative flex flex-col h-full" style={{ width: chatWidth }}>
           <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
-          {/* Spec toggle bar */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <button
-              onClick={handleToggleSpec}
-              className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-              title={showSpec ? 'Hide feature spec' : 'Show feature spec'}
-            >
-              <svg
-                className={`w-3.5 h-3.5 transition-transform ${showSpec ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              <span>Spec</span>
-            </button>
-          </div>
-          {/* Feature spec viewer (collapsible) */}
-          {showSpec && (
-            <div className="border-b border-[var(--border-default)] max-h-64 overflow-y-auto">
-              <FeatureSpecViewer featureId={activeFeatureId} />
-            </div>
-          )}
-          {/* Chat takes remaining space */}
-          <div className="flex-1 min-h-0">
-            <FeatureChat featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
-          </div>
+          <FeatureSidebar featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
         </div>
       )}
 

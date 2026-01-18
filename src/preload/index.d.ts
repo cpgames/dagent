@@ -1050,6 +1050,12 @@ export interface FeatureAPI {
   ) => Promise<{ success: boolean; error?: string }>
 
   /**
+   * Replan a feature - deletes all tasks and spec, restarts planning.
+   * Only allowed when feature is in 'backlog' status.
+   */
+  replan: (featureId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
    * Upload attachment files to feature worktree.
    * Returns array of relative paths where files were saved.
    */
