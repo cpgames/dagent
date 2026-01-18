@@ -3,7 +3,8 @@
  * Synthwave-styled progress bar showing token usage for chat sessions
  */
 
-import { useEffect, useState, useCallback, type JSX } from 'react'
+import { useEffect, useState, useCallback, useRef, type JSX } from 'react'
+import { useChatStore } from '../../stores/chat-store'
 import './TokenProgress.css'
 
 interface TokenProgressProps {
@@ -27,6 +28,10 @@ export function TokenProgress({ sessionId, featureId, projectRoot }: TokenProgre
   const [metrics, setMetrics] = useState<SessionMetrics | null>(null)
   const [isCompacting, setIsCompacting] = useState(false)
 
+  // Subscribe to message count changes to trigger refresh
+  const messageCount = useChatStore((state) => state.messages.length)
+  const isResponding = useChatStore((state) => state.isResponding)
+
   const loadMetrics = useCallback(async () => {
     if (!sessionId || !featureId || !projectRoot) {
       setMetrics(null)
@@ -49,6 +54,25 @@ export function TokenProgress({ sessionId, featureId, projectRoot }: TokenProgre
   useEffect(() => {
     loadMetrics()
   }, [loadMetrics])
+
+  // Refresh metrics when messages change
+  useEffect(() => {
+    // Small delay to allow backend to persist the message
+    const timeoutId = setTimeout(() => {
+      loadMetrics()
+    }, 500)
+    return () => clearTimeout(timeoutId)
+  }, [messageCount, loadMetrics])
+
+  // Refresh when AI stops responding (response complete)
+  const prevIsRespondingRef = useRef(isResponding)
+  useEffect(() => {
+    if (prevIsRespondingRef.current && !isResponding) {
+      // AI just finished responding, refresh metrics after persist delay
+      setTimeout(() => loadMetrics(), 1000)
+    }
+    prevIsRespondingRef.current = isResponding
+  }, [isResponding, loadMetrics])
 
   // Subscribe to compaction events
   useEffect(() => {
