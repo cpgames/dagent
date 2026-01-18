@@ -154,7 +154,9 @@ export interface StorageAPI {
   loadDag: (featureId: string) => Promise<DAGGraph | null>
 
   // Feature-level chat operations
+  /** @deprecated Use SessionManager.addMessage() instead. See doc/api-reference.md for migration guide. */
   saveChat: (featureId: string, chat: ChatHistory) => Promise<boolean>
+  /** @deprecated Use SessionManager.getSession() instead. See doc/api-reference.md for migration guide. */
   loadChat: (featureId: string) => Promise<ChatHistory | null>
 
   // Harness log operations
@@ -162,7 +164,9 @@ export interface StorageAPI {
   loadHarnessLog: (featureId: string) => Promise<AgentLog | null>
 
   // Node chat operations
+  /** @deprecated Use SessionManager with task context instead. */
   saveNodeChat: (featureId: string, nodeId: string, chat: ChatHistory) => Promise<boolean>
+  /** @deprecated Use SessionManager with task context instead. */
   loadNodeChat: (featureId: string, nodeId: string) => Promise<ChatHistory | null>
 
   // Node logs operations
