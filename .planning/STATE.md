@@ -13,18 +13,18 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 **Roadmap:** .planning/milestones/v3.0-session-checkpoint-ROADMAP.md
 
 Phase: v3.0-09-cleanup-deprecation (Cleanup & Deprecation)
-Plan: 09-01 complete, 09-02 pending
-Status: IN_PROGRESS
-Last activity: 2026-01-17 — Plan 09-01 complete (deprecate old chat methods)
+Plan: 09-01 complete, 09-02 complete
+Status: COMPLETE
+Last activity: 2026-01-17 — Plan 09-02 complete (file structure documentation)
 
-Progress: █████░░░░░ 50% (1/2 plans executed)
+Progress: ██████████ 100% (2/2 plans executed)
 
-Next action: /gsd:execute-plan 09-02
+Next action: Phase complete. v3.0 milestone documentation complete.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 131 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 12)
+- Total plans completed: 132 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -41,8 +41,8 @@ Next action: /gsd:execute-plan 09-02
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.0-06-01, v3.0-06-02, v3.0-07-01, v3.0-07-02, v3.0-07-03, v3.0-08-01 to v3.0-08-04, v3.0-09-01
-- Trend: v3.0 phase 09 in progress (Cleanup & Deprecation - deprecate old chat methods)
+- Last 7 plans: v3.0-06-02, v3.0-07-01, v3.0-07-02, v3.0-07-03, v3.0-08-01 to v3.0-08-04, v3.0-09-01, v3.0-09-02
+- Trend: v3.0 phase 09 complete (Cleanup & Deprecation - file structure documentation)
 
 ## Accumulated Context
 
@@ -896,7 +896,7 @@ The application now provides:
   - Reset Session: destructive action with confirmation dialog
   - Toast notifications for feedback, disabled state handling
 
-### Phase v3.0-08: Testing & Polish (In Progress)
+### Phase v3.0-08: Testing & Polish (Complete)
 
 - **08-01**: SessionManager Unit Tests (Complete)
   - Set up Jest test infrastructure (switched from vitest due to Node.js v24 compatibility)
@@ -926,4 +926,41 @@ The application now provides:
   - Total: 1748 lines of documentation
 
 All verification items passed. Phase v3.0-08-testing-polish Complete.
+
+### Phase v3.0-09: Cleanup & Deprecation (Complete)
+
+- **09-01**: Deprecate Old Chat Methods (Complete)
+  - Added @deprecated JSDoc tags to FeatureStore chat methods (saveChat, loadChat, saveNodeChat, loadNodeChat)
+  - Added console.warn() deprecation warnings at runtime
+  - Added file-level deprecation notice to chat-store.ts
+  - Deprecated preload chat type definitions
+
+- **09-02**: File Structure Documentation (Complete)
+  - Created doc/file-structure.md (319 lines) - Comprehensive .dagent directory structure docs
+  - Documented current session-based storage (v3.0+) and legacy chat.json format
+  - Added migration notes with field mappings
+  - Added Deprecated APIs section to doc/api-reference.md
+  - Cross-references to session-architecture.md, api-reference.md, compaction-guide.md
+
+All verification items passed. Phase v3.0-09-cleanup-deprecation Complete.
+
+---
+
+## v3.0 Milestone Summary (Session & Checkpoint Architecture)
+
+The v3.0 milestone is complete. The application now has a unified session management system:
+
+1. **Phase v3.0-01 to v3.0-04**: Core SessionManager with PM Agent integration
+2. **Phase v3.0-05**: Dev Agent integration with session tracking
+3. **Phase v3.0-06**: UI components (SessionStatus, CheckpointViewer, SessionActions)
+4. **Phase v3.0-07**: PM Agent refactoring to use SessionManager
+5. **Phase v3.0-08**: Testing (90 unit tests, 22 performance benchmarks, 32 migration tests) and documentation
+6. **Phase v3.0-09**: Cleanup and deprecation (old APIs deprecated, file structure documented)
+
+Key features:
+- Unified session storage for all agent types (PM, Dev, QA, Harness, Merge)
+- Automatic compaction when approaching 100k token limit
+- Checkpoint-based context preservation across compaction cycles
+- Complete documentation (session-architecture.md, api-reference.md, compaction-guide.md, file-structure.md)
+- Clear migration path from legacy chat.json to new session-based storage
 
