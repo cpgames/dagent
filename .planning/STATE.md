@@ -13,18 +13,18 @@ See: .planning/PROJECT.md (updated 2026-01-17)
 **Roadmap:** .planning/milestones/v3.1-task-analysis-orchestrator-ROADMAP.md
 
 Phase: v3.1-04-auto-analysis-trigger (Automatic Analysis Trigger)
-Plan: 04-01 COMPLETE (Settings Infrastructure)
-Status: IN PROGRESS
-Last activity: 2026-01-18 — Plan 04-01 complete (settings infrastructure)
+Plan: 04-02 COMPLETE (Auto-Analysis Trigger)
+Status: PHASE COMPLETE
+Last activity: 2026-01-18 — Plan 04-02 complete (auto-analysis trigger after planning)
 
-Progress: ███████░░░ 80% (Phases 1-3 complete, Phase 4 plan 1/2 done)
+Progress: ██████████ 100% (All 4 phases complete)
 
-Next action: Execute plan 04-02 (Auto-Analysis Trigger)
+Next action: Mark milestone v3.1 complete or plan next milestone
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 143 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 11)
+- Total plans completed: 144 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -41,8 +41,8 @@ Next action: Execute plan 04-02 (Auto-Analysis Trigger)
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-02-03, v3.1-02-04, v3.1-03-01 to v3.1-03-03, v3.1-04-01
-- Trend: v3.1 phase 04 in progress (Auto-Analysis Trigger - plan 1/2 done)
+- Last 7 plans: v3.1-02-04, v3.1-03-01 to v3.1-03-03, v3.1-04-01, v3.1-04-02
+- Trend: v3.1 milestone complete (Task Analysis Orchestrator)
 
 ## Accumulated Context
 
@@ -1053,7 +1053,7 @@ All verification items passed. Phase v3.1-02 Complete.
 
 All verification items passed. Phase v3.1-03 Complete.
 
-### Phase v3.1-04: Auto-Analysis Trigger (In Progress)
+### Phase v3.1-04: Auto-Analysis Trigger (Complete)
 
 - **04-01**: Settings Infrastructure (Complete)
   - Created AppSettings type with autoAnalyzeNewFeatures boolean (defaults true)
@@ -1061,4 +1061,30 @@ All verification items passed. Phase v3.1-03 Complete.
   - Created settings IPC handlers (settings:load, settings:save, settings:get, settings:set)
   - Added settings API to preload with full TypeScript types
   - Initialize SettingsStore on project open/create and app startup
+
+- **04-02**: Auto-Analysis Trigger (Complete)
+  - PMAgentManager checks autoAnalyzeNewFeatures after planning
+  - If enabled, triggers TaskAnalysisOrchestrator.analyzeFeatureTasks()
+  - Broadcasts analysis events to renderer for UI updates
+  - Feature moves to backlog only after analysis completes
+
+All verification items passed. Phase v3.1-04 Complete.
+
+---
+
+## v3.1 Milestone Summary (Task Analysis Orchestrator)
+
+The v3.1 milestone is complete. The application now has an automatic task analysis system:
+
+1. **Phase v3.1-01**: Task Status Extension - Added `needs_analysis` status, auto-create task on feature creation
+2. **Phase v3.1-02**: Analysis Orchestrator Core - TaskAnalysisOrchestrator, PM analysis prompt, IPC handlers
+3. **Phase v3.1-03**: UI Integration - Analysis indicators in FeatureCard, Analyze button in DAG, TaskNode visualization
+4. **Phase v3.1-04**: Auto-Analysis Trigger - Settings infrastructure, auto-trigger after planning
+
+Key features:
+- New `needs_analysis` task status for tasks awaiting complexity analysis
+- PM Agent analyzes each task (KEEP if atomic, SPLIT if complex)
+- Automatic analysis after feature planning (configurable via settings)
+- Analysis events broadcast for real-time UI updates
+- Feature workflow: Create -> Planning (spec.md) -> Analysis (split/keep) -> Backlog
 
