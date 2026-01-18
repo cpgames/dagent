@@ -35,7 +35,10 @@
       "Bash(cd /d D:cpgamestoolsDagentTest)",
       "Bash(git -C:*)",
       "Bash(cd:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm test:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm install)"
     ]
   }
 }

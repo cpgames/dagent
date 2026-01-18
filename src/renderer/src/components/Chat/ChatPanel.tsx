@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react'
 import { useChatStore } from '../../stores/chat-store'
+import { useProjectStore } from '../../stores/project-store'
 import { ChatMessage } from './ChatMessage'
 import { ToolUsageDisplay } from './ToolUsageDisplay'
+import { TokenProgress } from './TokenProgress'
 import { Button } from '../UI'
 import './ChatPanel.css'
 
@@ -32,8 +34,10 @@ export function ChatPanel({
     isLoading,
     isResponding,
     streamingContent,
-    activeToolUse
+    activeToolUse,
+    sessionId
   } = useChatStore()
+  const projectPath = useProjectStore((state) => state.projectPath)
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -86,6 +90,14 @@ export function ChatPanel({
       <div className="chat-panel__header">
         <h3 className="chat-panel__header-title">{agentName}</h3>
         <div className="chat-panel__header-actions">
+          {/* Token progress bar */}
+          {contextType === 'feature' && projectPath && (
+            <TokenProgress
+              sessionId={sessionId}
+              featureId={contextId}
+              projectRoot={projectPath}
+            />
+          )}
           {onShowLogs && (
             <button
               onClick={onShowLogs}

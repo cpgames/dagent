@@ -1,0 +1,194 @@
+/**
+ * TokenProgress Component Styles
+ * Synthwave-themed progress bar with neon glow effects
+ */
+
+/* Main container */
+.token-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-sm);
+}
+
+.token-progress--hidden {
+  display: none;
+}
+
+/* Progress bar container */
+.token-progress__bar-container {
+  position: relative;
+  width: 80px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+/* The actual progress bar */
+.token-progress__bar {
+  position: relative;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease-out, background 0.3s ease;
+
+  /* Cyan gradient - normal state */
+  background: linear-gradient(
+    90deg,
+    rgba(0, 180, 200, 0.9) 0%,
+    rgba(0, 240, 255, 1) 50%,
+    rgba(0, 180, 200, 0.9) 100%
+  );
+  box-shadow:
+    0 0 8px rgba(0, 240, 255, 0.6),
+    0 0 16px rgba(0, 240, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Warning state - orange/yellow */
+.token-progress__bar--warning {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 150, 0, 0.9) 0%,
+    rgba(255, 200, 0, 1) 50%,
+    rgba(255, 150, 0, 0.9) 100%
+  );
+  box-shadow:
+    0 0 8px rgba(255, 180, 0, 0.6),
+    0 0 16px rgba(255, 180, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Critical state - magenta/pink */
+.token-progress__bar--critical {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 0, 128, 0.9) 0%,
+    rgba(255, 0, 255, 1) 50%,
+    rgba(255, 0, 128, 0.9) 100%
+  );
+  box-shadow:
+    0 0 8px rgba(255, 0, 255, 0.7),
+    0 0 16px rgba(255, 0, 255, 0.4),
+    0 0 24px rgba(255, 0, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  animation: critical-pulse 1s ease-in-out infinite;
+}
+
+@keyframes critical-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 8px rgba(255, 0, 255, 0.7),
+      0 0 16px rgba(255, 0, 255, 0.4),
+      0 0 24px rgba(255, 0, 255, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(255, 0, 255, 0.9),
+      0 0 24px rgba(255, 0, 255, 0.5),
+      0 0 32px rgba(255, 0, 255, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+}
+
+/* Glow effect inside bar */
+.token-progress__glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4) 0%,
+    transparent 100%
+  );
+  border-radius: 3px 3px 0 0;
+}
+
+/* Retro scanlines overlay */
+.token-progress__scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 1px,
+    rgba(0, 0, 0, 0.15) 1px,
+    rgba(0, 0, 0, 0.15) 2px
+  );
+  pointer-events: none;
+}
+
+/* Label section */
+.token-progress__label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.65rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+}
+
+.token-progress__count {
+  color: var(--accent-primary, #00f0ff);
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+  font-weight: 600;
+}
+
+.token-progress__count--warning {
+  color: #ff00ff;
+  text-shadow: 0 0 6px rgba(255, 0, 255, 0.5);
+}
+
+.token-progress__separator {
+  color: var(--text-muted, #666);
+}
+
+.token-progress__limit {
+  color: var(--text-secondary, #888);
+}
+
+/* Compacting state */
+.token-progress--compacting .token-progress__bar {
+  animation: compacting-sweep 1.5s ease-in-out infinite;
+}
+
+@keyframes compacting-sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.token-progress__compacting-indicator {
+  display: flex;
+  align-items: center;
+  margin-left: var(--space-xs);
+  color: var(--accent-primary);
+}
+
+.token-progress__spinner {
+  width: 10px;
+  height: 10px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
