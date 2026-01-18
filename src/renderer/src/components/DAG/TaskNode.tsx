@@ -7,6 +7,7 @@ import './TaskNode.css'
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task
   loopStatus?: TaskLoopStatus | null
+  isBeingAnalyzed?: boolean
   onEdit: (taskId: string) => void
   onDelete: (taskId: string) => void
   onLog: (taskId: string) => void
@@ -14,6 +15,7 @@ export interface TaskNodeData extends Record<string, unknown> {
 
 // Status badge configuration - all statuses get badges now
 const statusBadgeConfig: Record<TaskStatus, { label: string; cssClass: string }> = {
+  needs_analysis: { label: 'NEEDS ANALYSIS', cssClass: 'task-node__badge--needs-analysis' },
   blocked: { label: 'BLOCKED', cssClass: 'task-node__badge--blocked' },
   ready_for_dev: { label: 'READY FOR DEV', cssClass: 'task-node__badge--ready' },
   in_progress: { label: 'DEV', cssClass: 'task-node__badge--dev' },
@@ -26,12 +28,13 @@ const statusBadgeConfig: Record<TaskStatus, { label: string; cssClass: string }>
 function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   const nodeData = data as TaskNodeData
   // loopStatus kept in data for NodeDialog/debugging, but not rendered on TaskNode
-  const { task, loopStatus: _loopStatus, onEdit, onDelete, onLog } = nodeData
+  const { task, loopStatus: _loopStatus, isBeingAnalyzed, onEdit, onDelete, onLog } = nodeData
 
   const nodeClasses = [
     'task-node',
     `task-node--${task.status}`,
-    selected ? 'task-node--selected' : ''
+    selected ? 'task-node--selected' : '',
+    isBeingAnalyzed ? 'task-node--analyzing' : ''
   ]
     .filter(Boolean)
     .join(' ')
@@ -47,10 +50,32 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
       <div className="task-node__badge-section">
         <span
           className={`task-node__badge ${badgeConfig.cssClass}`}
-          title={`Status: ${badgeConfig.label}${task.assignedAgentId ? `\nAgent: ${task.assignedAgentId}` : ''}`}
+          title={
+            task.status === 'needs_analysis'
+              ? 'This task needs complexity analysis'
+              : `Status: ${badgeConfig.label}${task.assignedAgentId ? `\nAgent: ${task.assignedAgentId}` : ''}`
+          }
         >
           {badgeConfig.label}
         </span>
+        {/* Analysis icon for needs_analysis tasks */}
+        {task.status === 'needs_analysis' && (
+          <span className="task-node__analysis-icon" title="This task needs complexity analysis">
+            <svg
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              className="w-3.5 h-3.5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </span>
+        )}
       </div>
 
       {/* Title - multiline, no ellipsis */}
