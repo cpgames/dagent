@@ -115,17 +115,21 @@ export class FeatureStore {
 
   /**
    * Save feature-level chat history.
+   * @deprecated Use SessionManager.addMessage() instead. See doc/api-reference.md for migration guide.
    */
   async saveChat(featureId: string, chat: ChatHistory): Promise<void> {
+    console.warn('[DEPRECATED] FeatureStore.saveChat() is deprecated. Use SessionManager.addMessage() instead.');
     const filePath = paths.getChatPath(this.projectRoot, featureId);
     await writeJson(filePath, chat);
   }
 
   /**
    * Load feature-level chat history.
+   * @deprecated Use SessionManager.getSession() instead. See doc/api-reference.md for migration guide.
    * @returns Chat history, or null if not found.
    */
   async loadChat(featureId: string): Promise<ChatHistory | null> {
+    console.warn('[DEPRECATED] FeatureStore.loadChat() is deprecated. Use SessionManager.getSession() instead.');
     const filePath = paths.getChatPath(this.projectRoot, featureId);
     return readJson<ChatHistory>(filePath);
   }
@@ -149,17 +153,21 @@ export class FeatureStore {
 
   /**
    * Save node-specific chat history.
+   * @deprecated Use SessionManager with task context instead.
    */
   async saveNodeChat(featureId: string, nodeId: string, chat: ChatHistory): Promise<void> {
+    console.warn('[DEPRECATED] FeatureStore.saveNodeChat() is deprecated. Use SessionManager with task context instead.');
     const filePath = paths.getNodeChatPath(this.projectRoot, featureId, nodeId);
     await writeJson(filePath, chat);
   }
 
   /**
    * Load node-specific chat history.
+   * @deprecated Use SessionManager with task context instead.
    * @returns Chat history, or null if not found.
    */
   async loadNodeChat(featureId: string, nodeId: string): Promise<ChatHistory | null> {
+    console.warn('[DEPRECATED] FeatureStore.loadNodeChat() is deprecated. Use SessionManager with task context instead.');
     const filePath = paths.getNodeChatPath(this.projectRoot, featureId, nodeId);
     return readJson<ChatHistory>(filePath);
   }
