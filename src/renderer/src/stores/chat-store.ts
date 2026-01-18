@@ -1,3 +1,14 @@
+/**
+ * Chat store for legacy feature chat functionality.
+ *
+ * @deprecated This store uses the old chat storage format.
+ * New code should use SessionManager for chat/session storage.
+ * See doc/api-reference.md for the SessionManager API.
+ *
+ * Migration path:
+ * - PM agent chats: Use SessionManager.getOrCreateSession(featureId, 'pm', ...)
+ * - Task agent chats: Use SessionManager with task context
+ */
 import { create } from 'zustand'
 import { toast } from './toast-store'
 import { useAuthStore } from './auth-store'
