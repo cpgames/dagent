@@ -13,18 +13,18 @@ See: .planning/PROJECT.md (updated 2026-01-17)
 **Roadmap:** .planning/milestones/v3.1-task-analysis-orchestrator-ROADMAP.md
 
 Phase: v3.1-03-ui-integration (UI Integration)
-Plan: 03-03 complete — Executing phase 03
-Status: IN PROGRESS
-Last activity: 2026-01-18 — Plan 03-03 complete (TaskNode analysis state visualization)
+Plan: 03-02 complete — All UI integration plans complete
+Status: COMPLETE
+Last activity: 2026-01-18 — Plan 03-02 complete (Analysis controls in DAG View)
 
-Progress: ██████░░░░ 60% (Phase 1 complete, Phase 2 complete, Phase 3 plans 01+03 complete)
+Progress: ███████░░░ 70% (Phase 1 complete, Phase 2 complete, Phase 3 complete)
 
-Next action: Execute plan 03-02 (if exists) or next phase
+Next action: Plan next phase (v3.1-04) or milestone verification
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 141 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 9)
+- Total plans completed: 142 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 10)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -41,8 +41,8 @@ Next action: Execute plan 03-02 (if exists) or next phase
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-01-03, v3.1-02-01 to v3.1-02-04, v3.1-03-01, v3.1-03-03
-- Trend: v3.1 phase 03 plan 03 complete (TaskNode analysis state visualization)
+- Last 7 plans: v3.1-02-02 to v3.1-02-04, v3.1-03-01 to v3.1-03-03, v3.1-03-02
+- Trend: v3.1 phase 03 complete (UI Integration - all 3 plans done)
 
 ## Accumulated Context
 
@@ -1024,4 +1024,31 @@ All verification items passed. Phase v3.1-01 Complete.
   - Registered handlers in main index
 
 All verification items passed. Phase v3.1-02 Complete.
+
+### Phase v3.1-03: UI Integration (Complete)
+
+- **03-01**: Analysis Status Display in FeatureCard (Complete)
+  - Added isAnalyzing/pendingAnalysisCount props to FeatureCard
+  - Created AnalysisSpinnerIcon component with purple styling
+  - Added analysis indicator section and pending count badge
+  - Added analysis status state tracking in KanbanView
+  - Added analysis API to preload (start, status, pending, onEvent)
+
+- **03-02**: Analysis Controls in DAG View (Complete)
+  - Added Analyze button to ExecutionControls with purple theme
+  - Added AnalyzeIcon and SpinnerIcon SVG components
+  - Show button when needs_analysis tasks exist
+  - Disable Start button during analysis
+  - Added isAnalyzing/pendingAnalysisCount state to DAGView
+  - Added effect to fetch pending count on feature change
+  - Updated analysis event listener for real-time state updates
+  - Added handleAnalyze callback wired to ExecutionControls
+
+- **03-03**: TaskNode Analysis State Visualization (Complete)
+  - Added isBeingAnalyzed prop to TaskNodeData
+  - Added analyzingTaskId tracking in DAGView
+  - Updated dagToNodes to pass analyzingTaskId
+  - TaskNode shows analyzing state during task analysis
+
+All verification items passed. Phase v3.1-03 Complete.
 
