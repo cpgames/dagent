@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-01-17)
 
 ## Current Position
 
-**Milestone:** v3.0 Session & Checkpoint Architecture — SHIPPED
-**Roadmap:** .planning/milestones/v3.0-session-checkpoint-ROADMAP.md (archived)
+**Milestone:** v3.1 Task Analysis Orchestrator
+**Roadmap:** .planning/milestones/v3.1-task-analysis-orchestrator-ROADMAP.md
 
-Phase: All 8 phases complete (v3.0-02 through v3.0-09)
-Plan: 19/19 plans executed
-Status: SHIPPED
-Last activity: 2026-01-17 — Milestone v3.0 completed and tagged
+Phase: v3.1-02-analysis-orchestrator (Analysis Orchestrator Core)
+Plan: 02-02 complete — 2 plans remaining (02-03 through 02-04)
+Status: IN PROGRESS
+Last activity: 2026-01-18 — Plan 02-02 executed (PM analysis prompt builder)
 
-Progress: ██████████ 100%
+Progress: ███░░░░░░░ 30% (Phase 1 complete, Phase 2 plan 2/4)
 
-Next action: /gsd:discuss-milestone for next version planning
+Next action: Execute plan 02-03
 
 ## Performance Metrics
 
@@ -963,4 +963,51 @@ Key features:
 - Checkpoint-based context preservation across compaction cycles
 - Complete documentation (session-architecture.md, api-reference.md, compaction-guide.md, file-structure.md)
 - Clear migration path from legacy chat.json to new session-based storage
+
+---
+
+## v3.1 Milestone - Task Analysis Orchestrator (In Progress)
+
+### Phase v3.1-01: Task Status Extension (Complete)
+
+- **01-01**: Add `needs_analysis` Status
+  - Added `needs_analysis` as first status in TaskStatus union type
+  - Added badge config with purple/violet styling in TaskNode.tsx
+  - Added CSS styles for needs_analysis badge
+
+- **01-02**: Update Feature Creation to Auto-Create Task
+  - Modified FeatureStore.createFeature() to auto-create initial task
+  - Task created with feature name, description, status: 'needs_analysis'
+  - Fixed task-pool.ts and StatusBadge.tsx to include new status
+
+- **01-03**: Update PM Planning Prompt
+  - Updated pm-agent-manager.ts buildPlanningPrompt to spec-only
+  - Updated verifyPlanningComplete to only check for spec.md
+  - Added Task Management Modes section to prompt-builders.ts
+
+All verification items passed. Phase v3.1-01 Complete.
+
+### Phase v3.1-02: Analysis Orchestrator Core (In Progress - 2/4 Plans)
+
+- **02-01**: TaskAnalysisOrchestrator service foundation (Complete)
+  - Created TaskAnalysisOrchestrator class with FeatureStore reference
+  - Added AnalysisEvent union type (analyzing, kept, split, complete, error)
+  - Added AnalysisResult interface (decision: keep | split, optional newTasks)
+  - Implemented getPendingTasks(featureId) to return needs_analysis tasks
+  - Implemented hasPendingAnalysis(featureId) for existence check
+  - Added placeholder analyzeFeatureTasks() async generator
+  - Added placeholder analyzeTask() method
+  - Added singleton accessor pattern (getTaskAnalysisOrchestrator, resetTaskAnalysisOrchestrator)
+
+- **02-02**: PM Analysis prompt builder (Complete)
+  - Created pm-analysis-prompt.ts with buildAnalysisPrompt function
+  - Prompt includes decision framework (KEEP vs SPLIT criteria)
+  - JSON output format specification for both decision types
+  - Added parseAnalysisResponse function for response parsing
+  - Handles markdown code blocks, validates task structure
+  - ParsedAnalysisResponse interface with typed error handling
+
+Remaining plans:
+- **02-03**: Analysis execution implementation (Wave 3)
+- **02-04**: IPC handlers for analysis (Wave 3)
 
