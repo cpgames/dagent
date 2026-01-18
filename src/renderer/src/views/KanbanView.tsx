@@ -1,10 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
 import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
 import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
+
+/**
+ * Analysis status for a feature.
+ */
+interface AnalysisStatus {
+  analyzing: boolean;
+  pendingCount: number;
+}
 
 /**
  * Column configuration for the Kanban board.
@@ -39,6 +47,65 @@ export default function KanbanView() {
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [featureToMerge, setFeatureToMerge] = useState<Feature | null>(null);
   const [mergeType, setMergeType] = useState<MergeType | null>(null);
+
+  // Analysis status per feature
+  const [analysisStatus, setAnalysisStatus] = useState<Record<string, AnalysisStatus>>({});
+
+  // Fetch initial pending counts for all features
+  useEffect(() => {
+    const fetchPendingCounts = async () => {
+      const statuses: Record<string, AnalysisStatus> = {};
+      for (const feature of features) {
+        try {
+          const result = await window.electronAPI.analysis.pending(feature.id);
+          statuses[feature.id] = { analyzing: false, pendingCount: result.count };
+        } catch {
+          statuses[feature.id] = { analyzing: false, pendingCount: 0 };
+        }
+      }
+      setAnalysisStatus(statuses);
+    };
+
+    if (features.length > 0) {
+      fetchPendingCounts();
+    }
+  }, [features]);
+
+  // Handle analysis events
+  const handleAnalysisEvent = useCallback((data: { featureId: string; event: { type: string; taskId?: string; taskTitle?: string; decision?: string; newTaskCount?: number; error?: string } }) => {
+    const { featureId, event } = data;
+
+    setAnalysisStatus((prev) => {
+      const current = prev[featureId] || { analyzing: false, pendingCount: 0 };
+
+      switch (event.type) {
+        case 'analyzing':
+          return { ...prev, [featureId]: { ...current, analyzing: true } };
+        case 'kept':
+        case 'split':
+          // Task was analyzed, decrement pending count
+          return {
+            ...prev,
+            [featureId]: {
+              analyzing: true,
+              pendingCount: Math.max(0, current.pendingCount - 1) + (event.newTaskCount || 0)
+            }
+          };
+        case 'complete':
+          return { ...prev, [featureId]: { analyzing: false, pendingCount: 0 } };
+        case 'error':
+          return { ...prev, [featureId]: { ...current, analyzing: false } };
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  // Subscribe to analysis events
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.analysis.onEvent(handleAnalysisEvent);
+    return unsubscribe;
+  }, [handleAnalysisEvent]);
 
   // Group features by status
   const featuresByStatus = useMemo(() => {
@@ -141,6 +208,7 @@ export default function KanbanView() {
               onStopFeature={handleStopFeature}
               onMergeFeature={handleMergeFeature}
               startingFeatureId={startingFeatureId}
+              analysisStatus={analysisStatus}
             />
           ))}
         </div>

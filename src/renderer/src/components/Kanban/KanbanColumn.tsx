@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   onStopFeature?: (featureId: string) => void;
   onMergeFeature?: (featureId: string, mergeType: MergeType) => void;
   startingFeatureId?: string | null;
+  analysisStatus?: Record<string, { analyzing: boolean; pendingCount: number }>;
 }
 
 /**
@@ -28,6 +29,7 @@ export default function KanbanColumn({
   onStopFeature,
   onMergeFeature,
   startingFeatureId,
+  analysisStatus,
 }: KanbanColumnProps) {
   const count = features.length;
 
@@ -52,18 +54,23 @@ export default function KanbanColumn({
               <p className="kanban-column__empty-text">No features</p>
             </div>
           ) : (
-            features.map((feature) => (
-              <FeatureCard
-                key={feature.id}
-                feature={feature}
-                onSelect={onSelectFeature}
-                onDelete={onDeleteFeature}
-                onStart={onStartFeature}
-                onStop={onStopFeature}
-                onMerge={status === 'completed' ? onMergeFeature : undefined}
-                isStarting={feature.id === startingFeatureId}
-              />
-            ))
+            features.map((feature) => {
+              const featureAnalysis = analysisStatus?.[feature.id];
+              return (
+                <FeatureCard
+                  key={feature.id}
+                  feature={feature}
+                  onSelect={onSelectFeature}
+                  onDelete={onDeleteFeature}
+                  onStart={onStartFeature}
+                  onStop={onStopFeature}
+                  onMerge={status === 'completed' ? onMergeFeature : undefined}
+                  isStarting={feature.id === startingFeatureId}
+                  isAnalyzing={featureAnalysis?.analyzing}
+                  pendingAnalysisCount={featureAnalysis?.pendingCount}
+                />
+              );
+            })
           )}
         </div>
       </div>

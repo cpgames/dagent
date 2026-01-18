@@ -806,6 +806,26 @@ const electronAPI = {
       ipcRenderer.invoke('session:migrateAllDevSessions', projectRoot, featureId),
     needsDevSessionMigration: (projectRoot: string, featureId: string, taskId: string): Promise<boolean> =>
       ipcRenderer.invoke('session:needsDevSessionMigration', projectRoot, featureId, taskId)
+  },
+
+  // Analysis API (task analysis orchestration)
+  analysis: {
+    start: (featureId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('analysis:start', featureId),
+    status: (featureId: string): Promise<{ running: boolean }> =>
+      ipcRenderer.invoke('analysis:status', featureId),
+    pending: (featureId: string): Promise<{ count: number }> =>
+      ipcRenderer.invoke('analysis:pending', featureId),
+    onEvent: (
+      callback: (data: { featureId: string; event: { type: string; taskId?: string; taskTitle?: string; decision?: string; newTaskCount?: number; error?: string } }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; event: { type: string; taskId?: string; taskTitle?: string; decision?: string; newTaskCount?: number; error?: string } }
+      ): void => callback(data)
+      ipcRenderer.on('analysis:event', handler)
+      return () => ipcRenderer.removeListener('analysis:event', handler)
+    }
   }
 }
 

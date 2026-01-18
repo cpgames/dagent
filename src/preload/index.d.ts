@@ -1823,6 +1823,52 @@ export interface ElectronAPI {
    * Session API for session & checkpoint management
    */
   session: SessionAPI
+
+  /**
+   * Analysis API for task analysis orchestration
+   */
+  analysis: AnalysisAPI
+}
+
+/**
+ * Analysis event data sent from main to renderer.
+ */
+export interface AnalysisEventData {
+  type: string
+  taskId?: string
+  taskTitle?: string
+  decision?: string
+  newTaskCount?: number
+  error?: string
+}
+
+/**
+ * Analysis API for task analysis orchestration.
+ * Enables PM agent to analyze needs_analysis tasks and split/keep as appropriate.
+ */
+export interface AnalysisAPI {
+  /**
+   * Start analysis for a feature's needs_analysis tasks.
+   */
+  start: (featureId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Check if analysis is currently running for a feature.
+   */
+  status: (featureId: string) => Promise<{ running: boolean }>
+
+  /**
+   * Get count of pending (needs_analysis) tasks for a feature.
+   */
+  pending: (featureId: string) => Promise<{ count: number }>
+
+  /**
+   * Subscribe to analysis events.
+   * Returns an unsubscribe function.
+   */
+  onEvent: (
+    callback: (data: { featureId: string; event: AnalysisEventData }) => void
+  ) => () => void
 }
 
 declare global {
