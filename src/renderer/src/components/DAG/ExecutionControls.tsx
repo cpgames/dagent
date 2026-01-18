@@ -9,6 +9,9 @@ interface ExecutionControlsProps {
   onRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  pendingAnalysisCount?: number
+  isAnalyzing?: boolean
+  onAnalyze?: () => void
 }
 
 // Play icon SVG
@@ -93,12 +96,39 @@ const RedoIcon = ({ spinning = false }: { spinning?: boolean }): JSX.Element => 
   </svg>
 )
 
+// Analyze icon SVG (magnifying glass with graph)
+const AnalyzeIcon = (): JSX.Element => (
+  <svg className="execution-controls__btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    />
+  </svg>
+)
+
+// Spinner icon SVG
+const SpinnerIcon = (): JSX.Element => (
+  <svg className="execution-controls__btn-icon execution-controls__btn-icon--spinning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+)
+
 export default function ExecutionControls({
   featureId,
   onUndo,
   onRedo,
   canUndo = false,
-  canRedo = false
+  canRedo = false,
+  pendingAnalysisCount = 0,
+  isAnalyzing = false,
+  onAnalyze
 }: ExecutionControlsProps): JSX.Element {
   const { execution, isLoading, start, pause, resume, stop } = useExecutionStore()
   const { isUndoing, isRedoing } = useDAGStore()
@@ -132,14 +162,30 @@ export default function ExecutionControls({
     return 'execution-controls__status-dot execution-controls__status-dot--idle'
   }
 
+  // Show analyze button when there are pending tasks or analysis is running
+  const showAnalyzeButton = pendingAnalysisCount > 0 || isAnalyzing
+
   return (
     <div className="execution-controls">
+      {/* Analyze Tasks button - shown when needs_analysis tasks exist */}
+      {showAnalyzeButton && (
+        <button
+          onClick={onAnalyze}
+          disabled={isAnalyzing || !featureId}
+          className={`execution-controls__btn execution-controls__btn--analyze ${isAnalyzing ? 'execution-controls__btn--analyzing' : ''}`}
+          title={isAnalyzing ? 'Analysis in progress...' : `Analyze ${pendingAnalysisCount} task${pendingAnalysisCount !== 1 ? 's' : ''}`}
+        >
+          {isAnalyzing ? <SpinnerIcon /> : <AnalyzeIcon />}
+          {isAnalyzing ? 'Analyzing...' : `Analyze (${pendingAnalysisCount})`}
+        </button>
+      )}
+
       {/* Play/Pause button */}
       <button
         onClick={handlePlayPause}
-        disabled={isLoading || !featureId}
-        className={getButtonClass(!isLoading && !!featureId)}
-        title={isRunning ? 'Pause execution' : isPaused ? 'Resume execution' : 'Start execution'}
+        disabled={isLoading || !featureId || isAnalyzing}
+        className={getButtonClass(!isLoading && !!featureId && !isAnalyzing)}
+        title={isAnalyzing ? 'Wait for analysis to complete' : isRunning ? 'Pause execution' : isPaused ? 'Resume execution' : 'Start execution'}
       >
         {isRunning ? <PauseIcon /> : <PlayIcon />}
         {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}

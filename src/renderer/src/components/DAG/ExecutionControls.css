@@ -36,6 +36,27 @@
   cursor: not-allowed;
 }
 
+.execution-controls__btn--analyze {
+  background: rgba(147, 51, 234, 0.2);
+  color: rgb(192, 132, 252);
+  border: 1px solid rgba(147, 51, 234, 0.4);
+}
+
+.execution-controls__btn--analyze:hover:not(:disabled) {
+  background: rgba(147, 51, 234, 0.3);
+  border-color: rgba(147, 51, 234, 0.6);
+}
+
+.execution-controls__btn--analyze:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.execution-controls__btn--analyzing {
+  background: rgba(147, 51, 234, 0.15);
+  color: rgb(192, 132, 252);
+}
+
 .execution-controls__btn-icon {
   width: 1rem;
   height: 1rem;
