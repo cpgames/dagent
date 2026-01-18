@@ -15,16 +15,16 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 Phase: v3.0-08-testing-polish (Testing & Polish)
 Plan: 4 plans created (08-01, 08-02, 08-03, 08-04)
 Status: IN PROGRESS
-Last activity: 2026-01-17 — Plan 08-01 complete (SessionManager unit tests)
+Last activity: 2026-01-17 — Plan 08-03 complete (Migration tests)
 
-Progress: ██░░░░░░░░ 25% (1/4 plans executed)
+Progress: █████░░░░░ 50% (2/4 plans executed)
 
-Next action: /gsd:execute-plan 08-02
+Next action: /gsd:execute-plan 08-02 or 08-04
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 128 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 9)
+- Total plans completed: 129 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 10)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~500 min
 
@@ -904,4 +904,11 @@ The application now provides:
   - Created session-manager-crud.test.ts with 32 CRUD tests (messages, checkpoints, context)
   - Created session-manager-compaction.test.ts with 38 compaction/token tests
   - Total: 90 tests, 1744 lines of test code, all passing
+
+- **08-03**: Migration Tests (Complete)
+  - Created test fixtures for old PM chat, dev session, and corrupted files
+  - Created migration.test.ts with 32 tests (969 lines)
+  - Tests cover: PM chat migration, dev session migration, corrupted file handling
+  - Tests cover: backward compatibility, round-trip migration, idempotency
+  - Tests cover: edge cases (empty files, minimal fields, concurrent migration)
 
