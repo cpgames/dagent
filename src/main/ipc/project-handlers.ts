@@ -13,6 +13,7 @@ import {
   clearRecentProjects
 } from '../storage/recent-projects'
 import { initContextService } from './context-handlers'
+import { initializeSettingsStore } from '../storage/settings-store'
 
 /**
  * Current project root path.
@@ -118,11 +119,12 @@ export function registerProjectHandlers(): void {
           }
         }
 
-        // Initialize storage, history, agent config, and context for the new project
+        // Initialize storage, history, agent config, context, and settings for the new project
         initializeStorage(projectRoot)
         setHistoryProjectRoot(projectRoot)
         setAgentConfigProjectRoot(projectRoot)
         initContextService(projectRoot)
+        initializeSettingsStore(projectRoot)
 
         // Update current project path
         currentProjectPath = projectRoot
@@ -234,11 +236,12 @@ export function registerProjectHandlers(): void {
           // Continue anyway - some features may not work without git
         }
 
-        // Initialize storage, history, agent config, and context for the new project
+        // Initialize storage, history, agent config, context, and settings for the new project
         initializeStorage(projectPath)
         setHistoryProjectRoot(projectPath)
         setAgentConfigProjectRoot(projectPath)
         initContextService(projectPath)
+        initializeSettingsStore(projectPath)
 
         // Update current project path
         currentProjectPath = projectPath

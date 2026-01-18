@@ -119,6 +119,7 @@ import type {
   CreateSessionOptions,
   SessionUpdateEvent
 } from '../../shared/types/session'
+import type { AppSettings } from '@shared/types/settings'
 
 /**
  * SDK availability status for Claude Agent SDK.
@@ -1828,6 +1829,11 @@ export interface ElectronAPI {
    * Analysis API for task analysis orchestration
    */
   analysis: AnalysisAPI
+
+  /**
+   * Settings API for app-wide configuration
+   */
+  settings: SettingsAPI
 }
 
 /**
@@ -1869,6 +1875,33 @@ export interface AnalysisAPI {
   onEvent: (
     callback: (data: { featureId: string; event: AnalysisEventData }) => void
   ) => () => void
+}
+
+/**
+ * Settings API for app-wide configuration.
+ * Manages persistent settings stored in .dagent/settings.json.
+ */
+export interface SettingsAPI {
+  /**
+   * Load all settings from storage.
+   * Returns settings merged with defaults for any missing values.
+   */
+  load: () => Promise<AppSettings>
+
+  /**
+   * Save all settings to storage.
+   */
+  save: (settings: AppSettings) => Promise<void>
+
+  /**
+   * Get a single setting value.
+   */
+  get: <K extends keyof AppSettings>(key: K) => Promise<AppSettings[K]>
+
+  /**
+   * Set a single setting value.
+   */
+  set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => Promise<void>
 }
 
 declare global {

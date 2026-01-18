@@ -22,6 +22,7 @@ import { registerPMSpecHandlers } from './pm-spec-handlers'
 import { registerDAGLayoutHandlers } from './dag-layout-handlers'
 import { registerSessionHandlers } from './session-handlers'
 import { registerAnalysisHandlers } from './analysis-handlers'
+import { registerSettingsHandlers } from './settings-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -74,6 +75,8 @@ export function registerIpcHandlers(): void {
   registerSessionHandlers()
   // Register analysis handlers (task analysis orchestrator)
   registerAnalysisHandlers()
+  // Register settings handlers (app-wide configuration)
+  registerSettingsHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

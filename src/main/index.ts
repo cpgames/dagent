@@ -6,6 +6,7 @@ import { getAuthManager } from './auth'
 import { getGitManager } from './git'
 import { initializeStorage, getFeatureStore } from './ipc/storage-handlers'
 import { setHistoryProjectRoot } from './ipc/history-handlers'
+import { initializeSettingsStore } from './storage/settings-store'
 import { FeatureStatusManager } from './services/feature-status-manager'
 import { EventEmitter } from 'events'
 // TODO: Agent Process Manager - Orchestrate AI agent processes
@@ -97,12 +98,14 @@ app.whenReady().then(async () => {
   if (gitResult.success) {
     initializeStorage(projectRoot)
     setHistoryProjectRoot(projectRoot)
+    initializeSettingsStore(projectRoot)
     console.log('[DAGent] Project initialized:', projectRoot)
   } else {
     console.log('[DAGent] Git initialization skipped:', gitResult.error)
     // Still initialize storage for non-git projects
     initializeStorage(projectRoot)
     setHistoryProjectRoot(projectRoot)
+    initializeSettingsStore(projectRoot)
   }
 
   // Run migration for feature statuses (not_started → planning)

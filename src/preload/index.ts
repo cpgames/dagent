@@ -85,6 +85,7 @@ import type {
   GetSpecInput,
   GetSpecResult
 } from '../main/agents/feature-spec-types'
+import type { AppSettings } from '@shared/types/settings'
 
 /**
  * Preload script for DAGent.
@@ -826,6 +827,16 @@ const electronAPI = {
       ipcRenderer.on('analysis:event', handler)
       return () => ipcRenderer.removeListener('analysis:event', handler)
     }
+  },
+
+  // Settings API (app-wide configuration)
+  settings: {
+    load: (): Promise<AppSettings> => ipcRenderer.invoke('settings:load'),
+    save: (settings: AppSettings): Promise<void> => ipcRenderer.invoke('settings:save', settings),
+    get: <K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> =>
+      ipcRenderer.invoke('settings:get', key),
+    set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void> =>
+      ipcRenderer.invoke('settings:set', key, value)
   }
 }
 
