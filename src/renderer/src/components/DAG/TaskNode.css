@@ -41,6 +41,19 @@
   letter-spacing: 0.05em;
 }
 
+.task-node__badge--needs-analysis {
+  background: rgba(147, 51, 234, 0.3);
+  color: rgb(192, 132, 252);
+}
+
+/* Analysis icon styling */
+.task-node__analysis-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-xs);
+  color: rgb(192, 132, 252);
+}
+
 .task-node__badge--blocked {
   background: rgba(0, 240, 255, 0.2);
   color: var(--accent-primary);
@@ -173,4 +186,32 @@
   bottom: -6px !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
+}
+
+/* needs_analysis status - purple border and glow */
+.task-node--needs_analysis {
+  border-color: rgb(147, 51, 234);
+  box-shadow: var(--shadow-md), 0 0 12px rgba(147, 51, 234, 0.4);
+}
+
+/* Currently being analyzed - pulsing animation */
+.task-node--analyzing {
+  animation: pulse-analysis 2s ease-in-out infinite;
+}
+
+@keyframes pulse-analysis {
+  0%, 100% {
+    box-shadow: var(--shadow-md), 0 0 12px rgba(147, 51, 234, 0.4);
+  }
+  50% {
+    box-shadow: var(--shadow-md), 0 0 24px rgba(147, 51, 234, 0.7), 0 0 36px rgba(147, 51, 234, 0.3);
+  }
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .task-node--analyzing {
+    animation: none;
+    box-shadow: var(--shadow-md), 0 0 24px rgba(147, 51, 234, 0.6);
+  }
 }
