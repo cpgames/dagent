@@ -6,6 +6,7 @@
 .task-node {
   min-width: 200px;
   max-width: 240px;
+  padding: var(--space-xs) 0;
   border-radius: var(--radius-lg);
   border: 2px solid rgba(168, 108, 230, 1);
   background: linear-gradient(135deg, rgba(40, 20, 70, 0.7), rgba(30, 15, 55, 0.7));
@@ -28,7 +29,7 @@
 
 /* Status badge at top */
 .task-node__badge-section {
-  padding: var(--space-xs) var(--space-md) 0;
+  padding: 0 var(--space-md);
 }
 
 .task-node__badge {
@@ -46,35 +47,43 @@
   color: rgb(192, 132, 252);
 }
 
-/* Analyzing spinner styling - positioned in top right corner */
-.task-node__analyzing {
-  position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
+/* Status indicator below title */
+.task-node__status-indicator {
   display: flex;
   align-items: center;
-  color: rgb(192, 132, 252);
-  z-index: 5;
+  gap: var(--space-xs);
+  padding: 0 var(--space-md) var(--space-sm);
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
-.task-node__spinner {
-  width: 0.875rem;
-  height: 0.875rem;
-  animation: spin-analysis 1s linear infinite;
+.task-node__status-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgb(192, 132, 252);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin-status 1s linear infinite;
 }
 
-.task-node__spinner-track {
-  opacity: 0.25;
+/* Status-specific spinner colors */
+.task-node--in_progress .task-node__status-spinner {
+  border-color: var(--accent-primary);
+  border-top-color: transparent;
 }
 
-.task-node__spinner-head {
-  opacity: 0.9;
+.task-node--ready_for_qa .task-node__status-spinner {
+  border-color: var(--color-warning);
+  border-top-color: transparent;
 }
 
-@keyframes spin-analysis {
-  from {
-    transform: rotate(0deg);
-  }
+.task-node--ready_for_merge .task-node__status-spinner {
+  border-color: var(--accent-secondary);
+  border-top-color: transparent;
+}
+
+@keyframes spin-status {
   to {
     transform: rotate(360deg);
   }
@@ -117,11 +126,10 @@
 
 /* Body with title */
 .task-node__body {
-  padding: var(--space-sm) var(--space-md);
+  padding: 0 var(--space-md);
   display: flex;
   align-items: flex-start;
   gap: var(--space-xs);
-  min-height: 48px;
 }
 
 .task-node__lock-icon {

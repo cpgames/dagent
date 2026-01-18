@@ -46,27 +46,6 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
       {/* Target handle (top) - input from dependencies */}
       <Handle type="target" position={Position.Top} className="task-node__handle" />
 
-      {/* Analyzing spinner - positioned in top right corner */}
-      {isBeingAnalyzed && (
-        <span className="task-node__analyzing" title="Analyzing task complexity...">
-          <svg className="task-node__spinner" viewBox="0 0 24 24" fill="none">
-            <circle
-              className="task-node__spinner-track"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="3"
-            />
-            <path
-              className="task-node__spinner-head"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
-        </span>
-      )}
-
       {/* Status Badge */}
       <div className="task-node__badge-section">
         <span
@@ -100,6 +79,32 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
         )}
         <h3 className="task-node__title">{task.title}</h3>
       </div>
+
+      {/* Status indicator - below title */}
+      {isBeingAnalyzed && (
+        <div className="task-node__status-indicator">
+          <div className="task-node__status-spinner" />
+          <span>Analyzing...</span>
+        </div>
+      )}
+      {!isBeingAnalyzed && task.status === 'in_progress' && (
+        <div className="task-node__status-indicator">
+          <div className="task-node__status-spinner" />
+          <span>Developing...</span>
+        </div>
+      )}
+      {!isBeingAnalyzed && task.status === 'ready_for_qa' && (
+        <div className="task-node__status-indicator">
+          <div className="task-node__status-spinner" />
+          <span>Testing...</span>
+        </div>
+      )}
+      {!isBeingAnalyzed && task.status === 'ready_for_merge' && (
+        <div className="task-node__status-indicator">
+          <div className="task-node__status-spinner" />
+          <span>Merging...</span>
+        </div>
+      )}
 
       {/* Action buttons - absolute positioned, show on hover */}
       <div className="task-node__actions">
