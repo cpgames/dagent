@@ -696,6 +696,27 @@ interface TokenEstimate {
 
 ---
 
+## Deprecated APIs
+
+The following APIs are deprecated and will be removed in a future version:
+
+### FeatureStore Chat Methods
+
+| Method | Replacement | Notes |
+|--------|-------------|-------|
+| `saveChat(featureId, chat)` | `SessionManager.addMessage()` | Use session-based storage |
+| `loadChat(featureId)` | `SessionManager.getSession()` | Returns full session with checkpoint |
+| `saveNodeChat(featureId, nodeId, chat)` | `SessionManager` with task context | Pass taskId in session metadata |
+| `loadNodeChat(featureId, nodeId)` | `SessionManager` with task context | Query by taskId |
+
+### chat-store (Renderer)
+
+The `chat-store.ts` Zustand store uses the legacy chat format. New features should use SessionManager directly via IPC handlers.
+
+See [Migration Guide](#migration-guide) for detailed migration instructions.
+
+---
+
 ## Migration Guide
 
 ### Old API vs New API Mapping
