@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { BrowserWindow } from 'electron'
 import type { FeatureStatus } from '@shared/types/feature'
 import type { FeatureStore } from '../storage/feature-store'
+import { getTaskAnalysisOrchestrator } from './task-analysis-orchestrator'
 
 /**
  * Valid status transitions map.
@@ -9,7 +10,7 @@ import type { FeatureStore } from '../storage/feature-store'
  *
  * Archive transition rules:
  * - Only 'completed' features can transition to 'archived'
- * - 'archived' is a final state - no transitions out allowed
+ * - 'archived' can transition back to 'completed' (for merge failure recovery)
  * - Archive happens after merge to main or PR creation (Phase 99)
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
@@ -18,7 +19,7 @@ const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
   in_progress: ['needs_attention', 'completed', 'backlog'],
   needs_attention: ['in_progress', 'planning'],  // planning if replan requested
   completed: ['archived'],  // Only from completed
-  archived: []  // Final state - no transitions out
+  archived: ['completed']  // Can revert to completed if merge fails after archive
 }
 
 /**
@@ -150,5 +151,146 @@ export class FeatureStatusManager {
    */
   getAllowedTransitions(currentStatus: FeatureStatus): FeatureStatus[] {
     return VALID_TRANSITIONS[currentStatus] || []
+  }
+
+  /**
+   * Recover features stuck in 'planning' status.
+   * This happens when the app is closed during planning - the async process
+   * is interrupted and never completes, leaving the feature stuck.
+   *
+   * Recovery strategy:
+   * - If feature has a spec file, move to 'backlog' and resume analysis if needed
+   * - If no spec file, move to 'needs_attention' (planning needs to restart)
+   *
+   * @returns Number of features recovered
+   */
+  async recoverStuckPlanningFeatures(): Promise<number> {
+    console.log(`[FeatureStatusManager] recoverStuckPlanningFeatures called`)
+    let recoveredCount = 0
+    const featuresToAnalyze: string[] = []
+
+    try {
+      const featureIds = await this.featureStore.listFeatures()
+      console.log(`[FeatureStatusManager] Found ${featureIds.length} features to check`)
+
+      for (const featureId of featureIds) {
+        const feature = await this.featureStore.loadFeature(featureId)
+        if (!feature) continue
+
+        console.log(`[FeatureStatusManager] Feature ${featureId} has status: ${feature.status}`)
+
+        // Check for features in backlog that might have pending analysis tasks
+        // (from previous incomplete recovery)
+        if (feature.status === 'backlog') {
+          const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
+          const pendingTasks = await orchestrator.getPendingTasks(featureId)
+          if (pendingTasks.length > 0) {
+            console.log(`[FeatureStatusManager] Feature ${featureId} is in backlog but has ${pendingTasks.length} pending analysis tasks - resuming analysis`)
+            featuresToAnalyze.push(featureId)
+          }
+          continue
+        }
+
+        // Only process features stuck in 'planning'
+        if (feature.status !== 'planning') continue
+
+        // Check if spec file exists (indicates planning was mostly complete)
+        const hasSpec = await this.featureStore.hasFeatureSpec(featureId)
+
+        if (hasSpec) {
+          // Spec exists - planning was mostly done, move to backlog
+          feature.status = 'backlog'
+          console.log(`[FeatureStatusManager] Recovered stuck feature ${featureId}: planning → backlog (spec exists)`)
+          // Track for analysis resumption
+          featuresToAnalyze.push(featureId)
+        } else {
+          // No spec - planning never completed, needs attention
+          feature.status = 'needs_attention'
+          console.log(`[FeatureStatusManager] Recovered stuck feature ${featureId}: planning → needs_attention (no spec)`)
+        }
+
+        feature.updatedAt = new Date().toISOString()
+        await this.featureStore.saveFeature(feature)
+        recoveredCount++
+
+        // Broadcast status change to UI
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:status-changed', { featureId, status: feature.status })
+          }
+        }
+      }
+
+      if (recoveredCount > 0) {
+        console.log(`[FeatureStatusManager] Recovery complete: ${recoveredCount} stuck feature(s) recovered`)
+      }
+
+      // Resume analysis for features that were moved to backlog
+      // This handles tasks that were left in needs_analysis status
+      for (const featureId of featuresToAnalyze) {
+        this.resumeAnalysisInBackground(featureId)
+      }
+    } catch (error) {
+      console.error('[FeatureStatusManager] Recovery error:', error)
+      // Don't throw - recovery failure shouldn't block app startup
+    }
+
+    return recoveredCount
+  }
+
+  /**
+   * Resume analysis for a feature in the background.
+   * Checks if there are pending needs_analysis tasks and processes them.
+   */
+  private async resumeAnalysisInBackground(featureId: string): Promise<void> {
+    console.log(`[FeatureStatusManager] resumeAnalysisInBackground called for ${featureId}`)
+    try {
+      const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
+      console.log(`[FeatureStatusManager] Got orchestrator, checking pending tasks...`)
+      const pendingTasks = await orchestrator.getPendingTasks(featureId)
+      console.log(`[FeatureStatusManager] getPendingTasks returned ${pendingTasks.length} tasks`)
+
+      if (pendingTasks.length === 0) {
+        console.log(`[FeatureStatusManager] No pending analysis for ${featureId}`)
+        return
+      }
+
+      console.log(`[FeatureStatusManager] Resuming analysis for ${featureId} (${pendingTasks.length} pending tasks)`)
+
+      // Run analysis with timeout
+      const ANALYSIS_TIMEOUT_MS = 600000 // 10 minutes
+
+      const analysisPromise = (async () => {
+        for await (const event of orchestrator.analyzeFeatureTasks(featureId)) {
+          console.log(`[FeatureStatusManager] Analysis event for ${featureId}: ${event.type}`)
+
+          // Broadcast to UI
+          const windows = BrowserWindow.getAllWindows()
+          for (const win of windows) {
+            if (!win.isDestroyed()) {
+              win.webContents.send('analysis:event', { featureId, event })
+            }
+          }
+
+          if (event.type === 'complete') {
+            console.log(`[FeatureStatusManager] Analysis complete for ${featureId}`)
+            break
+          }
+        }
+      })()
+
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.warn(`[FeatureStatusManager] Analysis timeout for ${featureId}`)
+          resolve()
+        }, ANALYSIS_TIMEOUT_MS)
+      })
+
+      await Promise.race([analysisPromise, timeoutPromise])
+    } catch (error) {
+      console.error(`[FeatureStatusManager] Analysis resumption error for ${featureId}:`, error)
+      // Don't throw - analysis failure shouldn't affect other features
+    }
   }
 }

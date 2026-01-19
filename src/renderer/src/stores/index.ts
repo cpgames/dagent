@@ -1,5 +1,5 @@
 export { useFeatureStore } from './feature-store';
-export { useDAGStore } from './dag-store';
+export { useDAGStore, setupGlobalDAGEventSubscription } from './dag-store';
 export { useViewStore, type ViewType } from './view-store';
 export { useDialogStore } from './dialog-store';
 export { useChatStore, type ChatMessage } from './chat-store';

@@ -643,7 +643,11 @@ const electronAPI = {
         }))
       )
       return ipcRenderer.invoke('feature:uploadAttachments', featureId, fileData)
-    }
+    },
+
+    // Delete an attachment file from feature worktree
+    deleteAttachment: (featureId: string, attachmentPath: string): Promise<void> =>
+      ipcRenderer.invoke('feature:deleteAttachment', featureId, attachmentPath)
   },
 
   // Context API (project/feature/task context for agents)
@@ -705,11 +709,19 @@ const electronAPI = {
       ipcRenderer.invoke('dag-manager:get-graph', featureId, projectRoot),
     resetGraph: (featureId: string, projectRoot: string, graph: DAGGraph): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('dag-manager:reset-graph', featureId, projectRoot, graph),
+    autoLayout: (featureId: string, projectRoot: string): Promise<{ success: boolean; graph: DAGGraph }> =>
+      ipcRenderer.invoke('dag-manager:auto-layout', featureId, projectRoot),
     onEvent: (callback: (data: { featureId: string; event: any }) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: { featureId: string; event: any }): void =>
+      const handler = (_event: Electron.IpcRendererEvent, data: { featureId: string; event: any }): void => {
+        console.log('[Preload] Received dag-manager:event:', data.event?.type, 'for feature:', data.featureId)
         callback(data)
+      }
+      console.log('[Preload] Setting up dag-manager:event listener')
       ipcRenderer.on('dag-manager:event', handler)
-      return () => ipcRenderer.removeListener('dag-manager:event', handler)
+      return () => {
+        console.log('[Preload] Removing dag-manager:event listener')
+        ipcRenderer.removeListener('dag-manager:event', handler)
+      }
     }
   },
 

@@ -696,25 +696,35 @@ export async function pmUpdateTask(input: UpdateTaskInput): Promise<UpdateTaskRe
 }
 
 export async function pmDeleteTask(input: DeleteTaskInput): Promise<DeleteTaskResult> {
+  console.log(`[pmDeleteTask] Called with taskId=${input.taskId}, currentFeatureId=${currentFeatureId}`)
+
   if (!currentFeatureId) {
+    console.log('[pmDeleteTask] Error: No feature selected')
     return { success: false, error: 'No feature selected' }
   }
 
   try {
     const storage = getFeatureStore()
     if (!storage) {
+      console.log('[pmDeleteTask] Error: Storage not initialized')
       return { success: false, error: 'Storage not initialized' }
     }
 
     const dag = await storage.loadDag(currentFeatureId)
     if (!dag) {
+      console.log(`[pmDeleteTask] Error: DAG not found for feature ${currentFeatureId}`)
       return { success: false, error: 'DAG not found' }
     }
 
+    console.log(`[pmDeleteTask] DAG loaded with ${dag.nodes.length} nodes: ${dag.nodes.map(n => n.id).join(', ')}`)
+
     const task = dag.nodes.find((n) => n.id === input.taskId)
     if (!task) {
+      console.log(`[pmDeleteTask] Error: Task ${input.taskId} not found in DAG`)
       return { success: false, error: 'Task not found' }
     }
+
+    console.log(`[pmDeleteTask] Found task: ${task.title} (${task.id})`)
 
     const mode = input.reassignDependents || 'reconnect'
     const deletedTaskIds: string[] = [input.taskId]
@@ -782,8 +792,10 @@ export async function pmDeleteTask(input: DeleteTaskInput): Promise<DeleteTaskRe
     }
 
     await storage.saveDag(currentFeatureId, dag)
+    console.log(`[pmDeleteTask] Success: Deleted tasks [${deletedTaskIds.join(', ')}], remaining nodes: ${dag.nodes.length}`)
     return { success: true, deletedTaskIds }
   } catch (error) {
+    console.error('[pmDeleteTask] Error:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

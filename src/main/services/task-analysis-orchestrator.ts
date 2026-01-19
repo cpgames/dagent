@@ -5,6 +5,8 @@ import { buildAnalysisPrompt, parseAnalysisResponse } from '../agent/pm-analysis
 import { getAgentService } from '../agent/agent-service'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import { getProjectRoot } from '../ipc/storage-handlers'
+import { setPMToolsFeatureContext } from '../ipc/pm-tools-handlers'
+import { getDAGManager } from '../ipc/dag-handlers'
 
 /**
  * Event types emitted during task analysis.
@@ -73,18 +75,20 @@ export class TaskAnalysisOrchestrator {
 
   /**
    * Get all tasks with 'needs_analysis' status for a feature.
+   * Uses DAGManager to ensure event broadcasting is set up.
    * @param featureId - Feature ID to scan
    * @returns Array of tasks needing analysis
    */
   async getPendingTasks(featureId: string): Promise<Task[]> {
-    // Debug: log the project root being used
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    console.log(`[TaskAnalysisOrchestrator] getPendingTasks: featureStore.projectRoot = ${(this.featureStore as any).projectRoot}`)
-    const dag = await this.featureStore.loadDag(featureId)
-    if (!dag) {
-      console.log(`[TaskAnalysisOrchestrator] getPendingTasks: DAG not found for ${featureId}`)
+    const projectRoot = getProjectRoot()
+    if (!projectRoot) {
+      console.log(`[TaskAnalysisOrchestrator] getPendingTasks: Project root not initialized`)
       return []
     }
+
+    // Use DAGManager to ensure event broadcasting is set up
+    const manager = await getDAGManager(featureId, projectRoot)
+    const dag = manager.getGraph()
 
     console.log(`[TaskAnalysisOrchestrator] getPendingTasks: DAG has ${dag.nodes.length} nodes`)
     dag.nodes.forEach((task, i) => {
@@ -170,6 +174,7 @@ export class TaskAnalysisOrchestrator {
    * Transition a task from needs_analysis to ready_for_dev or blocked.
    * Sets to 'blocked' if dependencies are not complete, otherwise 'ready_for_dev'.
    * Optionally updates the task's title and description with refined versions.
+   * Uses DAGManager for real-time event broadcasting.
    *
    * @param featureId - Feature ID
    * @param taskId - Task ID to transition
@@ -182,10 +187,14 @@ export class TaskAnalysisOrchestrator {
     refinedTitle?: string,
     refinedDescription?: string
   ): Promise<void> {
-    const dag = await this.featureStore.loadDag(featureId)
-    if (!dag) {
-      throw new Error(`DAG not found for feature ${featureId}`)
+    const projectRoot = getProjectRoot()
+    if (!projectRoot) {
+      throw new Error('Project root not initialized')
     }
+
+    // Use DAGManager for real-time event broadcasting
+    const manager = await getDAGManager(featureId, projectRoot)
+    const dag = manager.getGraph()
 
     const taskIndex = dag.nodes.findIndex((t) => t.id === taskId)
     if (taskIndex < 0) {
@@ -203,8 +212,8 @@ export class TaskAnalysisOrchestrator {
     })
 
     // Set to ready_for_dev only if no dependencies or all complete
-    dag.nodes[taskIndex].status =
-      dependencies.length === 0 || allDepsComplete ? 'ready_for_dev' : 'blocked'
+    const newStatus = dependencies.length === 0 || allDepsComplete ? 'ready_for_dev' : 'blocked'
+    dag.nodes[taskIndex].status = newStatus
 
     // Apply refined title and description if provided
     if (refinedTitle) {
@@ -214,12 +223,15 @@ export class TaskAnalysisOrchestrator {
       dag.nodes[taskIndex].description = refinedDescription
     }
 
-    await this.featureStore.saveDag(featureId, dag)
+    // Use resetGraph to update and broadcast events
+    console.log(`[TaskAnalysisOrchestrator] Transitioning task ${taskId} to ${newStatus}`)
+    await manager.resetGraph(dag)
   }
 
   /**
    * Create subtasks from analysis result and remove parent task.
    * Tasks inherit parent's incoming connections and split among children.
+   * Uses DAGManager for real-time event broadcasting.
    *
    * @param featureId - Feature ID
    * @param parentTaskId - Parent task ID to remove
@@ -231,15 +243,21 @@ export class TaskAnalysisOrchestrator {
     parentTaskId: string,
     taskDefs: NewTaskDef[]
   ): Promise<Task[]> {
-    const dag = await this.featureStore.loadDag(featureId)
-    if (!dag) {
-      throw new Error(`DAG not found for feature ${featureId}`)
+    const projectRoot = getProjectRoot()
+    if (!projectRoot) {
+      throw new Error('Project root not initialized')
     }
+
+    // Use DAGManager for real-time event broadcasting
+    const manager = await getDAGManager(featureId, projectRoot)
+    const dag = manager.getGraph()
 
     const parentTask = dag.nodes.find((t) => t.id === parentTaskId)
     if (!parentTask) {
       throw new Error(`Parent task ${parentTaskId} not found`)
     }
+
+    console.log(`[TaskAnalysisOrchestrator] Creating ${taskDefs.length} subtasks for parent ${parentTaskId}`)
 
     const createdTasks: Task[] = []
     const titleToIdMap = new Map<string, string>()
@@ -324,12 +342,17 @@ export class TaskAnalysisOrchestrator {
       (c) => c.from !== parentTaskId && c.to !== parentTaskId
     )
 
-    await this.featureStore.saveDag(featureId, dag)
+    // Use resetGraph to update and broadcast events (includes auto-layout)
+    console.log(`[TaskAnalysisOrchestrator] Resetting graph with ${dag.nodes.length} nodes after split`)
+    await manager.resetGraph(dag)
+    await manager.applyAutoLayout()
+
     return createdTasks
   }
 
   /**
    * Analyze a single task to determine if it should be kept or split.
+   * Uses DAGManager to ensure event broadcasting is set up.
    *
    * @param featureId - Feature ID
    * @param taskId - Task ID to analyze
@@ -338,29 +361,24 @@ export class TaskAnalysisOrchestrator {
   async analyzeTask(featureId: string, taskId: string): Promise<AnalysisResult> {
     console.log(`[TaskAnalysisOrchestrator] analyzeTask called for ${taskId} in feature ${featureId}`)
     try {
-      // 1. Load task from DAG
-      const dag = await this.featureStore.loadDag(featureId)
-      if (!dag) {
+      // 1. Get project root
+      const projectRoot = getProjectRoot()
+      if (!projectRoot) {
         return {
           decision: 'keep',
-          reason: 'Error: DAG not found'
+          reason: 'Error: Project root not initialized'
         }
       }
+
+      // 2. Load task from DAG via DAGManager
+      const manager = await getDAGManager(featureId, projectRoot)
+      const dag = manager.getGraph()
 
       const task = dag.nodes.find((t) => t.id === taskId)
       if (!task) {
         return {
           decision: 'keep',
           reason: 'Error: Task not found'
-        }
-      }
-
-      // 2. Load feature spec
-      const projectRoot = getProjectRoot()
-      if (!projectRoot) {
-        return {
-          decision: 'keep',
-          reason: 'Error: Project root not initialized'
         }
       }
 
@@ -373,27 +391,44 @@ export class TaskAnalysisOrchestrator {
       // 3. Build analysis prompt
       const prompt = buildAnalysisPrompt(task, featureSpecContent)
 
-      // 4. Execute PM query via AgentService
+      // 4. Execute PM query via AgentService with timeout
+      // Set PM tools context so MCP tools know which feature to operate on
+      setPMToolsFeatureContext(featureId)
       console.log(`[TaskAnalysisOrchestrator] Starting PM query for task ${taskId}`)
       const agentService = getAgentService()
       let responseText = ''
 
-      for await (const event of agentService.streamQuery({
-        prompt,
-        cwd: projectRoot,
-        toolPreset: 'pmAgent',
-        agentType: 'pm',
-        featureId,
-        permissionMode: 'default'
-      })) {
-        if (event.type === 'message' && event.message?.content) {
-          responseText += event.message.content
-        } else if (event.type === 'error') {
-          console.error(`[TaskAnalysisOrchestrator] PM query error for ${taskId}: ${event.error}`)
-          return {
-            decision: 'keep',
-            reason: `Error during analysis: ${event.error}`
+      // Wrap stream in timeout to prevent hanging
+      const ANALYSIS_TIMEOUT_MS = 120000 // 2 minutes per task
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Analysis timeout - PM query took too long')), ANALYSIS_TIMEOUT_MS)
+      })
+
+      try {
+        const streamPromise = (async () => {
+          for await (const event of agentService.streamQuery({
+            prompt,
+            cwd: projectRoot,
+            toolPreset: 'pmAgent',
+            agentType: 'pm',
+            featureId,
+            permissionMode: 'default'
+          })) {
+            if (event.type === 'message' && event.message?.content) {
+              responseText += event.message.content
+            } else if (event.type === 'error') {
+              console.error(`[TaskAnalysisOrchestrator] PM query error for ${taskId}: ${event.error}`)
+              throw new Error(`PM query error: ${event.error}`)
+            }
           }
+        })()
+
+        await Promise.race([streamPromise, timeoutPromise])
+      } catch (timeoutError) {
+        console.error(`[TaskAnalysisOrchestrator] PM query timeout/error for ${taskId}:`, timeoutError)
+        return {
+          decision: 'keep',
+          reason: `Analysis timeout: ${timeoutError instanceof Error ? timeoutError.message : 'Unknown error'}`
         }
       }
       console.log(`[TaskAnalysisOrchestrator] PM query complete for ${taskId}, response length: ${responseText.length}`)

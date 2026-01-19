@@ -6,6 +6,7 @@ import { FeatureStore } from '../storage/feature-store';
 import { validateConnection } from './dag-validation';
 import type { DAGManagerConfig, DAGEvent } from './dag-api-types';
 import { randomUUID } from 'crypto';
+import { computeAutoLayout } from './dag-auto-layout';
 
 /**
  * Centralized DAG operations manager.
@@ -53,6 +54,7 @@ export class DAGManager extends EventEmitter {
     };
 
     this.graph.nodes.push(newTask);
+    console.log(`[DAGManager.addNode] Emitting node-added for ${newTask.id} (${newTask.title})`);
     this.emit('node-added', { type: 'node-added', node: newTask } as DAGEvent);
 
     if (this.config.autoSave) {
@@ -219,11 +221,13 @@ export class DAGManager extends EventEmitter {
    * @param graph - New graph to set
    */
   async resetGraph(graph: DAGGraph): Promise<void> {
+    console.log(`[DAGManager.resetGraph] Resetting graph with ${graph.nodes.length} nodes`);
     this.graph = {
       nodes: graph.nodes.map((n) => ({ ...n, position: { ...n.position } })),
       connections: graph.connections.map((c) => ({ ...c }))
     };
 
+    console.log(`[DAGManager.resetGraph] Emitting graph-reset event`);
     this.emit('graph-reset', { type: 'graph-reset', graph: this.getGraph() } as DAGEvent);
 
     if (this.config.autoSave) {
@@ -250,5 +254,31 @@ export class DAGManager extends EventEmitter {
         graph: this.getGraph()
       } as DAGEvent);
     }
+  }
+
+  /**
+   * Apply automatic layout to all nodes based on their dependencies.
+   * Arranges nodes in a hierarchical tree structure.
+   */
+  async applyAutoLayout(): Promise<void> {
+    console.log(`[DAGManager.applyAutoLayout] Computing layout for ${this.graph.nodes.length} nodes`);
+    const positions = computeAutoLayout(this.graph);
+
+    // Update all node positions
+    for (const node of this.graph.nodes) {
+      const newPos = positions.get(node.id);
+      if (newPos) {
+        node.position = newPos;
+      }
+    }
+
+    // Emit graph-reset to notify all listeners of the position changes
+    console.log(`[DAGManager.applyAutoLayout] Emitting graph-reset event`);
+    this.emit('graph-reset', { type: 'graph-reset', graph: this.getGraph() } as DAGEvent);
+
+    if (this.config.autoSave) {
+      await this.save();
+    }
+    console.log(`[DAGManager.applyAutoLayout] Done`);
   }
 }

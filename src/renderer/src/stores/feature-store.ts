@@ -143,15 +143,8 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // Create feature record in storage
+      // Note: This now also creates the git worktree internally (in correct order)
       const feature = await window.electronAPI.storage.createFeature(name, options);
-
-      // Attempt to create git worktree (non-blocking failure)
-      try {
-        await window.electronAPI.git.createFeatureWorktree(feature.id);
-      } catch (worktreeError) {
-        console.warn('Failed to create worktree:', worktreeError);
-        toast.warning('Feature created but git worktree setup failed');
-      }
 
       // Add to local state
       get().addFeature(feature);

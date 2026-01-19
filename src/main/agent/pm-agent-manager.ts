@@ -191,28 +191,42 @@ export class PMAgentManager {
             console.log(`[PMAgentManager] Auto-analysis enabled, starting analysis for ${featureId}`)
 
             // Run analysis - iterate through all needs_analysis tasks
+            // Add overall timeout to prevent analysis from blocking forever
             const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
-            try {
-              for await (const event of orchestrator.analyzeFeatureTasks(featureId)) {
-                console.log(`[PMAgentManager] Analysis event: ${event.type}`)
+            const ANALYSIS_OVERALL_TIMEOUT_MS = 600000 // 10 minutes max for all tasks
 
-                // Broadcast analysis events to renderer for UI updates
-                const windows = BrowserWindow.getAllWindows()
-                for (const win of windows) {
-                  if (!win.isDestroyed()) {
-                    win.webContents.send('analysis:event', { featureId, event })
+            try {
+              const analysisPromise = (async () => {
+                for await (const event of orchestrator.analyzeFeatureTasks(featureId)) {
+                  console.log(`[PMAgentManager] Analysis event: ${event.type}`)
+
+                  // Broadcast analysis events to renderer for UI updates
+                  const windows = BrowserWindow.getAllWindows()
+                  for (const win of windows) {
+                    if (!win.isDestroyed()) {
+                      win.webContents.send('analysis:event', { featureId, event })
+                    }
+                  }
+
+                  if (event.type === 'complete') {
+                    console.log(`[PMAgentManager] Analysis complete for ${featureId}`)
+                    break
+                  }
+                  if (event.type === 'error') {
+                    console.error(`[PMAgentManager] Analysis error: ${event.error}`)
+                    // Continue - individual task errors shouldn't stop the process
                   }
                 }
+              })()
 
-                if (event.type === 'complete') {
-                  console.log(`[PMAgentManager] Analysis complete for ${featureId}`)
-                  break
-                }
-                if (event.type === 'error') {
-                  console.error(`[PMAgentManager] Analysis error: ${event.error}`)
-                  // Continue - individual task errors shouldn't stop the process
-                }
-              }
+              const timeoutPromise = new Promise<void>((resolve) => {
+                setTimeout(() => {
+                  console.warn(`[PMAgentManager] Analysis timeout for ${featureId} - proceeding to backlog`)
+                  resolve()
+                }, ANALYSIS_OVERALL_TIMEOUT_MS)
+              })
+
+              await Promise.race([analysisPromise, timeoutPromise])
             } catch (error) {
               console.error(`[PMAgentManager] Analysis failed:`, error)
               // Analysis failure shouldn't prevent feature from going to backlog
@@ -393,6 +407,7 @@ ${context ? `\n${context}\n` : ''}
    - Use the CreateSpec tool to create a feature-spec.md file
    - Include goals, requirements, and acceptance criteria
    - Base the spec on the feature name${context ? ', description, and attached files' : ''}
+   - **CRITICAL**: If the description specifies how tasks should be broken down (e.g., "split into X tasks", "one task per Y", "separate tasks for each Z"), you MUST include these as explicit requirements in the spec. These task breakdown instructions take priority.
 
 2. **Verification**:
    - Ensure spec is created with meaningful content
@@ -403,6 +418,7 @@ ${context ? `\n${context}\n` : ''}
 - Create the spec, then finish
 - Do NOT create tasks - task creation happens in the analysis phase
 - The system will analyze and create tasks after planning completes
+- Preserve any user-specified task breakdown structure in the requirements
 
 Begin planning for "${featureName}".`
   }

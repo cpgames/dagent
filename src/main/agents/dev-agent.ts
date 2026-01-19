@@ -5,6 +5,8 @@
  */
 
 import { EventEmitter } from 'events'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import type { Task, DAGGraph, DevAgentMessage } from '@shared/types'
 import type {
   DevAgentState,
@@ -12,7 +14,8 @@ import type {
   DependencyContextEntry,
   DevAgentConfig,
   TaskExecutionResult,
-  TaskProgressEvent
+  TaskProgressEvent,
+  OtherTaskInfo
 } from './dev-types'
 import { DEFAULT_DEV_AGENT_STATE, DEFAULT_DEV_AGENT_CONFIG } from './dev-types'
 import type { IntentionDecision } from './harness-types'
@@ -246,8 +249,14 @@ export class DevAgent extends EventEmitter {
       console.log(`[DevAgent] Worktree created at ${worktreeResult.worktreePath}`)
       this.state.worktreePath = worktreeResult.worktreePath
 
+      // Copy feature attachments to task worktree and get the list
+      const attachments = await this.copyFeatureAttachments(worktreeResult.worktreePath)
+
       // Get dependency context from completed parent tasks
       const dependencyContext = this.assembleDependencyContext(graph)
+
+      // Get other tasks in the workflow for scope awareness
+      const otherTasks = this.getOtherTasks(graph)
 
       // Build full context
       this.state.context = {
@@ -257,9 +266,13 @@ export class DevAgent extends EventEmitter {
         taskTitle: task.title,
         taskDescription: task.description,
         dependencyContext,
+        otherTasks,
+        attachments: attachments.length > 0 ? attachments : undefined,
         qaFeedback: task.qaFeedback || undefined,
         worktreePath: worktreeResult.worktreePath
       }
+
+      console.log(`[DevAgent] Context built with attachments: ${attachments.length > 0 ? attachments.join(', ') : 'none'}`)
 
       this.emit('dev-agent:context-loaded', this.state.context)
       return true
@@ -294,6 +307,107 @@ export class DevAgent extends EventEmitter {
     }
 
     return dependencies
+  }
+
+  /**
+   * Get other tasks in the workflow for scope awareness.
+   * Helps the agent understand what work belongs to OTHER tasks.
+   */
+  private getOtherTasks(graph: DAGGraph): OtherTaskInfo[] {
+    return graph.nodes
+      .filter((node) => node.id !== this.state.taskId)
+      .map((node) => ({
+        title: node.title,
+        description: node.description || '',
+        status: node.status
+      }))
+  }
+
+  /**
+   * Copy feature attachments folder to task worktree.
+   * This makes uploaded files (screenshots, mockups, etc.) available to dev agent.
+   * Returns the list of attachment filenames.
+   */
+  private async copyFeatureAttachments(taskWorktreePath: string): Promise<string[]> {
+    try {
+      const gitManager = getGitManager()
+      const config = gitManager.getConfig()
+
+      // Feature worktree: .dagent-worktrees/{featureId}/
+      const featureWorktreePath = path.join(config.worktreesDir, this.state.featureId)
+      const featureAttachmentsDir = path.join(featureWorktreePath, '.dagent', 'attachments')
+
+      console.log(`[DevAgent] Looking for attachments at: ${featureAttachmentsDir}`)
+
+      // Check if feature has attachments
+      try {
+        await fs.access(featureAttachmentsDir)
+        console.log(`[DevAgent] Attachments directory found`)
+      } catch {
+        // No attachments folder exists - nothing to copy
+        console.log(`[DevAgent] No attachments folder found for feature ${this.state.featureId} at ${featureAttachmentsDir}`)
+        return []
+      }
+
+      // Task worktree attachments: .dagent-worktrees/{featureId}--task-{taskId}/.dagent/attachments/
+      const taskDagentDir = path.join(taskWorktreePath, '.dagent')
+      const taskAttachmentsDir = path.join(taskDagentDir, 'attachments')
+
+      // Ensure .dagent directory exists in task worktree
+      await fs.mkdir(taskDagentDir, { recursive: true })
+
+      // Copy the entire attachments folder
+      await this.copyDirectory(featureAttachmentsDir, taskAttachmentsDir)
+
+      // Get list of attachment files
+      const attachmentFiles = await this.listAttachmentFiles(taskAttachmentsDir)
+
+      console.log(`[DevAgent] Copied attachments from feature to task worktree: ${taskAttachmentsDir}`)
+      console.log(`[DevAgent] Attachment files: ${attachmentFiles.join(', ')}`)
+
+      return attachmentFiles
+    } catch (error) {
+      // Log error but don't fail task execution - attachments are nice-to-have
+      console.error(`[DevAgent] Failed to copy attachments: ${(error as Error).message}`)
+      return []
+    }
+  }
+
+  /**
+   * List all files in the attachments directory.
+   */
+  private async listAttachmentFiles(attachmentsDir: string): Promise<string[]> {
+    const files: string[] = []
+    try {
+      const entries = await fs.readdir(attachmentsDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          files.push(entry.name)
+        }
+      }
+    } catch {
+      // Directory might not exist
+    }
+    return files
+  }
+
+  /**
+   * Recursively copy a directory.
+   */
+  private async copyDirectory(src: string, dest: string): Promise<void> {
+    await fs.mkdir(dest, { recursive: true })
+    const entries = await fs.readdir(src, { withFileTypes: true })
+
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name)
+      const destPath = path.join(dest, entry.name)
+
+      if (entry.isDirectory()) {
+        await this.copyDirectory(srcPath, destPath)
+      } else {
+        await fs.copyFile(srcPath, destPath)
+      }
+    }
   }
 
   /**
@@ -455,6 +569,13 @@ export class DevAgent extends EventEmitter {
     try {
       // Build execution prompt from context
       const prompt = this.buildExecutionPrompt()
+
+      // Log if attachments section is in prompt
+      if (prompt.includes('Available Attachments')) {
+        console.log(`[DevAgent ${this.state.taskId}] Prompt includes attachment instructions`)
+      } else {
+        console.log(`[DevAgent ${this.state.taskId}] Prompt does NOT include attachment instructions (no attachments in context)`)
+      }
 
       // Execute via SDK in the task worktree
       const agentService = getAgentService()
@@ -656,6 +777,31 @@ export class DevAgent extends EventEmitter {
       ''
     )
 
+    // Show other tasks so agent knows what to leave for them
+    if (context.otherTasks && context.otherTasks.length > 0) {
+      // Show tasks that haven't been completed yet (these are work for OTHER agents)
+      const upcomingTasks = context.otherTasks.filter(
+        (t) =>
+          t.status === 'needs_analysis' ||
+          t.status === 'blocked' ||
+          t.status === 'ready_for_dev' ||
+          t.status === 'in_progress' ||
+          t.status === 'ready_for_qa' ||
+          t.status === 'ready_for_merge'
+      )
+      if (upcomingTasks.length > 0) {
+        parts.push(
+          '## Other Tasks in This Feature (DO NOT implement these)',
+          'These tasks will be handled separately. Leave this work for them:',
+          ''
+        )
+        for (const otherTask of upcomingTasks) {
+          parts.push(`- **${otherTask.title}**: ${otherTask.description}`)
+        }
+        parts.push('')
+      }
+    }
+
     if (context.dependencyContext.length > 0) {
       parts.push(
         '## Context from Completed Dependencies',
@@ -681,14 +827,76 @@ export class DevAgent extends EventEmitter {
       )
     }
 
+    // Include attachment information if available
+    if (context.attachments && context.attachments.length > 0) {
+      parts.push(
+        '## Available Attachments',
+        'The following files have been provided for this feature.',
+        'They are available in `.dagent/attachments/`:',
+        ''
+      )
+      for (const attachment of context.attachments) {
+        parts.push(`- \`.dagent/attachments/${attachment}\``)
+      }
+      parts.push(
+        '',
+        '### ⚠️ CRITICAL: Attachment Handling Rules',
+        '',
+        '**NEVER reference `.dagent/attachments/` in your code!**',
+        'The `.dagent/` folder is git-ignored and WILL NOT exist in the deployed project.',
+        'Any code referencing `.dagent/` paths WILL BREAK in production.',
+        '',
+        '**If an image/asset needs to appear in the UI or be loaded by code:**',
+        '1. FIRST copy it to a project folder:',
+        '   ```bash',
+        '   mkdir -p images',
+        '   cp .dagent/attachments/photo.png ./images/profile-photo.png',
+        '   ```',
+        '2. THEN reference the copied location in your code:',
+        '   ```html',
+        '   <img src="./images/profile-photo.png" alt="Profile">',
+        '   ```',
+        '',
+        '**Reference-only files** (just look at them, do NOT copy):',
+        '- Design mockups showing layout/style to replicate',
+        '- Requirements documents, specs, PDFs',
+        '- Screenshots showing expected behavior',
+        '',
+        '**Project assets** (MUST copy before using):',
+        '- Photos/images to display in the UI',
+        '- Icons, logos, graphics',
+        '- Data files the app loads at runtime',
+        ''
+      )
+    }
+
     parts.push(
       '## Instructions',
-      '1. Implement the task as described above',
+      '1. Implement ONLY the specific task described above - nothing more, nothing less',
       '2. Follow the project guidelines from CLAUDE.md',
       '3. Build on completed dependency work where applicable',
       '4. Make all necessary file changes to complete this task',
       '5. IMPORTANT: Work in the current directory (.) - do NOT use absolute paths or navigate elsewhere',
-      context.qaFeedback ? '6. Address ALL QA feedback items' : '',
+      context.attachments && context.attachments.length > 0
+        ? '6. Only copy attachments that are actual project assets (images for UI, data files) - do NOT copy reference documents'
+        : '',
+      context.qaFeedback ? (context.attachments && context.attachments.length > 0 ? '7' : '6') + '. Address ALL QA feedback items' : '',
+      '',
+      '## CRITICAL - Scope Boundaries',
+      'This is ONE task in a multi-task workflow. Other tasks will handle other parts.',
+      '',
+      '**DO:**',
+      '- Implement EXACTLY what the task title and description specify',
+      '- Stop when the task scope is complete',
+      '- Leave placeholder/stub code for functionality that other tasks will implement',
+      '',
+      '**DO NOT:**',
+      '- Implement features beyond this task\'s scope (even if they seem related)',
+      '- Implement work described in the feature spec that isn\'t in THIS task\'s description',
+      '- "Finish" or "complete" work that belongs to upcoming tasks',
+      '- Add extra functionality "while you\'re at it"',
+      '',
+      'If the task says "Add X" - ONLY add X. If other tasks exist to "Add Y" and "Add Z", do NOT add Y or Z.',
       ''
     )
 

@@ -329,10 +329,25 @@ export class QAAgent extends EventEmitter {
       parts.push('2. Does the code satisfy the acceptance criteria listed above?')
       parts.push('3. Are there any obvious bugs or issues?')
       parts.push('4. Does the code follow reasonable patterns?')
+      parts.push('5. **CRITICAL**: Are there any references to `.dagent/` paths in the code?')
     } else {
       parts.push('2. Are there any obvious bugs or issues?')
       parts.push('3. Does the code follow reasonable patterns?')
+      parts.push('4. **CRITICAL**: Are there any references to `.dagent/` paths in the code?')
     }
+    parts.push('')
+
+    // Critical check for .dagent references
+    parts.push('## ⚠️ AUTOMATIC FAIL: .dagent References')
+    parts.push('The `.dagent/` directory is git-ignored and will NOT exist in production.')
+    parts.push('If ANY code references `.dagent/` paths (e.g., `.dagent/attachments/`), the review MUST FAIL.')
+    parts.push('')
+    parts.push('Look for patterns like:')
+    parts.push('- `src=".dagent/attachments/..."` in HTML/JSX')
+    parts.push('- `url(".dagent/...")` in CSS')
+    parts.push('- File paths containing `.dagent` in JavaScript/TypeScript')
+    parts.push('')
+    parts.push('If found, FAIL with feedback: "Assets reference .dagent/ path which is git-ignored. Copy assets to project folder (e.g., images/, assets/) first."')
     parts.push('')
 
     // Instructions

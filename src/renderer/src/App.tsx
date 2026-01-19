@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useFeatureStore, useViewStore, useAuthStore, useProjectStore } from './stores'
+import { useFeatureStore, useViewStore, useAuthStore, useProjectStore, useDAGStore, setupGlobalDAGEventSubscription } from './stores'
 import { KanbanView, DAGView, ContextView, AgentsView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -22,15 +22,20 @@ import { SplashScreen } from './components/Loading'
 import { Button } from './components/UI'
 import { ThemeProvider } from './contexts/ThemeContext'
 
+// Set up global DAG event subscription immediately when module loads
+// This ensures we receive events even before any component mounts
+setupGlobalDAGEventSubscription()
+
 /**
  * Main App component for DAGent.
  * Provides the application shell with vertical sidebar navigation and view switching.
  */
 function App(): React.JSX.Element {
-  const { loadFeatures, createFeature, features, activeFeatureId, setActiveFeature } = useFeatureStore()
+  const { loadFeatures, createFeature, updateFeature, features, activeFeatureId, setActiveFeature } = useFeatureStore()
   const { activeView, setView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
   const { loadCurrentProject, projectPath, initGitRepo, checkGitStatus } = useProjectStore()
+  const { initializeDAGManager } = useDAGStore()
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
@@ -96,10 +101,24 @@ function App(): React.JSX.Element {
             feature.id,
             data.attachments
           )
+          // Update local store with the attachment paths
+          updateFeature(feature.id, { attachments: attachmentPaths })
         } catch (error) {
           console.error('Failed to upload attachments:', error)
           // Continue - planning can still work without attachments
         }
+      }
+
+      // IMPORTANT: Initialize DAGManager and set up event subscription BEFORE starting planning.
+      // This ensures real-time DAG updates work as PM agent creates tasks.
+      try {
+        const currentProjectPath = await window.electronAPI.project.getCurrent()
+        if (currentProjectPath) {
+          await initializeDAGManager(feature.id, currentProjectPath)
+        }
+      } catch (error) {
+        console.error('Failed to initialize DAGManager:', error)
+        // Continue - planning can still work, just won't have real-time updates
       }
 
       // Start PM agent planning in background

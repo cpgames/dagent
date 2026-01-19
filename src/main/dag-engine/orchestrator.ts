@@ -964,6 +964,11 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: result.error }
     }
 
+    // Store error message on the task for UI visibility
+    if (error) {
+      task.errorMessage = error
+    }
+
     // Update pools
     getTaskPoolManager().moveTask(taskId, result.previousStatus, result.newStatus)
 

@@ -106,6 +106,30 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
         </div>
       )}
 
+      {/* Error message for failed tasks */}
+      {task.status === 'failed' && task.errorMessage && (
+        <div className="task-node__error-indicator" title={task.errorMessage}>
+          <svg
+            className="task-node__error-icon"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span className="task-node__error-text">
+            {task.errorMessage.length > 50
+              ? `${task.errorMessage.slice(0, 50)}...`
+              : task.errorMessage}
+          </span>
+        </div>
+      )}
+
       {/* Action buttons - absolute positioned, show on hover */}
       <div className="task-node__actions">
         <button

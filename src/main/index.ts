@@ -119,9 +119,15 @@ app.whenReady().then(async () => {
       if (migratedCount > 0) {
         console.log(`[DAGent] Migrated ${migratedCount} feature(s) to new status types`)
       }
+
+      // Recover features stuck in 'planning' status (happens when app closed during planning)
+      const recoveredCount = await statusManager.recoverStuckPlanningFeatures()
+      if (recoveredCount > 0) {
+        console.log(`[DAGent] Recovered ${recoveredCount} feature(s) stuck in planning`)
+      }
     }
   } catch (error) {
-    console.error('[DAGent] Feature status migration failed:', error)
+    console.error('[DAGent] Feature status migration/recovery failed:', error)
     // Don't block app startup on migration failure
   }
 

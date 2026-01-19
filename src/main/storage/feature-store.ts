@@ -4,6 +4,7 @@ import * as paths from './paths';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { getFeatureBranchName } from '../git/types';
+import { getGitManager } from '../git';
 
 /**
  * Storage service for feature data.
@@ -57,7 +58,19 @@ export class FeatureStore {
       autoStart: options?.autoStart ?? false
     };
 
-    // Persist to storage
+    // IMPORTANT: Create git worktree BEFORE saving feature.json
+    // The worktree creation sets up the directory structure, then we write our files into it.
+    // If we write files first, git worktree add will fail because the directory exists.
+    const gitManager = getGitManager()
+    if (gitManager.isInitialized()) {
+      const worktreeResult = await gitManager.createFeatureWorktree(id)
+      if (!worktreeResult.success) {
+        console.warn(`[FeatureStore] Failed to create worktree for ${id}: ${worktreeResult.error}`)
+        // Continue without worktree - feature can still be created, just won't have git isolation
+      }
+    }
+
+    // Persist to storage (now safe because worktree directory exists)
     await this.saveFeature(feature);
 
     // Create initial task for the feature
@@ -131,6 +144,16 @@ export class FeatureStore {
   async loadDag(featureId: string): Promise<DAGGraph | null> {
     const filePath = paths.getDagPath(this.projectRoot, featureId);
     return readJson<DAGGraph>(filePath);
+  }
+
+  /**
+   * Check if a feature has a spec file (feature-spec.md).
+   * Used to determine if planning was completed.
+   * @returns true if spec file exists, false otherwise.
+   */
+  async hasFeatureSpec(featureId: string): Promise<boolean> {
+    const specPath = paths.getFeatureSpecPath(this.projectRoot, featureId);
+    return exists(specPath);
   }
 
   /**
@@ -356,6 +379,37 @@ export class FeatureStore {
         return [];
       }
       throw error;
+    }
+  }
+
+  /**
+   * Delete an attachment file for a feature.
+   * Also removes it from the feature's attachments array.
+   * @param featureId - Feature ID
+   * @param attachmentPath - Relative path like "attachments/filename.png"
+   */
+  async deleteAttachment(featureId: string, attachmentPath: string): Promise<void> {
+    const featureDir = paths.getFeatureDir(this.projectRoot, featureId);
+    const fullPath = path.join(featureDir, attachmentPath);
+
+    // Delete the file
+    try {
+      await fs.unlink(fullPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+      // File doesn't exist, continue to remove from feature anyway
+    }
+
+    // Update feature's attachments array
+    const feature = await this.loadFeature(featureId);
+    if (feature && feature.attachments) {
+      feature.attachments = feature.attachments.filter(a => a !== attachmentPath);
+      if (feature.attachments.length === 0) {
+        feature.attachments = undefined;
+      }
+      await this.saveFeature(feature);
     }
   }
 }

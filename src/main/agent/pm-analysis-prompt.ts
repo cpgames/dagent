@@ -43,8 +43,16 @@ Description: ${task.description || '(No description)'}
 
 ## Your Decision
 
-Analyze this task's COMPLEXITY and SCOPE:
+**FIRST, check the Feature Spec for task breakdown instructions.**
+If the spec contains requirements like:
+- "one task per X"
+- "separate tasks for each Y"
+- "split into N tasks"
+- specific task structure requirements
 
+**YOU MUST FOLLOW THOSE INSTRUCTIONS.** User-specified task breakdown requirements take absolute priority over default complexity analysis.
+
+**THEN, if no breakdown instructions exist**, analyze complexity:
 1. **Estimate the work**: How many distinct implementation steps?
 2. **Check independence**: Are there logically separate deliverables?
 3. **Consider scope**: Would this be too large for one dev session?
@@ -56,10 +64,10 @@ A) **KEEP** - Task is appropriately scoped
    - Reasonable amount of work
    - No need to split
 
-B) **SPLIT** - Task is too complex
+B) **SPLIT** - Task needs to be broken down
+   - Spec requires specific task structure (HIGHEST PRIORITY)
    - Multiple independent deliverables
    - Would benefit from separate implementation
-   - Define subtasks with dependencies
 
 ## Output Format
 
@@ -95,13 +103,13 @@ If SPLIT:
 
 ## IMPORTANT RULES
 
-1. **Never create verification/QA tasks** - Verification is automatic
-2. **Never create planning tasks** - Planning is part of implementation
-3. **Use dependsOn when task B needs output from task A** - Reference by title
-4. **Keep tasks focused and actionable** - Each task should have a clear outcome
-5. **No circular dependencies** - Task A cannot depend on Task B if B depends on A
-6. **Prefer KEEP over SPLIT** - Only split if clearly too complex
-7. **2-5 subtasks max** - If you need more, consider if the parent task is well-defined`
+1. **PRIORITIZE spec-defined task structure** - If spec says "one task per X", create one task per X
+2. **Never create verification/QA tasks** - Verification is automatic
+3. **Never create planning tasks** - Planning is part of implementation
+4. **Use dependsOn when task B needs output from task A** - Reference by title
+5. **Keep tasks focused and actionable** - Each task should have a clear outcome
+6. **No circular dependencies** - Task A cannot depend on Task B if B depends on A
+7. **2-5 subtasks max** - Unless spec explicitly requires more`
 }
 
 /**

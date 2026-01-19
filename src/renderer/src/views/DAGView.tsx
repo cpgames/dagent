@@ -11,6 +11,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   type Connection,
@@ -127,7 +128,8 @@ function DAGViewInner({
     setSelectedNode,
     historyState,
     undo,
-    redo
+    redo,
+    autoLayout
   } = useDAGStore()
   const {
     nodeDialogOpen,
@@ -141,6 +143,9 @@ function DAGViewInner({
     openLogDialog,
     closeLogDialog
   } = useDialogStore()
+
+  // React Flow instance for programmatic control (fitView, etc.)
+  const { fitView } = useReactFlow()
 
   // Log entries for LogDialog (PM logs)
   const [logEntries, setLogEntries] = useState<LogEntry[]>([])
@@ -470,6 +475,8 @@ function DAGViewInner({
 
   // Update nodes/edges when DAG or selection changes, merging in saved layout positions
   useEffect(() => {
+    const nodeCount = dag?.nodes?.length ?? 0
+    console.log(`[DAGViewInner] DAG changed, nodes: ${nodeCount}, updating React Flow`)
     const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId).map((node) => {
       const savedPos = layoutPositionsRef.current[node.id]
       if (savedPos) {
@@ -477,9 +484,18 @@ function DAGViewInner({
       }
       return node
     })
+    console.log(`[DAGViewInner] Setting ${newNodes.length} nodes to React Flow`)
     setNodes(newNodes)
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
-  }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges])
+
+    // Auto-fit view whenever DAG changes to keep all nodes visible
+    if (nodeCount > 0) {
+      // Use setTimeout to ensure nodes are rendered before fitting
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 200 })
+      }, 50)
+    }
+  }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges, fitView])
 
   // Poll for real-time session updates when task log dialog is open
   useEffect(() => {
@@ -671,6 +687,7 @@ function DAGViewInner({
                 <LayoutControls
                   featureId={activeFeatureId}
                   onNewTask={() => openNodeDialog(null)}
+                  onAutoLayout={autoLayout}
                 />
 
                 {/* Mutation loading indicator */}
@@ -744,11 +761,19 @@ function DAGViewInner({
 // Outer component wrapper
 export default function DAGView(): JSX.Element {
   const { activeFeatureId } = useFeatureStore()
-  const { loadDag } = useDAGStore()
+  const { loadDag, setCurrentFeatureForEvents } = useDAGStore()
+
+  // Set feature for events IMMEDIATELY when feature changes (sync, before async loadDag)
+  useEffect(() => {
+    console.log(`[DAGView] Setting current feature for events: ${activeFeatureId}`)
+    setCurrentFeatureForEvents(activeFeatureId)
+  }, [activeFeatureId, setCurrentFeatureForEvents])
 
   // Load DAG when active feature changes
   useEffect(() => {
+    console.log(`[DAGView] useEffect triggered, activeFeatureId=${activeFeatureId}`)
     if (activeFeatureId) {
+      console.log(`[DAGView] Calling loadDag for ${activeFeatureId}`)
       loadDag(activeFeatureId)
     }
   }, [activeFeatureId, loadDag])

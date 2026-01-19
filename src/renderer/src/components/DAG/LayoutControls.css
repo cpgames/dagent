@@ -46,3 +46,80 @@
   width: 1rem;
   height: 1rem;
 }
+
+/* Feature status indicator - positioned top-left */
+.layout-controls__status {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.layout-controls__status-label {
+  white-space: nowrap;
+}
+
+.layout-controls__status-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: status-spin 0.8s linear infinite;
+}
+
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Status variants - matching Kanban FeatureCard colors */
+.layout-controls__status--planning {
+  color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+  background: color-mix(in srgb, var(--accent-secondary) 20%, transparent);
+}
+
+.layout-controls__status--backlog {
+  color: var(--text-muted);
+  border-color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+}
+
+.layout-controls__status--in-progress {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+}
+
+.layout-controls__status--attention {
+  color: var(--color-error);
+  border-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 20%, transparent);
+}
+
+.layout-controls__status--completed {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+}
+
+.layout-controls__status--archived {
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  opacity: 0.7;
+}

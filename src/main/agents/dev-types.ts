@@ -70,11 +70,24 @@ export interface TaskContext {
   // Dependency context (from completed parent tasks)
   dependencyContext: DependencyContextEntry[]
 
+  // Other tasks in the workflow (for scope awareness)
+  otherTasks?: OtherTaskInfo[]
+
+  // Feature attachments (images, files, etc.)
+  // These are available in .dagent/attachments/ and should be copied into appropriate project folders
+  attachments?: string[]
+
   // QA feedback (if reworking after QA failure)
   qaFeedback?: string
 
   // Working directory
   worktreePath: string
+}
+
+export interface OtherTaskInfo {
+  title: string
+  description: string
+  status: string
 }
 
 export interface DependencyContextEntry {

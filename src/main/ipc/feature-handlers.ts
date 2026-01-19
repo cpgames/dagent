@@ -286,6 +286,7 @@ export function registerFeatureHandlers(): void {
   /**
    * Upload multiple attachment files for a feature.
    * Returns array of relative paths where files were saved.
+   * Also updates the feature's attachments array in the feature.json.
    */
   ipcMain.handle(
     'feature:uploadAttachments',
@@ -306,7 +307,31 @@ export function registerFeatureHandlers(): void {
         savedPaths.push(savedPath)
       }
 
+      // Update the feature's attachments array in storage
+      const feature = await featureStore.loadFeature(featureId)
+      if (feature) {
+        const existingAttachments = feature.attachments || []
+        feature.attachments = [...existingAttachments, ...savedPaths]
+        await featureStore.saveFeature(feature)
+      }
+
       return savedPaths
+    }
+  )
+
+  /**
+   * Delete an attachment file from a feature.
+   * Removes both the file and the reference in feature.json.
+   */
+  ipcMain.handle(
+    'feature:deleteAttachment',
+    async (_event, featureId: string, attachmentPath: string): Promise<void> => {
+      const featureStore = getFeatureStore()
+      if (!featureStore) {
+        throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+      }
+
+      await featureStore.deleteAttachment(featureId, attachmentPath)
     }
   )
 
@@ -330,6 +355,12 @@ export function registerFeatureHandlers(): void {
         if (!featureStore || !projectRoot) {
           throw new Error('FeatureStore not initialized. Call initializeStorage first.')
         }
+
+        // IMPORTANT: Initialize DAGManager with event broadcasting BEFORE planning starts.
+        // This ensures that any tasks created by the PM agent will broadcast events to the renderer.
+        const { getDAGManager } = await import('./dag-handlers')
+        await getDAGManager(featureId, projectRoot)
+        console.log(`[FeatureHandlers] DAGManager initialized for ${featureId} before planning`)
 
         const statusManager = getStatusManager()
         const agentService = getAgentService()
@@ -362,7 +393,7 @@ export function registerFeatureHandlers(): void {
 
   /**
    * Replan a feature - delete all tasks and spec, then restart planning.
-   * Only allowed when feature is in 'backlog' status.
+   * Only allowed when feature is in 'backlog' or 'needs_attention' status.
    */
   ipcMain.handle(
     'feature:replan',
@@ -384,8 +415,8 @@ export function registerFeatureHandlers(): void {
           return { success: false, error: 'Feature not found' }
         }
 
-        if (feature.status !== 'backlog') {
-          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be in 'backlog' status.` }
+        if (feature.status !== 'backlog' && feature.status !== 'needs_attention') {
+          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be in 'backlog' or 'needs_attention' status.` }
         }
 
         // Delete spec
@@ -404,8 +435,11 @@ export function registerFeatureHandlers(): void {
           position: { x: 250, y: 100 }
         }
 
-        // Reset DAG with initial task
-        await featureStore.saveDag(featureId, { nodes: [initialTask], connections: [] })
+        // Reset DAG via DAGManager to emit events for real-time UI updates
+        const { getDAGManager } = await import('./dag-handlers')
+        const manager = await getDAGManager(featureId, projectRoot)
+        await manager.resetGraph({ nodes: [initialTask], connections: [] })
+        console.log(`[FeatureHandlers] DAG reset for replan ${featureId}`)
 
         // Update feature status to planning
         feature.status = 'planning'

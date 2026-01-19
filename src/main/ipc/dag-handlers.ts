@@ -22,29 +22,31 @@ import type { DAGManagerConfig, DAGEvent } from '../dag-engine/dag-api-types'
 // Store DAGManager instances per featureId
 const dagManagers = new Map<string, DAGManager>()
 
+// Track which managers have event broadcasting set up
+const managersWithBroadcasting = new Set<string>()
+
 /**
- * Get or create DAGManager for a feature.
+ * Broadcast DAGManager event to ALL renderer windows.
+ * This ensures real-time updates regardless of which process triggered the change.
  */
-export async function getDAGManager(featureId: string, projectRoot: string): Promise<DAGManager> {
-  const key = `${projectRoot}:${featureId}`
-
-  if (!dagManagers.has(key)) {
-    const config: DAGManagerConfig = {
-      featureId,
-      projectRoot,
-      autoSave: true
+function broadcastDAGEvent(featureId: string, event: DAGEvent): void {
+  const windows = BrowserWindow.getAllWindows()
+  console.log(`[DAGManager] Broadcasting event ${event.type} for feature ${featureId} to ${windows.length} windows`)
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('dag-manager:event', { featureId, event })
     }
-    const manager = await DAGManager.create(config)
-    dagManagers.set(key, manager)
   }
-
-  return dagManagers.get(key)!
 }
 
 /**
- * Forward DAGManager events to renderer process.
+ * Set up event broadcasting for a DAGManager (only once per manager).
  */
-function setupEventForwarding(manager: DAGManager, window: BrowserWindow, featureId: string): void {
+function setupEventBroadcasting(manager: DAGManager, featureId: string, key: string): void {
+  if (managersWithBroadcasting.has(key)) {
+    return // Already set up
+  }
+
   const events: Array<DAGEvent['type']> = [
     'node-added',
     'node-removed',
@@ -56,9 +58,38 @@ function setupEventForwarding(manager: DAGManager, window: BrowserWindow, featur
 
   events.forEach((eventType) => {
     manager.on(eventType, (event: DAGEvent) => {
-      window.webContents.send('dag-manager:event', { featureId, event })
+      broadcastDAGEvent(featureId, event)
     })
   })
+
+  managersWithBroadcasting.add(key)
+  console.log(`[DAGManager] Event broadcasting set up for ${featureId}`)
+}
+
+/**
+ * Get or create DAGManager for a feature.
+ * Automatically sets up event broadcasting to all windows.
+ */
+export async function getDAGManager(featureId: string, projectRoot: string): Promise<DAGManager> {
+  const key = `${projectRoot}:${featureId}`
+
+  if (!dagManagers.has(key)) {
+    console.log(`[DAGManager] Creating new manager for ${featureId} (key: ${key})`)
+    const config: DAGManagerConfig = {
+      featureId,
+      projectRoot,
+      autoSave: true
+    }
+    const manager = await DAGManager.create(config)
+    dagManagers.set(key, manager)
+
+    // Set up broadcasting for this new manager
+    setupEventBroadcasting(manager, featureId, key)
+  } else {
+    console.log(`[DAGManager] Reusing existing manager for ${featureId} (key: ${key})`)
+  }
+
+  return dagManagers.get(key)!
 }
 
 export function registerDagHandlers(): void {
@@ -140,17 +171,14 @@ export function registerDagHandlers(): void {
   // DAGManager IPC handlers
   ipcMain.handle(
     'dag-manager:create',
-    async (event, featureId: string, projectRoot: string) => {
+    async (_event, featureId: string, projectRoot: string) => {
       const manager = await getDAGManager(featureId, projectRoot)
 
       // Always reload from storage to ensure we have the latest graph
       // This is important when returning to a view after tasks were created elsewhere
       await manager.reload()
 
-      const window = BrowserWindow.fromWebContents(event.sender)
-      if (window) {
-        setupEventForwarding(manager, window, featureId)
-      }
+      // Event broadcasting is automatically set up in getDAGManager
       return { success: true, graph: manager.getGraph() }
     }
   )
@@ -203,5 +231,12 @@ export function registerDagHandlers(): void {
     const manager = await getDAGManager(featureId, projectRoot)
     await manager.resetGraph(graph)
     return { success: true }
+  })
+
+  // Auto-layout handler - arranges nodes in a tree structure based on dependencies
+  ipcMain.handle('dag-manager:auto-layout', async (_event, featureId: string, projectRoot: string) => {
+    const manager = await getDAGManager(featureId, projectRoot)
+    await manager.applyAutoLayout()
+    return { success: true, graph: manager.getGraph() }
   })
 }

@@ -430,7 +430,7 @@ export async function createPMMcpServer(): Promise<unknown | null> {
       ),
       tool(
         'DAGAddNode',
-        'Add a new task node to the DAG with automatic vertical placement. Use this instead of CreateTask when you want DAGManager to handle positioning.',
+        'Add a new task node to the DAG. Nodes are automatically positioned in a tree layout based on dependencies. Use this for all task creation.',
         {
           title: z.string().describe('The title of the task'),
           description: z.string().describe('Detailed description of what the task should accomplish'),

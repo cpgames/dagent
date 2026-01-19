@@ -1061,6 +1061,12 @@ export interface FeatureAPI {
    * Returns array of relative paths where files were saved.
    */
   uploadAttachments: (featureId: string, files: File[]) => Promise<string[]>
+
+  /**
+   * Delete an attachment file from feature worktree.
+   * Also removes the reference from feature.json.
+   */
+  deleteAttachment: (featureId: string, attachmentPath: string) => Promise<void>
 }
 
 /**
@@ -1215,6 +1221,11 @@ export interface DAGManagerAPI {
    * Replace the entire graph.
    */
   resetGraph: (featureId: string, projectRoot: string, graph: DAGGraph) => Promise<{ success: boolean }>
+
+  /**
+   * Apply automatic layout to arrange nodes in a tree structure based on dependencies.
+   */
+  autoLayout: (featureId: string, projectRoot: string) => Promise<{ success: boolean; graph: DAGGraph }>
 
   /**
    * Subscribe to DAGManager events (node-added, connection-added, etc.).

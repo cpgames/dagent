@@ -22,6 +22,9 @@ import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import type { FeatureSpec } from '../agents/feature-spec-types'
 import { getSessionManager } from '../services/session-manager'
 import type { SessionContext, AgentDescription } from '../../shared/types/session'
+import { getGitManager } from '../git'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 
 export interface TaskStateChange {
   taskId: string
@@ -185,6 +188,7 @@ export class TaskController extends EventEmitter {
   private featureSpec: FeatureSpec | null = null
   private currentDevAgent: DevAgent | null = null
   private projectRoot: string
+  private attachments: string[] = [] // Attachment filenames from DevAgent context
 
   constructor(
     featureId: string,
@@ -257,6 +261,9 @@ export class TaskController extends EventEmitter {
       // Load feature spec for DevAgent context
       const specStore = getFeatureSpecStore(this.projectRoot)
       this.featureSpec = await specStore.loadSpec(this.state.featureId)
+
+      // Pre-load attachments from feature directory for prompt building
+      await this.loadFeatureAttachments()
 
       // Create dev session for this Ralph Loop
       const sessionManager = getSessionManager(this.projectRoot)
@@ -448,6 +455,42 @@ Work in the current directory only. Do not navigate elsewhere.`
   }
 
   /**
+   * Load attachment filenames from the feature's attachments directory.
+   * This allows buildIterationPrompt to include attachment instructions on the first iteration.
+   */
+  private async loadFeatureAttachments(): Promise<void> {
+    try {
+      const gitManager = getGitManager()
+      const config = gitManager.getConfig()
+
+      // Feature worktree: .dagent-worktrees/{featureId}/
+      const featureWorktreePath = path.join(config.worktreesDir, this.state.featureId)
+      const featureAttachmentsDir = path.join(featureWorktreePath, '.dagent', 'attachments')
+
+      // Check if attachments directory exists
+      try {
+        await fs.access(featureAttachmentsDir)
+      } catch {
+        // No attachments folder exists
+        console.log(`[TaskController ${this.state.taskId}] No attachments folder for feature ${this.state.featureId}`)
+        return
+      }
+
+      // List all files in the attachments directory
+      const entries = await fs.readdir(featureAttachmentsDir, { withFileTypes: true })
+      const files = entries.filter(e => e.isFile()).map(e => e.name)
+
+      if (files.length > 0) {
+        this.attachments = files
+        console.log(`[TaskController ${this.state.taskId}] Found attachments: ${files.join(', ')}`)
+      }
+    } catch (error) {
+      console.warn(`[TaskController ${this.state.taskId}] Error loading attachments: ${(error as Error).message}`)
+      // Non-fatal - continue without attachments
+    }
+  }
+
+  /**
    * Check exit conditions for the loop.
    * Returns null to continue, or LoopExitReason to exit.
    */
@@ -520,10 +563,43 @@ Work in the current directory only. Do not navigate elsewhere.`
         parts.push(`**Description:** ${this.task.description}`)
       }
       parts.push('')
+
+      // Include attachment handling instructions if attachments exist
+      if (this.attachments.length > 0) {
+        parts.push('## Available Attachments')
+        parts.push('The following files have been provided as reference materials.')
+        parts.push('They are available in `.dagent/attachments/`:')
+        parts.push('')
+        for (const attachment of this.attachments) {
+          parts.push(`- \`.dagent/attachments/${attachment}\``)
+        }
+        parts.push('')
+        parts.push('### ⚠️ CRITICAL: Attachment Handling Rules')
+        parts.push('')
+        parts.push('**NEVER reference `.dagent/attachments/` in your code!**')
+        parts.push('The `.dagent/` folder is git-ignored and WILL NOT exist in production.')
+        parts.push('Any code referencing `.dagent/` paths WILL BREAK.')
+        parts.push('')
+        parts.push('**What you MUST do:**')
+        parts.push('1. READ/VIEW files from `.dagent/attachments/` to understand what was provided')
+        parts.push('2. COPY relevant files (images, assets) to appropriate project folders')
+        parts.push('   - Images → `public/images/`, `src/assets/`, `images/`, etc.')
+        parts.push('   - PDFs/docs → `public/`, `docs/`, `assets/`, etc.')
+        parts.push('3. Reference ONLY the new project-relative paths in your code')
+        parts.push('')
+        parts.push('**Example:**')
+        parts.push('- WRONG: `<img src=".dagent/attachments/photo.png" />`')
+        parts.push('- RIGHT: Copy to `public/images/photo.png`, then use `<img src="/images/photo.png" />`')
+        parts.push('')
+      }
+
       parts.push('## Instructions')
       parts.push('1. Implement the task requirements')
       parts.push('2. Create or modify files as needed')
       parts.push('3. Work in the current directory (.)')
+      if (this.attachments.length > 0) {
+        parts.push('4. Copy any needed attachments to proper project folders (NOT .dagent/)')
+      }
     } else {
       parts.push(`## Iteration ${this.state.currentIteration} - Fix Failing Checks`)
       parts.push('')
@@ -558,6 +634,14 @@ Work in the current directory only. Do not navigate elsewhere.`
         for (const entry of recentActivity) {
           parts.push(`- Iteration ${entry.iteration}: ${entry.summary}`)
         }
+        parts.push('')
+      }
+
+      // Remind about attachments in subsequent iterations
+      if (this.attachments.length > 0) {
+        parts.push('## Reminder: Attachments')
+        parts.push('Attachments are available in `.dagent/attachments/` for reference.')
+        parts.push('**NEVER reference `.dagent/` in code** - copy files to proper project folders first.')
         parts.push('')
       }
     }
@@ -610,6 +694,13 @@ Work in the current directory only. Do not navigate elsewhere.`
 
         // Store worktree path for subsequent iterations
         this.state.worktreePath = agent.getState().worktreePath
+
+        // Capture attachments from DevAgent context for prompt building
+        const agentContext = agent.getState().context
+        if (agentContext?.attachments && agentContext.attachments.length > 0) {
+          this.attachments = agentContext.attachments
+          console.log(`[TaskController ${this.state.taskId}] Captured attachments: ${this.attachments.join(', ')}`)
+        }
       } else {
         // Subsequent iterations: use initializeForIteration() with existing worktree
         if (!this.state.worktreePath) {

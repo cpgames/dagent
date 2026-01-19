@@ -1,8 +1,8 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { mkdir, stat, writeFile } from 'fs/promises'
+import { mkdir, stat, writeFile, readFile } from 'fs/promises'
 import path from 'path'
 import { getGitManager } from '../git'
-import { initializeStorage } from './storage-handlers'
+import { initializeStorage, getFeatureStore } from './storage-handlers'
 import { setHistoryProjectRoot } from './history-handlers'
 import { setAgentConfigProjectRoot } from './agent-config-handlers'
 import { ensureDagentStructure } from '../storage/paths'
@@ -14,6 +14,43 @@ import {
 } from '../storage/recent-projects'
 import { initContextService } from './context-handlers'
 import { initializeSettingsStore } from '../storage/settings-store'
+import { FeatureStatusManager } from '../services/feature-status-manager'
+import { EventEmitter } from 'events'
+
+/**
+ * DAGent directories that should be git-ignored.
+ */
+const DAGENT_GITIGNORE_PATTERNS = ['.dagent-worktrees/', '.dagent/', '.attachments/']
+
+/**
+ * Ensure DAGent directories are in .gitignore.
+ * Creates .gitignore if it doesn't exist, or appends missing patterns.
+ */
+async function ensureDagentGitignore(projectRoot: string): Promise<void> {
+  const gitignorePath = path.join(projectRoot, '.gitignore')
+  let content = ''
+
+  try {
+    content = await readFile(gitignorePath, 'utf-8')
+  } catch {
+    // File doesn't exist - we'll create it with all patterns
+  }
+
+  const missingPatterns = DAGENT_GITIGNORE_PATTERNS.filter(
+    (pattern) => !content.includes(pattern)
+  )
+
+  if (missingPatterns.length > 0) {
+    const addition =
+      (content.length > 0 && !content.endsWith('\n') ? '\n' : '') +
+      (content.length > 0 && !content.includes('# DAGent') ? '\n# DAGent directories\n' : '') +
+      missingPatterns.join('\n') +
+      '\n'
+
+    await writeFile(gitignorePath, content + addition)
+    console.log('[DAGent] Updated .gitignore with:', missingPatterns.join(', '))
+  }
+}
 
 /**
  * Current project root path.
@@ -92,6 +129,9 @@ export function registerProjectHandlers(): void {
           if (!gitResult.success) {
             console.log('[DAGent] Git initialization failed:', gitResult.error)
           } else {
+            // Ensure DAGent directories are in .gitignore
+            await ensureDagentGitignore(projectRoot)
+
             // Check if there are any commits - if not, create initial commit
             const hasCommits = await gitManager.hasCommits()
             if (!hasCommits) {
@@ -99,14 +139,6 @@ export function registerProjectHandlers(): void {
               try {
                 const simpleGit = (await import('simple-git')).default
                 const git = simpleGit({ baseDir: projectRoot })
-
-                // Create a .gitignore file if it doesn't exist
-                const gitignorePath = path.join(projectRoot, '.gitignore')
-                try {
-                  await stat(gitignorePath)
-                } catch {
-                  await writeFile(gitignorePath, '# DAGent worktrees\n.dagent-worktrees/\n')
-                }
 
                 // Stage all files and create initial commit
                 await git.add('.')
@@ -134,6 +166,16 @@ export function registerProjectHandlers(): void {
         await addRecentProject(projectRoot, projectName)
 
         console.log('[DAGent] Project switched to:', projectRoot)
+
+        // Recover any features stuck in planning status (happens when app closed during planning)
+        const featureStore = getFeatureStore()
+        if (featureStore) {
+          const statusManager = new FeatureStatusManager(featureStore, new EventEmitter())
+          const recoveredCount = await statusManager.recoverStuckPlanningFeatures()
+          if (recoveredCount > 0) {
+            console.log(`[DAGent] Recovered ${recoveredCount} feature(s) stuck in planning after project switch`)
+          }
+        }
 
         return { success: true, hasGit: isGitRepo }
       } catch (error) {
@@ -218,12 +260,11 @@ export function registerProjectHandlers(): void {
             const simpleGit = (await import('simple-git')).default
             const git = simpleGit({ baseDir: projectPath })
 
-            // Create a .gitignore file
-            const gitignorePath = path.join(projectPath, '.gitignore')
-            await writeFile(gitignorePath, '# DAGent worktrees are stored outside the project\n.dagent-worktrees/\n')
+            // Ensure DAGent directories are in .gitignore
+            await ensureDagentGitignore(projectPath)
 
             // Stage and commit
-            await git.add('.gitignore')
+            await git.add('.')
             await git.commit('Initial commit - DAGent project')
             console.log('[DAGent] Git repository initialized with initial commit')
           }
@@ -250,6 +291,13 @@ export function registerProjectHandlers(): void {
         await addRecentProject(projectPath, projectName)
 
         console.log('[DAGent] New project created at:', projectPath)
+
+        // Recover any features stuck in planning status (for consistency with set-project)
+        const featureStore = getFeatureStore()
+        if (featureStore) {
+          const statusManager = new FeatureStatusManager(featureStore, new EventEmitter())
+          await statusManager.recoverStuckPlanningFeatures()
+        }
 
         return { success: true, projectPath }
       } catch (error) {

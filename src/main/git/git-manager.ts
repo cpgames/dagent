@@ -418,15 +418,29 @@ export class GitManager {
         }
       }
 
-      // Create task branch from feature branch and worktree
-      console.log(`[GitManager] Creating worktree at ${worktreePath} with branch ${taskBranchName} from ${featureBranchName}`)
+      // Get the commit SHA of the feature branch to create task branch from
+      // We use the commit SHA instead of branch name because the feature branch
+      // may be checked out in the feature worktree, and git doesn't allow
+      // checking out the same branch in multiple worktrees.
+      let featureCommit: string
+      try {
+        const result = await this.git.revparse([featureBranchName])
+        featureCommit = result.trim()
+        console.log(`[GitManager] Feature branch ${featureBranchName} is at commit ${featureCommit}`)
+      } catch (revParseError) {
+        console.error(`[GitManager] Failed to get commit for ${featureBranchName}:`, revParseError)
+        return { success: false, error: `Failed to resolve feature branch: ${featureBranchName}` }
+      }
+
+      // Create task branch from feature branch's commit and worktree
+      console.log(`[GitManager] Creating worktree at ${worktreePath} with branch ${taskBranchName} from commit ${featureCommit}`)
       await this.git.raw([
         'worktree',
         'add',
         '-b',
         taskBranchName,
         worktreePath,
-        featureBranchName
+        featureCommit  // Use commit SHA instead of branch name
       ])
 
       // Verify worktree was created successfully
@@ -642,12 +656,15 @@ export class GitManager {
    * Merge a task branch into its feature branch.
    * This is the main operation for completing a task.
    *
-   * The merge is performed inside the task worktree:
-   * 1. Checkout the feature branch in the task worktree
-   * 2. Merge the task branch into the feature branch
-   * 3. Optionally remove the worktree and delete the task branch
+   * The merge is performed inside the FEATURE worktree (not task worktree):
+   * 1. Verify task worktree has no uncommitted changes
+   * 2. Use the feature worktree (which already has feature branch checked out)
+   * 3. Merge the task branch into the feature branch
+   * 4. Optionally remove the task worktree and delete the task branch
    *
-   * This approach doesn't affect the main repo's working directory.
+   * This approach avoids the "branch already checked out" error since we
+   * don't need to checkout the feature branch - it's already checked out
+   * in the feature worktree.
    */
   async mergeTaskIntoFeature(
     featureId: string,
@@ -660,6 +677,8 @@ export class GitManager {
       const taskBranchName = getTaskBranchName(featureId, taskId)
       const taskWorktreeName = getTaskWorktreeName(featureId, taskId)
       const taskWorktreePath = path.join(this.config.worktreesDir, taskWorktreeName)
+      const featureWorktreeName = getFeatureWorktreeName(featureId)
+      const featureWorktreePath = path.join(this.config.worktreesDir, featureWorktreeName)
 
       // Verify task worktree exists
       const taskWorktree = await this.getWorktree(taskWorktreePath)
@@ -673,12 +692,40 @@ export class GitManager {
         }
       }
 
-      // Create a git instance for the task worktree
-      const taskGit = simpleGit({ baseDir: taskWorktreePath })
+      // Verify feature worktree exists
+      const featureWorktree = await this.getWorktree(featureWorktreePath)
+      if (!featureWorktree) {
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: `Feature worktree not found at ${featureWorktreePath}`
+        }
+      }
 
-      // Ensure all changes in task worktree are committed
-      const status = await taskGit.status()
-      if (status.modified.length > 0 || status.not_added.length > 0 || status.staged.length > 0) {
+      // Create git instances for both worktrees
+      const taskGit = simpleGit({ baseDir: taskWorktreePath })
+      const featureGit = simpleGit({ baseDir: featureWorktreePath })
+
+      // Helper to filter out DAGent directories from status (these are metadata, not code)
+      // These should be in .gitignore, but filter just in case
+      const filterDagentFiles = (files: string[]): string[] =>
+        files.filter((f) =>
+          !f.startsWith('.dagent/') &&
+          !f.startsWith('.dagent\\') &&
+          !f.startsWith('.dagent-worktrees/') &&
+          !f.startsWith('.dagent-worktrees\\') &&
+          !f.startsWith('.attachments/') &&
+          !f.startsWith('.attachments\\')
+        )
+
+      // Ensure all changes in task worktree are committed (excluding .dagent/ metadata)
+      const taskStatus = await taskGit.status()
+      const taskModified = filterDagentFiles(taskStatus.modified)
+      const taskNotAdded = filterDagentFiles(taskStatus.not_added)
+      const taskStaged = filterDagentFiles(taskStatus.staged)
+      if (taskModified.length > 0 || taskNotAdded.length > 0 || taskStaged.length > 0) {
         return {
           success: false,
           merged: false,
@@ -688,28 +735,41 @@ export class GitManager {
         }
       }
 
-      // Checkout the feature branch in the task worktree
-      // This switches the worktree from task branch to feature branch
-      try {
-        await taskGit.checkout(featureBranchName)
-      } catch (error) {
+      // Ensure feature worktree is clean (excluding .dagent/ metadata)
+      const featureStatus = await featureGit.status()
+      const featureModified = filterDagentFiles(featureStatus.modified)
+      const featureNotAdded = filterDagentFiles(featureStatus.not_added)
+      const featureStaged = filterDagentFiles(featureStatus.staged)
+      if (featureModified.length > 0 || featureNotAdded.length > 0 || featureStaged.length > 0) {
         return {
           success: false,
           merged: false,
           worktreeRemoved: false,
           branchDeleted: false,
-          error: `Failed to checkout feature branch: ${(error as Error).message}`
+          error: 'Feature worktree has uncommitted changes'
         }
       }
 
-      // Perform merge of task branch into feature branch (now checked out)
+      // Verify feature worktree is on the feature branch
+      const currentBranch = await featureGit.revparse(['--abbrev-ref', 'HEAD'])
+      if (currentBranch.trim() !== featureBranchName) {
+        return {
+          success: false,
+          merged: false,
+          worktreeRemoved: false,
+          branchDeleted: false,
+          error: `Feature worktree is on branch '${currentBranch.trim()}', expected '${featureBranchName}'`
+        }
+      }
+
+      // Perform merge of task branch into feature branch in the FEATURE worktree
       const mergeMessage = `Merge task ${taskId} into feature ${featureId}`
       let mergeResult: MergeResult
 
       try {
-        await taskGit.merge([taskBranchName, '--no-ff', '-m', mergeMessage])
+        await featureGit.merge([taskBranchName, '--no-ff', '-m', mergeMessage])
         // Get the commit hash after successful merge
-        const log = await taskGit.log({ maxCount: 1 })
+        const log = await featureGit.log({ maxCount: 1 })
         mergeResult = {
           success: true,
           merged: true,
@@ -720,7 +780,7 @@ export class GitManager {
 
         if (errorMsg.includes('CONFLICT') || errorMsg.includes('Automatic merge failed')) {
           // Get conflicts
-          const mergeStatus = await taskGit.status()
+          const mergeStatus = await featureGit.status()
           const conflicts: MergeConflict[] = mergeStatus.conflicted.map((file) => ({
             file,
             type: 'both_modified' as const
@@ -728,16 +788,9 @@ export class GitManager {
 
           // Abort the merge to clean up
           try {
-            await taskGit.merge(['--abort'])
+            await featureGit.merge(['--abort'])
           } catch {
             // Ignore abort errors
-          }
-
-          // Switch back to task branch so worktree can be removed
-          try {
-            await taskGit.checkout(taskBranchName)
-          } catch {
-            // Ignore checkout errors
           }
 
           return {
@@ -748,13 +801,6 @@ export class GitManager {
             branchDeleted: false,
             error: 'Merge conflicts detected'
           }
-        }
-
-        // Switch back to task branch on other errors
-        try {
-          await taskGit.checkout(taskBranchName)
-        } catch {
-          // Ignore checkout errors
         }
 
         return {
@@ -771,16 +817,8 @@ export class GitManager {
       let branchDeleted = false
 
       if (removeWorktreeOnSuccess && mergeResult.merged) {
-        // Before removing worktree, we need to detach HEAD or checkout a different branch
-        // since the worktree is now on the feature branch which we want to keep
-        // Detach HEAD so the feature branch ref is free
-        try {
-          await taskGit.raw(['checkout', '--detach'])
-        } catch {
-          // Ignore detach errors - worktree removal might still work
-        }
-
-        const removeResult = await this.removeWorktree(taskWorktreePath, false) // Don't delete feature branch!
+        // Task worktree is still on task branch, so we can remove it directly
+        const removeResult = await this.removeWorktree(taskWorktreePath, false) // Don't delete task branch yet
         worktreeRemoved = removeResult.success
 
         // Now delete the task branch (it's been merged into feature branch)
@@ -979,7 +1017,34 @@ export class GitManager {
       let branchDeleted = false
       if (deleteBranchOnSuccess) {
         try {
-          // Delete the feature branch
+          // First, remove the feature worktree (it has the feature branch checked out)
+          const featureWorktreeName = getFeatureWorktreeName(featureId)
+          const featureWorktreePath = path.join(this.config.worktreesDir, featureWorktreeName)
+          const featureWorktreeExists = await this.worktreeExists(featureWorktreePath)
+          if (featureWorktreeExists) {
+            console.log(`[GitManager] Removing feature worktree at ${featureWorktreePath}`)
+            const removeResult = await this.removeWorktree(featureWorktreePath, false)
+            if (!removeResult.success) {
+              console.warn(`[GitManager] Could not remove feature worktree: ${removeResult.error}`)
+            }
+          }
+
+          // Also remove any leftover task worktrees for this feature
+          const worktrees = await this.listWorktrees()
+          const featureWorktreePrefix = `${featureId}/`
+          for (const worktree of worktrees) {
+            const worktreeName = path.basename(worktree.path)
+            if (worktreeName.startsWith(featureWorktreePrefix) || worktree.path.includes(featureId)) {
+              try {
+                console.log(`[GitManager] Removing leftover task worktree at ${worktree.path}`)
+                await this.removeWorktree(worktree.path, false)
+              } catch {
+                // Ignore errors removing task worktrees
+              }
+            }
+          }
+
+          // Now delete the feature branch (no longer checked out in any worktree)
           await this.git.branch(['-D', featureBranchName])
           branchDeleted = true
 
