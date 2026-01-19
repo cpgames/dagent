@@ -10,6 +10,8 @@
 
 > **Early Development**: DAGent is in active development. Currently Windows-only. Other platforms have not been tested.
 
+[![Watch the demo](https://img.youtube.com/vi/dFW4yiftykM/maxresdefault.jpg)](https://www.youtube.com/watch?v=dFW4yiftykM)
+
 ---
 
 ## Why DAGent?
