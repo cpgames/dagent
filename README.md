@@ -6,6 +6,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-33-47848F.svg)](https://www.electronjs.org/)
 [![Claude Agent SDK](https://img.shields.io/badge/Claude%20Agent%20SDK-0.2-orange.svg)](https://www.anthropic.com/)
+[![Issues](https://img.shields.io/github/issues/cpgames/dagent)](https://github.com/cpgames/dagent/issues)
+
+> **Early Development**: DAGent is in active development. Currently Windows-only. Other platforms have not been tested.
 
 ---
 
@@ -110,34 +113,6 @@ Feature specs are automatically generated with goals, requirements, and acceptan
 
 ---
 
-## Quick Start
-
-1. **Download** the latest release for your platform
-2. **Open** DAGent and select or create a project
-3. **Authenticate** with your Claude credentials
-4. **Create a feature** describing what you want to build
-5. **Click Start** and watch agents build your feature
-
----
-
-## Getting Started
-
-> **Early Development**: DAGent is in active development. Currently Windows-only. Other platforms have not been tested.
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/dagent.git
-cd dagent
-
-# Install dependencies
-npm install
-
-# Run in development mode
-npm run dev
-```
-
----
-
 ## Project Structure
 
 ```
@@ -224,9 +199,9 @@ DAGent runs AI agents with filesystem access. Security measures include:
 
 ---
 
-## Contributing
+## Issues
 
-Contributions are welcome! Please read our contributing guidelines before submitting PRs.
+Found a bug or have a feature request? [Report it here](https://github.com/cpgames/dagent/issues).
 
 ---
 
