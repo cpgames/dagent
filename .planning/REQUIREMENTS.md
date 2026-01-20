@@ -25,17 +25,17 @@ Requirements for the feature state machine refactor. Each maps to roadmap phases
 
 ### Feature Creation
 
-- [ ] **CREATE-01**: User can create feature instantly via dialog with `not_started` status (no worktree yet)
-- [ ] **CREATE-02**: Feature creation dialog closes immediately after feature created (non-blocking)
-- [ ] **CREATE-03**: New features appear in Backlog column automatically after creation
-- [ ] **CREATE-04**: Worktree creation is deferred until user clicks Start button
+- [x] **CREATE-01**: User can create feature instantly via dialog with `not_started` status (no worktree yet)
+- [x] **CREATE-02**: Feature creation dialog closes immediately after feature created (non-blocking)
+- [x] **CREATE-03**: New features appear in Backlog column automatically after creation
+- [x] **CREATE-04**: Worktree creation is deferred until user clicks Start button
 
 ### Worktree Management
 
-- [ ] **WORKTREE-01**: Clicking Start button in Kanban card triggers worktree creation and status transition to `creating_worktree`
-- [ ] **WORKTREE-02**: Worktree creation runs in background (non-blocking UI, user can continue working)
-- [ ] **WORKTREE-03**: Feature cards show visual progress indicators during `creating_worktree` state
-- [ ] **WORKTREE-04**: Status automatically transitions to `investigating` when worktree creation completes
+- [x] **WORKTREE-01**: Clicking Start button in Kanban card triggers worktree creation and status transition to `creating_worktree`
+- [x] **WORKTREE-02**: Worktree creation runs in background (non-blocking UI, user can continue working)
+- [x] **WORKTREE-03**: Feature cards show visual progress indicators during `creating_worktree` state
+- [x] **WORKTREE-04**: Status automatically transitions to `investigating` when worktree creation completes
 
 ### PM Agent Planning Phases
 
@@ -106,14 +106,14 @@ Which phases cover which requirements. Updated by create-roadmap.
 | STATE-02 | Phase v3.2-01 | Complete |
 | STATE-03 | Phase v3.2-01 | Complete |
 | STATE-04 | Phase v3.2-01 | Complete |
-| CREATE-01 | Phase v3.2-02 | Pending |
-| CREATE-02 | Phase v3.2-02 | Pending |
-| CREATE-03 | Phase v3.2-02 | Pending |
-| CREATE-04 | Phase v3.2-02 | Pending |
-| WORKTREE-01 | Phase v3.2-03 | Pending |
-| WORKTREE-02 | Phase v3.2-03 | Pending |
-| WORKTREE-03 | Phase v3.2-03 | Pending |
-| WORKTREE-04 | Phase v3.2-03 | Pending |
+| CREATE-01 | Phase v3.2-02 | Complete |
+| CREATE-02 | Phase v3.2-02 | Complete |
+| CREATE-03 | Phase v3.2-02 | Complete |
+| CREATE-04 | Phase v3.2-02 | Complete |
+| WORKTREE-01 | Phase v3.2-03 | Complete |
+| WORKTREE-02 | Phase v3.2-03 | Complete |
+| WORKTREE-03 | Phase v3.2-03 | Complete |
+| WORKTREE-04 | Phase v3.2-03 | Complete |
 | KANBAN-01 | Phase v3.2-04 | Pending |
 | KANBAN-02 | Phase v3.2-04 | Pending |
 | KANBAN-03 | Phase v3.2-04 | Pending |
@@ -140,4 +140,4 @@ Which phases cover which requirements. Updated by create-roadmap.
 
 ---
 *Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after Phase v3.2-01 completion*
+*Last updated: 2026-01-20 after Phase v3.2-03 completion*

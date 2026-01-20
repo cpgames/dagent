@@ -16,8 +16,8 @@ v3.2 Feature State Machine Refactor transforms how features move from creation t
 ## Phases
 
 - [x] **Phase v3.2-01: State Machine Foundation** - Core state machine with 9-state lifecycle
-- [ ] **Phase v3.2-02: Non-Blocking Feature Creation** - Instant creation, deferred worktree
-- [ ] **Phase v3.2-03: Background Worktree Management** - Async worktree with progress tracking
+- [x] **Phase v3.2-02: Non-Blocking Feature Creation** - Instant creation, deferred worktree
+- [x] **Phase v3.2-03: Background Worktree Management** - Async worktree with progress tracking
 - [ ] **Phase v3.2-04: Event-Driven Kanban Refactor** - 4-column layout with real-time updates
 - [ ] **Phase v3.2-05: PM Planning Phase Integration** - Investigation, questioning, planning workflow
 - [ ] **Phase v3.2-06: Context-Aware UI Polish** - State-specific indicators and controls
@@ -58,7 +58,7 @@ v3.2 Feature State Machine Refactor transforms how features move from creation t
 
 **Research**: Unlikely (modifying existing NewFeatureDialog component)
 
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves (completed)
 
 ---
 
@@ -77,7 +77,7 @@ v3.2 Feature State Machine Refactor transforms how features move from creation t
 
 **Research**: Unlikely (extending existing worktree infrastructure)
 
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves (completed)
 
 ---
 
@@ -148,11 +148,11 @@ Phases execute sequentially: v3.2-01 → v3.2-02 → v3.2-03 → v3.2-04 → v3.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | v3.2-01. State Machine Foundation | v3.2 | 2/2 | Complete | 2026-01-20 |
-| v3.2-02. Non-Blocking Creation | v3.2 | 0/TBD | Not started | - |
-| v3.2-03. Worktree Management | v3.2 | 0/TBD | Not started | - |
+| v3.2-02. Non-Blocking Creation | v3.2 | 2/2 | Complete | 2026-01-20 |
+| v3.2-03. Worktree Management | v3.2 | 2/2 | Complete | 2026-01-20 |
 | v3.2-04. Kanban Refactor | v3.2 | 0/TBD | Not started | - |
 | v3.2-05. PM Planning Integration | v3.2 | 0/TBD | Not started | - |
 | v3.2-06. UI Polish | v3.2 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-01-20 after Phase v3.2-01 completion*
+*Last updated: 2026-01-20 after Phase v3.2-03 completion*
