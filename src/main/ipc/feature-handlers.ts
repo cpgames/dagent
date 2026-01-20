@@ -127,11 +127,14 @@ export function registerFeatureHandlers(): void {
           const featureWorktreeName = getFeatureWorktreeName(featureId)
           const featureWorktreePath = path.join(config.worktreesDir, featureWorktreeName)
 
-          const featureWorktree = worktrees.find((w) => w.path === featureWorktreePath)
+          // Find feature worktree with normalized path comparison
+          const normalizedFeatureWorktreePath = path.normalize(featureWorktreePath)
+          const featureWorktree = worktrees.find((w) => path.normalize(w.path) === normalizedFeatureWorktreePath)
+
           if (featureWorktree) {
             try {
               // Don't delete branch here - we'll do it separately if option is set
-              const result = await gitManager.removeWorktree(featureWorktreePath, false)
+              const result = await gitManager.removeWorktree(featureWorktree.path, false)
               if (result.success) {
                 deletedWorktrees++
               } else if (result.error) {
@@ -140,6 +143,28 @@ export function registerFeatureHandlers(): void {
             } catch (err) {
               errors.push(`Feature worktree: ${(err as Error).message}`)
             }
+          } else {
+            console.warn(`[FeatureDelete] Feature worktree not found in git worktree list: ${featureWorktreePath}`)
+            // Try to remove it anyway in case it exists but wasn't registered
+            try {
+              const result = await gitManager.removeWorktree(featureWorktreePath, false)
+              if (result.success) {
+                deletedWorktrees++
+              }
+            } catch (err) {
+              // Ignore - worktree probably doesn't exist
+              console.warn(`[FeatureDelete] Could not remove feature worktree: ${(err as Error).message}`)
+            }
+          }
+
+          // Step 3.5: Prune worktrees to clean up stale references before branch deletion
+          // This ensures git no longer tracks the removed worktrees
+          try {
+            await gitManager.pruneWorktrees()
+            console.log(`[FeatureDelete] Pruned worktree references for ${featureId}`)
+          } catch (err) {
+            console.warn(`[FeatureDelete] Failed to prune worktrees:`, err)
+            // Non-fatal, continue with branch deletion
           }
 
           // Step 4: Delete the feature branch (if option is true)
@@ -392,6 +417,73 @@ export function registerFeatureHandlers(): void {
   )
 
   /**
+   * Continue PM agent conversation with user's response.
+   * This is called when user sends a message in chat during the planning phase.
+   */
+  ipcMain.handle(
+    'feature:respondToPM',
+    async (
+      _event,
+      featureId: string,
+      userResponse: string
+    ): Promise<{ success: boolean; canProceed: boolean; uncertainties?: string[]; error?: string }> => {
+      try {
+        const featureStore = getFeatureStore()
+        const projectRoot = getProjectRoot()
+
+        if (!featureStore || !projectRoot) {
+          return { success: false, canProceed: false, error: 'Storage not initialized' }
+        }
+
+        // Get services for PM agent
+        const agentService = getAgentService()
+        if (!agentService) {
+          return { success: false, canProceed: false, error: 'Agent service not available' }
+        }
+
+        const statusManager = getStatusManager()
+        const eventEmitter = new EventEmitter()
+
+        // Create PM agent manager
+        const pmManager = createPMAgentManager(
+          agentService,
+          featureStore,
+          statusManager,
+          eventEmitter,
+          projectRoot
+        )
+
+        // Continue pre-planning analysis with user's response
+        const result = await pmManager.continuePrePlanningAnalysis(featureId, userResponse)
+
+        // If PM is ready to proceed, trigger full planning
+        if (result.canProceed) {
+          const feature = await featureStore.loadFeature(featureId)
+          if (feature) {
+            // Start planning asynchronously (don't await)
+            pmManager.startPlanningForFeature(featureId, feature.name, feature.description)
+              .catch(error => {
+                console.error(`[FeatureHandlers] Planning failed for ${featureId}:`, error)
+              })
+          }
+        }
+
+        return {
+          success: true,
+          canProceed: result.canProceed,
+          uncertainties: result.uncertainties
+        }
+      } catch (error) {
+        return {
+          success: false,
+          canProceed: false,
+          error: (error as Error).message
+        }
+      }
+    }
+  )
+
+  /**
    * Replan a feature - delete all tasks and spec, then restart planning.
    * Only allowed when feature is in 'backlog' or 'needs_attention' status.
    */
@@ -415,8 +507,8 @@ export function registerFeatureHandlers(): void {
           return { success: false, error: 'Feature not found' }
         }
 
-        if (feature.status !== 'backlog' && feature.status !== 'needs_attention') {
-          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be in 'backlog' or 'needs_attention' status.` }
+        if (feature.status !== 'ready' && feature.status !== 'questioning') {
+          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be in 'ready' or 'questioning' status.` }
         }
 
         // Delete spec

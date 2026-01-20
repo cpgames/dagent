@@ -115,7 +115,9 @@ function MergeIcon(): React.JSX.Element {
  * merge button with dropdown for completed features, and delete button on hover.
  */
 export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount }: FeatureCardProps) {
-  const showStart = feature.status === 'backlog';
+  // Show Start button for features that are ready to start execution
+  const showStart = feature.status === 'ready';
+  // Show Stop button for features that are currently executing
   const showStop = feature.status === 'in_progress';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
@@ -156,9 +158,9 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
   const handleStop = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering onSelect
     try {
-      // First stop execution, then update status back to backlog
+      // First stop execution, then update status back to ready
       onStop?.(feature.id);
-      const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'backlog');
+      const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'ready');
       if (!updateResult.success) {
         console.error('Failed to update feature status:', updateResult.error);
       }
@@ -196,8 +198,20 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
       }
       return { message: 'Developing...', showSpinner: true };
     }
-    if (feature.status === 'needs_attention') {
-      return { message: 'Needs attention', showSpinner: false };
+    if (feature.status === 'questioning') {
+      return { message: 'Needs clarification', showSpinner: false };
+    }
+    if (feature.status === 'investigating') {
+      return { message: 'Investigating...', showSpinner: true };
+    }
+    if (feature.status === 'creating_worktree') {
+      return { message: 'Creating worktree...', showSpinner: true };
+    }
+    if (feature.status === 'not_started') {
+      return { message: 'Not started', showSpinner: false };
+    }
+    if (feature.status === 'ready') {
+      return { message: 'Ready', showSpinner: false };
     }
     return null;
   };
@@ -218,10 +232,13 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
     >
       <div className="feature-card__header">
         <span className="feature-card__status-badge">
+          {feature.status === 'not_started' && 'NOT STARTED'}
+          {feature.status === 'creating_worktree' && 'CREATING...'}
+          {feature.status === 'investigating' && 'INVESTIGATING'}
+          {feature.status === 'questioning' && 'QUESTIONS'}
           {feature.status === 'planning' && 'PLANNING'}
-          {feature.status === 'backlog' && 'BACKLOG'}
+          {feature.status === 'ready' && 'READY'}
           {feature.status === 'in_progress' && 'IN PROGRESS'}
-          {feature.status === 'needs_attention' && 'NEEDS ATTENTION'}
           {feature.status === 'completed' && 'COMPLETED'}
           {feature.status === 'archived' && 'ARCHIVED'}
         </span>

@@ -58,6 +58,7 @@ interface ChatState {
   sendMessage: () => Promise<void> // Auto-selects SDK or ChatService
   sendToAI: () => Promise<void>
   sendToAgent: () => Promise<void> // Agent SDK streaming
+  sendToPMAgent: () => Promise<void> // PM agent conversational API
   abortAgent: () => void
   refreshContext: () => Promise<void>
   clearChat: () => void
@@ -273,8 +274,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendToAgent: async () => {
-    const { messages, currentFeatureId } = get()
+    const { messages, currentFeatureId, contextType } = get()
     if (!currentFeatureId || messages.length === 0) return
+
+    // Check if this is a PM agent conversation (feature context + planning phase)
+    // If so, use the PM conversation API instead of generic SDK agent
+    if (contextType === 'feature') {
+      const featureStore = useFeatureStore.getState()
+      const feature = featureStore.features.find(f => f.id === currentFeatureId)
+
+      // Use PM conversation API if feature is in planning or questioning state
+      if (feature && (feature.status === 'planning' || feature.status === 'questioning')) {
+        return get().sendToPMAgent()
+      }
+    }
 
     // Check if SDK agent API is available
     if (!window.electronAPI?.sdkAgent) {
@@ -396,6 +409,55 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ isResponding: false, streamingContent: '' })
       toast.error('Failed to start agent query')
       unsubscribe()
+    }
+  },
+
+  sendToPMAgent: async () => {
+    const { messages, currentFeatureId } = get()
+    if (!currentFeatureId || messages.length === 0) return
+
+    // Get the last user message as the response to PM
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage.role !== 'user') return
+
+    set({ isResponding: true })
+
+    try {
+      // Call PM conversation API
+      const result = await window.electronAPI.feature.respondToPM(currentFeatureId, lastMessage.content)
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to communicate with PM agent')
+        set({ isResponding: false })
+        return
+      }
+
+      // Reload messages to get PM's response
+      await get().loadChat(currentFeatureId, 'feature')
+
+      // If PM has more questions, stay in conversation
+      if (!result.canProceed && result.uncertainties && result.uncertainties.length > 0) {
+        // Feature should be in needs_attention status
+        // Messages have been updated with PM's new question
+        console.log('[ChatStore] PM has more questions, continuing conversation')
+      } else if (result.canProceed) {
+        // PM is ready to proceed with planning
+        console.log('[ChatStore] PM is ready to proceed with planning')
+        toast.success('PM agent is creating feature specification...')
+
+        // Refresh feature and DAG to show planning progress
+        const featureStore = useFeatureStore.getState()
+        const dagStore = useDAGStore.getState()
+        if (featureStore.activeFeatureId) {
+          dagStore.loadDag(featureStore.activeFeatureId)
+        }
+      }
+
+      set({ isResponding: false })
+    } catch (error) {
+      console.error('PM agent conversation error:', error)
+      toast.error('Failed to communicate with PM agent')
+      set({ isResponding: false })
     }
   },
 

@@ -31,6 +31,7 @@ export function FeatureDescription({
   const [hasChanges, setHasChanges] = useState(false)
   const [showReplanConfirm, setShowReplanConfirm] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [uncertainties, setUncertainties] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Sync local state with feature data
@@ -43,6 +44,16 @@ export function FeatureDescription({
       setHasChanges(false)
     }
   }, [feature])
+
+  // Listen for analysis result events
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.feature.onAnalysisResult((data) => {
+      if (data.featureId === featureId && data.uncertainties) {
+        setUncertainties(data.uncertainties)
+      }
+    })
+    return unsubscribe
+  }, [featureId])
 
   // Track changes
   useEffect(() => {
@@ -80,10 +91,10 @@ export function FeatureDescription({
   const handleReplanConfirm = async (): Promise<void> => {
     if (!feature) return
 
-    // Double-check status before proceeding (allow backlog or needs_attention)
+    // Double-check status before proceeding (allow ready or questioning)
     const currentFeature = features.find((f) => f.id === featureId)
-    if (!currentFeature || (currentFeature.status !== 'backlog' && currentFeature.status !== 'needs_attention')) {
-      toast.error('Feature must be in backlog or needs attention status to replan')
+    if (!currentFeature || (currentFeature.status !== 'ready' && currentFeature.status !== 'questioning')) {
+      toast.error('Feature must be in ready or questioning status to replan')
       return
     }
 
@@ -117,8 +128,8 @@ export function FeatureDescription({
     }
   }
 
-  // Check if replan is allowed (backlog or needs_attention status)
-  const canReplan = feature?.status === 'backlog' || feature?.status === 'needs_attention'
+  // Check if replan is allowed (ready or questioning status)
+  const canReplan = feature?.status === 'ready' || feature?.status === 'questioning'
 
   // File attachment handlers - upload immediately on selection
   const uploadFiles = async (files: File[]): Promise<void> => {
@@ -218,6 +229,21 @@ export function FeatureDescription({
             rows={6}
           />
         </div>
+
+        {/* Uncertainties - shown when feature is in questioning state */}
+        {feature.status === 'questioning' && uncertainties.length > 0 && (
+          <div className="feature-description__field">
+            <label className="feature-description__label">PM Agent Question</label>
+            <div className="feature-description__uncertainties">
+              <p className="feature-description__uncertainties-intro">
+                {uncertainties[0]}
+              </p>
+              <p className="feature-description__uncertainties-note">
+                Please update the description above to answer this question, then click "Plan" to continue the conversation.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Attached Files */}
         <div className="feature-description__field">

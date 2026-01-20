@@ -16,15 +16,17 @@ interface AnalysisStatus {
 
 /**
  * Column configuration for the Kanban board.
- * Order matches new workflow: Planning -> Backlog -> In Progress -> Needs Attention -> Completed -> Archived
+ * Interim 4-column display mapping 9 states to 4 columns:
+ * - Backlog: not_started, ready
+ * - In Progress: creating_worktree, investigating, questioning, planning, in_progress
+ * - Completed: completed
+ * - Archived: archived
  */
-const columns: { title: string; status: FeatureStatus }[] = [
-  { title: 'Planning', status: 'planning' },
-  { title: 'Backlog', status: 'backlog' },
-  { title: 'In Progress', status: 'in_progress' },
-  { title: 'Needs Attention', status: 'needs_attention' },
-  { title: 'Completed', status: 'completed' },
-  { title: 'Archived', status: 'archived' },
+const columns: { title: string; statuses: FeatureStatus[] }[] = [
+  { title: 'Backlog', statuses: ['not_started', 'ready'] },
+  { title: 'In Progress', statuses: ['creating_worktree', 'investigating', 'questioning', 'planning', 'in_progress'] },
+  { title: 'Completed', statuses: ['completed'] },
+  { title: 'Archived', statuses: ['archived'] },
 ];
 
 /**
@@ -114,24 +116,25 @@ export default function KanbanView() {
     return unsubscribe;
   }, [handleAnalysisEvent]);
 
-  // Group features by status
-  const featuresByStatus = useMemo(() => {
-    const grouped: Record<FeatureStatus, Feature[]> = {
-      planning: [],
-      backlog: [],
-      in_progress: [],
-      needs_attention: [],
-      completed: [],
-      archived: [],
-    };
+  // Group features by column (each column may contain multiple statuses)
+  const featuresByColumn = useMemo(() => {
+    const grouped: Map<string, Feature[]> = new Map();
+
+    // Initialize empty arrays for each column
+    for (const column of columns) {
+      grouped.set(column.title, []);
+    }
 
     for (const feature of features) {
-      // Safety check: if feature has invalid status, default to 'needs_attention'
-      const status = feature.status in grouped ? feature.status : 'needs_attention';
-      if (status !== feature.status) {
-        console.warn(`Feature ${feature.id} has invalid status '${feature.status}', defaulting to 'needs_attention'`);
+      // Find which column this feature belongs to
+      const column = columns.find(col => col.statuses.includes(feature.status));
+      if (column) {
+        grouped.get(column.title)!.push(feature);
+      } else {
+        // Safety fallback: put unknown statuses in Backlog
+        console.warn(`Feature ${feature.id} has unknown status '${feature.status}', defaulting to Backlog`);
+        grouped.get('Backlog')!.push(feature);
       }
-      grouped[status].push(feature);
     }
 
     return grouped;
@@ -205,10 +208,10 @@ export default function KanbanView() {
         <div className="kanban-view__board flex gap-3 min-w-fit">
           {columns.map((column) => (
             <KanbanColumn
-              key={column.status}
+              key={column.title}
               title={column.title}
-              status={column.status}
-              features={featuresByStatus[column.status]}
+              status={column.statuses[0]}
+              features={featuresByColumn.get(column.title) || []}
               onSelectFeature={handleSelectFeature}
               onDeleteFeature={handleDeleteFeature}
               onStartFeature={handleStartFeature}

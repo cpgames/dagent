@@ -43,12 +43,15 @@ const LayoutIcon = (): JSX.Element => (
   </svg>
 )
 
-// Status display configuration
+// Status display configuration for 9-state feature lifecycle
 const statusConfig: Record<FeatureStatus, { label: string; className: string }> = {
+  not_started: { label: 'Not Started', className: 'layout-controls__status--not-started' },
+  creating_worktree: { label: 'Creating...', className: 'layout-controls__status--creating' },
+  investigating: { label: 'Investigating', className: 'layout-controls__status--investigating' },
+  questioning: { label: 'Questions', className: 'layout-controls__status--questioning' },
   planning: { label: 'Planning', className: 'layout-controls__status--planning' },
-  backlog: { label: 'Backlog', className: 'layout-controls__status--backlog' },
+  ready: { label: 'Ready', className: 'layout-controls__status--ready' },
   in_progress: { label: 'In Progress', className: 'layout-controls__status--in-progress' },
-  needs_attention: { label: 'Needs Attention', className: 'layout-controls__status--attention' },
   completed: { label: 'Completed', className: 'layout-controls__status--completed' },
   archived: { label: 'Archived', className: 'layout-controls__status--archived' }
 }

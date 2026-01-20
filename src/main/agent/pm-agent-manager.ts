@@ -69,6 +69,65 @@ export class PMAgentManager {
       // Step 1: Load feature context
       const context = await this.loadFeatureContext(featureId, featureName, description, attachments)
 
+      // Step 1.5: Run pre-planning analysis to check understanding
+      // This also creates/gets the PM session and adds messages
+      const { canProceed, uncertainties, sessionId } = await this.runPrePlanningAnalysis(featureId, featureName, context)
+      if (!canProceed) {
+        console.log(`[PMAgentManager] Pre-planning analysis indicates uncertainty for ${featureId}`)
+        await this.statusManager.updateFeatureStatus(featureId, 'questioning')
+
+        // Broadcast status change to UI
+        const analysisWindows = BrowserWindow.getAllWindows()
+        for (const win of analysisWindows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:status-changed', { featureId, status: 'questioning' })
+            win.webContents.send('feature:analysis-result', {
+              featureId,
+              uncertainties: uncertainties
+            })
+          }
+        }
+
+        console.log(`[PMAgentManager] Moved ${featureId} to questioning, uncertainties:`, uncertainties)
+        return // Exit early, don't proceed to planning
+      }
+
+      // Analysis passed - update status to planning and add confirmation message
+      console.log(`[PMAgentManager] Pre-planning analysis passed for ${featureId}, moving to planning state`)
+
+      // Update feature status to planning (in case it was needs_attention before)
+      const feature = await this.featureStore.loadFeature(featureId)
+      if (feature) {
+        const statusChanged = feature.status !== 'planning'
+        if (statusChanged) {
+          feature.status = 'planning'
+          feature.updatedAt = new Date().toISOString()
+          await this.featureStore.saveFeature(feature)
+        }
+
+        // Always broadcast status change to ensure UI is in sync
+        // (even if feature was already in planning status, UI needs to know analysis passed)
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:status-changed', { featureId, status: 'planning' })
+          }
+        })
+      }
+
+      // Add confirmation message to chat
+      const sessionManager = getSessionManager(this.projectRoot)
+      await sessionManager.addMessage(sessionId, featureId, {
+        role: 'assistant',
+        content: 'Analysis complete. I have enough context to proceed with planning. Beginning feature specification...'
+      })
+
+      // Broadcast chat update
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('chat:updated', { featureId })
+        }
+      })
+
       // Step 2: Build planning prompt
       const prompt = this.buildPlanningPrompt(featureName, context)
 
@@ -80,16 +139,8 @@ export class PMAgentManager {
       let retryCount = 0
       const maxRetries = 1
 
-      // Get session manager and create/get PM session for this feature
-      const sessionManager = getSessionManager(this.projectRoot)
-      const sessionOptions: CreateSessionOptions = {
-        type: 'feature',
-        agentType: 'pm',
-        featureId
-      }
-      const session = await sessionManager.getOrCreateSession(sessionOptions)
-      const sessionId = session.id
-      console.log(`[PMAgentManager] Created/loaded PM session: ${sessionId}`)
+      // Reuse the session created during analysis
+      console.log(`[PMAgentManager] Using existing PM session: ${sessionId}`)
 
       // Add user-friendly initial message to session (not the full system prompt)
       const userMessage = description
@@ -235,18 +286,18 @@ export class PMAgentManager {
             console.log(`[PMAgentManager] Auto-analysis disabled, skipping analysis for ${featureId}`)
           }
 
-          // Step 6: Move feature to backlog (after analysis if enabled)
-          console.log(`[PMAgentManager] Moving ${featureId} to backlog`)
-          await this.statusManager.updateFeatureStatus(featureId, 'backlog')
+          // Step 6: Move feature to ready (after analysis if enabled)
+          console.log(`[PMAgentManager] Moving ${featureId} to ready`)
+          await this.statusManager.updateFeatureStatus(featureId, 'ready')
 
           // Broadcast feature status change to UI
           const statusWindows = BrowserWindow.getAllWindows()
           for (const win of statusWindows) {
             if (!win.isDestroyed()) {
-              win.webContents.send('feature:status-changed', { featureId, status: 'backlog' })
+              win.webContents.send('feature:status-changed', { featureId, status: 'ready' })
             }
           }
-          console.log(`[PMAgentManager] Broadcast status change for ${featureId}: backlog`)
+          console.log(`[PMAgentManager] Broadcast status change for ${featureId}: ready`)
 
           // Broadcast DAG update to UI so it shows the new tasks
           const dag = await this.featureStore.loadDag(featureId)
@@ -302,16 +353,16 @@ export class PMAgentManager {
       console.error(`[PMAgentManager] Planning failed for ${featureId}:`, error)
 
       try {
-        await this.statusManager.updateFeatureStatus(featureId, 'needs_attention')
+        await this.statusManager.updateFeatureStatus(featureId, 'questioning')
 
         // Broadcast feature status change to UI
         const failWindows = BrowserWindow.getAllWindows()
         for (const win of failWindows) {
           if (!win.isDestroyed()) {
-            win.webContents.send('feature:status-changed', { featureId, status: 'needs_attention' })
+            win.webContents.send('feature:status-changed', { featureId, status: 'questioning' })
           }
         }
-        console.log(`[PMAgentManager] Broadcast status change for ${featureId}: needs_attention`)
+        console.log(`[PMAgentManager] Broadcast status change for ${featureId}: questioning`)
       } catch (statusError) {
         console.error(`[PMAgentManager] Failed to update status to needs_attention:`, statusError)
       }
@@ -323,6 +374,526 @@ export class PMAgentManager {
         timestamp: new Date().toISOString()
       })
     }
+  }
+
+  /**
+   * Continue pre-planning analysis with user's response to PM's question.
+   * This is called when user responds to PM questions in chat.
+   *
+   * @param featureId - Feature ID
+   * @param userResponse - User's response to PM's question
+   * @returns Analysis result with canProceed flag and any new questions
+   */
+  async continuePrePlanningAnalysis(
+    featureId: string,
+    userResponse: string
+  ): Promise<{ canProceed: boolean; uncertainties?: string[]; sessionId: string }> {
+    console.log(`[PMAgentManager] Continuing pre-planning analysis for ${featureId} with user response`)
+
+    // Get feature for context
+    const feature = await this.featureStore.loadFeature(featureId)
+    if (!feature) {
+      throw new Error(`Feature not found: ${featureId}`)
+    }
+
+    const featureName = feature.name
+    const featureWorktreePath = path.join(this.projectRoot, '.dagent-worktrees', featureId)
+
+    // Get existing PM session
+    const sessionManager = getSessionManager(this.projectRoot)
+    const sessionOptions: CreateSessionOptions = {
+      type: 'feature',
+      agentType: 'pm',
+      featureId
+    }
+    const session = await sessionManager.getOrCreateSession(sessionOptions)
+    const sessionId = session.id
+
+    // Add user's response to session
+    await sessionManager.addMessage(sessionId, featureId, {
+      role: 'user',
+      content: userResponse
+    })
+
+    // Broadcast chat update
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('chat:updated', { featureId })
+      }
+    })
+
+    // Build analysis prompt with current PM metadata context
+    // For continuation, we don't pass full context - the session history has it
+    const analysisPrompt = this.buildAnalysisPrompt(featureName, '', session.pmMetadata)
+
+    try {
+      let responseText = ''
+
+      // Stream analysis query with autoContext to load session history
+      for await (const event of this.agentService.streamQuery({
+        prompt: analysisPrompt,
+        agentType: 'pm',
+        featureId,
+        cwd: featureWorktreePath,
+        toolPreset: 'pmAgent',
+        autoContext: true, // Load session history for conversational context
+        permissionMode: 'acceptEdits'
+      })) {
+        if (event.type === 'message' && event.message) {
+          // Collect response text for parsing
+          if (event.message.type === 'assistant') {
+            responseText += event.message.content
+
+            // Save assistant message to session
+            const content = event.message.content.trim()
+            const isSystemMessage = content.startsWith('System:') ||
+                                   content.startsWith('Thinking:') ||
+                                   content.length === 0
+
+            if (!isSystemMessage) {
+              await sessionManager.addMessage(sessionId, featureId, {
+                role: 'assistant',
+                content: event.message.content
+              })
+            }
+          }
+        }
+      }
+
+      // Broadcast chat update to UI
+      try {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('chat:updated', { featureId })
+          }
+        }
+        console.log(`[PMAgentManager] Broadcast chat update for continued analysis of ${featureId}`)
+      } catch (error) {
+        console.error(`[PMAgentManager] Failed to broadcast chat update:`, error)
+      }
+
+      console.log(`[PMAgentManager] Continued analysis response: ${responseText.slice(0, 200)}...`)
+
+      // Parse response (same logic as runPrePlanningAnalysis)
+      const uncertainties: string[] = []
+      const lowerResponse = responseText.toLowerCase()
+
+      const questionsAsked = session.pmMetadata?.questionsAsked || 0
+      const questionsRequired = session.pmMetadata?.questionsRequired || 0
+
+      // Check for explicit confidence marker
+      if (lowerResponse.includes('confident:') && lowerResponse.includes('ready to proceed')) {
+        // Check if minimum questions have been asked
+        if (questionsAsked < questionsRequired) {
+          console.log(`[PMAgentManager] PM is confident but only ${questionsAsked}/${questionsRequired} questions asked - rejecting and requesting more questions`)
+
+          // Reject early confidence
+          const feedbackMessage = `You need to ask at least ${questionsRequired} clarifying questions for this ${session.pmMetadata?.complexity}-complexity feature. You've only asked ${questionsAsked} so far.
+
+Please continue the conversation by asking ONE more critical implementation question about:
+${questionsAsked < 1 ? '- Which specific files or components need to be modified?' : ''}
+${questionsAsked < 2 ? '- What are the expected behaviors and edge cases to handle?' : ''}
+${questionsAsked < 3 ? '- What technical approach or architecture patterns should be followed?' : ''}
+${questionsAsked < 4 ? '- What data structures, interfaces, or API contracts are involved?' : ''}
+${questionsAsked < 5 ? '- What error handling, validation, or security requirements exist?' : ''}
+
+Remember: Ask ONE question at a time in a conversational manner.`
+
+          uncertainties.push(feedbackMessage)
+          return { canProceed: false, uncertainties, sessionId }
+        } else {
+          console.log(`[PMAgentManager] PM is confident and ${questionsAsked}/${questionsRequired} questions met, proceeding with planning`)
+
+          // Update feature status to planning and trigger spec creation
+          if (feature.status !== 'planning') {
+            feature.status = 'planning'
+            feature.updatedAt = new Date().toISOString()
+            await this.featureStore.saveFeature(feature)
+
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (!win.isDestroyed()) {
+                win.webContents.send('feature:status-changed', { featureId, status: 'planning' })
+              }
+            })
+          }
+
+          return { canProceed: true, sessionId }
+        }
+      }
+
+      // Check for explicit uncertainty marker
+      if (lowerResponse.includes('uncertain:') || lowerResponse.includes('need clarification')) {
+        console.log(`[PMAgentManager] PM indicated uncertainty, extracting question`)
+
+        const uncertainStartIndex = Math.max(
+          responseText.toLowerCase().indexOf('uncertain:'),
+          responseText.toLowerCase().indexOf('need clarification')
+        )
+
+        if (uncertainStartIndex !== -1) {
+          const afterMarker = responseText.slice(uncertainStartIndex).replace(/^uncertain:\s*/i, '').trim()
+          const questionText = afterMarker.split('\n\n')[0].trim()
+
+          if (questionText.length > 0) {
+            uncertainties.push(questionText)
+
+            // Increment questions asked counter
+            const updatedMetadata = {
+              ...session.pmMetadata!,
+              questionsAsked: questionsAsked + 1
+            }
+
+            session.pmMetadata = updatedMetadata
+            await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
+
+            console.log(`[PMAgentManager] Question ${updatedMetadata.questionsAsked}/${questionsRequired} asked`)
+          }
+        }
+      }
+
+      const canProceed = uncertainties.length === 0 && questionsAsked >= questionsRequired
+      console.log(`[PMAgentManager] Continued analysis result: canProceed=${canProceed}, uncertainties=${uncertainties.length}, questions=${questionsAsked}/${questionsRequired}`)
+
+      return { canProceed, uncertainties: uncertainties.length > 0 ? uncertainties : undefined, sessionId }
+    } catch (error) {
+      console.error(`[PMAgentManager] Continued pre-planning analysis failed:`, error)
+      return { canProceed: false, uncertainties: ['Analysis failed. Please try again.'], sessionId }
+    }
+  }
+
+  /**
+   * Run pre-planning analysis to check if PM understands the feature context.
+   * Returns whether planning can proceed or if clarification is needed.
+   */
+  private async runPrePlanningAnalysis(
+    featureId: string,
+    featureName: string,
+    context: string
+  ): Promise<{ canProceed: boolean; uncertainties?: string[]; sessionId: string }> {
+    console.log(`[PMAgentManager] Running pre-planning analysis for ${featureId}`)
+
+    // Check current feature status and move to planning if in questioning state
+    const feature = await this.featureStore.loadFeature(featureId)
+    if (feature && feature.status === 'questioning') {
+      console.log(`[PMAgentManager] Feature ${featureId} is in questioning, moving to planning before analysis`)
+      feature.status = 'planning'
+      feature.updatedAt = new Date().toISOString()
+      await this.featureStore.saveFeature(feature)
+
+      // Broadcast status change to UI
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('feature:status-changed', { featureId, status: 'planning' })
+        }
+      })
+    }
+
+    const featureWorktreePath = path.join(this.projectRoot, '.dagent-worktrees', featureId)
+
+    // Get or create PM session for this feature
+    const sessionManager = getSessionManager(this.projectRoot)
+    const sessionOptions: CreateSessionOptions = {
+      type: 'feature',
+      agentType: 'pm',
+      featureId
+    }
+    const session = await sessionManager.getOrCreateSession(sessionOptions)
+    const sessionId = session.id
+
+    // Initialize PM metadata if not present (first time)
+    if (!session.pmMetadata) {
+      session.pmMetadata = {
+        questionsAsked: 0
+      }
+    }
+
+    // Build analysis prompt with current PM metadata context
+    const analysisPrompt = this.buildAnalysisPrompt(featureName, context, session.pmMetadata)
+
+    // Add user message about analysis to session
+    await sessionManager.addMessage(sessionId, featureId, {
+      role: 'user',
+      content: `Analyze feature requirements: ${featureName}${context ? '\n\n' + context : ''}`
+    })
+
+    try {
+      let responseText = ''
+
+      // Stream analysis query
+      for await (const event of this.agentService.streamQuery({
+        prompt: analysisPrompt,
+        agentType: 'pm',
+        featureId,
+        cwd: featureWorktreePath,
+        toolPreset: 'pmAgent',
+        autoContext: false,
+        permissionMode: 'acceptEdits'
+      })) {
+        if (event.type === 'message' && event.message) {
+          // Collect response text for parsing
+          if (event.message.type === 'assistant') {
+            responseText += event.message.content
+
+            // Save assistant message to session
+            const content = event.message.content.trim()
+            const isSystemMessage = content.startsWith('System:') ||
+                                   content.startsWith('Thinking:') ||
+                                   content.length === 0
+
+            if (!isSystemMessage) {
+              await sessionManager.addMessage(sessionId, featureId, {
+                role: 'assistant',
+                content: event.message.content
+              })
+            }
+          }
+        }
+      }
+
+      // Broadcast chat update to UI
+      try {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('chat:updated', { featureId })
+          }
+        }
+        console.log(`[PMAgentManager] Broadcast chat update for analysis of ${featureId}`)
+      } catch (error) {
+        console.error(`[PMAgentManager] Failed to broadcast chat update:`, error)
+      }
+
+      console.log(`[PMAgentManager] Analysis response: ${responseText.slice(0, 200)}...`)
+
+      // Parse response to detect uncertainties and complexity
+      const uncertainties: string[] = []
+      const lowerResponse = responseText.toLowerCase()
+
+      // Extract complexity assessment if present (first analysis only)
+      if (!session.pmMetadata?.complexity) {
+        let complexity: 'low' | 'medium' | 'high' = 'medium' // default
+
+        if (lowerResponse.includes('complexity: low') || lowerResponse.includes('complexity:low')) {
+          complexity = 'low'
+        } else if (lowerResponse.includes('complexity: high') || lowerResponse.includes('complexity:high')) {
+          complexity = 'high'
+        } else if (lowerResponse.includes('complexity: medium') || lowerResponse.includes('complexity:medium')) {
+          complexity = 'medium'
+        }
+
+        // Determine required questions based on complexity
+        const questionsRequired = complexity === 'high' ? 5 : complexity === 'medium' ? 3 : 0
+
+        const updatedMetadata = {
+          ...session.pmMetadata,
+          complexity,
+          questionsRequired,
+          questionsAsked: session.pmMetadata?.questionsAsked || 0,
+          assessedAt: new Date().toISOString()
+        }
+
+        session.pmMetadata = updatedMetadata
+        await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
+
+        console.log(`[PMAgentManager] Complexity assessed: ${complexity}, questions required: ${questionsRequired}`)
+      }
+
+      const questionsAsked = session.pmMetadata?.questionsAsked || 0
+      const questionsRequired = session.pmMetadata?.questionsRequired || 0
+
+      // Check for explicit confidence marker
+      if (lowerResponse.includes('confident:') && lowerResponse.includes('ready to proceed')) {
+        // Check if minimum questions have been asked
+        if (questionsAsked < questionsRequired) {
+          console.log(`[PMAgentManager] PM is confident but only ${questionsAsked}/${questionsRequired} questions asked - rejecting and requesting more questions`)
+
+          // Reject early confidence - add feedback message and return with canProceed=false
+          const feedbackMessage = `You need to ask at least ${questionsRequired} clarifying questions for this ${session.pmMetadata?.complexity}-complexity feature. You've only asked ${questionsAsked} so far.
+
+Please continue the conversation by asking ONE more critical implementation question about:
+${questionsAsked < 1 ? '- Which specific files or components need to be modified?' : ''}
+${questionsAsked < 2 ? '- What are the expected behaviors and edge cases to handle?' : ''}
+${questionsAsked < 3 ? '- What technical approach or architecture patterns should be followed?' : ''}
+${questionsAsked < 4 ? '- What data structures, interfaces, or API contracts are involved?' : ''}
+${questionsAsked < 5 ? '- What error handling, validation, or security requirements exist?' : ''}
+
+Remember: Ask ONE question at a time in a conversational manner.`
+
+          uncertainties.push(feedbackMessage)
+
+          // Immediately return - don't proceed with planning
+          console.log(`[PMAgentManager] Returning canProceed=false to continue questioning`)
+          return { canProceed: false, uncertainties, sessionId }
+        } else {
+          console.log(`[PMAgentManager] PM is confident and ${questionsAsked}/${questionsRequired} questions met, proceeding with planning`)
+          return { canProceed: true, sessionId }
+        }
+      }
+
+      // Check for explicit uncertainty marker
+      if (lowerResponse.includes('uncertain:') || lowerResponse.includes('need clarification')) {
+        console.log(`[PMAgentManager] PM indicated uncertainty, extracting question`)
+
+        // Extract the question after "UNCERTAIN:"
+        const uncertainStartIndex = Math.max(
+          responseText.toLowerCase().indexOf('uncertain:'),
+          responseText.toLowerCase().indexOf('need clarification')
+        )
+
+        if (uncertainStartIndex !== -1) {
+          // Get everything after "UNCERTAIN:" marker
+          const afterMarker = responseText.slice(uncertainStartIndex).replace(/^uncertain:\s*/i, '').trim()
+
+          // Extract the actual question text (stop at double newline if present)
+          const questionText = afterMarker.split('\n\n')[0].trim()
+
+          if (questionText.length > 0) {
+            uncertainties.push(questionText)
+
+            // Increment questions asked counter
+            const updatedMetadata = {
+              ...session.pmMetadata!,
+              questionsAsked: questionsAsked + 1
+            }
+
+            session.pmMetadata = updatedMetadata
+            await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
+
+            console.log(`[PMAgentManager] Question ${updatedMetadata.questionsAsked}/${questionsRequired} asked`)
+          }
+        }
+      }
+
+      const canProceed = uncertainties.length === 0 && questionsAsked >= questionsRequired
+      console.log(`[PMAgentManager] Analysis result: canProceed=${canProceed}, uncertainties=${uncertainties.length}, questions=${questionsAsked}/${questionsRequired}`)
+
+      return { canProceed, uncertainties: uncertainties.length > 0 ? uncertainties : undefined, sessionId }
+    } catch (error) {
+      console.error(`[PMAgentManager] Pre-planning analysis failed:`, error)
+      // On error, default to proceeding (fail open to avoid blocking valid features)
+      return { canProceed: true, sessionId }
+    }
+  }
+
+  /**
+   * Build analysis prompt for pre-planning uncertainty detection.
+   */
+  private buildAnalysisPrompt(featureName: string, context: string, pmMetadata?: { complexity?: 'low' | 'medium' | 'high'; questionsRequired?: number; questionsAsked?: number }): string {
+    const isFirstAnalysis = !pmMetadata?.complexity
+    const questionsAsked = pmMetadata?.questionsAsked || 0
+    const questionsRequired = pmMetadata?.questionsRequired || 0
+    const complexity = pmMetadata?.complexity
+
+    return `You are the PM Agent analyzing ${isFirstAnalysis ? 'a new' : 'an existing'} feature request: "${featureName}".
+
+Your task is to:
+1. ${isFirstAnalysis ? 'Assess the complexity of this feature' : `Continue gathering information (${questionsAsked}/${questionsRequired} questions asked so far)`}
+2. Ask clarifying questions to gather implementation details
+3. Only proceed when you have enough information
+
+${context ? `\n${context}\n` : ''}
+
+${isFirstAnalysis ? `**Step 1: Assess Complexity**
+
+First, evaluate the feature complexity based on:
+- **Low Complexity**: Simple, isolated change (add button, fix typo, update text, single file change)
+- **Medium Complexity**: Moderate change affecting 2-5 files, some integration work, standard patterns
+- **High Complexity**: Large change affecting 6+ files, architectural decisions, new systems/patterns, significant integration
+
+Your first response MUST include: "COMPLEXITY: [low|medium|high]"` : `**Current Progress:**
+- Complexity: ${complexity?.toUpperCase()}
+- Questions asked: ${questionsAsked}/${questionsRequired}
+- Questions remaining: ${questionsRequired - questionsAsked}`}
+
+**Step 2: Gather Information**
+
+${isFirstAnalysis ? `Based on complexity, you MUST ask the minimum number of clarifying questions:
+- **Low complexity**: 0-1 questions (only if truly unclear)
+- **Medium complexity**: At least 3 questions
+- **High complexity**: At least 5 questions` : `You MUST ask ${questionsRequired - questionsAsked} more question${questionsRequired - questionsAsked === 1 ? '' : 's'} before you can proceed to planning.`}
+
+Ask questions ONE AT A TIME in a conversational manner. Focus on implementation details:
+- Specific files/components to modify
+- Expected behavior and edge cases
+- Technical approach or architecture patterns to follow
+- Data structures, interfaces, or API contracts
+- Error handling, validation, or security requirements
+- Integration points with existing systems
+- Performance or scalability considerations
+
+**Step 3: Analysis Task**
+
+Review the feature name${context ? ', description, and attached files' : ''} and identify any uncertainties or ambiguities that would prevent you from creating a clear, actionable specification.
+
+**Critical Questions to Consider:**
+
+1. **Scope & Goal:**
+   - Is the exact goal and desired outcome clear?
+   - Is the scope well-defined (what's included and what's NOT included)?
+   - Are there boundary conditions or edge cases mentioned?
+
+2. **Technical Context:**
+   - Which specific files, components, or modules need to be modified?
+   - What's the existing architecture/pattern we should follow?
+   - Are there performance, security, or compatibility requirements?
+
+3. **Requirements Specificity:**
+   - Are the requirements concrete and testable?
+   - Are there vague terms like "improve", "better", "nice" without quantifiable metrics?
+   - Is the user experience flow clearly described?
+
+4. **Implementation Details:**
+   - Are there multiple valid approaches without guidance on which to choose?
+   - Is there missing information about data structures, APIs, or interfaces?
+   - Are dependencies on other systems/features mentioned but unclear?
+
+5. **Size & Complexity:**
+   - For LARGE features: Is there enough detail to break down into tasks?
+   - For VAGUE features: Are the acceptance criteria clear enough to verify completion?
+
+**Decision Criteria:**
+
+Mark as CONFIDENT only if:
+- The feature is small, simple, and self-contained (e.g., "add a delete button to X")
+- OR the description provides specific, concrete details that answer all critical questions above
+
+Mark as UNCERTAIN if:
+- The feature is large or complex WITHOUT detailed requirements
+- There are vague/ambiguous terms without concrete definitions
+- You would need to make significant assumptions about scope, approach, or implementation
+- Multiple valid interpretations exist and you don't know which one is intended
+- Technical details are missing (which files to modify, what pattern to follow)
+
+**Response Format:**
+
+${isFirstAnalysis ? `**On your FIRST response:**
+- Start with: "COMPLEXITY: [low|medium|high]"
+- Then provide a brief 1-sentence explanation of why
+- Then ask your first question (if any) with "UNCERTAIN: [question]"
+
+**On subsequent responses:**` : `**Your response format:**`}
+- If you need more information: "UNCERTAIN: [question]"
+- If you've asked enough questions (${questionsRequired} total): "CONFIDENT: Ready to proceed with planning."
+
+**Question Guidelines:**
+- Ask ONE question at a time - this is a conversation
+- Be specific and actionable
+- Focus on implementation details, not high-level requirements
+- Keep questions conversational (1-3 sentences max)
+- ${isFirstAnalysis ? 'Don\'t proceed to CONFIDENT until you\'ve asked the minimum required questions' : `You MUST ask ${questionsRequired - questionsAsked} more question${questionsRequired - questionsAsked === 1 ? '' : 's'} before saying CONFIDENT`}
+
+**Important:**
+${isFirstAnalysis ? `- You CANNOT skip questions for medium/high complexity features
+- Even if the description seems clear, you must ask implementation questions
+- For high complexity: Ask about architecture, data flow, integration points, edge cases, error handling
+- For medium complexity: Ask about technical approach, specific files, expected behavior
+- Be thorough - it's better to over-clarify than to make wrong assumptions` : `- You have asked ${questionsAsked}/${questionsRequired} questions so far
+- DO NOT say CONFIDENT until you've asked all ${questionsRequired} required questions
+- The user has provided more information - ask your next clarifying question
+- Continue the conversation naturally based on their response`}
+
+Begin your analysis.`
   }
 
   /**

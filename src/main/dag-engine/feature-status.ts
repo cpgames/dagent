@@ -5,10 +5,10 @@ import type { FeatureStatus } from '@shared/types/feature'
  * Compute the feature status based on task states.
  *
  * Status rules (priority highest-to-lowest):
- * 1. Any task `failed` → `needs_attention`
+ * 1. Any task `failed` → `questioning` (needs attention)
  * 2. All tasks `completed` → `completed`
  * 3. Any task `in_progress`/`ready_for_qa`/`ready_for_merge` → `in_progress`
- * 4. Default (all `blocked`/`ready_for_dev`) → `planning`
+ * 4. Default (all `blocked`/`ready_for_dev`/`needs_analysis`) → `planning`
  *
  * @param tasks - Array of tasks in the feature's DAG
  * @returns The computed feature status
@@ -19,9 +19,9 @@ export function computeFeatureStatus(tasks: Task[]): FeatureStatus {
     return 'planning'
   }
 
-  // Rule 1: Any task failed → needs_attention
+  // Rule 1: Any task failed → questioning (needs attention)
   if (tasks.some((task) => task.status === 'failed')) {
-    return 'needs_attention'
+    return 'questioning'
   }
 
   // Rule 2: All tasks completed → completed
@@ -34,6 +34,6 @@ export function computeFeatureStatus(tasks: Task[]): FeatureStatus {
     return 'in_progress'
   }
 
-  // Rule 4: Default (all blocked/ready_for_dev) → planning
+  // Rule 4: Default (all blocked/ready_for_dev/needs_analysis) → planning
   return 'planning'
 }
