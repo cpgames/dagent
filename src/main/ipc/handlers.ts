@@ -16,6 +16,7 @@ import { registerAgentConfigHandlers } from './agent-config-handlers'
 import { registerPMToolsHandlers } from './pm-tools-handlers'
 import { registerFeatureHandlers } from './feature-handlers'
 import { registerContextHandlers } from './context-handlers'
+import { registerSkillHandlers } from './skill-handlers'
 import { registerPRHandlers } from './pr-handlers'
 import { registerFeatureMergeAgentHandlers } from './feature-merge-agent-handlers'
 import { registerPMSpecHandlers } from './pm-spec-handlers'
@@ -63,6 +64,8 @@ export function registerIpcHandlers(): void {
   registerPMToolsHandlers()
   // Register context handlers (project/feature/task context for agents)
   registerContextHandlers()
+  // Register skill handlers (Claude Code skills like /init)
+  registerSkillHandlers()
   // Register PR handlers (GitHub PR operations via gh CLI)
   registerPRHandlers()
   // Register feature merge agent handlers (merging features into main)

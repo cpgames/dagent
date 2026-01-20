@@ -657,7 +657,26 @@ const electronAPI = {
     getFullContext: (options: ContextOptions): Promise<FullContext | { error: string }> =>
       ipcRenderer.invoke('context:getFullContext', options),
     getFormattedPrompt: (context: FullContext): Promise<string | { error: string }> =>
-      ipcRenderer.invoke('context:getFormattedPrompt', context)
+      ipcRenderer.invoke('context:getFormattedPrompt', context),
+    getClaudeMd: (): Promise<{ content: string | null } | { error: string }> =>
+      ipcRenderer.invoke('context:getClaudeMd'),
+    saveClaudeMd: (content: string): Promise<{ success: true } | { error: string }> =>
+      ipcRenderer.invoke('context:saveClaudeMd', content)
+  },
+
+  // Skill API (Claude Code skills)
+  skill: {
+    runInit: (): Promise<{ success: true } | { error: string }> =>
+      ipcRenderer.invoke('skill:runInit'),
+    onProgress: (callback: (data: { message: string; detail?: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { message: string; detail?: string }): void => {
+        callback(data)
+      }
+      ipcRenderer.on('skill:progress', handler)
+      return (): void => {
+        ipcRenderer.removeListener('skill:progress', handler)
+      }
+    }
   },
 
   // PR API (GitHub PR operations via gh CLI)

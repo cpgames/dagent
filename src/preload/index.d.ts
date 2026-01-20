@@ -1088,6 +1088,40 @@ export interface ContextAPI {
    * Get formatted prompt from full context.
    */
   getFormattedPrompt: (context: FullContext) => Promise<string | { error: string }>
+
+  /**
+   * Get CLAUDE.md content from project root.
+   */
+  getClaudeMd: () => Promise<{ content: string | null } | { error: string }>
+
+  /**
+   * Save CLAUDE.md content to project root.
+   */
+  saveClaudeMd: (content: string) => Promise<{ success: true } | { error: string }>
+}
+
+/**
+ * Skill progress event data.
+ */
+export interface SkillProgressData {
+  message: string
+  detail?: string
+}
+
+/**
+ * Skill API for running Claude Code skills.
+ */
+export interface SkillAPI {
+  /**
+   * Run the /init skill to generate CLAUDE.md.
+   */
+  runInit: () => Promise<{ success: true } | { error: string }>
+
+  /**
+   * Subscribe to skill progress events.
+   * Returns an unsubscribe function.
+   */
+  onProgress: (callback: (data: SkillProgressData) => void) => () => void
 }
 
 /**
@@ -1812,6 +1846,11 @@ export interface ElectronAPI {
    * Context API for project/feature/task context
    */
   context: ContextAPI
+
+  /**
+   * Skill API for running Claude Code skills
+   */
+  skill: SkillAPI
 
   /**
    * PR API for GitHub pull request operations

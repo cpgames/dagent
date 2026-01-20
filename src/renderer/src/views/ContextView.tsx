@@ -16,9 +16,13 @@ export default function ContextView(): JSX.Element {
   const [isDirty, setIsDirtyLocal] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [showInitDialog, setShowInitDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [initProgress, setInitProgress] = useState<{ message: string; detail?: string } | null>(null);
 
   // Ref to resolve/reject the confirmation promise for view switching
   const confirmResolveRef = useRef<((value: boolean) => void) | null>(null);
@@ -75,6 +79,54 @@ export default function ContextView(): JSX.Element {
   }, [isDirty]);
 
   /**
+   * Load CLAUDE.md content on mount.
+   */
+  useEffect(() => {
+    const loadClaudeMd = async (): Promise<void> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await window.electronAPI.context.getClaudeMd();
+        if ('error' in result) {
+          setError(result.error);
+          return;
+        }
+
+        if (result.content === null) {
+          // CLAUDE.md doesn't exist, show init dialog
+          setShowInitDialog(true);
+          setContent('');
+          setOriginalContent('');
+        } else {
+          setContent(result.content);
+          setOriginalContent(result.content);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        setError(`Failed to load CLAUDE.md: ${message}`);
+        console.error('Failed to load CLAUDE.md:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadClaudeMd();
+  }, []);
+
+  /**
+   * Subscribe to skill progress updates.
+   */
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.skill.onProgress((data) => {
+      setInitProgress(data);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  /**
    * Handle content changes and track dirty state.
    */
   const handleContentChange = useCallback(
@@ -82,21 +134,27 @@ export default function ContextView(): JSX.Element {
       setContent(newContent);
       setIsDirty(newContent !== originalContent);
     },
-    [originalContent]
+    [originalContent, setIsDirty]
   );
 
-  // TODO: Implement actual save via IPC to write CLAUDE.md file
+  /**
+   * Save CLAUDE.md content to project root.
+   */
   const handleSave = async (): Promise<void> => {
     setError(null);
     setIsSaving(true);
     try {
-      // Placeholder - logs to console until IPC save is implemented
-      console.log('Save CLAUDE.md:', content.substring(0, 100) + '...');
+      const result = await window.electronAPI.context.saveClaudeMd(content);
+      if ('error' in result) {
+        setError(result.error);
+        toast.error('Failed to save context');
+        return;
+      }
+
       setLastSynced(new Date().toISOString());
-      // Reset dirty state after successful save
       setOriginalContent(content);
       setIsDirty(false);
-      toast.success('Context saved');
+      toast.success('Context saved to CLAUDE.md');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(`Failed to save: ${message}`);
@@ -105,6 +163,55 @@ export default function ContextView(): JSX.Element {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /**
+   * Handle running /init skill to generate CLAUDE.md.
+   */
+  const handleRunInit = async (): Promise<void> => {
+    setIsInitializing(true);
+    setError(null);
+    setInitProgress(null); // Clear any previous progress
+    setShowInitDialog(false); // Close dialog while initializing
+    try {
+      const result = await window.electronAPI.skill.runInit();
+      if ('error' in result) {
+        setError(result.error);
+        toast.error('Failed to initialize CLAUDE.md');
+        return;
+      }
+
+      // Reload the content after successful init
+      const contentResult = await window.electronAPI.context.getClaudeMd();
+      if ('error' in contentResult) {
+        setError(contentResult.error);
+        return;
+      }
+
+      if (contentResult.content !== null) {
+        setContent(contentResult.content);
+        setOriginalContent(contentResult.content);
+        toast.success('CLAUDE.md initialized successfully');
+      } else {
+        setError('Init completed but CLAUDE.md was not created');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to initialize: ${message}`);
+      toast.error('Failed to initialize CLAUDE.md');
+      console.error('Failed to run /init:', err);
+    } finally {
+      setIsInitializing(false);
+      // Clear progress after a short delay to show completion
+      setTimeout(() => setInitProgress(null), 2000);
+    }
+  };
+
+  /**
+   * Handle skipping initialization.
+   */
+  const handleSkipInit = (): void => {
+    setShowInitDialog(false);
   };
 
   const formatTimestamp = (isoString: string): string => {
@@ -158,9 +265,10 @@ export default function ContextView(): JSX.Element {
           {isDirty && <span className="context-view__badge--unsaved">Unsaved</span>}
         </div>
         <button
-          disabled
+          onClick={handleRunInit}
+          disabled={isLoading || isInitializing}
           className="context-view__generate-btn"
-          title="Coming soon: AI will generate context from your codebase"
+          title="Run /init to analyze codebase and generate CLAUDE.md"
         >
           <svg className="context-view__generate-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -171,8 +279,7 @@ export default function ContextView(): JSX.Element {
             />
           </svg>
           <span>
-            Generate with AI
-            <span className="context-view__generate-soon"> (Soon)</span>
+            {isInitializing ? 'Initializing...' : 'Initialize with AI'}
           </span>
         </button>
       </div>
@@ -192,11 +299,17 @@ export default function ContextView(): JSX.Element {
       )}
 
       {/* Main textarea */}
-      <div className="context-view__editor">
-        <textarea
-          value={content}
-          onChange={(e) => handleContentChange(e.target.value)}
-          placeholder={`# Project Context
+      <div className="context-view__editor" style={{ position: 'relative' }}>
+        {isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <div style={{ color: 'var(--text-secondary)' }}>Loading CLAUDE.md...</div>
+          </div>
+        ) : (
+          <>
+            <textarea
+              value={content}
+              onChange={(e) => handleContentChange(e.target.value)}
+              placeholder={`# Project Context
 
 Describe your project context here. This content will be used as CLAUDE.md for AI agents.
 
@@ -211,8 +324,55 @@ Coding standards, naming conventions, etc...
 
 ## Dependencies
 Important dependencies and their purposes...`}
-          className="context-view__textarea"
-        />
+              className="context-view__textarea"
+              disabled={isInitializing}
+            />
+            {/* Initializing Overlay */}
+            {isInitializing && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  zIndex: 10
+                }}
+              >
+                <svg
+                  style={{
+                    width: '3rem',
+                    height: '3rem',
+                    animation: 'spin 1s linear infinite'
+                  }}
+                  fill="none"
+                  stroke="var(--primary)"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <div style={{ color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 500 }}>
+                  {initProgress?.message || 'Initializing CLAUDE.md...'}
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', maxWidth: '400px' }}>
+                  {initProgress?.detail || 'Analyzing your codebase and generating documentation.'}
+                  {!initProgress && <><br/>This may take a minute or two.</>}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Footer */}
@@ -265,6 +425,43 @@ Important dependencies and their purposes...`}
           </Button>
           <Button variant="danger" onClick={handleConfirmDiscard}>
             Discard
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Initialize CLAUDE.md Dialog */}
+      <Dialog
+        open={showInitDialog}
+        onClose={handleSkipInit}
+        size="md"
+        closeOnBackdrop={true}
+      >
+        <DialogHeader title="CLAUDE.md Not Found" />
+        <DialogBody>
+          <div style={{ color: 'var(--text-secondary)' }}>
+            <p style={{ marginTop: 0 }}>
+              CLAUDE.md provides guidance to AI agents when working with your codebase.
+            </p>
+            <p>
+              Would you like to initialize it now? The /init skill will:
+            </p>
+            <ul style={{ marginLeft: '1.5rem' }}>
+              <li>Analyze your codebase structure</li>
+              <li>Identify build commands and scripts</li>
+              <li>Document key architecture patterns</li>
+              <li>Generate a comprehensive CLAUDE.md file</li>
+            </ul>
+            <p style={{ marginBottom: 0 }}>
+              This process may take a minute or two.
+            </p>
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={handleSkipInit}>
+            Skip - Start Empty
+          </Button>
+          <Button variant="primary" onClick={handleRunInit}>
+            Initialize
           </Button>
         </DialogFooter>
       </Dialog>
