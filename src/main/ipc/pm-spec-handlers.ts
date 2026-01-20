@@ -4,7 +4,7 @@
  * Follows same pattern as pm-tools-handlers.ts.
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import { getCurrentProjectPath } from './project-handlers'
 import type {
@@ -93,6 +93,14 @@ export async function pmCreateSpec(input: CreateSpecInput): Promise<CreateSpecRe
     // Add history entry
     await store.addHistoryEntry(input.featureId, `Initial spec from user: ${input.featureName}`)
 
+    // Broadcast spec update to all windows
+    const windows = BrowserWindow.getAllWindows()
+    for (const win of windows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('spec:updated', { featureId: input.featureId })
+      }
+    }
+
     return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -153,6 +161,14 @@ export async function pmUpdateSpec(input: UpdateSpecInput): Promise<UpdateSpecRe
     // Add history note if provided
     if (input.historyNote) {
       await store.addHistoryEntry(input.featureId, input.historyNote)
+    }
+
+    // Broadcast spec update to all windows
+    const windows = BrowserWindow.getAllWindows()
+    for (const win of windows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('spec:updated', { featureId: input.featureId })
+      }
     }
 
     return {
