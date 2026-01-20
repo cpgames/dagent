@@ -16,15 +16,15 @@ interface AnalysisStatus {
 
 /**
  * Column configuration for the Kanban board.
- * Interim 4-column display mapping 9 states to 4 columns:
- * - Backlog: not_started, ready
- * - In Progress: creating_worktree, investigating, questioning, planning, in_progress
+ * 4-column layout mapping 9 states:
+ * - Backlog: not_started (feature exists but no worktree)
+ * - In Progress: creating_worktree, investigating, questioning, planning, ready, in_progress
  * - Completed: completed
  * - Archived: archived
  */
 const columns: { title: string; statuses: FeatureStatus[] }[] = [
-  { title: 'Backlog', statuses: ['not_started', 'ready'] },
-  { title: 'In Progress', statuses: ['creating_worktree', 'investigating', 'questioning', 'planning', 'in_progress'] },
+  { title: 'Backlog', statuses: ['not_started'] },
+  { title: 'In Progress', statuses: ['creating_worktree', 'investigating', 'questioning', 'planning', 'ready', 'in_progress'] },
   { title: 'Completed', statuses: ['completed'] },
   { title: 'Archived', statuses: ['archived'] },
 ];

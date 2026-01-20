@@ -17,12 +17,13 @@ interface KanbanColumnProps {
 }
 
 /**
- * KanbanColumn - Displays a column of feature cards for a specific status.
+ * KanbanColumn - Displays a column of feature cards.
  * Shows column header with title, count badge, and scrollable list of cards.
+ * Note: The `status` prop is kept for interface compatibility but is no longer used.
  */
 export default function KanbanColumn({
   title,
-  status,
+  status: _status,
   features,
   onSelectFeature,
   onDeleteFeature,
@@ -34,12 +35,14 @@ export default function KanbanColumn({
   worktreeProgress,
 }: KanbanColumnProps) {
   const count = features.length;
+  // Use column title for CSS class (e.g., 'In Progress' -> 'in-progress')
+  const titleClass = title.toLowerCase().replace(/\s+/g, '-');
 
   return (
     <div className="kanban-column">
       {/* Column Header */}
       <div className="kanban-column__header">
-        <h3 className={`kanban-column__title kanban-column__title--${status}`}>
+        <h3 className={`kanban-column__title kanban-column__title--${titleClass}`}>
           {title}
         </h3>
         <span className="kanban-column__count">
@@ -66,7 +69,7 @@ export default function KanbanColumn({
                   onDelete={onDeleteFeature}
                   onStart={onStartFeature}
                   onStop={onStopFeature}
-                  onMerge={status === 'completed' ? onMergeFeature : undefined}
+                  onMerge={title === 'Completed' ? onMergeFeature : undefined}
                   isStarting={feature.id === startingFeatureId}
                   isAnalyzing={featureAnalysis?.analyzing}
                   pendingAnalysisCount={featureAnalysis?.pendingCount}

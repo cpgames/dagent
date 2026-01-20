@@ -30,21 +30,13 @@
   letter-spacing: 0.05em;
 }
 
-/* Status-specific title colors */
-.kanban-column__title--planning {
-  color: var(--accent-primary);
-}
-
+/* Column-specific title colors */
 .kanban-column__title--backlog {
   color: var(--text-secondary);
 }
 
-.kanban-column__title--in_progress {
+.kanban-column__title--in-progress {
   color: var(--color-warning);
-}
-
-.kanban-column__title--needs_attention {
-  color: var(--color-error);
 }
 
 .kanban-column__title--completed {
