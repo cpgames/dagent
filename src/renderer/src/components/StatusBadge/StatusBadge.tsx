@@ -13,11 +13,14 @@ const statusConfig: Record<Status, { color: string; bg: string; label: string }>
   ready_for_merge: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Merge Ready' },
   completed: { color: 'text-green-400', bg: 'bg-green-500/20', label: 'Completed' },
   failed: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Failed' },
-  // Feature statuses
+  // Feature statuses (9-state lifecycle)
+  not_started: { color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Not Started' },
+  creating_worktree: { color: 'text-amber-400', bg: 'bg-amber-500/20', label: 'Creating...' },
+  investigating: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Investigating' },
+  questioning: { color: 'text-cyan-400', bg: 'bg-cyan-500/20', label: 'Questions' },
   planning: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Planning' },
-  backlog: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Backlog' },
-  archived: { color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Archived' },
-  needs_attention: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Needs Attention' }
+  ready: { color: 'text-green-400', bg: 'bg-green-500/20', label: 'Ready' },
+  archived: { color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Archived' }
 };
 
 interface StatusBadgeProps {
@@ -51,7 +54,8 @@ export default function StatusBadge({
     >
       <span
         className={`${dotSizes[size]} rounded-full ${
-          status === 'in_progress' || status === 'ready_for_qa' || status === 'ready_for_merge'
+          status === 'in_progress' || status === 'ready_for_qa' || status === 'ready_for_merge' ||
+          status === 'creating_worktree' || status === 'investigating' || status === 'questioning'
             ? 'animate-pulse bg-current'
             : 'bg-current'
         }`}
