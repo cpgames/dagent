@@ -741,7 +741,13 @@ const electronAPI = {
     updateSpec: (input: UpdateSpecInput): Promise<UpdateSpecResult> =>
       ipcRenderer.invoke('pm-spec:updateSpec', input),
     getSpec: (input: GetSpecInput): Promise<GetSpecResult> =>
-      ipcRenderer.invoke('pm-spec:getSpec', input)
+      ipcRenderer.invoke('pm-spec:getSpec', input),
+    onUpdated: (callback: (data: { featureId: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { featureId: string }): void =>
+        callback(data)
+      ipcRenderer.on('spec:updated', handler)
+      return () => ipcRenderer.removeListener('spec:updated', handler)
+    }
   },
 
   // DAGManager API (validated DAG operations with cycle detection)

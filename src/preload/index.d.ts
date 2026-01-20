@@ -1235,6 +1235,12 @@ export interface PMSpecAPI {
    * Get a feature specification.
    */
   getSpec: (input: GetSpecInput) => Promise<GetSpecResult>
+
+  /**
+   * Subscribe to spec update events.
+   * Returns an unsubscribe function.
+   */
+  onUpdated: (callback: (data: { featureId: string }) => void) => () => void
 }
 
 /**
