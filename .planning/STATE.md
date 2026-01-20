@@ -5,28 +5,28 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Phase v3.2-01 — State Machine Foundation
+**Current focus:** Phase v3.2-03 — Worktree Management
 
 ## Current Position
 
 **Milestone:** v3.2 Feature State Machine Refactor IN PROGRESS
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: v3.2-01 of 6 (State Machine Foundation) COMPLETE
-Plan: 02 of 2 complete
-Status: Phase complete
-Last activity: 2026-01-20 — Plan v3.2-01-02 complete (UI Components & Orchestrator Update)
+Phase: v3.2-03 of 6 (Worktree Management) IN PROGRESS
+Plan: 01 of 2 complete
+Status: Plan complete, phase in progress
+Last activity: 2026-01-20 — Plan v3.2-03-01 complete (Start Button for Worktree Creation)
 
-Progress: █░░░░░░░░░ 17% (1 of 6 phases, 2 plans executed)
+Progress: █████░░░░░ 50% (3 of 6 phases started, 3 plans executed in v3.2)
 
-Next action: Run /gsd:plan-phase v3.2-02
+Next action: Run /gsd:execute-plan v3.2-03-02
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 146 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 2)
+- Total plans completed: 147 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 3)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~505 min
+- Total execution time: ~510 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: Run /gsd:plan-phase v3.2-02
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-03-02, v3.1-03-03, v3.1-04-01, v3.1-04-02, v3.2-01-01, v3.2-01-02
-- Trend: v3.2 Phase 1 complete (State Machine Foundation)
+- Last 7 plans: v3.1-04-01, v3.1-04-02, v3.2-01-01, v3.2-01-02, v3.2-03-01
+- Trend: v3.2 Phase 3 in progress (Worktree Management)
 
 ## Accumulated Context
 
@@ -1111,4 +1111,18 @@ Key features:
   - Orchestrator unchanged (task-centric design)
 
 All verification items passed. Phase v3.2-01 Complete.
+
+### Phase v3.2-03: Worktree Management (In Progress)
+
+- **03-01**: Start Button for Worktree Creation
+  - Added Start button for not_started features in FeatureCard
+  - Created feature:startWorktreeCreation IPC handler
+  - Handler validates not_started status, updates to creating_worktree
+  - Moves feature data from pending to worktree location
+  - Starts git worktree creation asynchronously (non-blocking)
+  - On success: transitions to investigating
+  - On failure: reverts to not_started
+  - Exposed startWorktreeCreation in preload with type definitions
+
+All verification items passed. Plan v3.2-03-01 Complete.
 
