@@ -641,8 +641,8 @@ function DAGViewInner({
                   snapToGrid={true}
                   snapGrid={[20, 20]}
                   translateExtent={[
-                    [-500, -500],
-                    [3000, 3000]
+                    [-5000, -5000],
+                    [10000, 10000]
                   ]}
                   defaultEdgeOptions={{ animated: false }}
                   connectionLineStyle={{
