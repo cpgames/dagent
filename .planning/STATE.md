@@ -5,26 +5,26 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Phase v3.2-04 — Event-Driven Kanban Refactor
+**Current focus:** Phase v3.2-05 — PM Planning Phase Integration
 
 ## Current Position
 
 **Milestone:** v3.2 Feature State Machine Refactor IN PROGRESS
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: v3.2-04 of 6 (Event-Driven Kanban Refactor) COMPLETE
-Plan: 01 of 1 complete
-Status: Phase complete
-Last activity: 2026-01-20 — Plan v3.2-04-01 complete (Kanban Column Mapping)
+Phase: v3.2-05 of 6 (PM Planning Phase Integration) COMPLETE
+Plan: 2 of 2 complete
+Status: Phase 05 complete (PM auto-trigger, chat routing, real-time spec updates)
+Last activity: 2026-01-20 — Plan v3.2-05-02 complete
 
-Progress: ██████░░░░ 66% (4 of 6 phases complete, 5 plans executed in v3.2)
+Progress: ████████░░ 83% (5 of 6 phases complete, 7 plans executed in v3.2)
 
-Next action: Run /gsd:plan-phase v3.2-05
+Next action: Plan or execute v3.2-06
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 149 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 5)
+- Total plans completed: 151 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 7)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~510 min
 
@@ -41,8 +41,8 @@ Next action: Run /gsd:plan-phase v3.2-05
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-04-02, v3.2-01-01, v3.2-01-02, v3.2-03-01, v3.2-03-02, v3.2-04-01
-- Trend: v3.2 Phase 4 complete (Kanban Column Mapping)
+- Last 7 plans: v3.2-01-02, v3.2-03-01, v3.2-03-02, v3.2-04-01, v3.2-05-01, v3.2-05-02
+- Trend: v3.2 Phase 5 complete (PM Planning Phase Integration)
 
 ## Accumulated Context
 
@@ -1141,4 +1141,19 @@ All verification items passed. Phase v3.2-03 Complete.
   - Updated JSDoc comments to reflect correct mapping
 
 All verification items passed. Phase v3.2-04 Complete.
+
+### Phase v3.2-05: PM Planning Phase Integration (Complete)
+
+- **05-01**: PM Auto-trigger Integration
+  - Auto-trigger PM agent when feature enters investigating state
+  - Chat routing for investigating state (routes messages to PM)
+  - Investigating to planning transition (PM can skip questioning if no clarification needed)
+
+- **05-02**: Real-time Spec Updates
+  - Broadcast spec:updated event from pm-spec-handlers when spec created/updated
+  - Add onUpdated listener to pmSpec preload API
+  - FeatureSpecViewer subscribes to spec events for instant updates
+  - Reduced polling interval from 5s to 10s (fallback only)
+
+All verification items passed. Phase v3.2-05 Complete.
 
