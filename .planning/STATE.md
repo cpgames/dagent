@@ -2,24 +2,24 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-18)
+See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Planning next milestone
+**Current focus:** Phase v3.2-01 — State Machine Foundation
 
 ## Current Position
 
-**Milestone:** v3.1 Task Analysis Orchestrator COMPLETE
-**Roadmap:** .planning/milestones/v3.1-task-analysis-orchestrator-ROADMAP.md
+**Milestone:** v3.2 Feature State Machine Refactor IN PROGRESS
+**Roadmap:** .planning/ROADMAP.md
 
-Phase: ALL PHASES COMPLETE
-Plan: N/A
-Status: MILESTONE COMPLETE
-Last activity: 2026-01-18 — Milestone v3.1 shipped
+Phase: v3.2-01 of 6 (State Machine Foundation)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-20 — Roadmap created for v3.2 milestone
 
-Progress: ██████████ 100% (4 phases, 12 plans executed)
+Progress: ░░░░░░░░░░ 0% (0 of 6 phases, 0 plans executed)
 
-Next action: Run /gsd:discuss-milestone to plan next version
+Next action: Run /gsd:plan-phase v3.2-01
 
 ## Performance Metrics
 

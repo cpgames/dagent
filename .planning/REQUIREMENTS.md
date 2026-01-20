@@ -102,41 +102,41 @@ Which phases cover which requirements. Updated by create-roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STATE-01 | TBD | Pending |
-| STATE-02 | TBD | Pending |
-| STATE-03 | TBD | Pending |
-| STATE-04 | TBD | Pending |
-| KANBAN-01 | TBD | Pending |
-| KANBAN-02 | TBD | Pending |
-| KANBAN-03 | TBD | Pending |
-| KANBAN-04 | TBD | Pending |
-| CREATE-01 | TBD | Pending |
-| CREATE-02 | TBD | Pending |
-| CREATE-03 | TBD | Pending |
-| CREATE-04 | TBD | Pending |
-| WORKTREE-01 | TBD | Pending |
-| WORKTREE-02 | TBD | Pending |
-| WORKTREE-03 | TBD | Pending |
-| WORKTREE-04 | TBD | Pending |
-| PM-01 | TBD | Pending |
-| PM-02 | TBD | Pending |
-| PM-03 | TBD | Pending |
-| PM-04 | TBD | Pending |
-| PM-05 | TBD | Pending |
-| PM-06 | TBD | Pending |
-| SPEC-01 | TBD | Pending |
-| SPEC-02 | TBD | Pending |
-| SPEC-03 | TBD | Pending |
-| SPEC-04 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
+| STATE-01 | Phase v3.2-01 | Pending |
+| STATE-02 | Phase v3.2-01 | Pending |
+| STATE-03 | Phase v3.2-01 | Pending |
+| STATE-04 | Phase v3.2-01 | Pending |
+| CREATE-01 | Phase v3.2-02 | Pending |
+| CREATE-02 | Phase v3.2-02 | Pending |
+| CREATE-03 | Phase v3.2-02 | Pending |
+| CREATE-04 | Phase v3.2-02 | Pending |
+| WORKTREE-01 | Phase v3.2-03 | Pending |
+| WORKTREE-02 | Phase v3.2-03 | Pending |
+| WORKTREE-03 | Phase v3.2-03 | Pending |
+| WORKTREE-04 | Phase v3.2-03 | Pending |
+| KANBAN-01 | Phase v3.2-04 | Pending |
+| KANBAN-02 | Phase v3.2-04 | Pending |
+| KANBAN-03 | Phase v3.2-04 | Pending |
+| KANBAN-04 | Phase v3.2-04 | Pending |
+| PM-01 | Phase v3.2-05 | Pending |
+| PM-02 | Phase v3.2-05 | Pending |
+| PM-03 | Phase v3.2-05 | Pending |
+| PM-04 | Phase v3.2-05 | Pending |
+| PM-05 | Phase v3.2-05 | Pending |
+| PM-06 | Phase v3.2-05 | Pending |
+| SPEC-01 | Phase v3.2-05 | Pending |
+| SPEC-02 | Phase v3.2-05 | Pending |
+| SPEC-03 | Phase v3.2-05 | Pending |
+| SPEC-04 | Phase v3.2-05 | Pending |
+| UI-01 | Phase v3.2-06 | Pending |
+| UI-02 | Phase v3.2-06 | Pending |
+| UI-03 | Phase v3.2-06 | Pending |
+| UI-04 | Phase v3.2-06 | Pending |
 
 **Coverage:**
 - v1 requirements: 28 total
-- Mapped to phases: 0 (will be mapped by create-roadmap)
-- Unmapped: 28 ⚠️
+- Mapped to phases: 28
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-01-20*
