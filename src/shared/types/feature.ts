@@ -1,4 +1,4 @@
-export type FeatureStatus = 'planning' | 'backlog' | 'in_progress' | 'needs_attention' | 'completed' | 'archived';
+export type FeatureStatus = 'not_started' | 'creating_worktree' | 'investigating' | 'questioning' | 'planning' | 'ready' | 'in_progress' | 'completed' | 'archived';
 
 /** Action to take when feature is completed */
 export type CompletionAction = 'manual' | 'auto_pr' | 'auto_merge';
