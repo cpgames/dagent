@@ -13,20 +13,20 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 **Roadmap:** .planning/ROADMAP.md
 
 Phase: v3.2-01 of 6 (State Machine Foundation)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-20 — Roadmap created for v3.2 milestone
+Plan: 01 of 2 complete
+Status: Executing
+Last activity: 2026-01-20 — Plan v3.2-01-01 complete (Core Type System Update)
 
-Progress: ░░░░░░░░░░ 0% (0 of 6 phases, 0 plans executed)
+Progress: █░░░░░░░░░ 8% (0 of 6 phases, 1 plan executed)
 
-Next action: Run /gsd:plan-phase v3.2-01
+Next action: Run /gsd:execute-plan v3.2-01-02
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 144 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12)
+- Total plans completed: 145 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 1)
 - Average duration: ~5-8 min/plan
-- Total execution time: ~500 min
+- Total execution time: ~505 min
 
 **By Phase:**
 
@@ -41,8 +41,8 @@ Next action: Run /gsd:plan-phase v3.2-01
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-02-04, v3.1-03-01 to v3.1-03-03, v3.1-04-01, v3.1-04-02
-- Trend: v3.1 milestone complete (Task Analysis Orchestrator)
+- Last 7 plans: v3.1-03-01 to v3.1-03-03, v3.1-04-01, v3.1-04-02, v3.2-01-01
+- Trend: v3.2 milestone started (Feature State Machine Refactor)
 
 ## Accumulated Context
 
@@ -50,6 +50,8 @@ Next action: Run /gsd:plan-phase v3.2-01
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+- **9-state lifecycle**: Features now progress through: not_started -> creating_worktree -> investigating -> questioning -> planning -> ready -> in_progress -> completed -> archived
 
 - **electron-vite**: Chose electron-vite over electron-forge for Vite-native integration
 - **Tailwind v4**: Using Tailwind CSS v4 with @tailwindcss/vite plugin
