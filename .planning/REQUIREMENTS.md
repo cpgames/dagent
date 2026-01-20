@@ -18,10 +18,10 @@ Requirements for the feature state machine refactor. Each maps to roadmap phases
 
 ### Kanban View
 
-- [ ] **KANBAN-01**: Kanban displays 4 columns: Backlog, In Progress, Completed, Archived (Planning and Needs Attention columns removed)
-- [ ] **KANBAN-02**: Kanban listens to `feature:status-changed` events for real-time column updates
-- [ ] **KANBAN-03**: Features map to columns via function: `not_started` → Backlog, `completed` → Completed, `archived` → Archived, all other states → In Progress
-- [ ] **KANBAN-04**: Feature cards in Backlog column show "Start" button to trigger worktree creation
+- [x] **KANBAN-01**: Kanban displays 4 columns: Backlog, In Progress, Completed, Archived (Planning and Needs Attention columns removed)
+- [x] **KANBAN-02**: Kanban listens to `feature:status-changed` events for real-time column updates
+- [x] **KANBAN-03**: Features map to columns via function: `not_started` → Backlog, `completed` → Completed, `archived` → Archived, all other states → In Progress
+- [x] **KANBAN-04**: Feature cards in Backlog column show "Start" button to trigger worktree creation
 
 ### Feature Creation
 
@@ -39,19 +39,19 @@ Requirements for the feature state machine refactor. Each maps to roadmap phases
 
 ### PM Agent Planning Phases
 
-- [ ] **PM-01**: PM agent explores codebase during `investigating` state and creates initial spec with assumptions/questions
-- [ ] **PM-02**: PM agent enters `questioning` state to ask user questions one-by-one
-- [ ] **PM-03**: PM agent updates spec with user answers during `questioning` state
-- [ ] **PM-04**: PM agent enters `planning` state after all questions answered
-- [ ] **PM-05**: PM agent creates tasks from spec during `planning` state
-- [ ] **PM-06**: Status automatically transitions to `ready` after PM creates all tasks
+- [x] **PM-01**: PM agent explores codebase during `investigating` state and creates initial spec with assumptions/questions
+- [x] **PM-02**: PM agent enters `questioning` state to ask user questions one-by-one
+- [x] **PM-03**: PM agent updates spec with user answers during `questioning` state
+- [x] **PM-04**: PM agent enters `planning` state after all questions answered
+- [x] **PM-05**: PM agent creates tasks from spec during `planning` state
+- [x] **PM-06**: Status automatically transitions to `ready` after PM creates all tasks
 
 ### Spec & Chat Integration
 
-- [ ] **SPEC-01**: Feature spec updates live in real-time during PM conversation (investigating/questioning/planning phases)
-- [ ] **SPEC-02**: Chat store routes messages to PM agent for features in investigating/questioning/planning states
-- [ ] **SPEC-03**: PM agent conversations persist across state transitions
-- [ ] **SPEC-04**: FeatureSpecViewer component shows spec changes in real-time during planning phases
+- [x] **SPEC-01**: Feature spec updates live in real-time during PM conversation (investigating/questioning/planning phases)
+- [x] **SPEC-02**: Chat store routes messages to PM agent for features in investigating/questioning/planning states
+- [x] **SPEC-03**: PM agent conversations persist across state transitions
+- [x] **SPEC-04**: FeatureSpecViewer component shows spec changes in real-time during planning phases
 
 ### UI Context Awareness
 
@@ -114,20 +114,20 @@ Which phases cover which requirements. Updated by create-roadmap.
 | WORKTREE-02 | Phase v3.2-03 | Complete |
 | WORKTREE-03 | Phase v3.2-03 | Complete |
 | WORKTREE-04 | Phase v3.2-03 | Complete |
-| KANBAN-01 | Phase v3.2-04 | Pending |
-| KANBAN-02 | Phase v3.2-04 | Pending |
-| KANBAN-03 | Phase v3.2-04 | Pending |
-| KANBAN-04 | Phase v3.2-04 | Pending |
-| PM-01 | Phase v3.2-05 | Pending |
-| PM-02 | Phase v3.2-05 | Pending |
-| PM-03 | Phase v3.2-05 | Pending |
-| PM-04 | Phase v3.2-05 | Pending |
-| PM-05 | Phase v3.2-05 | Pending |
-| PM-06 | Phase v3.2-05 | Pending |
-| SPEC-01 | Phase v3.2-05 | Pending |
-| SPEC-02 | Phase v3.2-05 | Pending |
-| SPEC-03 | Phase v3.2-05 | Pending |
-| SPEC-04 | Phase v3.2-05 | Pending |
+| KANBAN-01 | Phase v3.2-04 | Complete |
+| KANBAN-02 | Phase v3.2-04 | Complete |
+| KANBAN-03 | Phase v3.2-04 | Complete |
+| KANBAN-04 | Phase v3.2-04 | Complete |
+| PM-01 | Phase v3.2-05 | Complete |
+| PM-02 | Phase v3.2-05 | Complete |
+| PM-03 | Phase v3.2-05 | Complete |
+| PM-04 | Phase v3.2-05 | Complete |
+| PM-05 | Phase v3.2-05 | Complete |
+| PM-06 | Phase v3.2-05 | Complete |
+| SPEC-01 | Phase v3.2-05 | Complete |
+| SPEC-02 | Phase v3.2-05 | Complete |
+| SPEC-03 | Phase v3.2-05 | Complete |
+| SPEC-04 | Phase v3.2-05 | Complete |
 | UI-01 | Phase v3.2-06 | Pending |
 | UI-02 | Phase v3.2-06 | Pending |
 | UI-03 | Phase v3.2-06 | Pending |
@@ -140,4 +140,4 @@ Which phases cover which requirements. Updated by create-roadmap.
 
 ---
 *Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after Phase v3.2-03 completion*
+*Last updated: 2026-01-20 after Phase v3.2-05 completion*
