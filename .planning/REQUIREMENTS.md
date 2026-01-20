@@ -11,10 +11,10 @@ Requirements for the feature state machine refactor. Each maps to roadmap phases
 
 ### State Machine & Types
 
-- [ ] **STATE-01**: User-created features start in `not_started` status immediately (no worktree created)
-- [ ] **STATE-02**: Feature status follows explicit 9-state machine: not_started → creating_worktree → investigating → questioning → planning → ready → in_progress → completed → archived
-- [ ] **STATE-03**: State transitions are validated (only valid state transitions allowed, no invalid jumps)
-- [ ] **STATE-04**: Feature storage schema (feature.json) supports all 9 states with proper typing
+- [x] **STATE-01**: User-created features start in `not_started` status immediately (no worktree created)
+- [x] **STATE-02**: Feature status follows explicit 9-state machine: not_started → creating_worktree → investigating → questioning → planning → ready → in_progress → completed → archived
+- [x] **STATE-03**: State transitions are validated (only valid state transitions allowed, no invalid jumps)
+- [x] **STATE-04**: Feature storage schema (feature.json) supports all 9 states with proper typing
 
 ### Kanban View
 
@@ -102,10 +102,10 @@ Which phases cover which requirements. Updated by create-roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STATE-01 | Phase v3.2-01 | Pending |
-| STATE-02 | Phase v3.2-01 | Pending |
-| STATE-03 | Phase v3.2-01 | Pending |
-| STATE-04 | Phase v3.2-01 | Pending |
+| STATE-01 | Phase v3.2-01 | Complete |
+| STATE-02 | Phase v3.2-01 | Complete |
+| STATE-03 | Phase v3.2-01 | Complete |
+| STATE-04 | Phase v3.2-01 | Complete |
 | CREATE-01 | Phase v3.2-02 | Pending |
 | CREATE-02 | Phase v3.2-02 | Pending |
 | CREATE-03 | Phase v3.2-02 | Pending |
@@ -140,4 +140,4 @@ Which phases cover which requirements. Updated by create-roadmap.
 
 ---
 *Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after initial definition*
+*Last updated: 2026-01-20 after Phase v3.2-01 completion*
