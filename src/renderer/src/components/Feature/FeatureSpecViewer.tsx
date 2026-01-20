@@ -79,11 +79,25 @@ export function FeatureSpecViewer({
     loadSpec()
   }, [loadSpec])
 
-  // Poll for updates every 5 seconds
+  // Poll for updates every 10 seconds (fallback, events provide real-time updates)
   useEffect(() => {
-    const interval = setInterval(loadSpec, 5000)
+    const interval = setInterval(loadSpec, 10000)
     return () => clearInterval(interval)
   }, [loadSpec])
+
+  // Subscribe to spec updates for real-time refresh
+  useEffect(() => {
+    if (!window.electronAPI?.pmSpec?.onUpdated) return
+
+    const unsubscribe = window.electronAPI.pmSpec.onUpdated((data) => {
+      // Only reload if the update is for this feature
+      if (data.featureId === featureId) {
+        loadSpec()
+      }
+    })
+
+    return unsubscribe
+  }, [featureId, loadSpec])
 
   const toggleSection = (section: string): void => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }))
