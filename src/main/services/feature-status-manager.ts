@@ -5,21 +5,35 @@ import type { FeatureStore } from '../storage/feature-store'
 import { getTaskAnalysisOrchestrator } from './task-analysis-orchestrator'
 
 /**
- * Valid status transitions map.
+ * Valid status transitions map for the 9-state feature lifecycle.
  * Each status can only transition to specific next statuses.
+ *
+ * State machine flow:
+ * 1. not_started: Feature exists but no worktree yet (initial state)
+ * 2. creating_worktree: Worktree creation in progress
+ * 3. investigating: PM agent exploring codebase
+ * 4. questioning: PM agent asking user questions
+ * 5. planning: PM agent creating tasks
+ * 6. ready: Tasks ready for execution (replaces old 'backlog')
+ * 7. in_progress: Execution running
+ * 8. completed: All tasks done
+ * 9. archived: Feature merged/closed
  *
  * Archive transition rules:
  * - Only 'completed' features can transition to 'archived'
  * - 'archived' can transition back to 'completed' (for merge failure recovery)
- * - Archive happens after merge to main or PR creation (Phase 99)
+ * - Archive happens after merge to main or PR creation
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
-  planning: ['backlog', 'needs_attention'],  // needs_attention if planning fails
-  backlog: ['in_progress', 'planning'],  // planning if replan requested
-  in_progress: ['needs_attention', 'completed', 'backlog'],
-  needs_attention: ['in_progress', 'planning'],  // planning if replan requested
-  completed: ['archived'],  // Only from completed
-  archived: ['completed']  // Can revert to completed if merge fails after archive
+  not_started: ['creating_worktree'],  // Start triggers worktree creation
+  creating_worktree: ['investigating'],  // Worktree ready -> PM investigates
+  investigating: ['questioning'],  // Investigation done -> ask questions
+  questioning: ['planning'],  // Questions answered -> create tasks
+  planning: ['ready'],  // Tasks created -> ready for execution
+  ready: ['in_progress', 'planning'],  // Start execution or re-plan
+  in_progress: ['completed', 'ready'],  // Finish or pause back to ready
+  completed: ['archived'],  // Archive after merge
+  archived: ['completed']  // Can un-archive if needed
 }
 
 /**
@@ -30,13 +44,18 @@ const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
  * - Update feature status in storage
  * - Emit events for UI reactivity
  * - Ensure all status changes are tracked and persisted
+ * - Migrate existing features from old statuses to new 9-state model
  *
- * Status workflow:
- * - planning → backlog | needs_attention (if planning fails)
- * - backlog → in_progress | planning (replan)
- * - in_progress → needs_attention | completed | backlog (stop)
- * - needs_attention → in_progress | planning (replan)
- * - completed → archived
+ * 9-State Lifecycle Workflow:
+ * - not_started → creating_worktree (start triggers worktree creation)
+ * - creating_worktree → investigating (worktree ready)
+ * - investigating → questioning (investigation done)
+ * - questioning → planning (questions answered)
+ * - planning → ready (tasks created)
+ * - ready → in_progress | planning (start execution or re-plan)
+ * - in_progress → completed | ready (finish or pause)
+ * - completed → archived (after merge)
+ * - archived → completed (un-archive if needed)
  */
 export class FeatureStatusManager {
   private featureStore: FeatureStore
@@ -104,9 +123,15 @@ export class FeatureStatusManager {
   }
 
   /**
-   * Migrate existing features from 'not_started' to 'planning'.
+   * Migrate existing features from old statuses to the new 9-state model.
    * This is a one-time migration for the status type update.
    * Safe to run multiple times (idempotent).
+   *
+   * Migration mapping:
+   * - 'backlog' -> 'ready' (direct replacement)
+   * - 'needs_attention' -> 'ready' (best effort recovery)
+   * - Old 'not_started' now stays as 'not_started' (valid in new model)
+   *
    * @returns Number of features migrated
    */
   async migrateExistingFeatures(): Promise<number> {
@@ -120,16 +145,25 @@ export class FeatureStatusManager {
         const feature = await this.featureStore.loadFeature(featureId)
         if (!feature) continue
 
-        // Check if feature has old 'not_started' status
-        // TypeScript won't allow this directly, so we check via type assertion
-        if ((feature.status as string) === 'not_started') {
-          // Update to 'planning'
-          feature.status = 'planning'
+        // Check for old statuses that need migration
+        const statusStr = feature.status as string
+        let newStatus: FeatureStatus | null = null
+
+        if (statusStr === 'backlog') {
+          // 'backlog' is replaced by 'ready' in the new model
+          newStatus = 'ready'
+          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: backlog → ready`)
+        } else if (statusStr === 'needs_attention') {
+          // 'needs_attention' is removed - best effort recovery to 'ready'
+          newStatus = 'ready'
+          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: needs_attention → ready`)
+        }
+
+        if (newStatus) {
+          feature.status = newStatus
           feature.updatedAt = new Date().toISOString()
           await this.featureStore.saveFeature(feature)
           migratedCount++
-
-          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: not_started → planning`)
         }
       }
 
@@ -159,8 +193,8 @@ export class FeatureStatusManager {
    * is interrupted and never completes, leaving the feature stuck.
    *
    * Recovery strategy:
-   * - If feature has a spec file, move to 'backlog' and resume analysis if needed
-   * - If no spec file, move to 'needs_attention' (planning needs to restart)
+   * - If feature has a spec file, move to 'ready' and resume analysis if needed
+   * - If no spec file, keep in 'planning' (user can re-trigger planning)
    *
    * @returns Number of features recovered
    */
@@ -179,13 +213,13 @@ export class FeatureStatusManager {
 
         console.log(`[FeatureStatusManager] Feature ${featureId} has status: ${feature.status}`)
 
-        // Check for features in backlog that might have pending analysis tasks
+        // Check for features in ready state that might have pending analysis tasks
         // (from previous incomplete recovery)
-        if (feature.status === 'backlog') {
+        if (feature.status === 'ready') {
           const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
           const pendingTasks = await orchestrator.getPendingTasks(featureId)
           if (pendingTasks.length > 0) {
-            console.log(`[FeatureStatusManager] Feature ${featureId} is in backlog but has ${pendingTasks.length} pending analysis tasks - resuming analysis`)
+            console.log(`[FeatureStatusManager] Feature ${featureId} is in ready but has ${pendingTasks.length} pending analysis tasks - resuming analysis`)
             featuresToAnalyze.push(featureId)
           }
           continue
@@ -198,15 +232,15 @@ export class FeatureStatusManager {
         const hasSpec = await this.featureStore.hasFeatureSpec(featureId)
 
         if (hasSpec) {
-          // Spec exists - planning was mostly done, move to backlog
-          feature.status = 'backlog'
-          console.log(`[FeatureStatusManager] Recovered stuck feature ${featureId}: planning → backlog (spec exists)`)
+          // Spec exists - planning was mostly done, move to ready
+          feature.status = 'ready'
+          console.log(`[FeatureStatusManager] Recovered stuck feature ${featureId}: planning → ready (spec exists)`)
           // Track for analysis resumption
           featuresToAnalyze.push(featureId)
         } else {
-          // No spec - planning never completed, needs attention
-          feature.status = 'needs_attention'
-          console.log(`[FeatureStatusManager] Recovered stuck feature ${featureId}: planning → needs_attention (no spec)`)
+          // No spec - planning never completed, keep in planning for user to re-trigger
+          console.log(`[FeatureStatusManager] Feature ${featureId} has no spec, keeping in planning status`)
+          continue  // Don't count as recovered, just skip
         }
 
         feature.updatedAt = new Date().toISOString()
@@ -226,7 +260,7 @@ export class FeatureStatusManager {
         console.log(`[FeatureStatusManager] Recovery complete: ${recoveredCount} stuck feature(s) recovered`)
       }
 
-      // Resume analysis for features that were moved to backlog
+      // Resume analysis for features that were moved to ready
       // This handles tasks that were left in needs_analysis status
       for (const featureId of featuresToAnalyze) {
         this.resumeAnalysisInBackground(featureId)
