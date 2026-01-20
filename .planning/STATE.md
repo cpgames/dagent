@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 **Milestone:** v3.2 Feature State Machine Refactor IN PROGRESS
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: v3.2-01 of 6 (State Machine Foundation)
-Plan: 01 of 2 complete
-Status: Executing
-Last activity: 2026-01-20 — Plan v3.2-01-01 complete (Core Type System Update)
+Phase: v3.2-01 of 6 (State Machine Foundation) COMPLETE
+Plan: 02 of 2 complete
+Status: Phase complete
+Last activity: 2026-01-20 — Plan v3.2-01-02 complete (UI Components & Orchestrator Update)
 
-Progress: █░░░░░░░░░ 8% (0 of 6 phases, 1 plan executed)
+Progress: █░░░░░░░░░ 17% (1 of 6 phases, 2 plans executed)
 
-Next action: Run /gsd:execute-plan v3.2-01-02
+Next action: Run /gsd:plan-phase v3.2-02
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 145 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 1)
+- Total plans completed: 146 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 2)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~505 min
 
@@ -41,8 +41,8 @@ Next action: Run /gsd:execute-plan v3.2-01-02
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.1-03-01 to v3.1-03-03, v3.1-04-01, v3.1-04-02, v3.2-01-01
-- Trend: v3.2 milestone started (Feature State Machine Refactor)
+- Last 7 plans: v3.1-03-02, v3.1-03-03, v3.1-04-01, v3.1-04-02, v3.2-01-01, v3.2-01-02
+- Trend: v3.2 Phase 1 complete (State Machine Foundation)
 
 ## Accumulated Context
 
@@ -52,6 +52,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - **9-state lifecycle**: Features now progress through: not_started -> creating_worktree -> investigating -> questioning -> planning -> ready -> in_progress -> completed -> archived
+- **Interim 4-column Kanban**: 9 states grouped into 4 columns (Backlog: not_started/ready, In Progress: creating_worktree/investigating/questioning/planning/in_progress, Completed, Archived)
 
 - **electron-vite**: Chose electron-vite over electron-forge for Vite-native integration
 - **Tailwind v4**: Using Tailwind CSS v4 with @tailwindcss/vite plugin
@@ -1089,4 +1090,25 @@ Key features:
 - Automatic analysis after feature planning (configurable via settings)
 - Analysis events broadcast for real-time UI updates
 - Feature workflow: Create -> Planning (spec.md) -> Analysis (split/keep) -> Backlog
+
+---
+
+## v3.2 Milestone - Feature State Machine Refactor (In Progress)
+
+### Phase v3.2-01: State Machine Foundation (Complete)
+
+- **01-01**: Core Type System Update
+  - Updated FeatureStatus type from 6 to 9 states
+  - Updated VALID_TRANSITIONS map with 9-state rules
+  - Added StatusBadge configs for all 9 states
+  - Added migration logic for old statuses (backlog->ready, needs_attention->ready)
+
+- **01-02**: UI Components & Orchestrator Update
+  - Fixed all TypeScript errors from status changes (8 files)
+  - Updated Kanban to 4-column layout grouping 9 states
+  - Updated FeatureCard with 9 status badges and ready/questioning buttons
+  - Updated PM agent routing for questioning state
+  - Orchestrator unchanged (task-centric design)
+
+All verification items passed. Phase v3.2-01 Complete.
 
