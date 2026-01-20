@@ -323,6 +323,45 @@ export function registerFeatureHandlers(): void {
                 try {
                   await manager.updateFeatureStatus(featureId, 'investigating')
                   console.log(`[FeatureHandlers] Worktree created, status updated to investigating for ${featureId}`)
+
+                  // Auto-start PM agent for planning
+                  // Fire-and-forget - don't block the worktree success flow
+                  try {
+                    console.log(`[FeatureHandlers] Auto-starting PM agent for ${featureId}`)
+                    const feature = await featureStore.loadFeature(featureId)
+                    if (feature) {
+                      const statusMgr = getStatusManager()
+                      const agentSvc = getAgentService()
+                      const evtEmitter = new EventEmitter()
+                      const projRoot = getProjectRoot()
+
+                      if (projRoot) {
+                        // Initialize DAGManager for event broadcasting
+                        const { getDAGManager } = await import('./dag-handlers')
+                        await getDAGManager(featureId, projRoot)
+
+                        const pmManager = createPMAgentManager(
+                          agentSvc,
+                          featureStore,
+                          statusMgr,
+                          evtEmitter,
+                          projRoot
+                        )
+                        // Fire-and-forget - don't await
+                        pmManager.startPlanningForFeature(
+                          featureId,
+                          feature.name,
+                          feature.description,
+                          feature.attachments
+                        ).catch(err => {
+                          console.error(`[FeatureHandlers] PM agent planning failed for ${featureId}:`, err)
+                        })
+                      }
+                    }
+                  } catch (pmError) {
+                    console.error(`[FeatureHandlers] Failed to auto-start PM agent for ${featureId}:`, pmError)
+                    // Non-blocking - don't affect worktree success
+                  }
                 } catch (error) {
                   console.error(`[FeatureHandlers] Failed to update status after worktree creation:`, error)
                 }
