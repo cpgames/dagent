@@ -1029,6 +1029,18 @@ export interface FeatureAPI {
   onStatusChanged: (callback: (data: FeatureStatusChangeEvent) => void) => () => void
 
   /**
+   * Subscribe to feature analysis result events.
+   * Returns an unsubscribe function.
+   */
+  onAnalysisResult: (callback: (data: { featureId: string; uncertainties?: string[] }) => void) => () => void
+
+  /**
+   * Subscribe to worktree creation progress events.
+   * Returns an unsubscribe function.
+   */
+  onWorktreeProgress: (callback: (data: { featureId: string; message: string }) => void) => () => void
+
+  /**
    * Save an attachment file for a feature.
    * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
    */
@@ -1049,6 +1061,22 @@ export interface FeatureAPI {
     description?: string,
     attachments?: string[]
   ) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Continue PM agent conversation with user's response.
+   * Called when user sends a message in chat during planning phase.
+   */
+  respondToPM: (
+    featureId: string,
+    userResponse: string
+  ) => Promise<{ success: boolean; canProceed: boolean; uncertainties?: string[]; error?: string }>
+
+  /**
+   * Start worktree creation for a not_started feature.
+   * Updates status to creating_worktree immediately and creates worktree in background.
+   * On success transitions to investigating, on failure reverts to not_started.
+   */
+  startWorktreeCreation: (featureId: string) => Promise<{ success: boolean; featureId?: string; error?: string }>
 
   /**
    * Replan a feature - deletes all tasks and spec, restarts planning.

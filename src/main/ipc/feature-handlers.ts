@@ -274,6 +274,93 @@ export function registerFeatureHandlers(): void {
   )
 
   /**
+   * Start worktree creation for a not_started feature.
+   * 1. Validates feature is in 'not_started' status
+   * 2. Updates feature status to 'creating_worktree' immediately
+   * 3. Moves feature data from pending to worktree location
+   * 4. Starts git worktree creation asynchronously (non-blocking)
+   * 5. Returns immediately while worktree creation happens in background
+   */
+  ipcMain.handle(
+    'feature:startWorktreeCreation',
+    async (
+      _event,
+      featureId: string
+    ): Promise<{ success: boolean; featureId?: string; error?: string }> => {
+      try {
+        const featureStore = getFeatureStore()
+        if (!featureStore) {
+          throw new Error('FeatureStore not initialized. Call initializeStorage first.')
+        }
+
+        // Load feature and validate status
+        const feature = await featureStore.loadFeature(featureId)
+        if (!feature) {
+          return { success: false, error: `Feature ${featureId} not found` }
+        }
+
+        if (feature.status !== 'not_started') {
+          return {
+            success: false,
+            error: `Feature ${featureId} is not in not_started status (current: ${feature.status})`
+          }
+        }
+
+        // Update status to creating_worktree immediately
+        const manager = getStatusManager()
+        await manager.updateFeatureStatus(featureId, 'creating_worktree')
+
+        // Move feature data from pending to worktree location
+        await featureStore.moveFeatureToWorktree(featureId)
+
+        // Start worktree creation asynchronously (non-blocking)
+        const gitManager = getGitManager()
+        if (gitManager.isInitialized()) {
+          gitManager.createFeatureWorktree(featureId)
+            .then(async (result) => {
+              if (result.success) {
+                // Update status to investigating on success
+                try {
+                  await manager.updateFeatureStatus(featureId, 'investigating')
+                  console.log(`[FeatureHandlers] Worktree created, status updated to investigating for ${featureId}`)
+                } catch (error) {
+                  console.error(`[FeatureHandlers] Failed to update status after worktree creation:`, error)
+                }
+              } else {
+                // Update status back to not_started on failure
+                console.error(`[FeatureHandlers] Worktree creation failed for ${featureId}:`, result.error)
+                try {
+                  await manager.updateFeatureStatus(featureId, 'not_started')
+                } catch (error) {
+                  console.error(`[FeatureHandlers] Failed to revert status:`, error)
+                }
+              }
+            })
+            .catch(async (error) => {
+              console.error(`[FeatureHandlers] Worktree creation error for ${featureId}:`, error)
+              try {
+                await manager.updateFeatureStatus(featureId, 'not_started')
+              } catch (revertError) {
+                console.error(`[FeatureHandlers] Failed to revert status:`, revertError)
+              }
+            })
+        } else {
+          // Git not initialized - skip worktree creation, just update status to investigating
+          await manager.updateFeatureStatus(featureId, 'investigating')
+          console.log(`[FeatureHandlers] Git not initialized, skipped worktree creation for ${featureId}`)
+        }
+
+        return { success: true, featureId }
+      } catch (error) {
+        return {
+          success: false,
+          error: (error as Error).message
+        }
+      }
+    }
+  )
+
+  /**
    * Save an attachment file for a feature.
    * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
    */

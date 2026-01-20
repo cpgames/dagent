@@ -607,6 +607,28 @@ const electronAPI = {
       return () => ipcRenderer.removeListener('feature:status-changed', handler)
     },
 
+    onAnalysisResult: (
+      callback: (data: { featureId: string; uncertainties?: string[] }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; uncertainties?: string[] }
+      ): void => callback(data)
+      ipcRenderer.on('feature:analysis-result', handler)
+      return () => ipcRenderer.removeListener('feature:analysis-result', handler)
+    },
+
+    onWorktreeProgress: (
+      callback: (data: { featureId: string; message: string }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; message: string }
+      ): void => callback(data)
+      ipcRenderer.on('feature:worktree-progress', handler)
+      return () => ipcRenderer.removeListener('feature:worktree-progress', handler)
+    },
+
     // Save an attachment file for a feature
     saveAttachment: (
       featureId: string,
@@ -627,6 +649,18 @@ const electronAPI = {
       attachments?: string[]
     ): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('feature:startPlanning', featureId, featureName, description, attachments),
+
+    // Continue PM agent conversation with user's response
+    respondToPM: (
+      featureId: string,
+      userResponse: string
+    ): Promise<{ success: boolean; canProceed: boolean; uncertainties?: string[]; error?: string }> =>
+      ipcRenderer.invoke('feature:respondToPM', featureId, userResponse),
+
+    // Start worktree creation for a not_started feature
+    // Transitions to creating_worktree immediately, worktree created in background
+    startWorktreeCreation: (featureId: string): Promise<{ success: boolean; featureId?: string; error?: string }> =>
+      ipcRenderer.invoke('feature:startWorktreeCreation', featureId),
 
     // Replan a feature - deletes all tasks and spec, restarts planning
     // Only allowed when feature is in 'backlog' status

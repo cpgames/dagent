@@ -115,8 +115,8 @@ function MergeIcon(): React.JSX.Element {
  * merge button with dropdown for completed features, and delete button on hover.
  */
 export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount }: FeatureCardProps) {
-  // Show Start button for features that are ready to start execution
-  const showStart = feature.status === 'ready';
+  // Show Start button for features that are ready to start execution OR not_started (to create worktree)
+  const showStart = feature.status === 'ready' || feature.status === 'not_started';
   // Show Stop button for features that are currently executing
   const showStop = feature.status === 'in_progress';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
@@ -141,16 +141,24 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
   const handleStart = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering onSelect
     if (!isStarting) {
-      // First update status to in_progress, then start execution
       try {
-        const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'in_progress');
-        if (updateResult.success) {
-          onStart?.(feature.id);
+        if (feature.status === 'not_started') {
+          // For not_started features: call startWorktreeCreation to create worktree in background
+          const result = await window.electronAPI.feature.startWorktreeCreation(feature.id);
+          if (!result.success) {
+            console.error('Failed to start worktree creation:', result.error);
+          }
         } else {
-          console.error('Failed to update feature status:', updateResult.error);
+          // For ready features: First update status to in_progress, then start execution
+          const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'in_progress');
+          if (updateResult.success) {
+            onStart?.(feature.id);
+          } else {
+            console.error('Failed to update feature status:', updateResult.error);
+          }
         }
       } catch (error) {
-        console.error('Error updating feature status:', error);
+        console.error('Error starting feature:', error);
       }
     }
   };
