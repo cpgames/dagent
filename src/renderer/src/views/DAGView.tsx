@@ -156,6 +156,9 @@ function DAGViewInner({
   // Debounce timer for layout persistence
   const saveLayoutTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Track previous node count to only fit view when first node is added
+  const prevNodeCountRef = useRef<number>(0)
+
   // Chat panel width state with localStorage persistence
   const [chatWidth, setChatWidth] = useState(() => {
     const saved = localStorage.getItem('dagent.chatPanelWidth')
@@ -476,6 +479,7 @@ function DAGViewInner({
   // Update nodes/edges when DAG or selection changes, merging in saved layout positions
   useEffect(() => {
     const nodeCount = dag?.nodes?.length ?? 0
+    const prevNodeCount = prevNodeCountRef.current
     console.log(`[DAGViewInner] DAG changed, nodes: ${nodeCount}, updating React Flow`)
     const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId).map((node) => {
       const savedPos = layoutPositionsRef.current[node.id]
@@ -488,13 +492,18 @@ function DAGViewInner({
     setNodes(newNodes)
     setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
 
-    // Auto-fit view whenever DAG changes to keep all nodes visible
-    if (nodeCount > 0) {
+    // Only fit view when going from 0 nodes to 1+ nodes (first node added)
+    // This prevents the view from constantly re-centering during planning updates
+    if (prevNodeCount === 0 && nodeCount > 0) {
+      console.log('[DAGViewInner] First node added, fitting view')
       // Use setTimeout to ensure nodes are rendered before fitting
       setTimeout(() => {
         fitView({ padding: 0.2, duration: 200 })
       }, 50)
     }
+
+    // Update previous node count
+    prevNodeCountRef.current = nodeCount
   }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges, fitView])
 
   // Poll for real-time session updates when task log dialog is open
