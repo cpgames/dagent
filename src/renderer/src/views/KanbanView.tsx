@@ -53,6 +53,9 @@ export default function KanbanView() {
   // Analysis status per feature
   const [analysisStatus, setAnalysisStatus] = useState<Record<string, AnalysisStatus>>({});
 
+  // Worktree creation progress per feature
+  const [worktreeProgress, setWorktreeProgress] = useState<Record<string, string>>({});
+
   // Fetch initial pending counts for features in planning status only
   // Features in backlog or later stages cannot have needs_analysis tasks
   useEffect(() => {
@@ -115,6 +118,19 @@ export default function KanbanView() {
     const unsubscribe = window.electronAPI.analysis.onEvent(handleAnalysisEvent);
     return unsubscribe;
   }, [handleAnalysisEvent]);
+
+  // Subscribe to worktree progress events
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.feature.onWorktreeProgress(
+      (data: { featureId: string; message: string }) => {
+        setWorktreeProgress(prev => ({
+          ...prev,
+          [data.featureId]: data.message
+        }));
+      }
+    );
+    return unsubscribe;
+  }, []);
 
   // Group features by column (each column may contain multiple statuses)
   const featuresByColumn = useMemo(() => {
@@ -219,6 +235,7 @@ export default function KanbanView() {
               onMergeFeature={handleMergeFeature}
               startingFeatureId={startingFeatureId}
               analysisStatus={analysisStatus}
+              worktreeProgress={worktreeProgress}
             />
           ))}
         </div>

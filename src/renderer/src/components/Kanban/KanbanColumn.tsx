@@ -13,6 +13,7 @@ interface KanbanColumnProps {
   onMergeFeature?: (featureId: string, mergeType: MergeType) => void;
   startingFeatureId?: string | null;
   analysisStatus?: Record<string, { analyzing: boolean; pendingCount: number }>;
+  worktreeProgress?: Record<string, string>;
 }
 
 /**
@@ -30,6 +31,7 @@ export default function KanbanColumn({
   onMergeFeature,
   startingFeatureId,
   analysisStatus,
+  worktreeProgress,
 }: KanbanColumnProps) {
   const count = features.length;
 
@@ -68,6 +70,7 @@ export default function KanbanColumn({
                   isStarting={feature.id === startingFeatureId}
                   isAnalyzing={featureAnalysis?.analyzing}
                   pendingAnalysisCount={featureAnalysis?.pendingCount}
+                  worktreeProgress={worktreeProgress?.[feature.id]}
                 />
               );
             })

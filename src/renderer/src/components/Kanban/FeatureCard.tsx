@@ -14,6 +14,7 @@ interface FeatureCardProps {
   isStarting?: boolean;
   isAnalyzing?: boolean;
   pendingAnalysisCount?: number;
+  worktreeProgress?: string;  // Progress message during worktree creation
 }
 
 /**
@@ -114,7 +115,7 @@ function MergeIcon(): React.JSX.Element {
  * Shows feature name, task progress placeholder,
  * merge button with dropdown for completed features, and delete button on hover.
  */
-export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount }: FeatureCardProps) {
+export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount, worktreeProgress }: FeatureCardProps) {
   // Show Start button for features that are ready to start execution OR not_started (to create worktree)
   const showStart = feature.status === 'ready' || feature.status === 'not_started';
   // Show Stop button for features that are currently executing
@@ -213,7 +214,7 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
       return { message: 'Investigating...', showSpinner: true };
     }
     if (feature.status === 'creating_worktree') {
-      return { message: 'Creating worktree...', showSpinner: true };
+      return { message: worktreeProgress || 'Creating worktree...', showSpinner: true };
     }
     if (feature.status === 'not_started') {
       return { message: 'Not started', showSpinner: false };
