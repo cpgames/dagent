@@ -283,8 +283,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const featureStore = useFeatureStore.getState()
       const feature = featureStore.features.find(f => f.id === currentFeatureId)
 
-      // Use PM conversation API if feature is in planning or questioning state
-      if (feature && (feature.status === 'planning' || feature.status === 'questioning')) {
+      // Use PM conversation API if feature is in PM planning phases (investigating, questioning, or planning)
+      if (feature && (feature.status === 'investigating' || feature.status === 'questioning' || feature.status === 'planning')) {
         return get().sendToPMAgent()
       }
     }
