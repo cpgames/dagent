@@ -557,7 +557,18 @@ Remember: Ask ONE question at a time in a conversational manner.`
 
         if (uncertainStartIndex !== -1) {
           const afterMarker = responseText.slice(uncertainStartIndex).replace(/^uncertain:\s*/i, '').trim()
-          const questionText = afterMarker.split('\n\n')[0].trim()
+
+          // Extract the full question text - capture everything until we hit a marker like
+          // "CONFIDENT:", "COMPLEXITY:", or "UNCERTAIN:" (next question). This preserves multi-line questions with lists.
+          let questionText = afterMarker
+          const endMarkers = ['confident:', 'complexity:', 'uncertain:']
+          for (const marker of endMarkers) {
+            const markerIndex = questionText.toLowerCase().indexOf(marker)
+            if (markerIndex > 0) {
+              questionText = questionText.slice(0, markerIndex)
+            }
+          }
+          questionText = questionText.trim()
 
           if (questionText.length > 0) {
             uncertainties.push(questionText)
@@ -814,8 +825,18 @@ Remember: Ask ONE question at a time in a conversational manner.`
           // Get everything after "UNCERTAIN:" marker
           const afterMarker = responseText.slice(uncertainStartIndex).replace(/^uncertain:\s*/i, '').trim()
 
-          // Extract the actual question text (stop at double newline if present)
-          const questionText = afterMarker.split('\n\n')[0].trim()
+          // Extract the full question text - capture everything until we hit a marker like
+          // "CONFIDENT:", "COMPLEXITY:", or end of response. This preserves multi-line questions with lists.
+          let questionText = afterMarker
+          // Check for any subsequent markers that would indicate end of question
+          const endMarkers = ['confident:', 'complexity:', 'uncertain:']
+          for (const marker of endMarkers) {
+            const markerIndex = questionText.toLowerCase().indexOf(marker)
+            if (markerIndex > 0) {
+              questionText = questionText.slice(0, markerIndex)
+            }
+          }
+          questionText = questionText.trim()
 
           if (questionText.length > 0) {
             uncertainties.push(questionText)
