@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type JSX } from 'react'
+import ReactMarkdown from 'react-markdown'
 import type { FeatureSpec } from '../../../../main/agents/feature-spec-types'
 import './FeatureSpecViewer.css'
 
@@ -57,7 +58,7 @@ export function FeatureSpecViewer({
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     goals: true,
     requirements: true,
-    constraints: false,
+    constraints: true,  // Open by default to show questions during investigation
     acceptance: true
   })
 
@@ -160,7 +161,9 @@ export function FeatureSpecViewer({
             {spec.goals.map((goal, idx) => (
               <li key={idx} className="spec-viewer__item">
                 <span className="spec-viewer__item-bullet spec-viewer__item-bullet--goal">*</span>
-                <span className="spec-viewer__item-text">{goal}</span>
+                <div className="spec-viewer__item-text spec-viewer__item-markdown">
+                  <ReactMarkdown>{goal}</ReactMarkdown>
+                </div>
               </li>
             ))}
           </ul>
@@ -184,19 +187,19 @@ export function FeatureSpecViewer({
                 <span className={`spec-viewer__item-check ${req.completed ? 'spec-viewer__item-check--complete' : 'spec-viewer__item-check--pending'}`}>
                   {req.completed ? 'v' : 'o'}
                 </span>
-                <span className={`spec-viewer__item-text ${req.completed ? 'spec-viewer__item-text--complete' : ''}`}>
-                  {req.description}
-                </span>
+                <div className={`spec-viewer__item-text spec-viewer__item-markdown ${req.completed ? 'spec-viewer__item-text--complete' : ''}`}>
+                  <ReactMarkdown>{req.description}</ReactMarkdown>
+                </div>
               </li>
             ))}
           </ul>
         </CollapsibleSection>
       )}
 
-      {/* Constraints Section */}
+      {/* Constraints Section - also shows PM questions during investigation */}
       {spec.constraints.length > 0 && (
         <CollapsibleSection
-          title="Constraints"
+          title="Questions"
           isOpen={openSections.constraints}
           onToggle={() => toggleSection('constraints')}
           count={spec.constraints.length}
@@ -204,8 +207,10 @@ export function FeatureSpecViewer({
           <ul className="spec-viewer__list">
             {spec.constraints.map((constraint, idx) => (
               <li key={idx} className="spec-viewer__item">
-                <span className="spec-viewer__item-bullet spec-viewer__item-bullet--constraint">!</span>
-                <span className="spec-viewer__item-text">{constraint}</span>
+                <span className="spec-viewer__item-bullet spec-viewer__item-bullet--constraint">?</span>
+                <div className="spec-viewer__item-text spec-viewer__item-markdown">
+                  <ReactMarkdown>{constraint}</ReactMarkdown>
+                </div>
               </li>
             ))}
           </ul>
@@ -229,9 +234,9 @@ export function FeatureSpecViewer({
                 <span className={`spec-viewer__item-check ${criterion.passed ? 'spec-viewer__item-check--complete' : 'spec-viewer__item-check--pending'}`}>
                   {criterion.passed ? 'v' : 'o'}
                 </span>
-                <span className={`spec-viewer__item-text ${criterion.passed ? 'spec-viewer__item-text--complete' : ''}`}>
-                  {criterion.description}
-                </span>
+                <div className={`spec-viewer__item-text spec-viewer__item-markdown ${criterion.passed ? 'spec-viewer__item-text--complete' : ''}`}>
+                  <ReactMarkdown>{criterion.description}</ReactMarkdown>
+                </div>
               </li>
             ))}
           </ul>
