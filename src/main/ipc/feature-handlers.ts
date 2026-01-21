@@ -276,10 +276,14 @@ export function registerFeatureHandlers(): void {
   /**
    * Start worktree creation for a not_started feature.
    * 1. Validates feature is in 'not_started' status
-   * 2. Updates feature status to 'creating_worktree' immediately
-   * 3. Moves feature data from pending to worktree location
-   * 4. Starts git worktree creation asynchronously (non-blocking)
+   * 2. Updates feature status to 'creating_worktree' in pending storage
+   * 3. Starts git worktree creation asynchronously (non-blocking)
+   * 4. On worktree completion, moves feature data from pending to worktree location
    * 5. Returns immediately while worktree creation happens in background
+   *
+   * IMPORTANT: Feature data must be moved AFTER git worktree creation because
+   * `git worktree add` creates a fresh checkout that would overwrite any pre-existing
+   * .dagent directory.
    */
   ipcMain.handle(
     'feature:startWorktreeCreation',
@@ -306,24 +310,89 @@ export function registerFeatureHandlers(): void {
           }
         }
 
-        // Move feature data from pending to worktree location FIRST
-        // (before status change, so moveFeatureToWorktree finds not_started status)
-        await featureStore.moveFeatureToWorktree(featureId)
+        // Update status to creating_worktree in PENDING storage
+        // (feature data stays in pending location until worktree is created)
+        feature.status = 'creating_worktree'
+        feature.updatedAt = new Date().toISOString()
+        // Save directly to pending location (bypass saveFeature which checks status)
+        const pendingPath = path.join(getProjectRoot()!, '.dagent', 'features', featureId, 'feature.json')
+        await fs.writeFile(pendingPath, JSON.stringify(feature, null, 2))
 
-        // Now update status to creating_worktree
-        // (this will save to worktree location since pending no longer exists)
-        const manager = getStatusManager()
-        await manager.updateFeatureStatus(featureId, 'creating_worktree')
+        // Broadcast status change to UI
+        const { BrowserWindow } = await import('electron')
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:status-changed', { featureId, status: 'creating_worktree' })
+          }
+        }
 
         // Start worktree creation asynchronously (non-blocking)
         const gitManager = getGitManager()
+
         if (gitManager.isInitialized()) {
           gitManager.createFeatureWorktree(featureId)
             .then(async (result) => {
               if (result.success) {
-                // Update status to investigating on success
+                // Worktree created - NOW move feature data from pending to worktree
                 try {
-                  await manager.updateFeatureStatus(featureId, 'investigating')
+                  // Update feature status to investigating before moving
+                  feature.status = 'investigating'
+                  feature.updatedAt = new Date().toISOString()
+
+                  // moveFeatureToWorktree expects not_started status, so we need to
+                  // manually copy the data with the updated status
+                  const { getFeaturePath, getPendingFeatureDir, getPendingDagPath, getDagPath, getPendingAttachmentsDir, getFeatureDir } = await import('../storage/paths')
+                  const { writeJson } = await import('../storage/json-store')
+                  const projectRoot = getProjectRoot()!
+
+                  // Create the worktree .dagent directory structure
+                  const worktreeFeatureDir = getFeatureDir(projectRoot, featureId)
+                  await fs.mkdir(worktreeFeatureDir, { recursive: true })
+
+                  // Write feature.json with investigating status to worktree location
+                  const worktreeFeaturePath = getFeaturePath(projectRoot, featureId)
+                  await writeJson(worktreeFeaturePath, feature)
+
+                  // Copy dag.json if it exists
+                  const pendingDagPath = getPendingDagPath(projectRoot, featureId)
+                  try {
+                    const dagData = await fs.readFile(pendingDagPath, 'utf-8')
+                    const worktreeDagPath = getDagPath(projectRoot, featureId)
+                    await fs.writeFile(worktreeDagPath, dagData)
+                  } catch {
+                    // No dag.json in pending, that's OK
+                  }
+
+                  // Copy attachments directory if it exists
+                  const pendingAttachmentsDir = getPendingAttachmentsDir(projectRoot, featureId)
+                  try {
+                    const attachments = await fs.readdir(pendingAttachmentsDir)
+                    if (attachments.length > 0) {
+                      const worktreeAttachmentsDir = path.join(worktreeFeatureDir, 'attachments')
+                      await fs.mkdir(worktreeAttachmentsDir, { recursive: true })
+                      for (const fileName of attachments) {
+                        const srcPath = path.join(pendingAttachmentsDir, fileName)
+                        const destPath = path.join(worktreeAttachmentsDir, fileName)
+                        await fs.copyFile(srcPath, destPath)
+                      }
+                    }
+                  } catch {
+                    // No attachments directory, that's fine
+                  }
+
+                  // Delete the pending feature directory
+                  const pendingFeatureDir = getPendingFeatureDir(projectRoot, featureId)
+                  await fs.rm(pendingFeatureDir, { recursive: true })
+
+                  // Broadcast status change to UI
+                  const windows = BrowserWindow.getAllWindows()
+                  for (const win of windows) {
+                    if (!win.isDestroyed()) {
+                      win.webContents.send('feature:status-changed', { featureId, status: 'investigating' })
+                    }
+                  }
+
                   console.log(`[FeatureHandlers] Worktree created, status updated to investigating for ${featureId}`)
 
                   // Auto-start PM agent for planning
@@ -369,9 +438,22 @@ export function registerFeatureHandlers(): void {
                 }
               } else {
                 // Update status back to not_started on failure
+                // Feature is still in pending location, so write directly there
                 console.error(`[FeatureHandlers] Worktree creation failed for ${featureId}:`, result.error)
                 try {
-                  await manager.updateFeatureStatus(featureId, 'not_started')
+                  feature.status = 'not_started'
+                  feature.updatedAt = new Date().toISOString()
+                  const pendingPathForRevert = path.join(getProjectRoot()!, '.dagent', 'features', featureId, 'feature.json')
+                  await fs.writeFile(pendingPathForRevert, JSON.stringify(feature, null, 2))
+
+                  // Broadcast status change to UI
+                  const windows = BrowserWindow.getAllWindows()
+                  for (const win of windows) {
+                    if (!win.isDestroyed()) {
+                      win.webContents.send('feature:status-changed', { featureId, status: 'not_started' })
+                    }
+                  }
+                  console.log(`[FeatureHandlers] Reverted status to not_started for ${featureId}`)
                 } catch (error) {
                   console.error(`[FeatureHandlers] Failed to revert status:`, error)
                 }
@@ -380,14 +462,83 @@ export function registerFeatureHandlers(): void {
             .catch(async (error) => {
               console.error(`[FeatureHandlers] Worktree creation error for ${featureId}:`, error)
               try {
-                await manager.updateFeatureStatus(featureId, 'not_started')
+                // Revert status to not_started in pending location
+                feature.status = 'not_started'
+                feature.updatedAt = new Date().toISOString()
+                const pendingPathForRevert = path.join(getProjectRoot()!, '.dagent', 'features', featureId, 'feature.json')
+                await fs.writeFile(pendingPathForRevert, JSON.stringify(feature, null, 2))
+
+                // Broadcast status change to UI
+                const windows = BrowserWindow.getAllWindows()
+                for (const win of windows) {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('feature:status-changed', { featureId, status: 'not_started' })
+                  }
+                }
+                console.log(`[FeatureHandlers] Reverted status to not_started for ${featureId}`)
               } catch (revertError) {
                 console.error(`[FeatureHandlers] Failed to revert status:`, revertError)
               }
             })
         } else {
-          // Git not initialized - skip worktree creation, just update status to investigating
-          await manager.updateFeatureStatus(featureId, 'investigating')
+          // Git not initialized - skip worktree creation
+          // Move feature data from pending to worktree location manually
+          const { getFeaturePath, getPendingFeatureDir, getPendingDagPath, getDagPath, getPendingAttachmentsDir, getFeatureDir } = await import('../storage/paths')
+          const { writeJson } = await import('../storage/json-store')
+          const projectRoot = getProjectRoot()!
+
+          // Update feature status to investigating
+          feature.status = 'investigating'
+          feature.updatedAt = new Date().toISOString()
+
+          // Create the worktree .dagent directory structure
+          const worktreeFeatureDir = getFeatureDir(projectRoot, featureId)
+          await fs.mkdir(worktreeFeatureDir, { recursive: true })
+
+          // Write feature.json with investigating status to worktree location
+          const worktreeFeaturePath = getFeaturePath(projectRoot, featureId)
+          await writeJson(worktreeFeaturePath, feature)
+
+          // Copy dag.json if it exists
+          const pendingDagPath = getPendingDagPath(projectRoot, featureId)
+          try {
+            const dagData = await fs.readFile(pendingDagPath, 'utf-8')
+            const worktreeDagPath = getDagPath(projectRoot, featureId)
+            await fs.writeFile(worktreeDagPath, dagData)
+          } catch {
+            // No dag.json in pending, that's OK
+          }
+
+          // Copy attachments directory if it exists
+          const pendingAttachmentsDir = getPendingAttachmentsDir(projectRoot, featureId)
+          try {
+            const attachments = await fs.readdir(pendingAttachmentsDir)
+            if (attachments.length > 0) {
+              const worktreeAttachmentsDir = path.join(worktreeFeatureDir, 'attachments')
+              await fs.mkdir(worktreeAttachmentsDir, { recursive: true })
+              for (const fileName of attachments) {
+                const srcPath = path.join(pendingAttachmentsDir, fileName)
+                const destPath = path.join(worktreeAttachmentsDir, fileName)
+                await fs.copyFile(srcPath, destPath)
+              }
+            }
+          } catch {
+            // No attachments directory, that's fine
+          }
+
+          // Delete the pending feature directory
+          const pendingFeatureDir = getPendingFeatureDir(projectRoot, featureId)
+          await fs.rm(pendingFeatureDir, { recursive: true })
+
+          // Broadcast status change to UI
+          const { BrowserWindow } = await import('electron')
+          const windows = BrowserWindow.getAllWindows()
+          for (const win of windows) {
+            if (!win.isDestroyed()) {
+              win.webContents.send('feature:status-changed', { featureId, status: 'investigating' })
+            }
+          }
+
           console.log(`[FeatureHandlers] Git not initialized, skipped worktree creation for ${featureId}`)
         }
 
