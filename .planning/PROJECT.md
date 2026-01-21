@@ -10,9 +10,22 @@ Tasks execute in correct dependency order with context handoff between agents - 
 
 ## Current Milestone: Planning Next Version
 
-**Status:** v3.1 complete. Ready for next milestone planning.
+**Status:** v3.2 complete. Ready for next milestone planning.
 
-## Current State (v3.1 Task Analysis Orchestrator)
+## Current State (v3.2 Feature State Machine & Non-Blocking Creation)
+
+Shipped 2026-01-20. Complete feature state machine refactor:
+- 6 phases (v3.2-01 through v3.2-06) completed, 11 plans executed
+- 9-state feature lifecycle: not_started → creating_worktree → investigating → questioning → planning → ready → in_progress → completed → archived
+- Non-blocking feature creation (instant, worktree created on Start click)
+- PM agent auto-triggers on investigating state
+- Real-time spec updates via event subscription
+- State-specific icons (magnifying glass, question mark, chart)
+- Context-aware controls (Start button disabled with tooltips during planning)
+- 4-column Kanban: Backlog, In Progress, Completed, Archived
+- 56,195 lines TypeScript total
+
+## Previous State (v3.1 Task Analysis Orchestrator)
 
 Shipped 2026-01-18. Orchestrator-controlled task analysis loop:
 - 4 phases (v3.1-01 through v3.1-04) completed, 12 plans executed
@@ -22,20 +35,6 @@ Shipped 2026-01-18. Orchestrator-controlled task analysis loop:
 - PM analysis prompt with structured JSON decision format
 - Analysis UI in Kanban (spinner) and DAG View (button, animation)
 - `autoAnalyzeNewFeatures` setting (default: true)
-- 42,310 lines TypeScript total
-
-## Previous State (v3.0 Session & Checkpoint Architecture)
-
-Shipped 2026-01-17. Centralized session management system:
-- 8 phases (v3.0-02 through v3.0-09) completed, 19 plans executed
-- SessionManager service (1,146 lines) for all agent types
-- Automatic compaction at 90k tokens with checkpoint preservation
-- Universal agent integration (PM, Dev, QA, Harness, Merge)
-- UI components: SessionStatus, CheckpointViewer, SessionActions
-- 143 tests (unit, CRUD, compaction, performance, migration)
-- 2,067 lines documentation (architecture, API, compaction guide, file structure)
-- Migration system with auto-migration and backup
-- Old chat APIs deprecated with migration path
 
 ## Requirements
 
@@ -151,6 +150,24 @@ Shipped 2026-01-17. Centralized session management system:
 - [x] Compaction guide documentation (366 lines) - v3.0
 - [x] API reference documentation (896 lines) - v3.0
 - [x] File structure documentation (319 lines) - v3.0
+- [x] 9-state feature lifecycle (not_started → creating_worktree → investigating → questioning → planning → ready → in_progress → completed → archived) - v3.2
+- [x] Validated state transitions (only valid transitions allowed) - v3.2
+- [x] Feature storage schema supports all 9 states - v3.2
+- [x] Non-blocking feature creation (instant, no worktree) - v3.2
+- [x] Deferred worktree creation on Start button click - v3.2
+- [x] Background worktree creation with progress indicators - v3.2
+- [x] Automatic transition to investigating when worktree ready - v3.2
+- [x] 4-column Kanban (Backlog, In Progress, Completed, Archived) - v3.2
+- [x] Event-driven Kanban updates via feature:status-changed events - v3.2
+- [x] Start button in Backlog cards triggers worktree creation - v3.2
+- [x] PM agent auto-triggers on investigating state - v3.2
+- [x] Chat routing to PM during investigating/questioning/planning - v3.2
+- [x] PM can skip questioning and go directly to planning - v3.2
+- [x] Real-time spec updates via spec:updated events - v3.2
+- [x] DAG header shows planning phase badge - v3.2
+- [x] Start button disabled with tooltips during planning phases - v3.2
+- [x] State-specific icons in feature cards (magnifying glass, question mark, chart) - v3.2
+- [x] Visual progress indicators for planning phases - v3.2
 
 ### Backlog
 
@@ -212,6 +229,12 @@ Key reference material:
 | Token estimation (char-based) | 4 chars = 1 token, fast and accurate | Good |
 | Auto-compaction at 90k | Leaves buffer before 100k limit | Good |
 | Jest over Vitest | Node.js v24 compatibility issues | Good |
+| 9-state feature lifecycle | Explicit states for planning workflow | Good |
+| 4-column Kanban | 9 states mapped to intuitive columns | Good |
+| Non-blocking creation | Instant UX, deferred heavy operations | Good |
+| PM auto-trigger | Seamless planning workflow | Good |
+| Event-driven spec updates | Real-time UI refresh | Good |
+| State-specific icons | Visual phase identification at a glance | Good |
 
 ---
-*Last updated: 2026-01-17 after v3.0 milestone*
+*Last updated: 2026-01-20 after v3.2 milestone*

@@ -5,26 +5,26 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Milestone v3.2 COMPLETE
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-**Milestone:** v3.2 Feature State Machine Refactor COMPLETE
-**Roadmap:** .planning/ROADMAP.md
+**Milestone:** v3.2 SHIPPED, planning next version
+**Roadmap:** (to be created with /gsd:create-roadmap after /gsd:define-requirements)
 
-Phase: v3.2-06 of 6 (Context-Aware UI Polish) COMPLETE
-Plan: 2 of 2 complete
-Status: All phases complete, milestone ready for completion
-Last activity: 2026-01-20 — Phase v3.2-06 executed (state-specific icons, DAG header badges)
+Phase: Planning next milestone
+Plan: Not started
+Status: Ready to plan next version
+Last activity: 2026-01-20 — v3.2 milestone archived
 
-Progress: ██████████ 100% (6 of 6 phases complete, 11 plans in v3.2)
+Progress: N/A (between milestones)
 
-Next action: Complete milestone with /gsd:complete-milestone
+Next action: /gsd:discuss-milestone to plan next version
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 153 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 9)
+- Total plans completed: 153 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 11)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~510 min
 
@@ -77,10 +77,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-16
-Stopped at: Phase 84 complete
+Last session: 2026-01-20
+Stopped at: v3.2 milestone archived
 Resume file: None
-Next action: /gsd:plan-phase 85
+Next action: /gsd:discuss-milestone
 
 ## Completed Phases
 

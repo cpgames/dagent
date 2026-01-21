@@ -1,5 +1,35 @@
 # Project Milestones: DAGent
 
+## v3.2 Feature State Machine & Non-Blocking Creation (Shipped: 2026-01-20)
+
+**Delivered:** Complete feature state machine refactor with 9-state lifecycle (not_started → creating_worktree → investigating → questioning → planning → ready → in_progress → completed → archived), non-blocking feature creation, and PM agent integration for intelligent planning workflows.
+
+**Phases completed:** v3.2-01 through v3.2-06 (11 plans total)
+
+**Key accomplishments:**
+
+- 9-state feature lifecycle with validated transitions — features now progress through explicit states
+- Non-blocking feature creation — features created instantly without worktree, Start button defers git operations
+- Background worktree management — progress indicators and automatic status transitions
+- PM agent auto-trigger — PM starts automatically when feature enters investigating state
+- Real-time spec updates — event-driven spec:updated broadcasts for instant UI refresh
+- State-specific icons — magnifying glass (investigating), question mark (questioning), chart (planning)
+- Context-aware controls — Start button disabled with tooltips during planning phases
+- 4-column Kanban — Backlog, In Progress, Completed, Archived (9 states mapped to 4 columns)
+
+**Stats:**
+
+- 6 phases, 11 plans executed
+- 52 files modified, +5,161 / -156 lines changed
+- 56,195 LOC TypeScript total
+- 8 days development time (2026-01-13 → 2026-01-20)
+
+**Git range:** `972a827` → `2efcf1e`
+
+**What's next:** Next milestone planning with `/gsd:discuss-milestone`
+
+---
+
 ## v3.1 Task Analysis Orchestrator (Shipped: 2026-01-18)
 
 **Delivered:** Orchestrator-controlled task analysis loop replacing prompt-based task decomposition. Features auto-create a single `needs_analysis` task, PM iteratively analyzes each task (keep or split), and the workflow seamlessly integrates with existing execution.
