@@ -306,12 +306,14 @@ export function registerFeatureHandlers(): void {
           }
         }
 
-        // Update status to creating_worktree immediately
+        // Move feature data from pending to worktree location FIRST
+        // (before status change, so moveFeatureToWorktree finds not_started status)
+        await featureStore.moveFeatureToWorktree(featureId)
+
+        // Now update status to creating_worktree
+        // (this will save to worktree location since pending no longer exists)
         const manager = getStatusManager()
         await manager.updateFeatureStatus(featureId, 'creating_worktree')
-
-        // Move feature data from pending to worktree location
-        await featureStore.moveFeatureToWorktree(featureId)
 
         // Start worktree creation asynchronously (non-blocking)
         const gitManager = getGitManager()
