@@ -8,6 +8,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
+  overflow-y: auto;  /* Allow scrolling when content overflows */
 }
 
 /* Header */
@@ -111,6 +112,7 @@
 /* Section content */
 .spec-viewer__section-content {
   padding: 0 var(--space-md) var(--space-sm);
+  overflow: visible;  /* Allow content to expand */
 }
 
 /* Lists */
@@ -166,6 +168,7 @@
   min-width: 0;  /* Allow text to shrink for proper wrapping */
   word-wrap: break-word;
   overflow-wrap: break-word;
+  white-space: normal;  /* Ensure text wraps */
 }
 
 .spec-viewer__item-text--complete {
