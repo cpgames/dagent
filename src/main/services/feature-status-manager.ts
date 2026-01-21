@@ -26,7 +26,7 @@ import { getTaskAnalysisOrchestrator } from './task-analysis-orchestrator'
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
   not_started: ['creating_worktree'],  // Start triggers worktree creation
-  creating_worktree: ['investigating'],  // Worktree ready -> PM investigates
+  creating_worktree: ['investigating', 'not_started'],  // Worktree ready -> PM investigates, OR revert on failure
   investigating: ['questioning', 'planning'],  // Investigation done -> ask questions OR skip to planning if no questions
   questioning: ['planning'],  // Questions answered -> create tasks
   planning: ['ready'],  // Tasks created -> ready for execution

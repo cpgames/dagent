@@ -26,6 +26,7 @@ import {
 } from './types'
 import * as path from 'path'
 import * as fs from 'fs/promises'
+import { BrowserWindow } from 'electron'
 
 export class GitManager {
   private git: SimpleGit
@@ -312,12 +313,25 @@ export class GitManager {
    */
   async createFeatureWorktree(featureId: string): Promise<FeatureWorktreeResult> {
     this.ensureInitialized()
+
+    // Helper to broadcast progress
+    const broadcastProgress = (message: string): void => {
+      const windows = BrowserWindow.getAllWindows()
+      for (const win of windows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('feature:worktree-progress', { featureId, message })
+        }
+      }
+    }
+
     try {
       const branchName = getFeatureBranchName(featureId)
       const worktreeName = getFeatureWorktreeName(featureId)
       const worktreePath = path.join(this.config.worktreesDir, worktreeName)
 
-      // Check if worktree already exists
+      broadcastProgress('Checking for existing worktree...')
+
+      // Check if worktree already exists in git's worktree list
       const worktrees = await this.listWorktrees()
       const normalizedWorktreePath = path.normalize(worktreePath)
       if (worktrees.some((w) => path.normalize(w.path) === normalizedWorktreePath)) {
@@ -327,6 +341,21 @@ export class GitManager {
         }
       }
 
+      // Check if directory exists but is not a proper worktree (orphaned from failed attempt)
+      try {
+        const dirStat = await fs.stat(worktreePath)
+        if (dirStat.isDirectory()) {
+          broadcastProgress('Cleaning up orphaned worktree directory...')
+          // Remove the orphaned directory
+          await fs.rm(worktreePath, { recursive: true, force: true })
+          console.log(`[GitManager] Removed orphaned worktree directory: ${worktreePath}`)
+        }
+      } catch {
+        // Directory doesn't exist, which is expected
+      }
+
+      broadcastProgress('Creating feature branch...')
+
       // Create branch if it doesn't exist
       const branchExistsResult = await this.branchExists(branchName)
       if (!branchExistsResult) {
@@ -335,14 +364,20 @@ export class GitManager {
         await this.git.branch([branchName, currentBranch || 'HEAD'])
       }
 
-      // Create worktree
+      broadcastProgress('Copying project files to worktree...')
+
+      // Create worktree (this is the slow operation for large repos)
       await this.git.raw(['worktree', 'add', worktreePath, branchName])
+
+      broadcastProgress('Setting up .dagent directory...')
 
       // Create .dagent directory in worktree
       const dagentPath = path.join(worktreePath, '.dagent')
       await fs.mkdir(dagentPath, { recursive: true })
       await fs.mkdir(path.join(dagentPath, 'nodes'), { recursive: true })
       await fs.mkdir(path.join(dagentPath, 'dag_history'), { recursive: true })
+
+      broadcastProgress('Worktree created successfully')
 
       return {
         success: true,
@@ -351,6 +386,7 @@ export class GitManager {
         dagentPath
       }
     } catch (error) {
+      broadcastProgress(`Error: ${(error as Error).message}`)
       return { success: false, error: (error as Error).message }
     }
   }
@@ -518,6 +554,20 @@ export class GitManager {
   async worktreeExists(worktreePath: string): Promise<boolean> {
     const worktree = await this.getWorktree(worktreePath)
     return worktree !== null
+  }
+
+  /**
+   * Prune worktree administrative files.
+   * Removes stale worktree references from .git/worktrees.
+   */
+  async pruneWorktrees(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+    try {
+      await this.git.raw(['worktree', 'prune'])
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
   }
 
   /**
