@@ -9,6 +9,7 @@ import { getSessionManager } from '../services/session-manager'
 import { getSettingsStore } from '../storage/settings-store'
 import { getTaskAnalysisOrchestrator } from '../services/task-analysis-orchestrator'
 import { getOrchestrator } from '../dag-engine/orchestrator'
+import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import type { CreateSessionOptions } from '../../shared/types/session'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -415,6 +416,29 @@ export class PMAgentManager {
       content: userResponse
     })
 
+    // Update spec with user's answer (add as a goal to capture findings)
+    const questionsAsked = session.pmMetadata?.questionsAsked || 0
+    try {
+      const specStore = getFeatureSpecStore(this.projectRoot)
+      const spec = await specStore.loadSpec(featureId)
+      if (spec && questionsAsked > 0) {
+        // Add user's answer as a finding/goal
+        const truncatedAnswer = userResponse.length > 200 ? userResponse.slice(0, 200) + '...' : userResponse
+        spec.goals.push(`A${questionsAsked}: ${truncatedAnswer}`)
+        await specStore.saveSpec(featureId, spec)
+
+        // Broadcast spec update to UI
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send('spec:updated', { featureId })
+          }
+        })
+        console.log(`[PMAgentManager] Updated spec with user answer for ${featureId}`)
+      }
+    } catch (specError) {
+      console.error(`[PMAgentManager] Failed to update spec with user answer:`, specError)
+    }
+
     // Broadcast chat update
     BrowserWindow.getAllWindows().forEach((win) => {
       if (!win.isDestroyed()) {
@@ -548,6 +572,27 @@ Remember: Ask ONE question at a time in a conversational manner.`
             await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
 
             console.log(`[PMAgentManager] Question ${updatedMetadata.questionsAsked}/${questionsRequired} asked`)
+
+            // Update spec with the question as a constraint (tracks investigation progress)
+            try {
+              const specStore = getFeatureSpecStore(this.projectRoot)
+              const spec = await specStore.loadSpec(featureId)
+              if (spec) {
+                // Add question as a constraint to track what's being clarified
+                spec.constraints.push(`Q${updatedMetadata.questionsAsked}: ${questionText}`)
+                await specStore.saveSpec(featureId, spec)
+
+                // Broadcast spec update to UI
+                BrowserWindow.getAllWindows().forEach((win) => {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('spec:updated', { featureId })
+                  }
+                })
+                console.log(`[PMAgentManager] Updated spec with question for ${featureId}`)
+              }
+            } catch (specError) {
+              console.error(`[PMAgentManager] Failed to update spec with question:`, specError)
+            }
           }
         }
       }
@@ -605,6 +650,30 @@ Remember: Ask ONE question at a time in a conversational manner.`
     if (!session.pmMetadata) {
       session.pmMetadata = {
         questionsAsked: 0
+      }
+
+      // Create initial spec for the feature (so FeatureSpecViewer shows something)
+      const specStore = getFeatureSpecStore(this.projectRoot)
+      const existingSpec = await specStore.loadSpec(featureId)
+      if (!existingSpec) {
+        console.log(`[PMAgentManager] Creating initial spec for ${featureId}`)
+        const spec = await specStore.createSpec(featureId, featureName)
+
+        // Add initial goal from feature description if available
+        if (context && context.includes('## Feature Description')) {
+          const descMatch = context.match(/## Feature Description\n\n([^\n#]+)/)
+          if (descMatch) {
+            spec.goals.push(descMatch[1].trim())
+            await specStore.saveSpec(featureId, spec)
+          }
+        }
+
+        // Broadcast spec update to UI
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send('spec:updated', { featureId })
+          }
+        })
       }
     }
 
@@ -761,6 +830,27 @@ Remember: Ask ONE question at a time in a conversational manner.`
             await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
 
             console.log(`[PMAgentManager] Question ${updatedMetadata.questionsAsked}/${questionsRequired} asked`)
+
+            // Update spec with the question as a constraint (tracks investigation progress)
+            try {
+              const specStore = getFeatureSpecStore(this.projectRoot)
+              const spec = await specStore.loadSpec(featureId)
+              if (spec) {
+                // Add question as a constraint to track what's being clarified
+                spec.constraints.push(`Q${updatedMetadata.questionsAsked}: ${questionText}`)
+                await specStore.saveSpec(featureId, spec)
+
+                // Broadcast spec update to UI
+                BrowserWindow.getAllWindows().forEach((win) => {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('spec:updated', { featureId })
+                  }
+                })
+                console.log(`[PMAgentManager] Updated spec with question for ${featureId}`)
+              }
+            } catch (specError) {
+              console.error(`[PMAgentManager] Failed to update spec with question:`, specError)
+            }
           }
         }
       }
