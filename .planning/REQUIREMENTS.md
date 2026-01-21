@@ -55,10 +55,10 @@ Requirements for the feature state machine refactor. Each maps to roadmap phases
 
 ### UI Context Awareness
 
-- [ ] **UI-01**: DAG header shows different buttons/badges based on feature state (investigating/questioning/planning indicators)
-- [ ] **UI-02**: Start button behavior changes based on feature status (disabled/enabled/different actions)
-- [ ] **UI-03**: Feature cards show visual progress indicators for current planning phase
-- [ ] **UI-04**: Feature cards show state-specific icons (spinner for investigating, question mark for questioning, etc.)
+- [x] **UI-01**: DAG header shows different buttons/badges based on feature state (investigating/questioning/planning indicators)
+- [x] **UI-02**: Start button behavior changes based on feature status (disabled/enabled/different actions)
+- [x] **UI-03**: Feature cards show visual progress indicators for current planning phase
+- [x] **UI-04**: Feature cards show state-specific icons (spinner for investigating, question mark for questioning, etc.)
 
 ## v2 Requirements
 
@@ -128,10 +128,10 @@ Which phases cover which requirements. Updated by create-roadmap.
 | SPEC-02 | Phase v3.2-05 | Complete |
 | SPEC-03 | Phase v3.2-05 | Complete |
 | SPEC-04 | Phase v3.2-05 | Complete |
-| UI-01 | Phase v3.2-06 | Pending |
-| UI-02 | Phase v3.2-06 | Pending |
-| UI-03 | Phase v3.2-06 | Pending |
-| UI-04 | Phase v3.2-06 | Pending |
+| UI-01 | Phase v3.2-06 | Complete |
+| UI-02 | Phase v3.2-06 | Complete |
+| UI-03 | Phase v3.2-06 | Complete |
+| UI-04 | Phase v3.2-06 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total
@@ -140,4 +140,4 @@ Which phases cover which requirements. Updated by create-roadmap.
 
 ---
 *Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after Phase v3.2-05 completion*
+*Last updated: 2026-01-20 after Phase v3.2-06 completion (milestone complete)*

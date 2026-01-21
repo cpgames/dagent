@@ -5,26 +5,26 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Phase v3.2-06 — Context-Aware UI Polish
+**Current focus:** Milestone v3.2 COMPLETE
 
 ## Current Position
 
-**Milestone:** v3.2 Feature State Machine Refactor IN PROGRESS
+**Milestone:** v3.2 Feature State Machine Refactor COMPLETE
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: v3.2-06 of 6 (Context-Aware UI Polish) PLANNED
-Plan: 0 of 2 complete
-Status: Phase plans created (state-specific icons, DAG header badges)
-Last activity: 2026-01-20 — Plans v3.2-06-01 and v3.2-06-02 created
+Phase: v3.2-06 of 6 (Context-Aware UI Polish) COMPLETE
+Plan: 2 of 2 complete
+Status: All phases complete, milestone ready for completion
+Last activity: 2026-01-20 — Phase v3.2-06 executed (state-specific icons, DAG header badges)
 
-Progress: ████████░░ 83% (5 of 6 phases complete, 9 plans created in v3.2)
+Progress: ██████████ 100% (6 of 6 phases complete, 11 plans in v3.2)
 
-Next action: Execute v3.2-06
+Next action: Complete milestone with /gsd:complete-milestone
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 151 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 7)
+- Total plans completed: 153 (v1.0: 25, v1.1: 10, v1.2: 10, v1.3: 8, v1.4: 11, v1.5: 6, v1.6: 1, v1.7: 2, v1.8: 4, v1.9: 8, v2.0: 9, v2.1: 3, v2.2: 4, v2.3: 4, v2.4: 6, v2.7: 5, v2.9: 7, v3.0: 13, v3.1: 12, v3.2: 9)
 - Average duration: ~5-8 min/plan
 - Total execution time: ~510 min
 
@@ -41,8 +41,8 @@ Next action: Execute v3.2-06
 | 07-polish-integration | 4 | ~20 min | ~5 min |
 
 **Recent Trend:**
-- Last 7 plans: v3.2-01-02, v3.2-03-01, v3.2-03-02, v3.2-04-01, v3.2-05-01, v3.2-05-02
-- Trend: v3.2 Phase 5 complete (PM Planning Phase Integration)
+- Last 7 plans: v3.2-03-02, v3.2-04-01, v3.2-05-01, v3.2-05-02, v3.2-06-01, v3.2-06-02
+- Trend: v3.2 COMPLETE (Feature State Machine & Non-Blocking Creation)
 
 ## Accumulated Context
 
@@ -1156,4 +1156,42 @@ All verification items passed. Phase v3.2-04 Complete.
   - Reduced polling interval from 5s to 10s (fallback only)
 
 All verification items passed. Phase v3.2-05 Complete.
+
+### Phase v3.2-06: Context-Aware UI Polish (Complete)
+
+- **06-01**: State-Specific Icons in FeatureCard
+  - Added MagnifyingGlassIcon for investigating state (spin animation)
+  - Added QuestionMarkIcon for questioning state (pulse animation)
+  - Added PlanningIcon for planning state (spin animation)
+  - Updated getStatusInfo() to return state-specific icons
+  - Added CSS with @keyframes pulse animation
+
+- **06-02**: DAG Header State Badge and Context-Aware Start Button
+  - Added feature state badge showing investigating/questioning/planning/creating_worktree
+  - Badge styled with pill shape and state-specific colors
+  - Added getStartButtonState() helper with context-aware tooltips
+  - Start button disabled during planning phases with explanatory tooltips
+
+All verification items passed. Phase v3.2-06 Complete.
+
+---
+
+## v3.2 Milestone Summary (Feature State Machine & Non-Blocking Creation)
+
+The v3.2 milestone is complete. The application now has a comprehensive feature state machine with non-blocking creation:
+
+1. **Phase v3.2-01**: State Machine Foundation - 9-state lifecycle, type updates, UI components
+2. **Phase v3.2-02**: Non-Blocking Creation - Instant feature creation in not_started status
+3. **Phase v3.2-03**: Background Worktree Management - Start button triggers async worktree creation
+4. **Phase v3.2-04**: Event-Driven Kanban Refactor - 4-column layout with real-time updates
+5. **Phase v3.2-05**: PM Planning Phase Integration - Auto-trigger PM agent, real-time spec updates
+6. **Phase v3.2-06**: Context-Aware UI Polish - State-specific icons, DAG header badges, context-aware buttons
+
+Key features:
+- **9-state feature lifecycle**: not_started -> creating_worktree -> investigating -> questioning -> planning -> ready -> in_progress -> completed -> archived
+- **4-column Kanban**: Backlog (not_started), In Progress (all middle states), Completed, Archived
+- **Non-blocking creation**: Features created instantly, worktree created on Start click
+- **PM agent integration**: Auto-triggered on investigating state, creates spec and tasks
+- **State-specific icons**: Visual indicators for investigating (magnifying glass), questioning (question mark), planning (chart)
+- **Context-aware controls**: Start button disabled with tooltips during planning phases
 
