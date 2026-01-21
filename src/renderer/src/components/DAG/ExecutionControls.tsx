@@ -1,6 +1,8 @@
 import type { JSX } from 'react'
+import type { FeatureStatus } from '@shared/types/feature'
 import { useExecutionStore } from '../../stores/execution-store'
 import { useDAGStore } from '../../stores/dag-store'
+import { useFeatureStore } from '../../stores/feature-store'
 import './ExecutionControls.css'
 
 interface ExecutionControlsProps {
@@ -120,6 +122,76 @@ const SpinnerIcon = (): JSX.Element => (
   </svg>
 )
 
+// Magnifying glass icon for investigating state
+const MagnifyingGlassIcon = (): JSX.Element => (
+  <svg className="execution-controls__state-badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    />
+  </svg>
+)
+
+// Question mark icon for questioning state
+const QuestionMarkIcon = (): JSX.Element => (
+  <svg className="execution-controls__state-badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+)
+
+// Chart icon for planning state
+const ChartIcon = (): JSX.Element => (
+  <svg className="execution-controls__state-badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+    />
+  </svg>
+)
+
+// Badge spinner icon for creating_worktree state
+const BadgeSpinnerIcon = (): JSX.Element => (
+  <svg className="execution-controls__state-badge-icon execution-controls__state-badge-icon--spinning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+)
+
+// Planning phase badge configuration
+interface BadgeConfig {
+  label: string
+  icon: () => JSX.Element
+  modifier: string
+}
+
+function getPlanningPhaseBadge(status: FeatureStatus): BadgeConfig | null {
+  switch (status) {
+    case 'investigating':
+      return { label: 'Investigating', icon: MagnifyingGlassIcon, modifier: 'investigating' }
+    case 'questioning':
+      return { label: 'Questions', icon: QuestionMarkIcon, modifier: 'questioning' }
+    case 'planning':
+      return { label: 'Planning', icon: ChartIcon, modifier: 'planning' }
+    case 'creating_worktree':
+      return { label: 'Setting up', icon: BadgeSpinnerIcon, modifier: 'creating_worktree' }
+    default:
+      return null
+  }
+}
+
 export default function ExecutionControls({
   featureId,
   onUndo,
@@ -132,11 +204,18 @@ export default function ExecutionControls({
 }: ExecutionControlsProps): JSX.Element {
   const { execution, isLoading, start, pause, resume, stop } = useExecutionStore()
   const { isUndoing, isRedoing } = useDAGStore()
+  const { features } = useFeatureStore()
   const { status } = execution
 
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
   const isIdle = status === 'idle' || status === 'completed'
+
+  // Get feature status to check if planning is in progress
+  const feature = featureId ? features.find((f) => f.id === featureId) : null
+  const featureStatus = feature?.status
+  const planningBadge = featureStatus ? getPlanningPhaseBadge(featureStatus) : null
+  const isInPlanningPhase = planningBadge !== null
 
   const handlePlayPause = async (): Promise<void> => {
     if (isRunning) {
@@ -171,9 +250,15 @@ export default function ExecutionControls({
       {showAnalyzeButton && (
         <button
           onClick={onAnalyze}
-          disabled={isAnalyzing || !featureId}
+          disabled={isAnalyzing || !featureId || isInPlanningPhase}
           className={`execution-controls__btn execution-controls__btn--analyze ${isAnalyzing ? 'execution-controls__btn--analyzing' : ''}`}
-          title={isAnalyzing ? 'Analysis in progress...' : `Analyze ${pendingAnalysisCount} task${pendingAnalysisCount !== 1 ? 's' : ''}`}
+          title={
+            isInPlanningPhase
+              ? 'Wait for planning to complete'
+              : isAnalyzing
+                ? 'Analysis in progress...'
+                : `Analyze ${pendingAnalysisCount} task${pendingAnalysisCount !== 1 ? 's' : ''}`
+          }
         >
           {isAnalyzing ? <SpinnerIcon /> : <AnalyzeIcon />}
           {isAnalyzing ? 'Analyzing...' : `Analyze (${pendingAnalysisCount})`}
@@ -225,6 +310,14 @@ export default function ExecutionControls({
         <RedoIcon spinning={isRedoing} />
         Redo
       </button>
+
+      {/* Feature state badge for planning phases */}
+      {planningBadge && (
+        <div className={`execution-controls__state-badge execution-controls__state-badge--${planningBadge.modifier}`}>
+          <planningBadge.icon />
+          <span>{planningBadge.label}</span>
+        </div>
+      )}
 
       {/* Status indicator */}
       {!isIdle && (
