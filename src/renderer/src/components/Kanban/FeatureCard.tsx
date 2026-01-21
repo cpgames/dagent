@@ -96,6 +96,59 @@ function StopIcon(): React.JSX.Element {
 }
 
 /**
+ * Magnifying glass icon for investigating state
+ */
+function MagnifyingGlassIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="feature-card__status-icon"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="11" cy="11" r="7" strokeWidth="2" />
+      <path strokeLinecap="round" strokeWidth="2" d="M21 21l-4.35-4.35" />
+    </svg>
+  );
+}
+
+/**
+ * Question mark icon for questioning state (awaiting user input)
+ */
+function QuestionMarkIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="feature-card__status-icon"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="10" strokeWidth="2" />
+      <path strokeLinecap="round" strokeWidth="2" d="M9 9a3 3 0 1 1 3.5 2.96c-.48.12-.5.36-.5.54v1.5" />
+      <circle cx="12" cy="17" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * Planning icon (clipboard with checklist) for planning state
+ */
+function PlanningIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="feature-card__status-icon"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" strokeWidth="2" />
+      <path strokeLinecap="round" strokeWidth="2" d="M9 12h6M9 16h4" />
+    </svg>
+  );
+}
+
+/**
  * Merge icon SVG component (git merge - two branches joining)
  */
 function MergeIcon(): React.JSX.Element {
@@ -193,9 +246,9 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
   const startBtnClasses = `feature-card__action-btn feature-card__action-btn--start${isStarting ? ' feature-card__action-btn--loading' : ''}`;
 
   // Determine status message based on feature state
-  const getStatusInfo = (): { message: string; showSpinner: boolean } | null => {
+  const getStatusInfo = (): { message: string; showSpinner: boolean; icon?: React.JSX.Element } | null => {
     if (feature.status === 'planning') {
-      return { message: 'Planning...', showSpinner: true };
+      return { message: 'Planning...', showSpinner: false, icon: <PlanningIcon /> };
     }
     if (isAnalyzing) {
       return { message: 'Analyzing...', showSpinner: true };
@@ -208,10 +261,10 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
       return { message: 'Developing...', showSpinner: true };
     }
     if (feature.status === 'questioning') {
-      return { message: 'Needs clarification', showSpinner: false };
+      return { message: 'Needs clarification', showSpinner: false, icon: <QuestionMarkIcon /> };
     }
     if (feature.status === 'investigating') {
-      return { message: 'Investigating...', showSpinner: true };
+      return { message: 'Investigating...', showSpinner: false, icon: <MagnifyingGlassIcon /> };
     }
     if (feature.status === 'creating_worktree') {
       return { message: worktreeProgress || 'Creating worktree...', showSpinner: true };
@@ -299,7 +352,13 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
       {/* Status indicator - shown below title */}
       {statusInfo && (
         <div className="feature-card__status-indicator">
-          {statusInfo.showSpinner && <div className="feature-card__status-spinner" />}
+          {statusInfo.icon ? (
+            <span className={`feature-card__status-icon--${feature.status}`}>
+              {statusInfo.icon}
+            </span>
+          ) : statusInfo.showSpinner ? (
+            <div className="feature-card__status-spinner" />
+          ) : null}
           <span>{statusInfo.message}</span>
         </div>
       )}

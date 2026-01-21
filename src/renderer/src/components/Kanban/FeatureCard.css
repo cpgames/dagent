@@ -264,3 +264,33 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Status-specific icons */
+.feature-card__status-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Investigating state - magnifying glass with spin animation */
+.feature-card__status-icon--investigating {
+  color: var(--accent-primary);
+  animation: spin 2s linear infinite;
+}
+
+/* Questioning state - question mark with pulse animation */
+.feature-card__status-icon--questioning {
+  color: var(--accent-secondary);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Planning state - clipboard with spin animation */
+.feature-card__status-icon--planning {
+  color: var(--color-success);
+  animation: spin 2s linear infinite;
+}
