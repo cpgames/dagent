@@ -192,6 +192,46 @@ function getPlanningPhaseBadge(status: FeatureStatus): BadgeConfig | null {
   }
 }
 
+// Start button state configuration
+interface StartButtonState {
+  disabled: boolean
+  tooltip: string
+}
+
+function getStartButtonState(
+  featureStatus: FeatureStatus | undefined,
+  isAnalyzing: boolean,
+  isRunning: boolean,
+  isPaused: boolean
+): StartButtonState {
+  // Check planning phases first (higher priority)
+  if (featureStatus === 'creating_worktree') {
+    return { disabled: true, tooltip: 'Setting up worktree...' }
+  }
+  if (featureStatus === 'investigating') {
+    return { disabled: true, tooltip: 'PM agent investigating codebase...' }
+  }
+  if (featureStatus === 'questioning') {
+    return { disabled: true, tooltip: 'Answer PM agent questions first' }
+  }
+  if (featureStatus === 'planning') {
+    return { disabled: true, tooltip: 'PM agent creating tasks...' }
+  }
+  // Check other states
+  if (isAnalyzing) {
+    return { disabled: true, tooltip: 'Analyzing tasks...' }
+  }
+  // Running/paused states
+  if (isRunning) {
+    return { disabled: false, tooltip: 'Pause execution' }
+  }
+  if (isPaused) {
+    return { disabled: false, tooltip: 'Resume execution' }
+  }
+  // Default: ready to start
+  return { disabled: false, tooltip: 'Start execution' }
+}
+
 export default function ExecutionControls({
   featureId,
   onUndo,
@@ -216,6 +256,9 @@ export default function ExecutionControls({
   const featureStatus = feature?.status
   const planningBadge = featureStatus ? getPlanningPhaseBadge(featureStatus) : null
   const isInPlanningPhase = planningBadge !== null
+
+  // Get Start button state based on feature status and other conditions
+  const startButtonState = getStartButtonState(featureStatus, isAnalyzing, isRunning, isPaused)
 
   const handlePlayPause = async (): Promise<void> => {
     if (isRunning) {
@@ -268,9 +311,9 @@ export default function ExecutionControls({
       {/* Play/Pause button */}
       <button
         onClick={handlePlayPause}
-        disabled={isLoading || !featureId || isAnalyzing}
-        className={getButtonClass(!isLoading && !!featureId && !isAnalyzing)}
-        title={isAnalyzing ? 'Wait for analysis to complete' : isRunning ? 'Pause execution' : isPaused ? 'Resume execution' : 'Start execution'}
+        disabled={isLoading || !featureId || startButtonState.disabled}
+        className={getButtonClass(!isLoading && !!featureId && !startButtonState.disabled)}
+        title={startButtonState.tooltip}
       >
         {isRunning ? <PauseIcon /> : <PlayIcon />}
         {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
