@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Tasks execute in correct dependency order with context handoff between agents
-**Current focus:** Phase v3.2-05 — PM Planning Phase Integration
+**Current focus:** Phase v3.2-06 — Context-Aware UI Polish
 
 ## Current Position
 
 **Milestone:** v3.2 Feature State Machine Refactor IN PROGRESS
 **Roadmap:** .planning/ROADMAP.md
 
-Phase: v3.2-05 of 6 (PM Planning Phase Integration) COMPLETE
-Plan: 2 of 2 complete
-Status: Phase 05 complete (PM auto-trigger, chat routing, real-time spec updates)
-Last activity: 2026-01-20 — Plan v3.2-05-02 complete
+Phase: v3.2-06 of 6 (Context-Aware UI Polish) PLANNED
+Plan: 0 of 2 complete
+Status: Phase plans created (state-specific icons, DAG header badges)
+Last activity: 2026-01-20 — Plans v3.2-06-01 and v3.2-06-02 created
 
-Progress: ████████░░ 83% (5 of 6 phases complete, 7 plans executed in v3.2)
+Progress: ████████░░ 83% (5 of 6 phases complete, 9 plans created in v3.2)
 
-Next action: Plan or execute v3.2-06
+Next action: Execute v3.2-06
 
 ## Performance Metrics
 
