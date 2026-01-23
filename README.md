@@ -83,17 +83,19 @@ Feature specs are automatically generated with goals, requirements, and acceptan
 │                                                                          │
 │   1. CREATE FEATURE                                                      │
 │      ↓                                                                   │
-│   2. PM AGENT analyzes and decomposes into tasks                        │
+│   2. INVESTIGATION AGENT explores codebase, writes spec                 │
 │      ↓                                                                   │
-│   3. DAG ENGINE determines execution order                              │
+│   3. PLANNING AGENT decomposes spec into tasks                          │
 │      ↓                                                                   │
-│   4. DEV AGENTS work on ready tasks (dependencies satisfied)            │
+│   4. DAG ENGINE determines execution order                              │
 │      ↓                                                                   │
-│   5. QA AGENTS validate completed work                                  │
+│   5. DEV AGENTS work on ready tasks (dependencies satisfied)            │
 │      ↓                                                                   │
-│   6. MERGE AGENT integrates approved changes                            │
+│   6. QA AGENTS validate completed work                                  │
 │      ↓                                                                   │
-│   7. REPEAT until feature complete                                      │
+│   7. MERGE AGENT integrates task branches                               │
+│      ↓                                                                   │
+│   8. FEATURE MERGE AGENT merges to main when complete                   │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -102,10 +104,38 @@ Feature specs are automatically generated with goals, requirements, and acceptan
 
 | Agent | Responsibility |
 |-------|----------------|
-| **PM Agent** | Task decomposition, dependency inference, complexity analysis |
+| **Investigation Agent** | Codebase exploration, user Q&A, feature spec writing |
+| **Planning Agent** | Task decomposition, DAG creation, dependency inference |
 | **Dev Agent** | Code implementation with iterative refinement |
 | **QA Agent** | Validation against acceptance criteria, test verification |
-| **Merge Agent** | Branch integration, conflict resolution |
+| **Merge Agent** | Task branch integration into feature branch |
+| **Feature Merge Agent** | Feature branch integration into main, conflict resolution |
+
+### Feature Status Flow
+
+```
+not_started → creating_worktree → investigating → ready_for_planning → planning
+                                                                          ↓
+                                                                        ready
+                                                                          ↓
+archived ← needs_merging ← verifying ← developing ←──────────────────────┘
+    ↑           ↓              ↓            ↑
+    └───── merging        (QA failed)  (task failed)
+```
+
+| Status | Description |
+|--------|-------------|
+| `not_started` | Feature created, waiting to be started |
+| `creating_worktree` | Setting up manager worktree |
+| `investigating` | PM agent exploring codebase, asking clarifying questions |
+| `ready_for_planning` | Investigation complete, ready for task planning |
+| `planning` | PM agent creating task breakdown |
+| `ready` | Tasks created, ready for development |
+| `developing` | Dev agents working on tasks |
+| `verifying` | QA agents reviewing completed work |
+| `needs_merging` | All tasks complete, waiting for merge/PR |
+| `merging` | Merge in progress |
+| `archived` | Feature complete and merged |
 
 ---
 
@@ -126,6 +156,7 @@ dagent/
 │   │   ├── agents/           # Agent implementations (PM, Dev, QA, Merge)
 │   │   ├── dag-engine/       # DAG execution orchestrator
 │   │   ├── services/         # Core services (Session, Context, Git)
+│   │   ├── git/              # Git operations and worktree management
 │   │   └── ipc/              # IPC handlers
 │   ├── preload/              # Electron preload scripts
 │   ├── renderer/             # React frontend
@@ -136,21 +167,38 @@ dagent/
 └── docs/                     # Documentation
 
 # Per-project data (created in each managed project):
-.dagent-worktrees/            # Feature worktrees and metadata
-├── {feature-id}/             # Feature worktree (git worktree)
-│   └── .dagent/              # Feature metadata
-│       ├── feature.json      # Feature definition
-│       ├── dag.json          # Task DAG graph
-│       ├── feature-spec.md   # Auto-generated specification
-│       ├── attachments/      # Uploaded files (images, docs)
-│       ├── sessions/         # Agent session data
-│       └── nodes/{task-id}/  # Per-task data
-└── {feature-id}--task-{id}/  # Task worktrees
+.dagent/                      # Pending features (not yet started)
+├── features/
+│   └── {feature-id}/
+│       └── feature.json      # Feature definition (pre-worktree)
+
+.dagent-worktrees/            # Manager worktrees (pool architecture)
+├── neon/                     # Manager worktree 1 (branch: dagent/neon)
+├── cyber/                    # Manager worktree 2 (branch: dagent/cyber)
+├── pulse/                    # Manager worktree 3 (branch: dagent/pulse)
+│   └── .dagent/
+│       ├── features/
+│       │   └── {feature-id}/
+│       │       ├── feature.json      # Feature definition
+│       │       ├── dag.json          # Task DAG graph
+│       │       ├── feature-spec.md   # Auto-generated specification
+│       │       ├── attachments/      # Uploaded files (images, docs)
+│       │       └── sessions/         # Agent session data
+│       └── task-plans/
+│           └── {task-id}.json        # Per-task execution plans
 ```
 
 ---
 
 ## Architecture Highlights
+
+### Pool Architecture (Manager Worktrees)
+
+DAGent uses a pool of reusable worktrees for efficient feature execution:
+- **3 Manager Worktrees** (Neon, Cyber, Pulse) handle features sequentially
+- **Branch naming**: `dagent/neon`, `dagent/cyber`, `dagent/pulse`
+- **Feature queuing**: Features wait in queue when all managers are busy
+- **Completion actions**: Manual, Auto-PR, or Auto-Merge when features complete
 
 ### Session Management
 
@@ -161,11 +209,11 @@ DAGent automatically manages context windows for long-running agents:
 
 ### Git Integration
 
-Every task runs in an isolated git worktree:
+Every feature runs in a manager worktree with isolated branches:
 - No conflicts during parallel development
-- Clean commit history per task
-- Automatic branch management
-- One-click merge when ready
+- Clean commit history per feature
+- Automatic branch management (`dagent/{manager}` branches)
+- Push and create PR, or direct merge when ready
 
 ### DAG Execution
 
@@ -173,7 +221,17 @@ The orchestration engine ensures correct execution order:
 - Topological sorting of task dependencies
 - Automatic task assignment to available agents
 - Real-time status updates and progress tracking
-- Graceful handling of failures with retry logic
+- Graceful handling of failures with automatic retry
+
+### Dev Agent Context
+
+Dev agents receive rich context for accurate implementation:
+- **CLAUDE.md** - Project guidelines and coding standards
+- **Feature Spec** - Goals, requirements, and constraints
+- **Dependency Context** - Outputs from completed parent tasks
+- **Other Tasks** - Awareness of work to leave for other tasks
+- **QA Feedback** - Issues to fix on rework iterations
+- **Attachments** - Images, mockups, and reference files
 
 ---
 

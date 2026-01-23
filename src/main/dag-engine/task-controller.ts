@@ -219,6 +219,7 @@ export class TaskController extends EventEmitter {
   /**
    * Start the Ralph Loop iteration cycle.
    * Creates or loads TaskPlan and enters the iteration loop.
+   * In manager architecture, uses managerWorktreePath from config instead of creating task worktree.
    */
   async start(
     task: Task,
@@ -237,6 +238,12 @@ export class TaskController extends EventEmitter {
     this.state.status = 'running'
     this.state.startedAt = new Date().toISOString()
     this.state.currentIteration = 1
+
+    // Pool architecture: Set worktree path from config if provided
+    if (this.config.managerWorktreePath) {
+      this.state.worktreePath = this.config.managerWorktreePath
+      console.log(`[TaskController ${this.state.taskId}] Using manager worktree: ${this.config.managerWorktreePath}`)
+    }
 
     this.emit('loop:start', this.getState())
 
@@ -451,25 +458,38 @@ Your job is to:
 3. Ensure code builds and tests pass
 4. Follow project conventions from CLAUDE.md
 
+CRITICAL PATH RULES:
+- ALWAYS use RELATIVE paths (e.g., "src/foo.ts", "./config/bar.json")
+- NEVER use absolute paths (e.g., "D:/projects/...", "/home/user/...")
+- The working directory is already set to the worktree root
+- All file operations should be relative to the current directory
+
 Work in the current directory only. Do not navigate elsewhere.`
   }
 
   /**
    * Load attachment filenames from the feature's attachments directory.
    * This allows buildIterationPrompt to include attachment instructions on the first iteration.
+   * In manager architecture, uses managerWorktreePath; otherwise uses feature worktree.
    */
   private async loadFeatureAttachments(): Promise<void> {
     try {
-      const gitManager = getGitManager()
-      const config = gitManager.getConfig()
+      let attachmentsDir: string
 
-      // Feature worktree: .dagent-worktrees/{featureId}/
-      const featureWorktreePath = path.join(config.worktreesDir, this.state.featureId)
-      const featureAttachmentsDir = path.join(featureWorktreePath, '.dagent', 'attachments')
+      if (this.config.managerWorktreePath) {
+        // Pool architecture: attachments are in manager worktree's .dagent/attachments
+        attachmentsDir = path.join(this.config.managerWorktreePath, '.dagent', 'attachments')
+      } else {
+        // Legacy mode: attachments in feature worktree
+        const gitManager = getGitManager()
+        const config = gitManager.getConfig()
+        const featureWorktreePath = path.join(config.worktreesDir, this.state.featureId)
+        attachmentsDir = path.join(featureWorktreePath, '.dagent', 'attachments')
+      }
 
       // Check if attachments directory exists
       try {
-        await fs.access(featureAttachmentsDir)
+        await fs.access(attachmentsDir)
       } catch {
         // No attachments folder exists
         console.log(`[TaskController ${this.state.taskId}] No attachments folder for feature ${this.state.featureId}`)
@@ -477,7 +497,7 @@ Work in the current directory only. Do not navigate elsewhere.`
       }
 
       // List all files in the attachments directory
-      const entries = await fs.readdir(featureAttachmentsDir, { withFileTypes: true })
+      const entries = await fs.readdir(attachmentsDir, { withFileTypes: true })
       const files = entries.filter(e => e.isFile()).map(e => e.name)
 
       if (files.length > 0) {
@@ -546,23 +566,118 @@ Work in the current directory only. Do not navigate elsewhere.`
 
   /**
    * Build focused prompt for DevAgent based on failing items.
+   * Includes full context: CLAUDE.md, feature spec, dependency context, etc.
    */
   private buildIterationPrompt(): string {
     const parts: string[] = []
 
     parts.push('# Task Implementation Request')
     parts.push('')
+
+    // Include CLAUDE.md for project guidelines
+    if (this.claudeMd) {
+      parts.push('## Project Guidelines (CLAUDE.md)')
+      parts.push(this.claudeMd)
+      parts.push('')
+    }
+
+    // Include feature goal
+    if (this.featureGoal) {
+      parts.push('## Feature Goal')
+      parts.push(this.featureGoal)
+      parts.push('')
+    }
+
+    // Include feature specification for broader context
+    if (this.featureSpec) {
+      parts.push('## Feature Specification')
+      parts.push('This task is part of a larger feature. Keep these goals in mind:')
+      parts.push('')
+
+      if (this.featureSpec.goals.length > 0) {
+        parts.push('### Goals')
+        for (const goal of this.featureSpec.goals) {
+          parts.push(`- ${goal}`)
+        }
+        parts.push('')
+      }
+
+      if (this.featureSpec.requirements.length > 0) {
+        parts.push('### Requirements')
+        for (const req of this.featureSpec.requirements) {
+          const status = req.completed ? '✓' : '○'
+          parts.push(`- ${status} ${req.id}: ${req.description}`)
+        }
+        parts.push('')
+      }
+
+      if (this.featureSpec.constraints.length > 0) {
+        parts.push('### Constraints')
+        for (const constraint of this.featureSpec.constraints) {
+          parts.push(`- ${constraint}`)
+        }
+        parts.push('')
+      }
+    }
+
+    // Include other tasks so agent knows what NOT to implement
+    if (this.graph) {
+      const otherTasks = this.graph.nodes.filter(
+        (node) => node.id !== this.state.taskId &&
+          (node.status === 'blocked' || node.status === 'ready_for_dev' ||
+           node.status === 'in_progress' || node.status === 'ready_for_qa' ||
+           node.status === 'ready_for_merge')
+      )
+      if (otherTasks.length > 0) {
+        parts.push('## Other Tasks in This Feature (DO NOT implement these)')
+        parts.push('These tasks will be handled separately. Leave this work for them:')
+        parts.push('')
+        for (const otherTask of otherTasks) {
+          parts.push(`- **${otherTask.title}**: ${otherTask.description || 'No description'}`)
+        }
+        parts.push('')
+      }
+    }
+
+    // Include dependency context from completed parent tasks
+    if (this.graph) {
+      const parentConnections = this.graph.connections.filter((c) => c.to === this.state.taskId)
+      const completedParents = parentConnections
+        .map((c) => this.graph!.nodes.find((n) => n.id === c.from))
+        .filter((t) => t && t.status === 'completed')
+
+      if (completedParents.length > 0) {
+        parts.push('## Context from Completed Dependencies')
+        for (const parent of completedParents) {
+          if (parent) {
+            parts.push(`### ${parent.title}`)
+            parts.push(`Completed: ${parent.description || 'No description'}`)
+            parts.push('')
+          }
+        }
+      }
+    }
+
     parts.push('You are working in a git worktree. Make all necessary file changes to complete this task.')
     parts.push('Use Write, Edit, or Bash tools to create/modify files as needed.')
     parts.push('')
 
     if (this.state.currentIteration === 1) {
-      parts.push('## Task')
+      parts.push('## Task to Implement')
       parts.push(`**Title:** ${this.task?.title}`)
       if (this.task?.description) {
         parts.push(`**Description:** ${this.task.description}`)
       }
       parts.push('')
+
+      // Include QA feedback if this is a rework cycle
+      if (this.task?.qaFeedback) {
+        parts.push('## QA Feedback (IMPORTANT - Fix these issues)')
+        parts.push('This task failed QA review. You MUST address these issues:')
+        parts.push('')
+        parts.push(this.task.qaFeedback)
+        parts.push('')
+      }
 
       // Include attachment handling instructions if attachments exist
       if (this.attachments.length > 0) {
@@ -594,11 +709,15 @@ Work in the current directory only. Do not navigate elsewhere.`
       }
 
       parts.push('## Instructions')
-      parts.push('1. Implement the task requirements')
-      parts.push('2. Create or modify files as needed')
-      parts.push('3. Work in the current directory (.)')
+      parts.push('1. Implement ONLY the specific task described above')
+      parts.push('2. Read only the files you need to modify')
+      parts.push('3. Make the changes directly - do not explore first')
+      parts.push('4. Work in the current directory (.) - do NOT use absolute paths')
       if (this.attachments.length > 0) {
-        parts.push('4. Copy any needed attachments to proper project folders (NOT .dagent/)')
+        parts.push('5. Copy any needed attachments to proper project folders (NOT .dagent/)')
+      }
+      if (this.task?.qaFeedback) {
+        parts.push(`${this.attachments.length > 0 ? '6' : '5'}. Address ALL QA feedback items`)
       }
     } else {
       parts.push(`## Iteration ${this.state.currentIteration} - Fix Failing Checks`)
@@ -651,8 +770,12 @@ Work in the current directory only. Do not navigate elsewhere.`
 
   /**
    * Spawn a fresh DevAgent for this iteration.
-   * On first iteration: uses initialize() to create worktree
-   * On subsequent iterations: uses initializeForIteration() with existing worktreePath
+   * In manager architecture:
+   * - First iteration: Uses initializeForIteration() with manager worktree (no worktree creation)
+   * - Subsequent iterations: Uses initializeForIteration() with existing worktreePath
+   * Legacy mode (no managerWorktreePath):
+   * - First iteration: uses initialize() to create worktree
+   * - Subsequent iterations: uses initializeForIteration() with existing worktreePath
    */
   private async spawnDevAgent(prompt: string): Promise<TaskExecutionResult> {
     // Clean up previous agent if exists
@@ -673,9 +796,10 @@ Work in the current directory only. Do not navigate elsewhere.`
 
     try {
       const isFirstIteration = this.state.currentIteration === 1
+      const useManagerWorktree = !!this.config.managerWorktreePath
 
-      if (isFirstIteration) {
-        // First iteration: use full initialize() to create worktree
+      if (isFirstIteration && !useManagerWorktree) {
+        // Legacy mode: First iteration creates worktree via initialize()
         const initialized = await agent.initialize(
           this.task!,
           this.graph!,
@@ -702,7 +826,7 @@ Work in the current directory only. Do not navigate elsewhere.`
           console.log(`[TaskController ${this.state.taskId}] Captured attachments: ${this.attachments.join(', ')}`)
         }
       } else {
-        // Subsequent iterations: use initializeForIteration() with existing worktree
+        // Pool mode OR subsequent iterations: use initializeForIteration() with existing worktree
         if (!this.state.worktreePath) {
           return {
             success: false,
@@ -725,6 +849,15 @@ Work in the current directory only. Do not navigate elsewhere.`
             success: false,
             taskId: this.state.taskId,
             error: agent.getState().error || 'Failed to initialize DevAgent for iteration'
+          }
+        }
+
+        // On first iteration in pool mode, capture attachments
+        if (isFirstIteration) {
+          const agentContext = agent.getState().context
+          if (agentContext?.attachments && agentContext.attachments.length > 0) {
+            this.attachments = agentContext.attachments
+            console.log(`[TaskController ${this.state.taskId}] Captured attachments: ${this.attachments.join(', ')}`)
           }
         }
       }

@@ -7,10 +7,11 @@ import type { TaskStatus } from '@shared/types'
  * ready_for_dev → in_progress   (dev agent assigned)
  * in_progress → ready_for_qa    (dev complete)
  * in_progress → failed          (dev/qa/merge failure)
- * ready_for_qa → ready_for_merge (QA passed)
+ * ready_for_qa → completed      (QA passed - pool mode, no per-task merge)
+ * ready_for_qa → ready_for_merge (QA passed - legacy mode with per-task merge)
  * ready_for_qa → ready_for_dev  (QA failed, back to dev)
- * ready_for_merge → in_progress (merge agent started)
- * in_progress → completed       (merge success)
+ * ready_for_merge → in_progress (merge agent started - legacy mode)
+ * in_progress → completed       (merge success - legacy mode)
  *
  * Additionally:
  * any → blocked                 (reset on retry or dependency change)
@@ -21,7 +22,8 @@ export type StateTransitionEvent =
   | 'DEPENDENCIES_MET' // blocked → ready_for_dev
   | 'AGENT_ASSIGNED' // ready_for_dev → in_progress
   | 'DEV_COMPLETE' // in_progress → ready_for_qa
-  | 'QA_PASSED' // ready_for_qa → ready_for_merge
+  | 'QA_PASSED' // ready_for_qa → ready_for_merge (legacy) or completed (pool)
+  | 'QA_PASSED_POOL' // ready_for_qa → completed (pool mode - no merge needed)
   | 'QA_FAILED' // ready_for_qa → ready_for_dev (back to dev)
   | 'MERGE_STARTED' // ready_for_merge → in_progress
   | 'MERGE_SUCCESS' // in_progress → completed
@@ -43,10 +45,11 @@ export const VALID_TRANSITIONS: StateTransition[] = [
   { from: 'blocked', to: 'ready_for_dev', event: 'DEPENDENCIES_MET' },
   { from: 'ready_for_dev', to: 'in_progress', event: 'AGENT_ASSIGNED' },
   { from: 'in_progress', to: 'ready_for_qa', event: 'DEV_COMPLETE' },
-  { from: 'ready_for_qa', to: 'ready_for_merge', event: 'QA_PASSED' },
+  { from: 'ready_for_qa', to: 'completed', event: 'QA_PASSED_POOL' }, // Pool mode: direct to completed
+  { from: 'ready_for_qa', to: 'ready_for_merge', event: 'QA_PASSED' }, // Legacy mode: per-task merge
   { from: 'ready_for_qa', to: 'ready_for_dev', event: 'QA_FAILED' }, // Back to dev for rework
-  { from: 'ready_for_merge', to: 'in_progress', event: 'MERGE_STARTED' },
-  { from: 'in_progress', to: 'completed', event: 'MERGE_SUCCESS' },
+  { from: 'ready_for_merge', to: 'in_progress', event: 'MERGE_STARTED' }, // Legacy mode
+  { from: 'in_progress', to: 'completed', event: 'MERGE_SUCCESS' }, // Legacy mode
   // Failure transitions
   { from: 'in_progress', to: 'failed', event: 'TASK_FAILED' },
   { from: 'in_progress', to: 'failed', event: 'MERGE_FAILED' },

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { BrowserWindow } from 'electron'
 import type { DAGGraph, Task } from '@shared/types'
 import type { FeatureStatus } from '@shared/types/feature'
 import type {
@@ -28,9 +29,9 @@ import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import { getLogService } from '../storage/log-service'
-import { getGitManager, getTaskWorktreeName } from '../git'
+import { getGitManager } from '../git'
+import { getFeatureManagerPool } from '../git/worktree-pool-manager'
 import { computeFeatureStatus } from './feature-status'
-import * as path from 'path'
 
 export class ExecutionOrchestrator extends EventEmitter {
   private state: ExecutionState
@@ -59,7 +60,9 @@ export class ExecutionOrchestrator extends EventEmitter {
       graph: null,
       startedAt: null,
       stoppedAt: null,
-      error: null
+      error: null,
+      featureManagerId: null,
+      managerWorktreePath: null
     }
     this.assignments = new Map()
     this.history = []
@@ -102,6 +105,7 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Start execution (Play button pressed).
+   * In pool architecture, assigns feature to a pool worktree.
    */
   async start(): Promise<{ success: boolean; error?: string }> {
     if (!this.state.graph || !this.state.featureId) {
@@ -114,17 +118,68 @@ export class ExecutionOrchestrator extends EventEmitter {
 
     // Check if feature is archived - cannot start execution on archived features
     const featureStore = getFeatureStore()
-    if (featureStore) {
-      const feature = await featureStore.loadFeature(this.state.featureId)
-      if (feature && feature.status === 'archived') {
-        return { success: false, error: 'Cannot start execution on archived feature' }
-      }
+    const feature = featureStore ? await featureStore.loadFeature(this.state.featureId) : null
+    if (feature && feature.status === 'archived') {
+      return { success: false, error: 'Cannot start execution on archived feature' }
     }
 
     // Validate git repository is ready for execution
     const gitValidation = await this.validateGitReady()
     if (!gitValidation.ready) {
       return { success: false, error: gitValidation.error }
+    }
+
+    // Get target branch (current branch when starting) for pool merge
+    const gitManager = getGitManager()
+    const targetBranch = feature?.targetBranch || await gitManager.getCurrentBranch()
+
+    // Check if feature already has a manager assigned (resuming execution)
+    const managerPool = getFeatureManagerPool()
+    try {
+      // If feature already has manager assignment, reuse it instead of reassigning
+      if (feature?.featureManagerId !== undefined && feature?.managerWorktreePath) {
+        // Verify worktree still exists on disk - it may have been deleted
+        const fs = await import('fs/promises')
+        let worktreeExists = false
+        try {
+          await fs.access(feature.managerWorktreePath)
+          worktreeExists = true
+        } catch {
+          worktreeExists = false
+        }
+
+        if (worktreeExists) {
+          console.log(`[Orchestrator] Feature ${this.state.featureId} already assigned to manager ${feature.featureManagerId}, reusing existing assignment`)
+          this.state.featureManagerId = feature.featureManagerId
+          this.state.managerWorktreePath = feature.managerWorktreePath
+        } else {
+          // Worktree was deleted - recreate it
+          console.log(`[Orchestrator] Worktree for feature ${this.state.featureId} missing, recreating...`)
+          this.state.featureManagerId = feature.featureManagerId
+          this.state.managerWorktreePath = await managerPool.ensureWorktree(feature.featureManagerId)
+          console.log(`[Orchestrator] Recreated manager worktree path: ${this.state.managerWorktreePath}`)
+        }
+      } else {
+        // New assignment - feature not yet assigned to a manager
+        const assignment = await managerPool.assignFeature(this.state.featureId, targetBranch)
+        this.state.featureManagerId = assignment.featureManagerId
+
+        console.log(`[Orchestrator] Feature ${this.state.featureId} assigned to manager ${assignment.featureManagerId}, queue position ${assignment.queuePosition}`)
+
+        // If queued (not immediately active), just update status and return
+        if (assignment.queuePosition > 0) {
+          console.log(`[Orchestrator] Feature queued at position ${assignment.queuePosition}, waiting for manager availability`)
+          // Feature status should be set to 'queued' by the caller (feature-handlers)
+          return { success: true }
+        }
+
+        // Ensure worktree exists and get the path (creates lazily if needed)
+        this.state.managerWorktreePath = await managerPool.ensureWorktree(assignment.featureManagerId)
+        console.log(`[Orchestrator] Manager worktree path: ${this.state.managerWorktreePath}`)
+      }
+    } catch (error) {
+      console.error('[Orchestrator] Failed to assign feature to pool:', error)
+      return { success: false, error: `Pool assignment failed: ${(error as Error).message}` }
     }
 
     // Initialize harness agent before starting execution
@@ -277,6 +332,10 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.failedThisTick.clear()
     this.initFailureCounts.clear()
 
+    // Clear pool state
+    this.state.featureManagerId = null
+    this.state.managerWorktreePath = null
+
     // Abort all running TaskControllers
     for (const controller of this.taskControllers.values()) {
       controller.abort()
@@ -340,6 +399,10 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Core execution tick - called every TICK_INTERVAL_MS while running.
+   * In pool architecture:
+   * - Tasks execute sequentially (1 at a time)
+   * - When all tasks complete, feature transitions to needs_merging
+   * - No per-task merge - feature-level merge handles all changes
    */
   private async tick(): Promise<void> {
     // Skip if not running
@@ -351,12 +414,10 @@ export class ExecutionOrchestrator extends EventEmitter {
     // Clear per-tick failure tracking (allows retry next tick)
     this.failedThisTick.clear()
 
-    // Check for completion
+    // Pool architecture: Check if all tasks are completed
+    // If so, transition feature to needs_merging (not orchestrator completed)
     if (this.checkAllTasksComplete()) {
-      this.state.status = 'completed'
-      this.state.stoppedAt = new Date().toISOString()
-      this.addEvent('completed')
-      this.stopLoop()
+      await this.transitionToNeedsMerging()
       return
     }
 
@@ -377,7 +438,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     // Handle completed task agents (legacy DevAgent path, kept for compatibility)
     await this.handleCompletedTasks()
 
-    // Handle QA reviews
+    // Handle QA reviews (pool architecture skips per-task merge)
     await this.handleQATasks()
 
     // Emit tick event for UI updates
@@ -385,6 +446,84 @@ export class ExecutionOrchestrator extends EventEmitter {
       availableCount: available.length,
       canAssign
     })
+  }
+
+  /**
+   * Transition feature to needs_merging when all tasks complete.
+   * This is the pool architecture completion path - feature-level merge instead of per-task.
+   *
+   * Flow: verifying → needs_merging → merging → archived
+   */
+  private async transitionToNeedsMerging(): Promise<void> {
+    if (!this.state.featureId) return
+
+    console.log(`[Orchestrator] All tasks complete for feature ${this.state.featureId}, transitioning to needs_merging`)
+
+    // Stop the execution loop
+    this.state.status = 'completed'
+    this.state.stoppedAt = new Date().toISOString()
+    this.stopLoop()
+
+    // Update feature status: verifying → needs_merging
+    // Note: syncFeatureStatus may have already set this via computeFeatureStatus,
+    // so we check current status first to avoid duplicate transition error
+    const featureStore = getFeatureStore()
+    if (!featureStore) {
+      console.error(`[Orchestrator] FeatureStore not available for needs_merging transition`)
+      this.addEvent('error', { error: 'FeatureStore not available' })
+      return
+    }
+    const feature = await featureStore.loadFeature(this.state.featureId)
+    const currentStatus = feature?.status
+
+    try {
+      if (currentStatus === 'needs_merging') {
+        // Already in needs_merging (set by syncFeatureStatus), just log and continue
+        console.log(`[Orchestrator] Feature ${this.state.featureId} already in needs_merging status`)
+      } else {
+        // Transition via status manager for validation
+        const statusManager = getFeatureStatusManager()
+        await statusManager.updateFeatureStatus(this.state.featureId, 'needs_merging')
+        console.log(`[Orchestrator] Feature ${this.state.featureId} status updated to needs_merging`)
+      }
+
+      // Emit event for UI
+      this.emit('feature_needs_merging', {
+        featureId: this.state.featureId,
+        featureManagerId: this.state.featureManagerId,
+        managerWorktreePath: this.state.managerWorktreePath
+      })
+
+      // Check completionAction to determine what to do next
+      // - auto_merge: Request merge through FeatureManager → then transition to archived
+      // - auto_pr: Push branch and create PR (no merge) → then transition to archived
+      // - manual: Stay in needs_merging, wait for user action
+      const completionAction = feature?.completionAction || 'manual'
+
+      if (completionAction === 'auto_merge') {
+        // Request merge through FeatureManager (which delegates to MergeManager)
+        if (this.state.featureManagerId !== null) {
+          const poolManager = getFeatureManagerPool()
+          const featureManager = poolManager.getFeatureManager(this.state.featureManagerId)
+          if (featureManager) {
+            await featureManager.completeCurrentFeature()
+            console.log(`[Orchestrator] Feature ${this.state.featureId} merge requested through FeatureManager`)
+          }
+        }
+      } else if (completionAction === 'auto_pr' && feature) {
+        // Create PR directly without merging - push manager branch and open PR
+        console.log(`[Orchestrator] Feature ${this.state.featureId} has auto_pr - creating PR without merge`)
+        await this.executeAutoPR(feature)
+      } else {
+        // Manual: stay in needs_merging, user needs to take action
+        console.log(`[Orchestrator] Feature ${this.state.featureId} has manual completion action - awaiting user action`)
+      }
+    } catch (error) {
+      console.error(`[Orchestrator] Failed to transition feature to needs_merging:`, error)
+      this.addEvent('error', { error: (error as Error).message })
+    }
+
+    this.addEvent('completed')
   }
 
   /**
@@ -465,16 +604,19 @@ export class ExecutionOrchestrator extends EventEmitter {
       const task = this.state.graph.nodes.find((n) => n.id === taskId)
       if (!task) continue
 
-      // Get worktree path from dev agent (if still exists) or construct it
-      const devAgent = getDevAgent(taskId)
-      let worktreePath = devAgent?.getState().worktreePath
+      // Pool architecture: Use manager worktree path
+      // All tasks execute in the same pool worktree, not individual task worktrees
+      let worktreePath = this.state.managerWorktreePath
 
       if (!worktreePath) {
-        // Task agent already cleaned up, construct path
-        const gitManager = getGitManager()
-        const config = gitManager.getConfig()
-        const worktreeName = getTaskWorktreeName(this.state.featureId, taskId)
-        worktreePath = path.join(config.worktreesDir, worktreeName)
+        // Fallback: try dev agent (legacy path)
+        const devAgent = getDevAgent(taskId)
+        worktreePath = devAgent?.getState().worktreePath || null
+      }
+
+      if (!worktreePath) {
+        console.error(`[Orchestrator] No worktree path available for QA task ${taskId}`)
+        continue
       }
 
       // Spawn QA agent with feature spec for spec-aware review
@@ -500,7 +642,8 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Handle QA review result.
-   * On pass: transition to merging
+   * Pool architecture: On pass, mark task completed (no per-task merge)
+   * Legacy mode: On pass, transition to merging
    * On fail: store feedback and transition back to dev
    */
   private handleQAResult(taskId: string, result: QAReviewResult): void {
@@ -514,40 +657,62 @@ export class ExecutionOrchestrator extends EventEmitter {
       console.log(`[Orchestrator] QA passed for ${taskId}, commit: ${result.commitHash}`)
     }
 
-    const poolManager = getTaskPoolManager()
+    const taskPoolManager = getTaskPoolManager()
+    const useManagerMode = this.state.featureManagerId !== null
 
     if (result.passed) {
-      // QA passed → transition to ready_for_merge
-      const transitionResult = transitionTask(task, 'QA_PASSED')
-      if (transitionResult.success) {
-        // Task is in ready_for_qa pool, move to ready_for_merge
-        poolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_merge')
-        this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_merge', 'QA_PASSED'))
-        this.addEvent('qa_passed', { taskId })
+      if (useManagerMode) {
+        // Pool architecture: QA passed → mark task completed directly (no per-task merge)
+        // Changes are committed to pool branch, feature-level merge happens later
+        const transitionResult = transitionTask(task, 'QA_PASSED_POOL')
+        if (transitionResult.success) {
+          taskPoolManager.moveTask(taskId, 'ready_for_qa', 'completed')
+          this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'completed', 'QA_PASSED_POOL'))
+          this.assignments.delete(taskId)
 
-        // Update feature status
-        this.updateFeatureStatus()
+          console.log(`[Orchestrator] Task ${taskId} completed (pool mode - no per-task merge)`)
+          this.addEvent('qa_passed', { taskId })
+          this.addEvent('task_completed', { taskId })
 
-        // Start merge (transition to in_progress for merge)
-        const mergeTransition = transitionTask(task, 'MERGE_STARTED')
-        if (mergeTransition.success) {
-          poolManager.moveTask(taskId, 'ready_for_merge', 'in_progress')
+          // Cascade to unblock dependents
+          const cascade = cascadeTaskCompletion(taskId, this.state.graph)
+          this.history.push(...cascade.changes)
+          for (const change of cascade.changes) {
+            taskPoolManager.moveTask(change.taskId, change.previousStatus, change.newStatus)
+          }
+        }
+      } else {
+        // Legacy mode: QA passed → transition to ready_for_merge and execute per-task merge
+        const transitionResult = transitionTask(task, 'QA_PASSED')
+        if (transitionResult.success) {
+          taskPoolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_merge')
+          this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_merge', 'QA_PASSED'))
+          this.addEvent('qa_passed', { taskId })
 
-          // Execute merge
-          this.executeMerge(taskId).then((mergeSuccess) => {
-            if (mergeSuccess) {
-              this.completeMerge(taskId)
-            }
-          })
+          // Start merge (transition to in_progress for merge)
+          const mergeTransition = transitionTask(task, 'MERGE_STARTED')
+          if (mergeTransition.success) {
+            taskPoolManager.moveTask(taskId, 'ready_for_merge', 'in_progress')
+
+            // Execute merge
+            this.executeMerge(taskId).then((mergeSuccess) => {
+              if (mergeSuccess) {
+                this.completeMerge(taskId)
+              }
+            })
+          }
         }
       }
+
+      // Update feature status
+      this.updateFeatureStatus()
     } else {
       // QA failed → store feedback and move back to ready_for_dev
       task.qaFeedback = result.feedback
       const transitionResult = transitionTask(task, 'QA_FAILED')
       if (transitionResult.success) {
         // Move from ready_for_qa back to ready_for_dev for dev rework
-        poolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_dev')
+        taskPoolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_dev')
         this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_dev', 'QA_FAILED'))
         this.addEvent('qa_failed', { taskId, feedback: result.feedback })
         console.log(`[Orchestrator] Task ${taskId} returned to dev (ready_for_dev) with feedback: ${result.feedback}`)
@@ -628,6 +793,7 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Assign an agent to a task - creates TaskController for Ralph Loop execution.
+   * In pool architecture, uses pool worktree path instead of creating task worktree.
    */
   private async assignAgentToTask(task: Task): Promise<void> {
     if (!this.state.featureId || !this.state.graph) {
@@ -635,11 +801,20 @@ export class ExecutionOrchestrator extends EventEmitter {
       return
     }
 
+    // Pool architecture: Require pool worktree path
+    if (!this.state.managerWorktreePath) {
+      console.error('[Orchestrator] Cannot assign: no pool worktree path')
+      return
+    }
+
     try {
-      // Load feature for goal
+      // Load feature for goal (include description for fuller context)
       const featureStore = getFeatureStore()
       const feature = featureStore ? await featureStore.loadFeature(this.state.featureId) : null
-      const featureGoal = feature?.name || 'Complete tasks'
+      let featureGoal = feature?.name || 'Complete tasks'
+      if (feature?.description) {
+        featureGoal += `\n\n${feature.description}`
+      }
 
       // Load CLAUDE.md (may not exist)
       let claudeMd: string | undefined
@@ -652,6 +827,7 @@ export class ExecutionOrchestrator extends EventEmitter {
       const projectRoot = contextService?.getProjectRoot() || process.cwd()
 
       // Create TaskController with loop config from orchestrator config
+      // Pass pool worktree path for use instead of creating task worktree
       const controller = createTaskController(
         this.state.featureId,
         task.id,
@@ -661,7 +837,8 @@ export class ExecutionOrchestrator extends EventEmitter {
           runBuild: this.config.runBuild ?? true,
           runLint: this.config.runLint ?? true,
           runTests: this.config.runTests ?? false,
-          continueOnLintFail: this.config.continueOnLintFail ?? true
+          continueOnLintFail: this.config.continueOnLintFail ?? true,
+          managerWorktreePath: this.state.managerWorktreePath // Manager worktree path
         }
       )
 
@@ -757,6 +934,7 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Get tasks that are ready for execution and can be assigned.
+   * In pool architecture, returns max 1 task for sequential execution.
    */
   getNextTasks(): NextTasksResult {
     if (!this.state.graph) {
@@ -783,12 +961,13 @@ export class ExecutionOrchestrator extends EventEmitter {
       return true
     })
 
-    // Calculate how many more can be assigned using pool counts
+    // Pool architecture: Sequential execution - max 1 task at a time
+    // Check if any task is currently running (in_progress, ready_for_qa, or ready_for_merge)
     const counts = poolManager.getCounts()
-    // in_progress tracks all active work (dev, qa, merge combined)
-    const currentActive = counts.in_progress
-    const canAssignTasks = this.config.maxConcurrentTasks - currentActive
-    const canAssign = Math.max(0, canAssignTasks)
+    const currentActive = counts.in_progress + counts.ready_for_qa + counts.ready_for_merge
+
+    // Only allow 1 concurrent task in pool mode
+    const canAssign = currentActive === 0 ? 1 : 0
 
     return { ready, available, canAssign }
   }
@@ -1120,21 +1299,28 @@ export class ExecutionOrchestrator extends EventEmitter {
         console.log(`[Orchestrator] Feature status changed: ${this.currentFeatureStatus} → ${newStatus}`)
       }
 
-      // Emit event for IPC handlers to forward to renderer
+      // Emit event for internal listeners
       this.emit('feature_status_changed', {
         featureId: this.state.featureId,
         status: newStatus,
         previousStatus: this.currentFeatureStatus
       })
 
+      // Broadcast to renderer for UI updates
+      const windows = BrowserWindow.getAllWindows()
+      for (const win of windows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('feature:status-changed', { featureId: this.state.featureId, status: newStatus })
+        }
+      }
+
       // Handle feature archived - stop orchestrator
       if (newStatus === 'archived') {
         await this.handleFeatureArchived()
-      }
-
-      // Handle feature completed - trigger completion action if configured
-      if (newStatus === 'completed' && feature) {
-        await this.handleFeatureCompleted(feature)
+        // Trigger completion action when feature is archived (after merge)
+        if (feature) {
+          await this.handleFeatureCompleted(feature)
+        }
       }
 
       this.currentFeatureStatus = newStatus
@@ -1143,9 +1329,9 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Handle feature completion - trigger configured completion action.
-   * Called when feature transitions to completed status.
+   * Called when feature transitions to archived status (after merge).
    */
-  private async handleFeatureCompleted(feature: { id: string; name: string; branchName: string; completionAction?: string }): Promise<void> {
+  private async handleFeatureCompleted(feature: { id: string; name: string; branchName: string; completionAction?: string; featureManagerId?: number; targetBranch?: string }): Promise<void> {
     const completionAction = feature.completionAction || 'manual'
 
     if (completionAction === 'manual') {
@@ -1280,8 +1466,11 @@ export class ExecutionOrchestrator extends EventEmitter {
   /**
    * Execute auto_pr completion action.
    * Creates a pull request using GitHub CLI.
+   *
+   * In pool architecture, uses the manager branch (dagent/neon, dagent/cyber, etc.)
+   * instead of the legacy feature branch name.
    */
-  private async executeAutoPR(feature: { id: string; name: string; branchName: string }): Promise<void> {
+  private async executeAutoPR(feature: { id: string; name: string; branchName: string; featureManagerId?: number; targetBranch?: string }): Promise<void> {
     console.log(`[Orchestrator] Executing auto_pr for feature ${feature.id}`)
 
     const prService = getPRService()
@@ -1295,12 +1484,38 @@ export class ExecutionOrchestrator extends EventEmitter {
       throw new Error('GitHub CLI is not authenticated. Run: gh auth login')
     }
 
+    // Determine the actual branch to use for PR
+    // In pool architecture, features work on manager worktree branches (dagent/neon, etc.)
+    // Legacy features use their own branch (feature.branchName)
+    let headBranch: string
+    const baseBranch = feature.targetBranch || 'main'
+
+    if (feature.featureManagerId !== undefined) {
+      // Pool architecture: use manager branch
+      const { getManagerBranchName } = await import('../../shared/types/pool')
+      headBranch = getManagerBranchName(feature.featureManagerId)
+      console.log(`[Orchestrator] Using manager branch ${headBranch} for feature ${feature.id}`)
+    } else {
+      // Legacy: use feature branch
+      headBranch = feature.branchName
+    }
+
+    // Push the branch to remote before creating PR
+    const gitManager = getGitManager()
+    if (gitManager) {
+      console.log(`[Orchestrator] Pushing branch ${headBranch} to origin`)
+      const pushResult = await gitManager.pushBranch(headBranch)
+      if (!pushResult.success) {
+        throw new Error(`Failed to push branch: ${pushResult.error}`)
+      }
+    }
+
     // Create PR
     const result = await prService.createPullRequest({
       title: feature.name,
       body: `## Summary\n\nAutomatically generated PR for feature: ${feature.name}\n\n---\n*Created by DAGent Auto PR*`,
-      head: feature.branchName,
-      base: 'main',
+      head: headBranch,
+      base: baseBranch,
       featureId: feature.id
     })
 

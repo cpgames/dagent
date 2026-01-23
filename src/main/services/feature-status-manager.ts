@@ -5,35 +5,37 @@ import type { FeatureStore } from '../storage/feature-store'
 import { getTaskAnalysisOrchestrator } from './task-analysis-orchestrator'
 
 /**
- * Valid status transitions map for the 9-state feature lifecycle.
+ * Valid status transitions map for the state-based manager architecture.
  * Each status can only transition to specific next statuses.
  *
- * State machine flow:
- * 1. not_started: Feature exists but no worktree yet (initial state)
- * 2. creating_worktree: Worktree creation in progress
- * 3. investigating: PM agent exploring codebase
- * 4. questioning: PM agent asking user questions
- * 5. planning: PM agent creating tasks
- * 6. ready: Tasks ready for execution (replaces old 'backlog')
- * 7. in_progress: Execution running
- * 8. completed: All tasks done
- * 9. archived: Feature merged/closed
+ * State machine flow (state-based managers):
+ * 1. not_started: Feature exists, not yet started (BacklogManager)
+ * 2. creating_worktree: Setting up worktree for feature (SetupManager)
+ * 3. investigating: PM agent exploring codebase, asking questions (InvestigationManager)
+ * 4. ready_for_planning: PM has enough info, user can trigger planning (ReadyForPlanningManager)
+ * 5. planning: PM agent creating tasks (PlanningManager)
+ * 6. ready: Tasks ready for execution (ReadyForDevelopmentManager)
+ * 7. developing: Dev agents working on tasks (DevelopmentManager)
+ * 8. verifying: QA agents verifying tasks (VerificationManager)
+ * 9. needs_merging: All tasks complete, waiting in merge queue (MergeManager)
+ * 10. merging: Bidirectional merge in progress (MergeManager)
+ * 11. archived: Feature merged and archived (ArchiveManager)
  *
- * Archive transition rules:
- * - Only 'completed' features can transition to 'archived'
- * - 'archived' can transition back to 'completed' (for merge failure recovery)
- * - Archive happens after merge to main or PR creation
+ * Note: Queue position is tracked via feature.queuePosition property.
+ * User input during investigation uses internal pools within InvestigationManager.
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
-  not_started: ['creating_worktree'],  // Start triggers worktree creation
-  creating_worktree: ['investigating', 'not_started'],  // Worktree ready -> PM investigates, OR revert on failure
-  investigating: ['questioning', 'planning'],  // Investigation done -> ask questions OR skip to planning if no questions
-  questioning: ['planning'],  // Questions answered -> create tasks
-  planning: ['ready'],  // Tasks created -> ready for execution
-  ready: ['in_progress', 'planning'],  // Start execution or re-plan
-  in_progress: ['completed', 'ready'],  // Finish or pause back to ready
-  completed: ['archived'],  // Archive after merge
-  archived: ['completed']  // Can un-archive if needed
+  not_started: ['creating_worktree'],  // User starts feature -> setup worktree
+  creating_worktree: ['investigating', 'not_started'],  // Worktree ready -> investigate, OR failed -> retry
+  investigating: ['ready_for_planning', 'not_started'],  // Spec complete -> ready for planning, OR failed -> retry
+  ready_for_planning: ['planning', 'investigating'],  // User clicks Plan -> planning, OR user sends message -> back to investigating
+  planning: ['ready', 'ready_for_planning'],  // Tasks created -> ready, OR need more info -> back to ready for planning
+  ready: ['developing', 'planning'],  // User starts dev -> developing, OR user adjusts -> back to planning
+  developing: ['verifying', 'ready'],  // Dev done -> verifying, OR paused -> ready
+  verifying: ['needs_merging', 'developing'],  // QA passed -> merge queue, OR QA failed -> back to dev
+  needs_merging: ['merging', 'archived', 'developing'],  // Merge slot available -> start merge, OR skip merge, OR task failed -> back to dev
+  merging: ['archived', 'needs_merging'],  // Merge success -> archived, OR merge failed -> retry
+  archived: ['not_started']  // Can un-archive to restart
 }
 
 /**
@@ -44,18 +46,19 @@ const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
  * - Update feature status in storage
  * - Emit events for UI reactivity
  * - Ensure all status changes are tracked and persisted
- * - Migrate existing features from old statuses to new 9-state model
  *
- * 9-State Lifecycle Workflow:
- * - not_started → creating_worktree (start triggers worktree creation)
+ * State-Based Manager Workflow:
+ * - not_started → creating_worktree (user starts feature)
  * - creating_worktree → investigating (worktree ready)
- * - investigating → questioning (investigation done)
- * - questioning → planning (questions answered)
+ * - investigating → ready_for_planning (spec complete)
+ * - ready_for_planning → planning | investigating (user clicks Plan, or sends message)
  * - planning → ready (tasks created)
- * - ready → in_progress | planning (start execution or re-plan)
- * - in_progress → completed | ready (finish or pause)
- * - completed → archived (after merge)
- * - archived → completed (un-archive if needed)
+ * - ready → developing | planning (user starts dev, or adjusts plan)
+ * - developing → verifying | ready (dev done, or paused)
+ * - verifying → needs_merging | developing (QA passed, or QA failed)
+ * - needs_merging → merging (merge slot available)
+ * - merging → archived | needs_merging (success or retry)
+ * - archived → not_started (un-archive to restart)
  */
 export class FeatureStatusManager {
   private featureStore: FeatureStore
@@ -123,14 +126,14 @@ export class FeatureStatusManager {
   }
 
   /**
-   * Migrate existing features from old statuses to the new 9-state model.
-   * This is a one-time migration for the status type update.
+   * Migrate existing features from old statuses to the new state-based model.
    * Safe to run multiple times (idempotent).
    *
    * Migration mapping:
    * - 'backlog' -> 'ready' (direct replacement)
    * - 'needs_attention' -> 'ready' (best effort recovery)
-   * - Old 'not_started' now stays as 'not_started' (valid in new model)
+   * - 'queued' -> 'creating_worktree' (queued status removed)
+   * - 'questioning' -> 'investigating' (questioning status removed, handled internally)
    *
    * @returns Number of features migrated
    */
@@ -157,6 +160,14 @@ export class FeatureStatusManager {
           // 'needs_attention' is removed - best effort recovery to 'ready'
           newStatus = 'ready'
           console.log(`[FeatureStatusManager] Migrated feature ${featureId}: needs_attention → ready`)
+        } else if (statusStr === 'queued') {
+          // 'queued' status is removed - queue position tracked via property instead
+          newStatus = 'creating_worktree'
+          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: queued → creating_worktree`)
+        } else if (statusStr === 'questioning') {
+          // 'questioning' status is removed - handled internally by InvestigationManager
+          newStatus = 'investigating'
+          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: questioning → investigating`)
         }
 
         if (newStatus) {
