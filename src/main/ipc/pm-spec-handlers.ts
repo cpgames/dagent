@@ -109,6 +109,7 @@ export async function pmCreateSpec(input: CreateSpecInput): Promise<CreateSpecRe
 
 /**
  * Update an existing feature specification.
+ * Uses "set" semantics - provided arrays replace existing content entirely.
  */
 export async function pmUpdateSpec(input: UpdateSpecInput): Promise<UpdateSpecResult> {
   const projectRoot = getCurrentProjectPath()
@@ -125,43 +126,14 @@ export async function pmUpdateSpec(input: UpdateSpecInput): Promise<UpdateSpecRe
       return { success: false, error: `Spec not found for feature ${input.featureId}` }
     }
 
-    const addedRequirementIds: string[] = []
-    const addedCriterionIds: string[] = []
-
-    // Add goals if provided
-    if (input.addGoals) {
-      for (const goal of input.addGoals) {
-        await store.addGoal(input.featureId, goal)
-      }
-    }
-
-    // Add requirements if provided (collect IDs)
-    if (input.addRequirements) {
-      for (const req of input.addRequirements) {
-        const requirement = await store.addRequirement(input.featureId, req)
-        addedRequirementIds.push(requirement.id)
-      }
-    }
-
-    // Add constraints if provided
-    if (input.addConstraints) {
-      for (const constraint of input.addConstraints) {
-        await store.addConstraint(input.featureId, constraint)
-      }
-    }
-
-    // Add acceptance criteria if provided (collect IDs)
-    if (input.addAcceptanceCriteria) {
-      for (const ac of input.addAcceptanceCriteria) {
-        const criterion = await store.addAcceptanceCriterion(input.featureId, ac)
-        addedCriterionIds.push(criterion.id)
-      }
-    }
-
-    // Add history note if provided
-    if (input.historyNote) {
-      await store.addHistoryEntry(input.featureId, input.historyNote)
-    }
+    // Update spec with "set" semantics
+    await store.updateSpec(input.featureId, {
+      goals: input.goals,
+      requirements: input.requirements,
+      constraints: input.constraints,
+      acceptanceCriteria: input.acceptanceCriteria,
+      historyNote: input.historyNote
+    })
 
     // Broadcast spec update to all windows
     const windows = BrowserWindow.getAllWindows()
@@ -171,11 +143,7 @@ export async function pmUpdateSpec(input: UpdateSpecInput): Promise<UpdateSpecRe
       }
     }
 
-    return {
-      success: true,
-      addedRequirementIds: addedRequirementIds.length > 0 ? addedRequirementIds : undefined,
-      addedCriterionIds: addedCriterionIds.length > 0 ? addedCriterionIds : undefined
-    }
+    return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }

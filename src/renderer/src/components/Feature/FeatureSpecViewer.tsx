@@ -58,7 +58,7 @@ export function FeatureSpecViewer({
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     goals: true,
     requirements: true,
-    constraints: true,  // Open by default to show questions during investigation
+    constraints: false,
     acceptance: true
   })
 
@@ -196,10 +196,10 @@ export function FeatureSpecViewer({
         </CollapsibleSection>
       )}
 
-      {/* Constraints Section - also shows PM questions during investigation */}
+      {/* Constraints Section */}
       {spec.constraints.length > 0 && (
         <CollapsibleSection
-          title="Questions"
+          title="Constraints"
           isOpen={openSections.constraints}
           onToggle={() => toggleSection('constraints')}
           count={spec.constraints.length}
@@ -207,7 +207,7 @@ export function FeatureSpecViewer({
           <ul className="spec-viewer__list">
             {spec.constraints.map((constraint, idx) => (
               <li key={idx} className="spec-viewer__item">
-                <span className="spec-viewer__item-bullet spec-viewer__item-bullet--constraint">?</span>
+                <span className="spec-viewer__item-bullet spec-viewer__item-bullet--constraint">!</span>
                 <div className="spec-viewer__item-text spec-viewer__item-markdown">
                   <ReactMarkdown>{constraint}</ReactMarkdown>
                 </div>

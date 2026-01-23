@@ -11,6 +11,7 @@ export interface TaskNodeData extends Record<string, unknown> {
   onEdit: (taskId: string) => void
   onDelete: (taskId: string) => void
   onLog: (taskId: string) => void
+  onReanalyze: (taskId: string) => void
 }
 
 // Status badge configuration - all statuses get badges now
@@ -28,7 +29,10 @@ const statusBadgeConfig: Record<TaskStatus, { label: string; cssClass: string }>
 function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   const nodeData = data as TaskNodeData
   // loopStatus kept in data for NodeDialog/debugging, but not rendered on TaskNode
-  const { task, loopStatus: _loopStatus, isBeingAnalyzed, onEdit, onDelete, onLog } = nodeData
+  const { task, loopStatus: _loopStatus, isBeingAnalyzed, onEdit, onDelete, onLog, onReanalyze } = nodeData
+
+  // Can reanalyze if task is ready_for_dev, blocked, or failed (not in progress or completed)
+  const canReanalyze = ['ready_for_dev', 'blocked', 'failed'].includes(task.status)
 
   const nodeClasses = [
     'task-node',
@@ -176,6 +180,30 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
             />
           </svg>
         </button>
+        {canReanalyze && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onReanalyze(task.id)
+            }}
+            className="task-node__action-btn task-node__action-btn--reanalyze"
+            title="Re-analyze task"
+          >
+            <svg
+              className="task-node__action-icon"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation()

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, type JSX } from 'react'
 import { useFeatureStore } from '../../stores'
 import { Button } from '../UI'
-import { ConfirmDialog } from '../DAG'
 import { toast } from '../../stores/toast-store'
 import type { CompletionAction } from '@shared/types'
 import './FeatureDescription.css'
@@ -27,9 +26,7 @@ export function FeatureDescription({
   const [completionAction, setCompletionAction] = useState<CompletionAction>('manual')
   const [autoStart, setAutoStart] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [isReplanning, setIsReplanning] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
-  const [showReplanConfirm, setShowReplanConfirm] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uncertainties, setUncertainties] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -83,53 +80,6 @@ export function FeatureDescription({
       setIsSaving(false)
     }
   }
-
-  const handleReplanClick = (): void => {
-    setShowReplanConfirm(true)
-  }
-
-  const handleReplanConfirm = async (): Promise<void> => {
-    if (!feature) return
-
-    // Double-check status before proceeding (allow ready or questioning)
-    const currentFeature = features.find((f) => f.id === featureId)
-    if (!currentFeature || (currentFeature.status !== 'ready' && currentFeature.status !== 'questioning')) {
-      toast.error('Feature must be in ready or questioning status to replan')
-      return
-    }
-
-    setIsReplanning(true)
-    try {
-      // Save any pending changes first
-      if (hasChanges) {
-        await saveFeature({
-          ...feature,
-          name: name.trim(),
-          description: description.trim() || undefined,
-          completionAction,
-          autoStart
-        })
-        setHasChanges(false)
-      }
-
-      // Call replan API
-      const result = await window.electronAPI.feature.replan(featureId)
-      if (result.success) {
-        // Update local state to show planning status
-        updateFeature(featureId, { status: 'planning' })
-        toast.success('Replanning started')
-      } else {
-        toast.error(result.error || 'Failed to start replanning')
-      }
-    } catch (error) {
-      toast.error(`Replan failed: ${(error as Error).message}`)
-    } finally {
-      setIsReplanning(false)
-    }
-  }
-
-  // Check if replan is allowed (ready or questioning status)
-  const canReplan = feature?.status === 'ready' || feature?.status === 'questioning'
 
   // File attachment handlers - upload immediately on selection
   const uploadFiles = async (files: File[]): Promise<void> => {
@@ -230,8 +180,8 @@ export function FeatureDescription({
           />
         </div>
 
-        {/* Uncertainties - shown when feature is in questioning state */}
-        {feature.status === 'questioning' && uncertainties.length > 0 && (
+        {/* Uncertainties - shown when feature is in investigating state and has questions */}
+        {feature.status === 'investigating' && uncertainties.length > 0 && (
           <div className="feature-description__field">
             <label className="feature-description__label">PM Agent Question</label>
             <div className="feature-description__uncertainties">
@@ -347,16 +297,8 @@ export function FeatureDescription({
         </div>
       </div>
 
-      {/* Footer with Save and Plan buttons */}
+      {/* Footer with Save button */}
       <div className="feature-description__footer">
-        <Button
-          variant="primary"
-          onClick={handleReplanClick}
-          disabled={!canReplan || isReplanning}
-          title={canReplan ? 'Replan this feature from scratch' : 'Feature must be in backlog or needs attention status to replan'}
-        >
-          {isReplanning ? 'Planning...' : 'Plan'}
-        </Button>
         <Button
           variant="primary"
           onClick={handleSave}
@@ -365,18 +307,6 @@ export function FeatureDescription({
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
-
-      {/* Replan Confirmation Dialog */}
-      <ConfirmDialog
-        open={showReplanConfirm}
-        title="Replan Feature"
-        message="Do you want to redo the planning phase? Warning: all current tasks and spec will be deleted."
-        confirmLabel="Yes, Replan"
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={handleReplanConfirm}
-        onCancel={() => setShowReplanConfirm(false)}
-      />
     </div>
   )
 }

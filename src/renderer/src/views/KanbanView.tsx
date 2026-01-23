@@ -5,6 +5,7 @@ import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
 import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
+import './KanbanView.css';
 
 /**
  * Analysis status for a feature.
@@ -16,24 +17,34 @@ interface AnalysisStatus {
 
 /**
  * Column configuration for the Kanban board.
- * 4-column layout mapping 9 states:
- * - Backlog: not_started (feature exists but no worktree)
- * - In Progress: creating_worktree, investigating, questioning, planning, ready, in_progress
- * - Completed: completed
- * - Archived: archived
+ * 4-column layout mapping state-based workflow:
+ * - Backlog: not_started (feature exists, not yet started)
+ * - In Progress: creating_worktree, investigating, ready_for_planning, planning, ready, developing, verifying
+ * - Completed: needs_merging, merging (all tasks done, awaiting merge)
+ * - Archived: archived (after successful merge)
  */
 const columns: { title: string; statuses: FeatureStatus[] }[] = [
   { title: 'Backlog', statuses: ['not_started'] },
-  { title: 'In Progress', statuses: ['creating_worktree', 'investigating', 'questioning', 'planning', 'ready', 'in_progress'] },
-  { title: 'Completed', statuses: ['completed'] },
+  { title: 'In Progress', statuses: ['creating_worktree', 'investigating', 'ready_for_planning', 'planning', 'ready', 'developing', 'verifying'] },
+  { title: 'Completed', statuses: ['needs_merging', 'merging'] },
   { title: 'Archived', statuses: ['archived'] },
 ];
+
+/**
+ * Props for KanbanView component.
+ */
+interface KanbanViewProps {
+  /** Selected manager filters - Set of featureManagerIds to show (empty = show none, full = show all) */
+  selectedManagerFilters: Set<number>;
+  /** Callback to open New Feature dialog */
+  onNewFeature: () => void;
+}
 
 /**
  * KanbanView - Displays features as cards in status columns.
  * Shows the workflow state of all features with navigation to DAG view.
  */
-export default function KanbanView() {
+export default function KanbanView({ selectedManagerFilters, onNewFeature }: KanbanViewProps) {
   const { features, isLoading, setActiveFeature, deleteFeature } = useFeatureStore();
   const setView = useViewStore((state) => state.setView);
   const { start: startExecution, stop: stopExecution } = useExecutionStore();
@@ -133,6 +144,7 @@ export default function KanbanView() {
   }, []);
 
   // Group features by column (each column may contain multiple statuses)
+  // Apply pool filter: Backlog and Archived show all, In Progress and Completed filter by selected pool
   const featuresByColumn = useMemo(() => {
     const grouped: Map<string, Feature[]> = new Map();
 
@@ -145,6 +157,13 @@ export default function KanbanView() {
       // Find which column this feature belongs to
       const column = columns.find(col => col.statuses.includes(feature.status));
       if (column) {
+        // Apply manager filter for In Progress and Completed columns
+        const shouldFilter = column.title === 'In Progress' || column.title === 'Completed';
+
+        if (shouldFilter && feature.featureManagerId !== undefined && !selectedManagerFilters.has(feature.featureManagerId)) {
+          continue; // Skip features not matching any selected filter
+        }
+
         grouped.get(column.title)!.push(feature);
       } else {
         // Safety fallback: put unknown statuses in Backlog
@@ -154,7 +173,7 @@ export default function KanbanView() {
     }
 
     return grouped;
-  }, [features]);
+  }, [features, selectedManagerFilters]);
 
   // Handle feature selection - navigate to DAG view
   const handleSelectFeature = (featureId: string) => {
@@ -220,8 +239,8 @@ export default function KanbanView() {
 
   return (
     <>
-      <div className="h-full p-6 pb-4">
-        <div className="kanban-view__board flex gap-3 min-w-fit">
+      <div className="h-full p-6 pb-4 flex flex-col">
+        <div className="kanban-view__board flex gap-3 min-w-fit flex-1">
           {columns.map((column) => (
             <KanbanColumn
               key={column.title}
@@ -236,6 +255,7 @@ export default function KanbanView() {
               startingFeatureId={startingFeatureId}
               analysisStatus={analysisStatus}
               worktreeProgress={worktreeProgress}
+              onNewFeature={column.title === 'Backlog' ? onNewFeature : undefined}
             />
           ))}
         </div>

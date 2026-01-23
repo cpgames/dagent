@@ -229,6 +229,19 @@
   margin: var(--space-xs) 0;
 }
 
+/* Answer display for questions */
+.spec-viewer__item-answer {
+  margin-top: var(--space-xs);
+  padding-left: var(--space-sm);
+  border-left: 2px solid var(--accent-primary);
+  color: var(--text-secondary);
+}
+
+.spec-viewer__item-answer strong {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 /* Progress text */
 .spec-viewer__progress {
   font-size: 0.75rem;

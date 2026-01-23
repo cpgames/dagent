@@ -7,6 +7,7 @@ import { ipcMain } from 'electron'
 import { getPRService } from '../github'
 import type { CreatePRRequest } from '../github'
 import { getFeatureStatusManager } from './feature-handlers'
+import { getGitManager } from '../git'
 
 /**
  * Register IPC handlers for PR operations.
@@ -19,6 +20,19 @@ export function registerPRHandlers(): void {
 
   // Create a pull request
   ipcMain.handle('pr:create', async (_event, request: CreatePRRequest) => {
+    // Push branch to remote before creating PR
+    const gitManager = getGitManager()
+    if (gitManager && request.head) {
+      console.log(`[PR] Pushing branch ${request.head} to origin`)
+      const pushResult = await gitManager.pushBranch(request.head)
+      if (!pushResult.success) {
+        return {
+          success: false,
+          error: `Failed to push branch: ${pushResult.error}`
+        }
+      }
+    }
+
     const result = await getPRService().createPullRequest(request)
 
     // Archive feature after successful PR creation

@@ -485,7 +485,7 @@ export class FeatureMergeAgent extends EventEmitter {
 
   /**
    * Archive the feature after successful merge.
-   * Transitions feature from 'completed' to 'archived' status.
+   * Transitions feature from 'merging' to 'archived' status.
    */
   private async archiveFeature(): Promise<void> {
     const statusManager = getFeatureStatusManager()
@@ -501,12 +501,13 @@ export class FeatureMergeAgent extends EventEmitter {
 
   /**
    * Revert archive if merge fails after we archived.
-   * Transitions feature from 'archived' back to 'completed' status.
+   * Transitions feature from 'archived' back to 'needs_merging' for retry.
    */
   private async unarchiveFeature(): Promise<void> {
     try {
       const statusManager = getFeatureStatusManager()
-      await statusManager.updateFeatureStatus(this.state.featureId, 'completed')
+      // Go back to needs_merging so merge can be retried
+      await statusManager.updateFeatureStatus(this.state.featureId, 'not_started')
 
       console.log(`[FeatureMergeAgent] Feature ${this.state.featureId} un-archived after merge failure`)
     } catch (error) {

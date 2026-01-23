@@ -606,7 +606,8 @@ export class DevAgent extends EventEmitter {
         agentType: 'task',
         agentId: `dev-${this.state.taskId}`,
         taskId: this.state.taskId,
-        priority: RequestPriority.DEV
+        priority: RequestPriority.DEV,
+        maxTurns: 50 // Limit to 50 turns to prevent runaway execution
       })) {
         // Emit progress events
         if (event.type === 'message' && event.message?.type === 'assistant') {
@@ -871,32 +872,31 @@ export class DevAgent extends EventEmitter {
     }
 
     parts.push(
-      '## Instructions',
-      '1. Implement ONLY the specific task described above - nothing more, nothing less',
-      '2. Follow the project guidelines from CLAUDE.md',
-      '3. Build on completed dependency work where applicable',
-      '4. Make all necessary file changes to complete this task',
-      '5. IMPORTANT: Work in the current directory (.) - do NOT use absolute paths or navigate elsewhere',
-      context.attachments && context.attachments.length > 0
-        ? '6. Only copy attachments that are actual project assets (images for UI, data files) - do NOT copy reference documents'
-        : '',
-      context.qaFeedback ? (context.attachments && context.attachments.length > 0 ? '7' : '6') + '. Address ALL QA feedback items' : '',
-      '',
-      '## CRITICAL - Scope Boundaries',
-      'This is ONE task in a multi-task workflow. Other tasks will handle other parts.',
-      '',
-      '**DO:**',
-      '- Implement EXACTLY what the task title and description specify',
-      '- Stop when the task scope is complete',
-      '- Leave placeholder/stub code for functionality that other tasks will implement',
+      '## CRITICAL - Execution Mode',
+      'You are in EXECUTION mode, not exploration mode.',
       '',
       '**DO NOT:**',
-      '- Implement features beyond this task\'s scope (even if they seem related)',
-      '- Implement work described in the feature spec that isn\'t in THIS task\'s description',
-      '- "Finish" or "complete" work that belongs to upcoming tasks',
-      '- Add extra functionality "while you\'re at it"',
+      '- Use the Task tool to spawn sub-agents for research',
+      '- Extensively explore the codebase before acting',
+      '- Read documentation files, READMEs, or spec files',
+      '- Search for patterns across the codebase',
       '',
-      'If the task says "Add X" - ONLY add X. If other tasks exist to "Add Y" and "Add Z", do NOT add Y or Z.',
+      '**DO:**',
+      '- Read ONLY the specific files you need to modify',
+      '- Make the required changes directly',
+      '- Complete the task with minimal tool usage',
+      '',
+      'All research has already been done. The task description tells you exactly what to do.',
+      '',
+      '## Instructions',
+      '1. Implement ONLY the specific task described above',
+      '2. Read only the files you need to modify',
+      '3. Make the changes directly - do not explore first',
+      '4. Work in the current directory (.) - do NOT use absolute paths',
+      context.attachments && context.attachments.length > 0
+        ? '5. Only copy attachments that are actual project assets'
+        : '',
+      context.qaFeedback ? (context.attachments && context.attachments.length > 0 ? '6' : '5') + '. Address ALL QA feedback items' : '',
       ''
     )
 
@@ -1022,7 +1022,8 @@ export class DevAgent extends EventEmitter {
         agentType: 'task',
         agentId: `dev-iteration-${this.state.taskId}`,
         taskId: this.state.taskId,
-        priority: RequestPriority.DEV
+        priority: RequestPriority.DEV,
+        maxTurns: 50 // Limit to 50 turns to prevent runaway execution
       })) {
         eventCount++
         // Check for abort flag

@@ -59,6 +59,7 @@ function dagToNodes(
   onEdit: (taskId: string) => void,
   onDelete: (taskId: string) => void,
   onLog: (taskId: string) => void,
+  onReanalyze: (taskId: string) => void,
   analyzingTaskId: string | null = null
 ): Node[] {
   if (!dag) return []
@@ -73,7 +74,8 @@ function dagToNodes(
       isBeingAnalyzed: task.id === analyzingTaskId,
       onEdit,
       onDelete,
-      onLog
+      onLog,
+      onReanalyze
     } as TaskNodeData
   }))
 }
@@ -189,9 +191,8 @@ function DAGViewInner({
   // Currently analyzing task ID (for analysis animation)
   const [analyzingTaskId, setAnalyzingTaskId] = useState<string | null>(null)
 
-  // Analysis state for ExecutionControls
+  // Planning/analyzing state for ExecutionControls
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false)
-  const [pendingAnalysisCount, setPendingAnalysisCount] = useState<number>(0)
 
   // Handle edge selection
   const handleSelectEdge = useCallback((edgeId: string) => {
@@ -349,28 +350,46 @@ function DAGViewInner({
     }
   }, [activeFeatureId, openLogDialog])
 
-  // Handle analyze tasks button click
-  const handleAnalyze = useCallback(async () => {
+  // Handle plan button click - starts planning phase
+  const handlePlan = useCallback(async () => {
     if (!activeFeatureId) return
 
     try {
-      setIsAnalyzing(true)
-      const result = await window.electronAPI.analysis.start(activeFeatureId)
+      setIsAnalyzing(true) // Reuse analyzing state for planning indicator
+      const result = await window.electronAPI.feature.startPlanning(activeFeatureId)
       if (!result.success) {
-        toast.error(`Failed to start analysis: ${result.error}`)
+        toast.error(`Failed to start planning: ${result.error}`)
         setIsAnalyzing(false)
       }
-      // Analysis events will update state via the IPC listener
+      // Planning status changes will update via IPC listener
     } catch (error) {
-      toast.error(`Failed to start analysis: ${(error as Error).message}`)
+      toast.error(`Failed to start planning: ${(error as Error).message}`)
       setIsAnalyzing(false)
+    }
+  }, [activeFeatureId])
+
+  // Handle reanalyze task
+  const handleReanalyzeTask = useCallback(async (taskId: string) => {
+    if (!activeFeatureId) return
+
+    try {
+      setAnalyzingTaskId(taskId)
+      const result = await window.electronAPI.analysis.reanalyzeTask(activeFeatureId, taskId)
+      if (!result.success) {
+        toast.error(`Failed to reanalyze task: ${result.error}`)
+        setAnalyzingTaskId(null)
+      }
+      // Analysis events will update via IPC listener
+    } catch (error) {
+      toast.error(`Failed to reanalyze task: ${(error as Error).message}`)
+      setAnalyzingTaskId(null)
     }
   }, [activeFeatureId])
 
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
-    () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId),
-    [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId]
+    () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, analyzingTaskId),
+    [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, analyzingTaskId]
   )
   const initialEdges = useMemo(
     () => dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge),
@@ -407,30 +426,26 @@ function DAGViewInner({
     loadLayout()
   }, [activeFeatureId])
 
-  // Fetch initial pending analysis count on feature change
+  // Fetch initial analysis status on feature change
   useEffect(() => {
     if (!activeFeatureId) {
-      setPendingAnalysisCount(0)
       setIsAnalyzing(false)
       setAnalyzingTaskId(null)
       return
     }
 
-    const fetchPendingCount = async (): Promise<void> => {
+    const fetchStatus = async (): Promise<void> => {
       try {
-        const result = await window.electronAPI.analysis.pending(activeFeatureId)
-        setPendingAnalysisCount(result.count)
-        // Also check if analysis is currently running
+        // Check if analysis (or planning) is currently running
         const statusResult = await window.electronAPI.analysis.status(activeFeatureId)
         setIsAnalyzing(statusResult.running)
       } catch (error) {
         console.error('[DAGView] Failed to fetch analysis status:', error)
-        setPendingAnalysisCount(0)
         setIsAnalyzing(false)
       }
     }
 
-    fetchPendingCount()
+    fetchStatus()
   }, [activeFeatureId])
 
   // Listen for analysis events to track which task is being analyzed
@@ -449,16 +464,11 @@ function DAGViewInner({
         setAnalyzingTaskId(event.taskId ?? null)
         setIsAnalyzing(true)
       } else if (event.type === 'kept') {
-        // Task was kept as-is, decrement pending count
+        // Task was kept as-is
         setAnalyzingTaskId(null)
-        setPendingAnalysisCount((prev) => Math.max(0, prev - 1))
       } else if (event.type === 'split') {
-        // Task was split into subtasks, the original is gone but new ones may need analysis
+        // Task was split into subtasks
         setAnalyzingTaskId(null)
-        // Refresh pending count after split since new tasks were created
-        window.electronAPI.analysis.pending(activeFeatureId).then((result) => {
-          setPendingAnalysisCount(result.count)
-        })
       } else if (event.type === 'error') {
         // Clear analyzing state on error
         setAnalyzingTaskId(null)
@@ -467,7 +477,6 @@ function DAGViewInner({
         // Analysis complete for feature, clear all state
         setAnalyzingTaskId(null)
         setIsAnalyzing(false)
-        setPendingAnalysisCount(0)
       }
     })
 
@@ -481,7 +490,7 @@ function DAGViewInner({
     const nodeCount = dag?.nodes?.length ?? 0
     const prevNodeCount = prevNodeCountRef.current
     console.log(`[DAGViewInner] DAG changed, nodes: ${nodeCount}, updating React Flow`)
-    const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, analyzingTaskId).map((node) => {
+    const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, analyzingTaskId).map((node) => {
       const savedPos = layoutPositionsRef.current[node.id]
       if (savedPos) {
         return { ...node, position: savedPos }
@@ -504,7 +513,7 @@ function DAGViewInner({
 
     // Update previous node count
     prevNodeCountRef.current = nodeCount
-  }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges, fitView])
+  }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges, fitView])
 
   // Poll for real-time session updates when task log dialog is open
   useEffect(() => {
@@ -716,9 +725,8 @@ function DAGViewInner({
             onRedo={redo}
             canUndo={historyState.canUndo}
             canRedo={historyState.canRedo}
-            pendingAnalysisCount={pendingAnalysisCount}
-            isAnalyzing={isAnalyzing}
-            onAnalyze={handleAnalyze}
+            onPlan={handlePlan}
+            isPlanningInProgress={isAnalyzing}
           />
         </div>
       </div>

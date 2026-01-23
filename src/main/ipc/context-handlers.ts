@@ -10,6 +10,7 @@ import {
   type ContextOptions,
   type FullContext
 } from '../context'
+import { getGitManager } from '../git'
 
 // Re-export for use by other handlers (e.g., chat-handlers)
 export { getService as getContextService }
@@ -97,7 +98,7 @@ export function registerContextHandlers(): void {
   })
 
   /**
-   * Save CLAUDE.md content to project root.
+   * Save CLAUDE.md content to project root and commit it.
    */
   ipcMain.handle('context:saveClaudeMd', async (_event, content: string) => {
     const service = getService()
@@ -111,6 +112,16 @@ export function registerContextHandlers(): void {
       const projectRoot = service.getProjectRoot()
       const claudeMdPath = path.join(projectRoot, 'CLAUDE.md')
       await fs.writeFile(claudeMdPath, content, 'utf-8')
+
+      // Commit CLAUDE.md to ensure it's available in all branches
+      const gitManager = getGitManager()
+      if (gitManager.isInitialized()) {
+        const commitResult = await gitManager.commitClaudeMd()
+        if (!commitResult.success) {
+          console.warn('[DAGent] Failed to commit CLAUDE.md:', commitResult.error)
+        }
+      }
+
       return { success: true }
     } catch (error) {
       console.error('[DAGent] Failed to save CLAUDE.md:', error)

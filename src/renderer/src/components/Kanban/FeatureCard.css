@@ -4,6 +4,7 @@
  */
 
 .feature-card {
+  position: relative;
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
   padding: var(--space-md);
@@ -57,6 +58,13 @@
   margin-bottom: var(--space-xs);
 }
 
+/* Container for status badge, manager badge, and queue badge */
+.feature-card__badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 /* Status badge in header */
 .feature-card__status-badge {
   font-size: 0.625rem;
@@ -97,6 +105,45 @@
 .feature-card--archived .feature-card__status-badge {
   background: color-mix(in srgb, var(--text-muted) 15%, transparent);
   color: var(--text-muted);
+}
+
+/* New pool-based statuses */
+.feature-card--queued {
+  border-left-color: var(--accent-secondary);
+}
+
+.feature-card--queued .feature-card__status-badge {
+  background: color-mix(in srgb, var(--accent-secondary) 20%, transparent);
+  color: var(--accent-secondary);
+}
+
+.feature-card--needs_merging {
+  border-left-color: var(--accent-primary);
+}
+
+.feature-card--needs_merging .feature-card__status-badge {
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  color: var(--accent-primary);
+}
+
+.feature-card--merging {
+  border-left-color: var(--color-success);
+}
+
+.feature-card--merging .feature-card__status-badge {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+}
+
+/* Queue position badge */
+.feature-card__queue-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
+  color: var(--accent-secondary);
 }
 
 .feature-card__title {
@@ -277,10 +324,10 @@
   flex-shrink: 0;
 }
 
-/* Investigating state - magnifying glass with spin animation */
+/* Investigating state - magnifying glass with pulse animation */
 .feature-card__status-icon--investigating {
   color: var(--accent-primary);
-  animation: spin 2s linear infinite;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Questioning state - question mark with pulse animation */
@@ -289,8 +336,33 @@
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* Planning state - clipboard with spin animation */
+/* Planning state - clipboard with pulse animation */
 .feature-card__status-icon--planning {
   color: var(--color-success);
-  animation: spin 2s linear infinite;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Feature Manager color coding - left border color based on assigned manager */
+.feature-card--manager-neon {
+  border-left-color: #00ffff;
+}
+
+.feature-card--manager-neon:hover {
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+}
+
+.feature-card--manager-cyber {
+  border-left-color: #ff00ff;
+}
+
+.feature-card--manager-cyber:hover {
+  box-shadow: 0 0 12px rgba(255, 0, 255, 0.3);
+}
+
+.feature-card--manager-pulse {
+  border-left-color: #ffaa00;
+}
+
+.feature-card--manager-pulse:hover {
+  box-shadow: 0 0 12px rgba(255, 170, 0, 0.3);
 }

@@ -67,13 +67,29 @@ function AgentsIcon({ className }: { className?: string }): JSX.Element {
 }
 
 /**
+ * Icon for Worktrees view - git branches/folders representing worktree pools
+ */
+function WorktreesIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Git-style branching icon */}
+      <circle cx="6" cy="6" r="2" strokeWidth={2} />
+      <circle cx="18" cy="12" r="2" strokeWidth={2} />
+      <circle cx="6" cy="18" r="2" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M6 8v8M8 6h6a2 2 0 012 2v2" />
+    </svg>
+  )
+}
+
+/**
  * View configuration for sidebar
  */
 const views: { id: ViewType; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'kanban', label: 'Kanban', Icon: KanbanIcon },
   { id: 'dag', label: 'DAG', Icon: DAGIcon },
   { id: 'context', label: 'Context', Icon: ContextIcon },
-  { id: 'agents', label: 'Agents', Icon: AgentsIcon }
+  { id: 'agents', label: 'Agents', Icon: AgentsIcon },
+  { id: 'worktrees', label: 'Worktrees', Icon: WorktreesIcon }
 ]
 
 /**

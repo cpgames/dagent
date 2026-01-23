@@ -9,7 +9,6 @@ interface FeatureChatProps {
 export function FeatureChat({ featureId, onShowLogs }: FeatureChatProps): JSX.Element {
   return (
     <ChatPanel
-      agentName="Project Manager"
       contextId={featureId}
       contextType="feature"
       onShowLogs={onShowLogs}

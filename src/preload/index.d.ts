@@ -121,6 +121,10 @@ import type {
   SessionUpdateEvent
 } from '../../shared/types/session'
 import type { AppSettings } from '@shared/types/settings'
+import type {
+  FeatureManagerPoolStatus,
+  FeatureManagerInfo
+} from '@shared/types/pool'
 
 /**
  * SDK availability status for Claude Agent SDK.
@@ -1041,6 +1045,13 @@ export interface FeatureAPI {
   onWorktreeProgress: (callback: (data: { featureId: string; message: string }) => void) => () => void
 
   /**
+   * Subscribe to feature manager assignment events.
+   * Fired when a feature is assigned to a manager.
+   * Returns an unsubscribe function.
+   */
+  onManagerAssigned: (callback: (data: { featureId: string; featureManagerId: number; queuePosition: number }) => void) => () => void
+
+  /**
    * Save an attachment file for a feature.
    * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
    */
@@ -1052,15 +1063,22 @@ export interface FeatureAPI {
   listAttachments: (featureId: string) => Promise<string[]>
 
   /**
-   * Start PM agent planning for a feature.
+   * Start PM agent planning for a feature (full parameters version).
+   * Used by startWorktreeCreation for initial planning.
    * Runs asynchronously - does not block the response.
    */
-  startPlanning: (
+  startPlanningFull: (
     featureId: string,
     featureName: string,
     description?: string,
     attachments?: string[]
   ) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Start planning for a feature in 'ready_for_planning' status.
+   * Called when user clicks the Plan button after PM has gathered enough info.
+   */
+  startPlanning: (featureId: string) => Promise<{ success: boolean; error?: string }>
 
   /**
    * Continue PM agent conversation with user's response.
@@ -1671,83 +1689,6 @@ export interface SessionAPI {
    * Subscribe to session update events
    */
   onUpdated: (callback: (event: SessionUpdateEvent) => void) => () => void
-
-  /**
-   * Migrate PM chat for a single feature from old format to session format
-   */
-  migratePMChat: (
-    projectRoot: string,
-    featureId: string
-  ) => Promise<{
-    success: boolean
-    featureId: string
-    messagesImported: number
-    sessionId?: string
-    error?: string
-    backupPath?: string
-  }>
-
-  /**
-   * Migrate PM chats for all features in a project
-   */
-  migrateAllPMChats: (
-    projectRoot: string
-  ) => Promise<Array<{
-    success: boolean
-    featureId: string
-    messagesImported: number
-    sessionId?: string
-    error?: string
-    backupPath?: string
-  }>>
-
-  /**
-   * Check if a feature needs migration
-   */
-  needsMigration: (
-    projectRoot: string,
-    featureId: string
-  ) => Promise<boolean>
-
-  /**
-   * Migrate a single task's dev session from old format to session format
-   */
-  migrateDevSession: (
-    projectRoot: string,
-    featureId: string,
-    taskId: string
-  ) => Promise<{
-    success: boolean
-    sessionId?: string
-    messagesImported?: number
-    backupPath?: string
-    error?: string
-  }>
-
-  /**
-   * Migrate all dev sessions for a feature
-   */
-  migrateAllDevSessions: (
-    projectRoot: string,
-    featureId: string
-  ) => Promise<{
-    results: Record<string, {
-      success: boolean
-      sessionId?: string
-      messagesImported?: number
-      error?: string
-    }>
-    totalMigrated: number
-  }>
-
-  /**
-   * Check if a task needs dev session migration
-   */
-  needsDevSessionMigration: (
-    projectRoot: string,
-    featureId: string,
-    taskId: string
-  ) => Promise<boolean>
 }
 
 export interface ElectronAPI {
@@ -1925,6 +1866,16 @@ export interface ElectronAPI {
    * Settings API for app-wide configuration
    */
   settings: SettingsAPI
+
+  /**
+   * Pool API for worktree pool management
+   */
+  pool: PoolAPI
+
+  /**
+   * Manager Debug API for state-based manager system
+   */
+  managers: ManagerAPI
 }
 
 /**
@@ -1960,6 +1911,12 @@ export interface AnalysisAPI {
   pending: (featureId: string) => Promise<{ count: number }>
 
   /**
+   * Reanalyze a single task.
+   * Sets the task back to needs_analysis and triggers analysis.
+   */
+  reanalyzeTask: (featureId: string, taskId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
    * Subscribe to analysis events.
    * Returns an unsubscribe function.
    */
@@ -1993,6 +1950,170 @@ export interface SettingsAPI {
    * Set a single setting value.
    */
   set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => Promise<void>
+}
+
+/**
+ * Pool API for worktree pool management.
+ * Manages reusable worktrees for feature execution with queue support.
+ */
+export interface PoolAPI {
+  /**
+   * Get the current status of the worktree pool.
+   */
+  getStatus: () => Promise<FeatureManagerPoolStatus>
+
+  /**
+   * Get detailed info about all pool worktrees.
+   */
+  getWorktrees: () => Promise<FeatureManagerInfo[]>
+
+  /**
+   * Get queue position for a specific feature.
+   */
+  getFeatureQueuePosition: (featureId: string) => Promise<{ poolId: number; position: number } | null>
+
+  /**
+   * Assign a feature to a pool worktree.
+   */
+  assignFeature: (featureId: string, targetBranch: string) => Promise<{ poolId: number; queuePosition: number; worktreePath: string }>
+
+  /**
+   * Remove a feature from the pool queue.
+   */
+  removeFeature: (featureId: string) => Promise<boolean>
+
+  /**
+   * Get the current merge queue.
+   */
+  getMergeQueue: () => Promise<MergeQueueEntry[]>
+
+  /**
+   * Add a feature to the merge queue.
+   */
+  enqueueMerge: (featureId: string, poolId: number) => Promise<void>
+
+  /**
+   * Process the next merge in the queue.
+   */
+  processNextMerge: () => Promise<void>
+
+  /**
+   * Get the worktree path for a specific pool.
+   */
+  getWorktreePath: (poolId: number) => Promise<string | null>
+
+  /**
+   * Initialize the pool manager with a project root.
+   */
+  initialize: (projectRoot: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Cleanup pool manager resources.
+   */
+  cleanup: () => Promise<void>
+
+  /**
+   * Subscribe to pool status changes.
+   */
+  onStatusChanged: (callback: (data: any) => void) => () => void
+
+  /**
+   * Subscribe to feature queued events.
+   */
+  onFeatureQueued: (callback: (data: any) => void) => () => void
+
+  /**
+   * Subscribe to feature started events.
+   */
+  onFeatureStarted: (callback: (data: any) => void) => () => void
+
+  /**
+   * Subscribe to feature completed events.
+   */
+  onFeatureCompleted: (callback: (data: any) => void) => () => void
+
+  /**
+   * Subscribe to merge started events.
+   */
+  onMergeStarted: (callback: (data: any) => void) => () => void
+
+  /**
+   * Subscribe to merge completed events.
+   */
+  onMergeCompleted: (callback: (data: any) => void) => () => void
+
+  /**
+   * Subscribe to merge failed events.
+   */
+  onMergeFailed: (callback: (data: any) => void) => () => void
+}
+
+/**
+ * Token status for a single worktree.
+ */
+export interface TokenStatus {
+  worktreeId: number
+  available: boolean
+  holder: string | null
+  pendingCount: number
+}
+
+/**
+ * Manager queue status (for worktree-bound managers).
+ */
+export interface ManagerQueueStatus {
+  worktreeId: number
+  featureCount: number
+  features: string[]
+}
+
+/**
+ * Individual manager status.
+ */
+export interface ManagerStatus {
+  managerId: string
+  states: string[]
+  featureCount?: number
+  features?: string[]
+  running?: boolean
+  queues?: ManagerQueueStatus[]
+}
+
+/**
+ * Combined status for all managers and tokens.
+ */
+export interface AllManagerStatus {
+  tokens: TokenStatus[]
+  managers: ManagerStatus[]
+}
+
+/**
+ * Manager status update event.
+ */
+export interface ManagerStatusUpdate {
+  type: 'token' | 'manager' | 'transition'
+  payload: unknown
+}
+
+/**
+ * Manager Debug API for observing state-based manager system.
+ * Provides visibility into token ownership and manager states.
+ */
+export interface ManagerAPI {
+  /**
+   * Get token service status (who holds each worktree token).
+   */
+  getTokenStatus: () => Promise<TokenStatus[]>
+
+  /**
+   * Get all manager statuses.
+   */
+  getAllStatus: () => Promise<AllManagerStatus>
+
+  /**
+   * Subscribe to manager status updates.
+   */
+  onStatusUpdate: (callback: (data: ManagerStatusUpdate) => void) => () => void
 }
 
 declare global {

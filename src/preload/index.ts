@@ -629,6 +629,18 @@ const electronAPI = {
       return () => ipcRenderer.removeListener('feature:worktree-progress', handler)
     },
 
+    // Listen for feature manager assignment
+    onManagerAssigned: (
+      callback: (data: { featureId: string; featureManagerId: number; queuePosition: number }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; featureManagerId: number; queuePosition: number }
+      ): void => callback(data)
+      ipcRenderer.on('feature:manager-assigned', handler)
+      return () => ipcRenderer.removeListener('feature:manager-assigned', handler)
+    },
+
     // Save an attachment file for a feature
     saveAttachment: (
       featureId: string,
@@ -641,14 +653,18 @@ const electronAPI = {
     listAttachments: (featureId: string): Promise<string[]> =>
       ipcRenderer.invoke('feature:listAttachments', featureId),
 
-    // Start PM agent planning for a feature
-    startPlanning: (
+    // Start PM agent planning for a feature (full parameters - used by startWorktreeCreation)
+    startPlanningFull: (
       featureId: string,
       featureName: string,
       description?: string,
       attachments?: string[]
     ): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('feature:startPlanning', featureId, featureName, description, attachments),
+      ipcRenderer.invoke('feature:startPlanningFull', featureId, featureName, description, attachments),
+
+    // Start planning for a feature in 'ready_for_planning' status (user triggered)
+    startPlanning: (featureId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('feature:startPlanning', featureId),
 
     // Continue PM agent conversation with user's response
     respondToPM: (
@@ -871,19 +887,7 @@ const electronAPI = {
       const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
       ipcRenderer.on('session:updated', handler)
       return () => ipcRenderer.removeListener('session:updated', handler)
-    },
-    migratePMChat: (projectRoot: string, featureId: string): Promise<any> =>
-      ipcRenderer.invoke('session:migratePMChat', projectRoot, featureId),
-    migrateAllPMChats: (projectRoot: string): Promise<any[]> =>
-      ipcRenderer.invoke('session:migrateAllPMChats', projectRoot),
-    needsMigration: (projectRoot: string, featureId: string): Promise<boolean> =>
-      ipcRenderer.invoke('session:needsMigration', projectRoot, featureId),
-    migrateDevSession: (projectRoot: string, featureId: string, taskId: string): Promise<any> =>
-      ipcRenderer.invoke('session:migrateDevSession', projectRoot, featureId, taskId),
-    migrateAllDevSessions: (projectRoot: string, featureId: string): Promise<any> =>
-      ipcRenderer.invoke('session:migrateAllDevSessions', projectRoot, featureId),
-    needsDevSessionMigration: (projectRoot: string, featureId: string, taskId: string): Promise<boolean> =>
-      ipcRenderer.invoke('session:needsDevSessionMigration', projectRoot, featureId, taskId)
+    }
   },
 
   // Analysis API (task analysis orchestration)
@@ -894,6 +898,8 @@ const electronAPI = {
       ipcRenderer.invoke('analysis:status', featureId),
     pending: (featureId: string): Promise<{ count: number }> =>
       ipcRenderer.invoke('analysis:pending', featureId),
+    reanalyzeTask: (featureId: string, taskId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('analysis:reanalyzeTask', featureId, taskId),
     onEvent: (
       callback: (data: { featureId: string; event: { type: string; taskId?: string; taskTitle?: string; decision?: string; newTaskCount?: number; error?: string } }) => void
     ): (() => void) => {
@@ -914,6 +920,106 @@ const electronAPI = {
       ipcRenderer.invoke('settings:get', key),
     set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void> =>
       ipcRenderer.invoke('settings:set', key, value)
+  },
+
+  // Pool API (worktree pool management)
+  pool: {
+    getStatus: (): Promise<any> => ipcRenderer.invoke('pool:getStatus'),
+    getWorktrees: (): Promise<any[]> => ipcRenderer.invoke('pool:getWorktrees'),
+    getFeatureQueuePosition: (featureId: string): Promise<{ poolId: number; position: number } | null> =>
+      ipcRenderer.invoke('pool:getFeatureQueuePosition', featureId),
+    assignFeature: (featureId: string, targetBranch: string): Promise<{ poolId: number; queuePosition: number; worktreePath: string }> =>
+      ipcRenderer.invoke('pool:assignFeature', featureId, targetBranch),
+    removeFeature: (featureId: string): Promise<boolean> =>
+      ipcRenderer.invoke('pool:removeFeature', featureId),
+    getMergeQueue: (): Promise<any[]> => ipcRenderer.invoke('pool:getMergeQueue'),
+    enqueueMerge: (featureId: string, poolId: number): Promise<void> =>
+      ipcRenderer.invoke('pool:enqueueMerge', featureId, poolId),
+    processNextMerge: (): Promise<void> => ipcRenderer.invoke('pool:processNextMerge'),
+    getWorktreePath: (poolId: number): Promise<string | null> =>
+      ipcRenderer.invoke('pool:getWorktreePath', poolId),
+    initialize: (projectRoot: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('pool:initialize', projectRoot),
+    cleanup: (): Promise<void> => ipcRenderer.invoke('pool:cleanup'),
+    // Pool events
+    onStatusChanged: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:status-changed', handler)
+      return () => ipcRenderer.removeListener('pool:status-changed', handler)
+    },
+    onFeatureQueued: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:feature-queued', handler)
+      return () => ipcRenderer.removeListener('pool:feature-queued', handler)
+    },
+    onFeatureStarted: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:feature-started', handler)
+      return () => ipcRenderer.removeListener('pool:feature-started', handler)
+    },
+    onFeatureCompleted: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:feature-completed', handler)
+      return () => ipcRenderer.removeListener('pool:feature-completed', handler)
+    },
+    onMergeStarted: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:merge-started', handler)
+      return () => ipcRenderer.removeListener('pool:merge-started', handler)
+    },
+    onMergeCompleted: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:merge-completed', handler)
+      return () => ipcRenderer.removeListener('pool:merge-completed', handler)
+    },
+    onMergeFailed: (callback: (data: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+      ipcRenderer.on('pool:merge-failed', handler)
+      return () => ipcRenderer.removeListener('pool:merge-failed', handler)
+    }
+  },
+
+  // Manager Debug API
+  managers: {
+    /** Get token service status (who holds each worktree token) */
+    getTokenStatus: (): Promise<Array<{
+      worktreeId: number
+      available: boolean
+      holder: string | null
+      pendingCount: number
+    }>> => ipcRenderer.invoke('manager:getTokenStatus'),
+
+    /** Get all manager statuses */
+    getAllStatus: (): Promise<{
+      tokens: Array<{
+        worktreeId: number
+        available: boolean
+        holder: string | null
+        pendingCount: number
+      }>
+      managers: Array<{
+        managerId: string
+        states: string[]
+        featureCount?: number
+        running?: boolean
+        queues?: Array<{
+          worktreeId: number
+          featureCount: number
+          features: string[]
+        }>
+      }>
+    }> => ipcRenderer.invoke('manager:getAllStatus'),
+
+    /** Subscribe to manager status updates */
+    onStatusUpdate: (callback: (data: {
+      type: 'token' | 'manager' | 'transition'
+      payload: unknown
+    }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: unknown): void =>
+        callback(data as { type: 'token' | 'manager' | 'transition'; payload: unknown })
+      ipcRenderer.on('manager:status-update', handler)
+      return () => ipcRenderer.removeListener('manager:status-update', handler)
+    }
   }
 }
 

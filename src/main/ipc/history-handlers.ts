@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron'
 import { getHistoryManager } from '../storage/history-manager'
 import { writeJson } from '../storage/json-store'
-import { getDagPath } from '../storage/paths'
+import { getDagPathInWorktree } from '../storage/paths'
+import { getFeatureStore } from './storage-handlers'
 import type { DAGGraph, HistoryState } from '@shared/types'
 
 let projectRoot: string | null = null
@@ -41,9 +42,13 @@ export function registerHistoryHandlers(): void {
       const graph = manager.undo()
 
       if (graph) {
-        // Save the restored graph as current
-        const dagPath = getDagPath(projectRoot, featureId)
-        await writeJson(dagPath, graph)
+        // Get feature to find worktree path
+        const featureStore = getFeatureStore()
+        const feature = await featureStore?.loadFeature(featureId)
+        if (feature?.managerWorktreePath) {
+          const dagPath = getDagPathInWorktree(feature.managerWorktreePath, featureId)
+          await writeJson(dagPath, graph)
+        }
         return { success: true, graph, state: manager.getState() }
       }
 
@@ -64,9 +69,13 @@ export function registerHistoryHandlers(): void {
       const graph = manager.redo()
 
       if (graph) {
-        // Save the restored graph as current
-        const dagPath = getDagPath(projectRoot, featureId)
-        await writeJson(dagPath, graph)
+        // Get feature to find worktree path
+        const featureStore = getFeatureStore()
+        const feature = await featureStore?.loadFeature(featureId)
+        if (feature?.managerWorktreePath) {
+          const dagPath = getDagPathInWorktree(feature.managerWorktreePath, featureId)
+          await writeJson(dagPath, graph)
+        }
         return { success: true, graph, state: manager.getState() }
       }
 

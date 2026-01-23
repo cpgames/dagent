@@ -64,15 +64,7 @@ export function registerStorageHandlers(): void {
   });
 
   ipcMain.handle('storage:listFeatures', async () => {
-    console.log('[storage:listFeatures] Called');
-    try {
-      const result = await getStore().listFeatures();
-      console.log('[storage:listFeatures] Returning:', result, 'type:', typeof result, 'is array:', Array.isArray(result));
-      return result;
-    } catch (error) {
-      console.error('[storage:listFeatures] Error:', error);
-      throw error;
-    }
+    return getStore().listFeatures();
   });
 
   ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => {
@@ -165,6 +157,15 @@ export function registerStorageHandlers(): void {
     'storage:deleteNode',
     async (_event, featureId: string, nodeId: string) => {
       return getStore().deleteNode(featureId, nodeId);
+    }
+  );
+
+  // Move feature from pending to worktree storage
+  ipcMain.handle(
+    'storage:moveFeatureToWorktree',
+    async (_event, featureId: string, managerWorktreePath: string) => {
+      await getStore().moveFeatureToWorktree(featureId, managerWorktreePath);
+      return true;
     }
   );
 

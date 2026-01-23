@@ -38,6 +38,8 @@ import {
 import { BrowserWindow } from 'electron'
 import { buildCompactionPrompt, parseCompactionResult } from './compaction-prompts'
 import { getAgentService } from '../agent/agent-service'
+import { FeatureStore } from '../storage/feature-store'
+import * as storagePaths from '../storage/paths'
 
 /**
  * SessionManager handles all session operations.
@@ -231,11 +233,8 @@ export class SessionManager {
       timestamp: new Date().toISOString()
     }
 
-    // Load current chat session
-    const chatSession = await this.loadChatSession(session)
-    if (!chatSession) {
-      throw new Error(`Chat session not found for: ${sessionId}`)
-    }
+    // Load current chat session (create if missing)
+    const chatSession = await this.loadOrCreateChatSession(session)
 
     // Add message
     chatSession.messages.push(fullMessage)
@@ -297,6 +296,29 @@ export class SessionManager {
     return chatSession.messages
       .filter(m => !m.metadata?.internal)
       .slice(-limit)
+  }
+
+  /**
+   * Update PM metadata for a session and persist it.
+   * Used by PM agent to track complexity and questions asked.
+   *
+   * @param sessionId - Session ID
+   * @param featureId - Feature ID
+   * @param pmMetadata - PM metadata to update
+   */
+  async updatePMMetadata(
+    sessionId: string,
+    featureId: string,
+    pmMetadata: Session['pmMetadata']
+  ): Promise<void> {
+    const session = await this.getSessionById(sessionId, featureId)
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`)
+    }
+
+    session.pmMetadata = pmMetadata
+    session.updatedAt = new Date().toISOString()
+    await this.saveSession(session)
   }
 
   /**
@@ -793,15 +815,12 @@ export class SessionManager {
       throw new Error(`Session not found: ${sessionId}`)
     }
 
-    // Load all components
-    const chatSession = await this.loadChatSession(session)
+    // Load all components (create chat session if missing)
+    const chatSession = await this.loadOrCreateChatSession(session)
     const checkpoint = await this.loadCheckpoint(session)
     const context = await this.loadContext(session)
     const agentDescription = await this.loadAgentDescription(session)
 
-    if (!chatSession) {
-      throw new Error(`Chat session not found for: ${sessionId}`)
-    }
     if (!context) {
       throw new Error(`Context not found for: ${sessionId}`)
     }
@@ -885,15 +904,12 @@ export class SessionManager {
       throw new Error(`Session not found: ${sessionId}`)
     }
 
-    // Load all components
-    const chatSession = await this.loadChatSession(session)
+    // Load all components (create chat session if missing)
+    const chatSession = await this.loadOrCreateChatSession(session)
     const checkpoint = await this.loadCheckpoint(session)
     const context = await this.loadContext(session)
     const agentDescription = await this.loadAgentDescription(session)
 
-    if (!chatSession) {
-      throw new Error(`Chat session not found for: ${sessionId}`)
-    }
     if (!context) {
       throw new Error(`Context not found for: ${sessionId}`)
     }
@@ -957,55 +973,69 @@ export class SessionManager {
   // ============================================
 
   /**
-   * Get base session directory path.
+   * Get base session directory path for a feature.
+   * Returns the correct path based on feature's storage location:
+   * - Pending features: .dagent/features/{featureId}/sessions/
+   * - Active features: .dagent-worktrees/{managerName}/.dagent/features/{featureId}/sessions/
    */
-  private getSessionDir(featureId: string): string {
-    return path.join(this.projectRoot, '.dagent-worktrees', featureId, '.dagent', 'sessions')
+  private async getSessionDir(featureId: string): Promise<string> {
+    const featureStore = new FeatureStore(this.projectRoot)
+    const feature = await featureStore.loadFeature(featureId)
+
+    if (feature?.managerWorktreePath) {
+      // Active feature - use manager worktree location
+      return storagePaths.getSessionsDirInWorktree(feature.managerWorktreePath, featureId)
+    }
+
+    // Pending or not found - use pending location
+    return storagePaths.getPendingSessionsDir(this.projectRoot, featureId)
   }
 
   /**
    * Get session metadata file path.
    */
-  private getSessionPath(session: Session): string {
-    return path.join(
-      this.getSessionDir(session.featureId),
-      `session_${session.id}.json`
-    )
+  private async getSessionPath(session: Session): Promise<string> {
+    const sessionDir = await this.getSessionDir(session.featureId)
+    return path.join(sessionDir, `session_${session.id}.json`)
   }
 
   /**
    * Get chat session file path.
    */
-  private getChatPath(session: Session): string {
-    return path.join(this.getSessionDir(session.featureId), session.files.chat)
+  private async getChatPath(session: Session): Promise<string> {
+    const sessionDir = await this.getSessionDir(session.featureId)
+    return path.join(sessionDir, session.files.chat)
   }
 
   /**
    * Get checkpoint file path.
    */
-  private getCheckpointPath(session: Session): string {
-    return path.join(this.getSessionDir(session.featureId), session.files.checkpoint)
+  private async getCheckpointPath(session: Session): Promise<string> {
+    const sessionDir = await this.getSessionDir(session.featureId)
+    return path.join(sessionDir, session.files.checkpoint)
   }
 
   /**
    * Get context file path.
    */
-  private getContextPath(session: Session): string {
-    return path.join(this.getSessionDir(session.featureId), session.files.context)
+  private async getContextPath(session: Session): Promise<string> {
+    const sessionDir = await this.getSessionDir(session.featureId)
+    return path.join(sessionDir, session.files.context)
   }
 
   /**
    * Get agent description file path.
    */
-  private getAgentDescriptionPath(session: Session): string {
-    return path.join(this.getSessionDir(session.featureId), session.files.agentDescription)
+  private async getAgentDescriptionPath(session: Session): Promise<string> {
+    const sessionDir = await this.getSessionDir(session.featureId)
+    return path.join(sessionDir, session.files.agentDescription)
   }
 
   /**
    * Save session metadata to disk.
    */
   private async saveSession(session: Session): Promise<void> {
-    const sessionPath = this.getSessionPath(session)
+    const sessionPath = await this.getSessionPath(session)
     await fs.mkdir(path.dirname(sessionPath), { recursive: true })
     await fs.writeFile(sessionPath, JSON.stringify(session, null, 2))
   }
@@ -1014,10 +1044,8 @@ export class SessionManager {
    * Load session metadata from disk.
    */
   private async loadSession(sessionId: string, featureId: string): Promise<Session | null> {
-    const sessionPath = path.join(
-      this.getSessionDir(featureId),
-      `session_${sessionId}.json`
-    )
+    const sessionDir = await this.getSessionDir(featureId)
+    const sessionPath = path.join(sessionDir, `session_${sessionId}.json`)
 
     try {
       const data = await fs.readFile(sessionPath, 'utf-8')
@@ -1031,7 +1059,7 @@ export class SessionManager {
    * Save chat session to disk.
    */
   private async saveChatSession(session: Session, chatSession: ChatSession): Promise<void> {
-    const chatPath = this.getChatPath(session)
+    const chatPath = await this.getChatPath(session)
     await fs.mkdir(path.dirname(chatPath), { recursive: true })
     await fs.writeFile(chatPath, JSON.stringify(chatSession, null, 2))
   }
@@ -1040,7 +1068,7 @@ export class SessionManager {
    * Load chat session from disk.
    */
   private async loadChatSession(session: Session): Promise<ChatSession | null> {
-    const chatPath = this.getChatPath(session)
+    const chatPath = await this.getChatPath(session)
 
     try {
       const data = await fs.readFile(chatPath, 'utf-8')
@@ -1051,10 +1079,34 @@ export class SessionManager {
   }
 
   /**
+   * Load chat session from disk, or create an empty one if it doesn't exist.
+   * This handles the case where the session exists but the chat file is missing.
+   */
+  private async loadOrCreateChatSession(session: Session): Promise<ChatSession> {
+    const existing = await this.loadChatSession(session)
+    if (existing) {
+      return existing
+    }
+
+    // Create empty chat session
+    const timestamp = new Date().toISOString()
+    const chatSession: ChatSession = {
+      messages: [],
+      totalMessages: 0,
+      oldestMessageTimestamp: timestamp,
+      newestMessageTimestamp: timestamp
+    }
+
+    // Save it so it exists for future calls
+    await this.saveChatSession(session, chatSession)
+    return chatSession
+  }
+
+  /**
    * Save checkpoint to disk.
    */
   private async saveCheckpoint(session: Session, checkpoint: Checkpoint): Promise<void> {
-    const checkpointPath = this.getCheckpointPath(session)
+    const checkpointPath = await this.getCheckpointPath(session)
     await fs.mkdir(path.dirname(checkpointPath), { recursive: true })
     await fs.writeFile(checkpointPath, JSON.stringify(checkpoint, null, 2))
   }
@@ -1063,7 +1115,7 @@ export class SessionManager {
    * Load checkpoint from disk.
    */
   private async loadCheckpoint(session: Session): Promise<Checkpoint | null> {
-    const checkpointPath = this.getCheckpointPath(session)
+    const checkpointPath = await this.getCheckpointPath(session)
 
     try {
       const data = await fs.readFile(checkpointPath, 'utf-8')
@@ -1077,7 +1129,7 @@ export class SessionManager {
    * Save context to disk.
    */
   private async saveContext(session: Session, context: SessionContext): Promise<void> {
-    const contextPath = this.getContextPath(session)
+    const contextPath = await this.getContextPath(session)
     await fs.mkdir(path.dirname(contextPath), { recursive: true })
     await fs.writeFile(contextPath, JSON.stringify(context, null, 2))
   }
@@ -1086,7 +1138,7 @@ export class SessionManager {
    * Load context from disk.
    */
   private async loadContext(session: Session): Promise<SessionContext | null> {
-    const contextPath = this.getContextPath(session)
+    const contextPath = await this.getContextPath(session)
 
     try {
       const data = await fs.readFile(contextPath, 'utf-8')
@@ -1103,7 +1155,7 @@ export class SessionManager {
     session: Session,
     description: AgentDescription
   ): Promise<void> {
-    const descPath = this.getAgentDescriptionPath(session)
+    const descPath = await this.getAgentDescriptionPath(session)
     await fs.mkdir(path.dirname(descPath), { recursive: true })
     await fs.writeFile(descPath, JSON.stringify(description, null, 2))
   }
@@ -1112,7 +1164,7 @@ export class SessionManager {
    * Load agent description from disk.
    */
   private async loadAgentDescription(session: Session): Promise<AgentDescription | null> {
-    const descPath = this.getAgentDescriptionPath(session)
+    const descPath = await this.getAgentDescriptionPath(session)
 
     try {
       const data = await fs.readFile(descPath, 'utf-8')

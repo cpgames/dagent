@@ -8,7 +8,7 @@ import { Button } from '../UI'
 import './ChatPanel.css'
 
 interface ChatPanelProps {
-  agentName: string
+  agentName?: string
   contextId: string
   contextType: 'feature' | 'task' | 'agent'
   onClear?: () => void
@@ -39,17 +39,36 @@ export function ChatPanel({
   } = useChatStore()
   const projectPath = useProjectStore((state) => state.projectPath)
   const [inputValue, setInputValue] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // Load chat when contextId or contextType changes
   useEffect(() => {
     loadChat(contextId, contextType)
   }, [contextId, contextType, loadChat])
 
+  // Force scroll to bottom - called whenever content changes
+  const scrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (container) {
+      // Use requestAnimationFrame for smoother scrolling after DOM updates
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
+        }
+      })
+    }
+  }, [])
+
   // Auto-scroll to bottom when messages change, streaming content updates, or tool usage
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, activeToolUse])
+    // Immediate scroll
+    scrollToBottom()
+
+    // Fallback scroll after a short delay to handle async DOM updates
+    const timeoutId = setTimeout(scrollToBottom, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [messages, messages.length, streamingContent, activeToolUse, scrollToBottom])
 
   const handleSend = useCallback(async () => {
     const trimmedValue = inputValue.trim()
@@ -92,13 +111,13 @@ export function ChatPanel({
       {/* Header */}
       <div className="chat-panel__header">
         <div className="chat-panel__header-top">
-          <h3 className="chat-panel__header-title">{agentName}</h3>
+          {agentName && <h3 className="chat-panel__header-title">{agentName}</h3>}
           <div className="chat-panel__header-actions">
             {onShowLogs && (
               <button
                 onClick={onShowLogs}
                 className="chat-panel__icon-btn"
-                title="View PM agent communication logs"
+                title="View agent logs"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -130,7 +149,7 @@ export function ChatPanel({
       </div>
 
       {/* Messages area */}
-      <div className="chat-panel__messages">
+      <div className="chat-panel__messages" ref={messagesContainerRef}>
         {isLoading ? (
           <div className="chat-panel__loading">Loading chat...</div>
         ) : messages.length === 0 && !streamingContent ? (
@@ -174,7 +193,6 @@ export function ChatPanel({
             </button>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input area */}

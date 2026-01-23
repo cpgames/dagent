@@ -12,6 +12,7 @@
 
 /**
  * Section types within a feature specification.
+ * Note: Questions are not stored in the spec - PM agent updates spec directly based on user answers.
  */
 export type SpecSection = 'goals' | 'requirements' | 'constraints' | 'acceptance_criteria'
 
@@ -175,18 +176,20 @@ export interface CreateSpecResult {
 
 /**
  * Input for updating an existing feature specification.
+ * Uses "set" semantics - provided arrays replace existing content entirely.
+ * Omitted fields are left unchanged.
  */
 export interface UpdateSpecInput {
   /** Feature ID of spec to update */
   featureId: string
-  /** Goals to add */
-  addGoals?: string[]
-  /** Requirements to add */
-  addRequirements?: string[]
-  /** Constraints to add */
-  addConstraints?: string[]
-  /** Acceptance criteria to add */
-  addAcceptanceCriteria?: string[]
+  /** Replace all goals with these (omit to keep existing) */
+  goals?: string[]
+  /** Replace all requirements with these (omit to keep existing) */
+  requirements?: string[]
+  /** Replace all constraints with these (omit to keep existing) */
+  constraints?: string[]
+  /** Replace all acceptance criteria with these (omit to keep existing) */
+  acceptanceCriteria?: string[]
   /** Note about what changed (for history) */
   historyNote?: string
 }
@@ -197,10 +200,6 @@ export interface UpdateSpecInput {
 export interface UpdateSpecResult {
   success: boolean
   error?: string
-  /** IDs of newly added requirements */
-  addedRequirementIds?: string[]
-  /** IDs of newly added acceptance criteria */
-  addedCriterionIds?: string[]
 }
 
 /**

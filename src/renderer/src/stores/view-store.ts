@@ -3,7 +3,7 @@ import { create } from 'zustand';
 /**
  * Available view types for the main application layout.
  */
-export type ViewType = 'kanban' | 'dag' | 'context' | 'agents';
+export type ViewType = 'kanban' | 'dag' | 'context' | 'agents' | 'worktrees';
 
 /**
  * Callback type for confirming discard of unsaved changes.

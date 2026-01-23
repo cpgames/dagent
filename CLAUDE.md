@@ -51,6 +51,8 @@ DAGent is a **dependency-aware AI agent orchestration platform** built with Elec
 | **Checkpoint Compression** | SessionManager token compaction | Manage Claude API token limits |
 | **Cascade Updates** | cascadeTaskCompletion() | Automatic dependency handling |
 
+IMPORTANT! DO NOT LEAVE DEPRECATED CODE. IF CODE IS NO LONGER NEEDED DELETE IT! WE DONT NEED BACKWARDS COMPATIBILITY SUPPORT.
+
 ## Key Concepts
 
 ### 1. Agent System (`src/main/agents/`)

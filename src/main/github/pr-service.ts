@@ -92,30 +92,21 @@ export class PRService {
         args.push('--draft')
       }
 
-      // Request JSON output for parsing
-      args.push('--json', 'number,url')
-
       const { stdout } = await execFileAsync('gh', args)
 
-      // Parse JSON output
-      // Format: {"number":123,"url":"https://api.github.com/repos/owner/repo/pulls/123"}
-      const result = JSON.parse(stdout.trim())
+      // gh pr create outputs the PR URL directly
+      // Format: https://github.com/owner/repo/pull/123
+      const prUrl = stdout.trim()
 
-      // Construct HTML URL from API URL
-      // API: https://api.github.com/repos/owner/repo/pulls/123
-      // HTML: https://github.com/owner/repo/pull/123
-      let htmlUrl = result.url
-      if (result.url && result.url.includes('api.github.com')) {
-        htmlUrl = result.url
-          .replace('api.github.com/repos', 'github.com')
-          .replace('/pulls/', '/pull/')
-      }
+      // Extract PR number from URL
+      const prNumberMatch = prUrl.match(/\/pull\/(\d+)$/)
+      const prNumber = prNumberMatch ? parseInt(prNumberMatch[1], 10) : undefined
 
       return {
         success: true,
-        prNumber: result.number,
-        prUrl: result.url,
-        htmlUrl
+        prNumber,
+        prUrl,
+        htmlUrl: prUrl
       }
     } catch (error) {
       const errorMsg = (error as Error).message || 'Unknown error'

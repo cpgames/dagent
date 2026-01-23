@@ -561,6 +561,11 @@ export class MergeAgent extends EventEmitter {
   /**
    * Check if all tasks in the feature are complete, and if so, archive the feature.
    * Called after successful task merge to detect when the entire feature is done.
+   *
+   * Note: With the pool architecture, feature merging follows this flow:
+   * in_progress → completed → needs_merging → merging → archived
+   *
+   * This method handles the final transition to archived after merge.
    */
   private async checkAndArchiveFeature(): Promise<void> {
     try {
@@ -581,17 +586,22 @@ export class MergeAgent extends EventEmitter {
       const allTasksComplete = dag.nodes.every(task => task.status === 'completed')
 
       if (allTasksComplete) {
-        console.log(`[MergeAgent] All tasks complete for feature ${this.state.featureId} - updating to completed status`)
+        console.log(`[MergeAgent] All tasks complete for feature ${this.state.featureId} - merge complete, archiving`)
 
-        // Load feature and update status to completed
-        // Note: We transition to 'completed' here, not 'archived'
-        // The feature will be archived later when merged to main (Phase 99 Task 2)
+        // Import FeatureStatusManager to use proper state transitions
+        const { getFeatureStatusManager } = await import('../ipc/feature-handlers')
+        const statusManager = getFeatureStatusManager()
+
         const feature = await featureStore.loadFeature(this.state.featureId)
-        if (feature && feature.status !== 'completed') {
-          feature.status = 'completed'
-          feature.updatedAt = new Date().toISOString()
-          await featureStore.saveFeature(feature)
-          console.log(`[MergeAgent] Feature ${this.state.featureId} transitioned to completed`)
+        if (feature) {
+          // Transition to archived (from merging state)
+          // The flow is: needs_merging → merging → archived
+          if (feature.status === 'merging') {
+            await statusManager.updateFeatureStatus(this.state.featureId, 'archived')
+            console.log(`[MergeAgent] Feature ${this.state.featureId} transitioned to archived`)
+          } else {
+            console.log(`[MergeAgent] Feature ${this.state.featureId} is in ${feature.status} status, skipping archive transition`)
+          }
         }
       }
     } catch (error) {

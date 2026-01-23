@@ -8,7 +8,7 @@ interface DeleteFeatureDialogProps {
   isOpen: boolean;
   onClose: () => void;
   feature: Feature | null;
-  onConfirm: (deleteBranch: boolean) => void;
+  onConfirm: (deleteBranch: boolean) => Promise<void>;
 }
 
 export function DeleteFeatureDialog({
@@ -25,7 +25,7 @@ export function DeleteFeatureDialog({
   const handleConfirm = async (): Promise<void> => {
     setIsDeleting(true);
     try {
-      onConfirm(deleteBranch);
+      await onConfirm(deleteBranch);
     } finally {
       setIsDeleting(false);
     }

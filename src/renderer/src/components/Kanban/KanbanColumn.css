@@ -98,3 +98,23 @@
   font-size: 0.875rem;
   color: var(--text-muted);
 }
+
+/* New Feature button */
+.kanban-column__new-feature {
+  width: 100%;
+  padding: var(--space-md);
+  border: 2px dashed var(--accent-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.kanban-column__new-feature:hover {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  border-style: solid;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}

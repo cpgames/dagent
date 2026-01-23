@@ -3,17 +3,31 @@ import path from 'path';
 
 /**
  * Read and parse a JSON file.
- * @returns Parsed JSON data, or null if file doesn't exist.
- * @throws Error if file exists but cannot be parsed.
+ * @returns Parsed JSON data, or null if file doesn't exist, is empty, or is corrupted.
  */
 export async function readJson<T>(filePath: string): Promise<T | null> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as T;
+    // Handle empty or whitespace-only files
+    const trimmed = content.trim();
+    if (!trimmed) {
+      console.warn(`[json-store] File is empty: ${filePath}`);
+      return null;
+    }
+    return JSON.parse(trimmed) as T;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;
     }
+    // Handle JSON parse errors gracefully - log and return null
+    // This allows the system to recover from corrupted files
+    if (error instanceof SyntaxError) {
+      console.error(`[json-store] Corrupted JSON file (will be treated as missing): ${filePath}`);
+      console.error(`[json-store] Parse error: ${error.message}`);
+      return null;
+    }
+    // For other errors, still throw
+    console.error(`[json-store] Failed to read file ${filePath}:`, error);
     throw error;
   }
 }

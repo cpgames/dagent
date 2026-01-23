@@ -1,0 +1,92 @@
+/**
+ * App Component Styles
+ * Header filter buttons for Feature Managers
+ */
+
+/* Header Filter Buttons */
+.header-filters {
+  display: flex;
+  align-items: center;
+}
+
+.header-filter-btn {
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Neon - Cyan/Teal with gradient text */
+.header-filter-btn--neon {
+  border-color: rgba(0, 255, 255, 0.5);
+}
+
+.header-filter-btn--neon .header-filter-text {
+  background: linear-gradient(135deg, #00ffff, #00d4aa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-filter-btn--neon:hover {
+  border-color: rgba(0, 255, 255, 0.8);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.header-filter-btn--neon.header-filter-btn--active {
+  background: rgba(0, 255, 255, 0.2);
+  border-color: #00ffff;
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.8), 0 0 60px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+/* Cyber - Magenta/Pink with gradient text */
+.header-filter-btn--cyber {
+  border-color: rgba(255, 0, 255, 0.5);
+}
+
+.header-filter-btn--cyber .header-filter-text {
+  background: linear-gradient(135deg, #ff00ff, #ff6b9d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-filter-btn--cyber:hover {
+  border-color: rgba(255, 0, 255, 0.8);
+  box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+}
+
+.header-filter-btn--cyber.header-filter-btn--active {
+  background: rgba(255, 0, 255, 0.2);
+  border-color: #ff00ff;
+  box-shadow: 0 0 30px rgba(255, 0, 255, 0.8), 0 0 60px rgba(255, 0, 255, 0.4), inset 0 0 20px rgba(255, 0, 255, 0.2);
+}
+
+/* Pulse - Orange/Gold with gradient text */
+.header-filter-btn--pulse {
+  border-color: rgba(255, 170, 0, 0.5);
+}
+
+.header-filter-btn--pulse .header-filter-text {
+  background: linear-gradient(135deg, #ffaa00, #ff6b00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-filter-btn--pulse:hover {
+  border-color: rgba(255, 170, 0, 0.8);
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.5);
+}
+
+.header-filter-btn--pulse.header-filter-btn--active {
+  background: rgba(255, 170, 0, 0.2);
+  border-color: #ffaa00;
+  box-shadow: 0 0 30px rgba(255, 170, 0, 0.8), 0 0 60px rgba(255, 170, 0, 0.4), inset 0 0 20px rgba(255, 170, 0, 0.2);
+}

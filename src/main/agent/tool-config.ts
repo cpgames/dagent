@@ -18,7 +18,14 @@ export const TOOL_PRESETS = {
   qaAgent: ['Read', 'Glob', 'Grep', 'Bash'],
 
   // PM Agent - read + full task management (CRUD + dependency inference) + spec management + decomposition
+  // DEPRECATED: Use investigationAgent or planningAgent instead
   pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask', 'CreateSpec', 'UpdateSpec', 'GetSpec', 'DecomposeSpec'],
+
+  // Investigation Agent - codebase exploration + spec writing
+  investigationAgent: ['Read', 'Glob', 'Grep', 'CreateSpec', 'UpdateSpec', 'GetSpec'],
+
+  // Planning Agent - spec reading (READ-ONLY) + task/DAG creation
+  planningAgent: ['GetSpec', 'DecomposeSpec', 'CreateTask', 'ListTasks', 'GetTask', 'UpdateTask', 'DeleteTask', 'AddDependency', 'RemoveDependency'],
 
   // No tools - basic chat only
   none: []

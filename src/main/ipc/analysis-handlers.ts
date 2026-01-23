@@ -3,7 +3,8 @@ import {
   getTaskAnalysisOrchestrator,
   type AnalysisEvent
 } from '../services/task-analysis-orchestrator'
-import { getFeatureStore } from './storage-handlers'
+import { getFeatureStore, getProjectRoot } from './storage-handlers'
+import { getDAGManager } from './dag-handlers'
 
 // Track running analysis per feature
 const runningAnalysis: Map<string, boolean> = new Map()
@@ -55,6 +56,48 @@ export function registerAnalysisHandlers(): void {
       const orchestrator = getTaskAnalysisOrchestrator(featureStore)
       const pending = await orchestrator.getPendingTasks(featureId)
       return { count: pending.length }
+    }
+  )
+
+  // Reanalyze a single task - sets it back to needs_analysis and triggers analysis
+  ipcMain.handle(
+    'analysis:reanalyzeTask',
+    async (event, featureId: string, taskId: string): Promise<{ success: boolean; error?: string }> => {
+      const featureStore = getFeatureStore()
+      if (!featureStore) {
+        return { success: false, error: 'Feature store not initialized' }
+      }
+
+      const projectRoot = getProjectRoot()
+      if (!projectRoot) {
+        return { success: false, error: 'Project root not initialized' }
+      }
+
+      try {
+        // Get DAG manager and update task status to needs_analysis
+        const manager = await getDAGManager(featureId, projectRoot)
+        const dag = manager.getGraph()
+
+        const taskIndex = dag.nodes.findIndex((t) => t.id === taskId)
+        if (taskIndex < 0) {
+          return { success: false, error: `Task ${taskId} not found` }
+        }
+
+        // Set task status to needs_analysis
+        dag.nodes[taskIndex].status = 'needs_analysis'
+        await manager.resetGraph(dag)
+
+        // Start analysis for this feature (will pick up the needs_analysis task)
+        if (!runningAnalysis.get(featureId)) {
+          const orchestrator = getTaskAnalysisOrchestrator(featureStore)
+          runningAnalysis.set(featureId, true)
+          startAnalysisStream(featureId, orchestrator, event.sender)
+        }
+
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
     }
   )
 }

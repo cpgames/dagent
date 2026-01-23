@@ -11,6 +11,11 @@ import type { Task, TaskStatus } from '@shared/types'
 import { buildFeatureContext, type FeatureContext } from '../chat/context-builder'
 import { FeatureStore } from '../storage/feature-store'
 
+/**
+ * Extended feature context (same as FeatureContext - questions removed from spec).
+ */
+export type ExtendedFeatureContext = FeatureContext
+
 // ============================================
 // Types
 // ============================================
@@ -80,7 +85,7 @@ export interface ContextOptions {
  */
 export interface FullContext {
   project: ProjectContext
-  feature?: FeatureContext
+  feature?: ExtendedFeatureContext
   task?: TaskContext
 }
 
@@ -250,8 +255,9 @@ export class ContextService {
 
   /**
    * Get feature context using existing buildFeatureContext helper.
+   * Also loads spec Q&A for PM agent context.
    */
-  async getFeatureContext(featureId: string): Promise<FeatureContext | null> {
+  async getFeatureContext(featureId: string): Promise<ExtendedFeatureContext | null> {
     try {
       const featureStore = new FeatureStore(this.projectRoot)
       const feature = await featureStore.loadFeature(featureId)
@@ -260,7 +266,9 @@ export class ContextService {
       }
 
       const dag = await featureStore.loadDag(featureId)
-      return buildFeatureContext(feature, dag)
+      const baseContext = buildFeatureContext(feature, dag)
+
+      return baseContext
     } catch (error) {
       console.error('[ContextService] Failed to get feature context:', error)
       return null
@@ -445,6 +453,8 @@ export class ContextService {
         }
         sections.push('')
       }
+
+      // Note: Q&A is now tracked in chat history, not in spec
     }
 
     // Task Context Section

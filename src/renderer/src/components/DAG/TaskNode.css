@@ -222,6 +222,11 @@
   border-color: var(--color-error);
 }
 
+.task-node__action-btn--reanalyze:hover {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
 .task-node__action-icon {
   width: 0.875rem;
   height: 0.875rem;

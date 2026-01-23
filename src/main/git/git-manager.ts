@@ -226,6 +226,27 @@ export class GitManager {
   }
 
   /**
+   * Push a branch to remote (origin).
+   * Creates upstream tracking if not already set.
+   *
+   * @param branchName - Branch to push
+   * @param force - Force push (use with caution)
+   */
+  async pushBranch(branchName: string, force: boolean = false): Promise<GitOperationResult> {
+    this.ensureInitialized()
+    try {
+      const args = ['push', '-u', 'origin', branchName]
+      if (force) {
+        args.splice(1, 0, '--force')
+      }
+      await this.git.raw(args)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
    * Get repository status.
    */
   async getStatus(): Promise<GitOperationResult> {
@@ -1149,12 +1170,560 @@ export class GitManager {
     }
   }
 
+  // ===========================================================================
+  // Pool Worktree Operations
+  // ===========================================================================
+
+  /**
+   * Create a worktree for a feature manager.
+   * Manager worktrees are reusable across features.
+   */
+  async createManagerWorktree(
+    featureManagerId: number,
+    branchName: string,
+    worktreePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    this.ensureInitialized()
+
+    try {
+      console.log(`[GitManager] Creating manager worktree ${featureManagerId}: branch=${branchName}, path=${worktreePath}`)
+
+      // Check if worktree already exists
+      const worktrees = await this.listWorktrees()
+      const normalizedPath = path.normalize(worktreePath)
+      if (worktrees.some((w) => path.normalize(w.path) === normalizedPath)) {
+        console.log(`[GitManager] Manager worktree ${featureManagerId} already exists`)
+        return { success: true } // Already exists is OK for managers
+      }
+
+      // Clean up orphaned directory if exists
+      try {
+        const dirStat = await fs.stat(worktreePath)
+        if (dirStat.isDirectory()) {
+          await fs.rm(worktreePath, { recursive: true, force: true })
+          console.log(`[GitManager] Removed orphaned manager directory: ${worktreePath}`)
+        }
+      } catch {
+        // Directory doesn't exist, expected
+      }
+
+      // Create branch if it doesn't exist
+      const branchExists = await this.branchExists(branchName)
+      if (!branchExists) {
+        const currentBranch = await this.getCurrentBranch()
+        await this.git.branch([branchName, currentBranch || 'HEAD'])
+        console.log(`[GitManager] Created manager branch ${branchName}`)
+      }
+
+      // Create worktree
+      await this.git.raw(['worktree', 'add', worktreePath, branchName])
+
+      // Create .dagent directory in pool worktree
+      const dagentPath = path.join(worktreePath, '.dagent')
+      await fs.mkdir(dagentPath, { recursive: true })
+      await fs.mkdir(path.join(dagentPath, 'nodes'), { recursive: true })
+      await fs.mkdir(path.join(dagentPath, 'sessions'), { recursive: true })
+
+      console.log(`[GitManager] Manager worktree ${featureManagerId} created successfully`)
+      return { success: true }
+    } catch (error) {
+      console.error(`[GitManager] Failed to create manager worktree ${featureManagerId}:`, error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Reset a manager branch to sync with a target branch.
+   * Used to prepare manager for a new feature.
+   */
+  async resetManagerBranch(
+    featureManagerId: number,
+    _managerBranchName: string,  // Kept for API compatibility
+    targetBranch: string,
+    worktreePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    this.ensureInitialized()
+
+    try {
+      console.log(`[GitManager] Resetting manager ${featureManagerId} to ${targetBranch}`)
+
+      // Create a git instance for the manager worktree
+      const managerGit = simpleGit({ baseDir: worktreePath })
+
+      // Fetch latest from origin if available
+      try {
+        await managerGit.fetch()
+      } catch {
+        // Ignore fetch errors (might not have remote)
+      }
+
+      // Hard reset manager branch to target branch
+      await managerGit.reset(['--hard', targetBranch])
+
+      // Clean any untracked files
+      await managerGit.clean('f', ['-d'])
+
+      console.log(`[GitManager] Manager ${featureManagerId} reset to ${targetBranch}`)
+      return { success: true }
+    } catch (error) {
+      console.error(`[GitManager] Failed to reset manager ${featureManagerId}:`, error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Merge a source branch INTO the manager branch (first phase of bidirectional merge).
+   * Conflicts are resolved in the manager worktree.
+   */
+  async mergeIntoManagerBranch(
+    featureManagerId: number,
+    sourceBranch: string
+  ): Promise<MergeResult> {
+    this.ensureInitialized()
+
+    // Find manager worktree path
+    const worktrees = await this.listWorktrees()
+    const managerWorktree = worktrees.find((w) => w.path.includes(`worktree-`) || w.path.includes(`pool-worktree-${featureManagerId}`))
+
+    if (!managerWorktree) {
+      return {
+        success: false,
+        merged: false,
+        error: `Manager worktree ${featureManagerId} not found`
+      }
+    }
+
+    try {
+      console.log(`[GitManager] Merging ${sourceBranch} INTO manager ${featureManagerId}`)
+
+      const managerGit = simpleGit({ baseDir: managerWorktree.path })
+
+      // Fetch latest
+      try {
+        await managerGit.fetch()
+      } catch {
+        // Ignore fetch errors
+      }
+
+      // Try to merge
+      try {
+        const result = await managerGit.merge([sourceBranch, '--no-ff', '-m', `Merge ${sourceBranch} into manager`])
+
+        if (result.failed) {
+          // Get conflict list
+          const status = await managerGit.status()
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        console.log(`[GitManager] Successfully merged ${sourceBranch} into manager ${featureManagerId}`)
+        return {
+          success: true,
+          merged: true,
+          commitHash: (result as { hash?: string }).hash || undefined
+        }
+      } catch (mergeError) {
+        // Check for conflicts
+        const status = await managerGit.status()
+        if (status.conflicted.length > 0) {
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        throw mergeError
+      }
+    } catch (error) {
+      console.error(`[GitManager] Failed to merge into manager ${featureManagerId}:`, error)
+      return {
+        success: false,
+        merged: false,
+        error: (error as Error).message
+      }
+    }
+  }
+
+  /**
+   * Merge the manager branch INTO a target branch (second phase of bidirectional merge).
+   * This should be clean after first phase resolved conflicts.
+   */
+  async mergeManagerIntoTarget(
+    featureManagerId: number,
+    targetBranch: string
+  ): Promise<MergeResult> {
+    this.ensureInitialized()
+
+    // Find manager worktree
+    const worktrees = await this.listWorktrees()
+    const managerWorktree = worktrees.find((w) => w.path.includes(`worktree-`) || w.path.includes(`pool-worktree-${featureManagerId}`))
+
+    if (!managerWorktree) {
+      return {
+        success: false,
+        merged: false,
+        error: `Manager worktree ${featureManagerId} not found`
+      }
+    }
+
+    const managerBranchName = managerWorktree.branch
+
+    try {
+      console.log(`[GitManager] Merging manager ${featureManagerId} (${managerBranchName}) INTO ${targetBranch}`)
+
+      // Switch to target branch in main repo
+      await this.git.checkout(targetBranch)
+
+      // Merge manager branch into target
+      try {
+        const result = await this.git.merge([managerBranchName!, '--no-ff', '-m', `Merge manager-${featureManagerId} into ${targetBranch}`])
+
+        if (result.failed) {
+          const status = await this.git.status()
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Unexpected conflicts during manager->target merge'
+          }
+        }
+
+        console.log(`[GitManager] Successfully merged manager ${featureManagerId} into ${targetBranch}`)
+        return {
+          success: true,
+          merged: true,
+          commitHash: (result as { hash?: string }).hash || undefined
+        }
+      } catch (mergeError) {
+        const status = await this.git.status()
+        if (status.conflicted.length > 0) {
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Unexpected conflicts during manager->target merge'
+          }
+        }
+
+        throw mergeError
+      }
+    } catch (error) {
+      console.error(`[GitManager] Failed to merge manager ${featureManagerId} into ${targetBranch}:`, error)
+      return {
+        success: false,
+        merged: false,
+        error: (error as Error).message
+      }
+    }
+  }
+
+  /**
+   * Merge a source branch INTO the current branch in a worktree.
+   * Generic method used by MergeManager for preparation merges.
+   */
+  async mergeInWorktree(
+    worktreePath: string,
+    sourceBranch: string
+  ): Promise<MergeResult> {
+    this.ensureInitialized()
+
+    try {
+      console.log(`[GitManager] Merging ${sourceBranch} in worktree ${worktreePath}`)
+
+      const worktreeGit = simpleGit({ baseDir: worktreePath })
+
+      // Fetch latest
+      try {
+        await worktreeGit.fetch()
+      } catch {
+        // Ignore fetch errors (may be offline)
+      }
+
+      // Try to merge
+      try {
+        const result = await worktreeGit.merge([sourceBranch, '--no-ff', '-m', `Merge ${sourceBranch}`])
+
+        if (result.failed) {
+          const status = await worktreeGit.status()
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        console.log(`[GitManager] Successfully merged ${sourceBranch} in worktree`)
+        return {
+          success: true,
+          merged: true,
+          commitHash: (result as { hash?: string }).hash || undefined
+        }
+      } catch (mergeError) {
+        const status = await worktreeGit.status()
+        if (status.conflicted.length > 0) {
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        throw mergeError
+      }
+    } catch (error) {
+      console.error(`[GitManager] Failed to merge in worktree:`, error)
+      return {
+        success: false,
+        merged: false,
+        error: (error as Error).message
+      }
+    }
+  }
+
+  /**
+   * Merge a source branch INTO a target branch in the main repository.
+   * Generic method used by MergeManager for completion merges.
+   */
+  async mergeBranchIntoTarget(
+    sourceBranch: string,
+    targetBranch: string
+  ): Promise<MergeResult> {
+    this.ensureInitialized()
+
+    try {
+      console.log(`[GitManager] Merging ${sourceBranch} INTO ${targetBranch}`)
+
+      // Switch to target branch in main repo
+      await this.git.checkout(targetBranch)
+
+      // Merge source branch into target
+      try {
+        const result = await this.git.merge([sourceBranch, '--no-ff', '-m', `Merge ${sourceBranch} into ${targetBranch}`])
+
+        if (result.failed) {
+          const status = await this.git.status()
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        console.log(`[GitManager] Successfully merged ${sourceBranch} into ${targetBranch}`)
+        return {
+          success: true,
+          merged: true,
+          commitHash: (result as { hash?: string }).hash || undefined
+        }
+      } catch (mergeError) {
+        const status = await this.git.status()
+        if (status.conflicted.length > 0) {
+          const conflicts: MergeConflict[] = status.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected'
+          }
+        }
+
+        throw mergeError
+      }
+    } catch (error) {
+      console.error(`[GitManager] Failed to merge ${sourceBranch} into ${targetBranch}:`, error)
+      return {
+        success: false,
+        merged: false,
+        error: (error as Error).message
+      }
+    }
+  }
+
+  /**
+   * Commit a merge in progress after conflicts have been resolved.
+   * Used by MergeManager to commit after AI-assisted conflict resolution.
+   */
+  async commitMerge(
+    worktreePath: string,
+    message: string
+  ): Promise<GitOperationResult> {
+    this.ensureInitialized()
+
+    try {
+      const git = simpleGit({ baseDir: worktreePath })
+
+      // Stage all changes (including resolved conflicts)
+      await git.add('.')
+
+      // Commit the merge
+      await git.commit(message)
+
+      console.log(`[GitManager] Committed merge in ${worktreePath}`)
+      return { success: true }
+    } catch (error) {
+      console.error(`[GitManager] Failed to commit merge:`, error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
   /**
    * Ensure GitManager is initialized before operations.
    */
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error('GitManager not initialized. Call initialize(projectRoot) first.')
+    }
+  }
+
+  /**
+   * Commit CLAUDE.md if it exists and is untracked or modified.
+   * Creates a commit with just that one file to ensure it's available in all branches.
+   * Returns success: true if committed, or if CLAUDE.md doesn't exist or is already committed.
+   */
+  async commitClaudeMd(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+
+    try {
+      const claudeMdPath = 'CLAUDE.md'
+      const fullPath = path.join(this.config.baseDir, claudeMdPath)
+
+      // Check if CLAUDE.md exists
+      try {
+        await fs.access(fullPath)
+      } catch {
+        // CLAUDE.md doesn't exist - that's OK, nothing to commit
+        console.log('[GitManager] CLAUDE.md does not exist, nothing to commit')
+        return { success: true }
+      }
+
+      // Check git status for CLAUDE.md specifically
+      const status = await this.git.status()
+
+      const isUntracked = status.not_added.includes(claudeMdPath)
+      const isModified = status.modified.includes(claudeMdPath)
+      const isStaged = status.staged.includes(claudeMdPath)
+
+      if (!isUntracked && !isModified && !isStaged) {
+        // CLAUDE.md is already committed and unchanged
+        console.log('[GitManager] CLAUDE.md is already committed and unchanged')
+        return { success: true }
+      }
+
+      // Stage CLAUDE.md
+      await this.git.add(claudeMdPath)
+
+      // Create commit with just CLAUDE.md
+      const message = isUntracked
+        ? 'Add CLAUDE.md project configuration'
+        : 'Update CLAUDE.md project configuration'
+
+      await this.git.commit(message, claudeMdPath)
+
+      console.log(`[GitManager] ${message}`)
+      return { success: true }
+    } catch (error) {
+      console.error('[GitManager] Failed to commit CLAUDE.md:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Commit .gitignore if it exists and is untracked or modified.
+   * Creates a commit with just that one file to ensure it's available in all branches.
+   * Returns success: true if committed, or if .gitignore doesn't exist or is already committed.
+   */
+  async commitGitignore(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+
+    try {
+      const gitignorePath = '.gitignore'
+      const fullPath = path.join(this.config.baseDir, gitignorePath)
+
+      // Check if .gitignore exists
+      try {
+        await fs.access(fullPath)
+      } catch {
+        // .gitignore doesn't exist - that's OK, nothing to commit
+        console.log('[GitManager] .gitignore does not exist, nothing to commit')
+        return { success: true }
+      }
+
+      // Check git status for .gitignore specifically
+      const status = await this.git.status()
+
+      const isUntracked = status.not_added.includes(gitignorePath)
+      const isModified = status.modified.includes(gitignorePath)
+      const isStaged = status.staged.includes(gitignorePath)
+
+      if (!isUntracked && !isModified && !isStaged) {
+        // .gitignore is already committed and unchanged
+        console.log('[GitManager] .gitignore is already committed and unchanged')
+        return { success: true }
+      }
+
+      // Stage .gitignore
+      await this.git.add(gitignorePath)
+
+      // Create commit with just .gitignore
+      const message = isUntracked
+        ? 'Add .gitignore with DAGent directories'
+        : 'Update .gitignore with DAGent directories'
+
+      await this.git.commit(message, gitignorePath)
+
+      console.log(`[GitManager] ${message}`)
+      return { success: true }
+    } catch (error) {
+      console.error('[GitManager] Failed to commit .gitignore:', error)
+      return { success: false, error: (error as Error).message }
     }
   }
 }

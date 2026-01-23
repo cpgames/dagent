@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useFeatureStore, useViewStore, useAuthStore, useProjectStore, useDAGStore, setupGlobalDAGEventSubscription } from './stores'
-import { KanbanView, DAGView, ContextView, AgentsView } from './views'
+import { useFeatureStore, useViewStore, useAuthStore, useProjectStore, setupGlobalDAGEventSubscription } from './stores'
+import { KanbanView, DAGView, ContextView, AgentsView, WorktreesView } from './views'
 import { ToastContainer } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthStatusIndicator, AuthDialog } from './components/Auth'
@@ -19,8 +19,9 @@ import {
   ShootingStarsLayer
 } from './components/Background'
 import { SplashScreen } from './components/Loading'
-import { Button } from './components/UI'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { FEATURE_MANAGER_NAMES } from '@shared/types/pool'
+import './App.css'
 
 // Set up global DAG event subscription immediately when module loads
 // This ensures we receive events even before any component mounts
@@ -31,11 +32,10 @@ setupGlobalDAGEventSubscription()
  * Provides the application shell with vertical sidebar navigation and view switching.
  */
 function App(): React.JSX.Element {
-  const { loadFeatures, createFeature, updateFeature, features, activeFeatureId, setActiveFeature } = useFeatureStore()
+  const { loadFeatures, createFeature, features, activeFeatureId } = useFeatureStore()
   const { activeView, setView } = useViewStore()
   const { initialize: initAuth, state: authState, isLoading: authLoading } = useAuthStore()
   const { loadCurrentProject, projectPath, initGitRepo, checkGitStatus } = useProjectStore()
-  const { initializeDAGManager } = useDAGStore()
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [newFeatureDialogOpen, setNewFeatureDialogOpen] = useState(false)
@@ -43,6 +43,24 @@ function App(): React.JSX.Element {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false)
   const [gitInitDialogOpen, setGitInitDialogOpen] = useState(false)
   const [initialized, setInitialized] = useState(false)
+
+  // Feature manager filter for Kanban view - Set of selected manager IDs (all selected by default)
+  const [selectedManagerFilters, setSelectedManagerFilters] = useState<Set<number>>(() =>
+    new Set(Object.keys(FEATURE_MANAGER_NAMES).map(Number))
+  )
+
+  // Toggle manager filter - add/remove from set
+  const handleManagerFilterToggle = (managerId: number) => {
+    setSelectedManagerFilters(prev => {
+      const next = new Set(prev)
+      if (next.has(managerId)) {
+        next.delete(managerId)
+      } else {
+        next.add(managerId)
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     // Load current project and features on mount
@@ -55,6 +73,7 @@ function App(): React.JSX.Element {
     // Initialize auth state from main process
     initAuth()
   }, [loadFeatures, initAuth, loadCurrentProject])
+
 
   // Open project selection dialog on startup if no project is loaded
   useEffect(() => {
@@ -78,8 +97,13 @@ function App(): React.JSX.Element {
     window.electronAPI.setWindowTitle(title)
   }, [projectPath])
 
+  /**
+   * Handle feature creation - simplified non-blocking flow.
+   * Creates feature instantly (no worktree), closes dialog, and switches to Kanban view.
+   * PM planning is NOT triggered here - it will be triggered when user clicks Start (Phase v3.2-03).
+   */
   const handleCreateFeature = async (data: FeatureCreateData): Promise<void> => {
-    // First, create the feature (without file paths yet)
+    // Create feature (now instant - no worktree)
     const feature = await createFeature(data.name, {
       description: data.description,
       completionAction: data.completionAction,
@@ -87,52 +111,17 @@ function App(): React.JSX.Element {
     })
 
     if (feature) {
+      // Close dialog immediately
       setNewFeatureDialogOpen(false)
 
-      // Switch to DAG view for the new feature
-      setActiveFeature(feature.id)
-      setView('dag')
-
-      // Upload attachments if provided
-      let attachmentPaths: string[] = []
+      // Upload attachments if provided (background - don't await)
       if (data.attachments && data.attachments.length > 0) {
-        try {
-          attachmentPaths = await window.electronAPI.feature.uploadAttachments(
-            feature.id,
-            data.attachments
-          )
-          // Update local store with the attachment paths
-          updateFeature(feature.id, { attachments: attachmentPaths })
-        } catch (error) {
-          console.error('Failed to upload attachments:', error)
-          // Continue - planning can still work without attachments
-        }
+        window.electronAPI.feature.uploadAttachments(feature.id, data.attachments)
+          .catch(err => console.error('Failed to upload attachments:', err))
       }
 
-      // IMPORTANT: Initialize DAGManager and set up event subscription BEFORE starting planning.
-      // This ensures real-time DAG updates work as PM agent creates tasks.
-      try {
-        const currentProjectPath = await window.electronAPI.project.getCurrent()
-        if (currentProjectPath) {
-          await initializeDAGManager(feature.id, currentProjectPath)
-        }
-      } catch (error) {
-        console.error('Failed to initialize DAGManager:', error)
-        // Continue - planning can still work, just won't have real-time updates
-      }
-
-      // Start PM agent planning in background
-      try {
-        await window.electronAPI.feature.startPlanning(
-          feature.id,
-          feature.name,
-          data.description,
-          attachmentPaths
-        )
-      } catch (error) {
-        console.error('Failed to start planning:', error)
-        // Don't block UI - planning will fail and move to needs_attention
-      }
+      // Switch to Kanban view to see the new feature in Backlog (not_started column)
+      setView('kanban')
     }
     // Error case is handled in store (toast displayed)
   }
@@ -228,22 +217,44 @@ function App(): React.JSX.Element {
                 </div>
               )}
             </div>
-            <Button
-              variant="primary"
-              onClick={() => setNewFeatureDialogOpen(true)}
-            >
-              + New Feature
-            </Button>
+
+            {/* Feature Manager Filter - only show in Kanban view */}
+            {activeView === 'kanban' && (
+              <div className="header-filters flex gap-3">
+                {Object.entries(FEATURE_MANAGER_NAMES).map(([id, name]) => {
+                  const managerId = Number(id)
+                  const isActive = selectedManagerFilters.has(managerId)
+                  return (
+                    <button
+                      key={managerId}
+                      onClick={() => handleManagerFilterToggle(managerId)}
+                      className={`header-filter-btn header-filter-btn--${name.toLowerCase()} ${isActive ? 'header-filter-btn--active' : ''}`}
+                    >
+                      <span className="header-filter-text">{name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Spacer to balance the header when in Kanban view (button moved to Backlog column) */}
+            {activeView === 'kanban' && <div className="w-[120px]" />}
           </header>
 
           {/* Main content area with sidebar */}
           <div className="flex-1 flex overflow-hidden">
             <ViewSidebar />
             <main className="flex-1 overflow-auto">
-              {activeView === 'kanban' && <KanbanView />}
+              {activeView === 'kanban' && (
+                <KanbanView
+                  selectedManagerFilters={selectedManagerFilters}
+                  onNewFeature={() => setNewFeatureDialogOpen(true)}
+                />
+              )}
               {activeView === 'dag' && <DAGView />}
               {activeView === 'context' && <ContextView />}
               {activeView === 'agents' && <AgentsView />}
+              {activeView === 'worktrees' && <WorktreesView />}
             </main>
           </div>
 

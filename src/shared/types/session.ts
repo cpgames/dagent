@@ -8,7 +8,7 @@
 /**
  * Agent types supported by the session system.
  */
-export type AgentType = 'pm' | 'dev' | 'qa' | 'harness' | 'merge'
+export type AgentType = 'pm' | 'investigation' | 'planning' | 'dev' | 'qa' | 'harness' | 'merge'
 
 /**
  * Session types based on what context they're attached to.
@@ -192,6 +192,14 @@ export interface Session {
     totalCompactions: number
     lastRequestTokens?: number
     lastCompactionAt?: string
+  }
+
+  // PM Agent planning metadata (only for PM agent sessions)
+  pmMetadata?: {
+    complexity?: 'low' | 'medium' | 'high'
+    questionsAsked?: number
+    questionsRequired?: number
+    assessedAt?: string
   }
 }
 

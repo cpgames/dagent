@@ -5,9 +5,10 @@
  */
 
 import { readJson, writeJson, deleteJson, exists } from '../storage/json-store'
-import { getTaskPlanPath } from '../storage/paths'
+import { getTaskPlanPathInWorktree } from '../storage/paths'
 import type { TaskPlan, TaskPlanConfig, ChecklistItem, ActivityEntry } from './task-plan-types'
 import { DEFAULT_CHECKLIST_ITEMS, DEFAULT_TASK_PLAN_CONFIG } from './task-plan-types'
+import { getFeatureStore } from '../ipc/storage-handlers'
 
 // Singleton store per projectRoot
 const stores = new Map<string, TaskPlanStore>()
@@ -28,13 +29,28 @@ export function getTaskPlanStore(projectRoot: string): TaskPlanStore {
  * TaskPlanStore manages CRUD operations for task plans.
  */
 export class TaskPlanStore {
-  constructor(private projectRoot: string) {}
+  // projectRoot passed to constructor is used as the cache key in the stores Map
+  constructor(_projectRoot: string) {
+    // Constructor parameter used only for Map key lookup in getTaskPlanStore()
+    void _projectRoot
+  }
 
   /**
    * Get the file path for a task's plan.json.
+   * Requires feature to have a managerWorktreePath set.
    */
-  private getPath(featureId: string, taskId: string): string {
-    return getTaskPlanPath(this.projectRoot, featureId, taskId)
+  private async getPath(featureId: string, taskId: string): Promise<string | null> {
+    const featureStore = getFeatureStore()
+    if (!featureStore) {
+      console.error('[TaskPlanStore] FeatureStore not initialized')
+      return null
+    }
+    const feature = await featureStore.loadFeature(featureId)
+    if (!feature?.managerWorktreePath) {
+      console.error(`[TaskPlanStore] Feature ${featureId} does not have a worktree path`)
+      return null
+    }
+    return getTaskPlanPathInWorktree(feature.managerWorktreePath, featureId, taskId)
   }
 
   /**
@@ -79,7 +95,8 @@ export class TaskPlanStore {
    * @returns TaskPlan or null if not found.
    */
   async loadPlan(featureId: string, taskId: string): Promise<TaskPlan | null> {
-    const filePath = this.getPath(featureId, taskId)
+    const filePath = await this.getPath(featureId, taskId)
+    if (!filePath) return null
     return readJson<TaskPlan>(filePath)
   }
 
@@ -89,7 +106,10 @@ export class TaskPlanStore {
    */
   async savePlan(featureId: string, taskId: string, plan: TaskPlan): Promise<void> {
     plan.updatedAt = new Date().toISOString()
-    const filePath = this.getPath(featureId, taskId)
+    const filePath = await this.getPath(featureId, taskId)
+    if (!filePath) {
+      throw new Error(`Cannot save plan: feature ${featureId} does not have a worktree path`)
+    }
     await writeJson(filePath, plan)
   }
 
@@ -98,7 +118,8 @@ export class TaskPlanStore {
    * @returns true if deleted, false if didn't exist.
    */
   async deletePlan(featureId: string, taskId: string): Promise<boolean> {
-    const filePath = this.getPath(featureId, taskId)
+    const filePath = await this.getPath(featureId, taskId)
+    if (!filePath) return false
     return deleteJson(filePath)
   }
 
@@ -106,7 +127,8 @@ export class TaskPlanStore {
    * Check if a TaskPlan exists.
    */
   async planExists(featureId: string, taskId: string): Promise<boolean> {
-    const filePath = this.getPath(featureId, taskId)
+    const filePath = await this.getPath(featureId, taskId)
+    if (!filePath) return false
     return exists(filePath)
   }
 

@@ -14,6 +14,9 @@ interface KanbanColumnProps {
   startingFeatureId?: string | null;
   analysisStatus?: Record<string, { analyzing: boolean; pendingCount: number }>;
   worktreeProgress?: Record<string, string>;
+  queueInfo?: Record<string, { position: number; poolQueueLength: number }>;
+  /** Optional callback to add a new feature - shows "+ New Feature" button at top */
+  onNewFeature?: () => void;
 }
 
 /**
@@ -33,6 +36,8 @@ export default function KanbanColumn({
   startingFeatureId,
   analysisStatus,
   worktreeProgress,
+  queueInfo,
+  onNewFeature,
 }: KanbanColumnProps) {
   const count = features.length;
   // Use column title for CSS class (e.g., 'In Progress' -> 'in-progress')
@@ -54,13 +59,23 @@ export default function KanbanColumn({
       <div className="kanban-column__content">
         {/* Cards Container */}
         <div className="kanban-column__cards">
-          {features.length === 0 ? (
+          {/* New Feature button - always first if provided */}
+          {onNewFeature && (
+            <button
+              className="kanban-column__new-feature"
+              onClick={onNewFeature}
+            >
+              + New Feature
+            </button>
+          )}
+          {features.length === 0 && !onNewFeature ? (
             <div className="kanban-column__empty">
               <p className="kanban-column__empty-text">No features</p>
             </div>
           ) : (
             features.map((feature) => {
               const featureAnalysis = analysisStatus?.[feature.id];
+              const featureQueueInfo = queueInfo?.[feature.id];
               return (
                 <FeatureCard
                   key={feature.id}
@@ -74,6 +89,8 @@ export default function KanbanColumn({
                   isAnalyzing={featureAnalysis?.analyzing}
                   pendingAnalysisCount={featureAnalysis?.pendingCount}
                   worktreeProgress={worktreeProgress?.[feature.id]}
+                  queuePosition={featureQueueInfo?.position}
+                  poolQueueLength={featureQueueInfo?.poolQueueLength}
                 />
               );
             })

@@ -6,18 +6,6 @@
 
 import { ipcMain } from 'electron'
 import { getSessionManager } from '../services/session-manager'
-import {
-  migratePMChat,
-  migrateAllPMChats,
-  needsMigration,
-  MigrationResult
-} from '../services/migration/chat-to-session'
-import {
-  migrateDevSession,
-  migrateAllDevSessions,
-  needsDevSessionMigration,
-  DevMigrationResult
-} from '../services/migration/dev-session-migration'
 import type {
   CreateSessionOptions,
   ChatMessage,
@@ -400,106 +388,6 @@ export function registerSessionHandlers(): void {
     }> => {
       const manager = getSessionManager(projectRoot)
       return await manager.previewRequest(sessionId, featureId, userMessage)
-    }
-  )
-
-  // ============================================
-  // Migration Operations
-  // ============================================
-
-  /**
-   * Migrate PM chat for a single feature from old format to session format.
-   */
-  ipcMain.handle(
-    'session:migratePMChat',
-    async (
-      _event,
-      projectRoot: string,
-      featureId: string
-    ): Promise<MigrationResult> => {
-      return await migratePMChat(projectRoot, featureId)
-    }
-  )
-
-  /**
-   * Migrate PM chats for all features in a project.
-   */
-  ipcMain.handle(
-    'session:migrateAllPMChats',
-    async (
-      _event,
-      projectRoot: string
-    ): Promise<MigrationResult[]> => {
-      return await migrateAllPMChats(projectRoot)
-    }
-  )
-
-  /**
-   * Check if a feature needs migration.
-   */
-  ipcMain.handle(
-    'session:needsMigration',
-    async (
-      _event,
-      projectRoot: string,
-      featureId: string
-    ): Promise<boolean> => {
-      return await needsMigration(projectRoot, featureId)
-    }
-  )
-
-  // ============================================
-  // Dev Session Migration Operations
-  // ============================================
-
-  /**
-   * Migrate a single task's dev session from old format to session format.
-   */
-  ipcMain.handle(
-    'session:migrateDevSession',
-    async (
-      _event,
-      projectRoot: string,
-      featureId: string,
-      taskId: string
-    ): Promise<DevMigrationResult> => {
-      return await migrateDevSession(projectRoot, featureId, taskId)
-    }
-  )
-
-  /**
-   * Migrate all dev sessions for a feature.
-   */
-  ipcMain.handle(
-    'session:migrateAllDevSessions',
-    async (
-      _event,
-      projectRoot: string,
-      featureId: string
-    ): Promise<{
-      results: Record<string, DevMigrationResult>
-      totalMigrated: number
-    }> => {
-      const { results, totalMigrated } = await migrateAllDevSessions(projectRoot, featureId)
-      return {
-        results: Object.fromEntries(results),
-        totalMigrated
-      }
-    }
-  )
-
-  /**
-   * Check if a task needs dev session migration.
-   */
-  ipcMain.handle(
-    'session:needsDevSessionMigration',
-    async (
-      _event,
-      projectRoot: string,
-      featureId: string,
-      taskId: string
-    ): Promise<boolean> => {
-      return await needsDevSessionMigration(projectRoot, featureId, taskId)
     }
   )
 

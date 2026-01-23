@@ -26,6 +26,9 @@ export interface ExecutionState {
   startedAt: string | null
   stoppedAt: string | null
   error: string | null
+  // Feature manager execution fields
+  featureManagerId: number | null
+  managerWorktreePath: string | null
 }
 
 export interface ExecutionConfig {
@@ -40,7 +43,7 @@ export interface ExecutionConfig {
 }
 
 export const DEFAULT_EXECUTION_CONFIG: ExecutionConfig = {
-  maxConcurrentTasks: 3,
+  maxConcurrentTasks: 1, // Sequential execution in pool architecture
   maxConcurrentMerges: 1,
   // Ralph Loop defaults
   maxIterations: 10,

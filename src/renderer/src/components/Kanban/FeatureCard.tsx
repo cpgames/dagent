@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Feature } from '@shared/types';
+import { getFeatureManagerName } from '@shared/types/pool';
 import './FeatureCard.css';
 
 export type MergeType = 'ai' | 'pr';
@@ -15,6 +16,8 @@ interface FeatureCardProps {
   isAnalyzing?: boolean;
   pendingAnalysisCount?: number;
   worktreeProgress?: string;  // Progress message during worktree creation
+  queuePosition?: number;  // Position in pool queue (0 = active, 1+ = waiting)
+  poolQueueLength?: number;  // Total items in the pool queue
 }
 
 /**
@@ -113,24 +116,6 @@ function MagnifyingGlassIcon(): React.JSX.Element {
 }
 
 /**
- * Question mark icon for questioning state (awaiting user input)
- */
-function QuestionMarkIcon(): React.JSX.Element {
-  return (
-    <svg
-      className="feature-card__status-icon"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="12" cy="12" r="10" strokeWidth="2" />
-      <path strokeLinecap="round" strokeWidth="2" d="M9 9a3 3 0 1 1 3.5 2.96c-.48.12-.5.36-.5.54v1.5" />
-      <circle cx="12" cy="17" r="0.5" fill="currentColor" />
-    </svg>
-  );
-}
-
-/**
  * Planning icon (clipboard with checklist) for planning state
  */
 function PlanningIcon(): React.JSX.Element {
@@ -168,11 +153,11 @@ function MergeIcon(): React.JSX.Element {
  * Shows feature name, task progress placeholder,
  * merge button with dropdown for completed features, and delete button on hover.
  */
-export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount, worktreeProgress }: FeatureCardProps) {
+export default function FeatureCard({ feature, onSelect, onDelete, onStart, onStop, onMerge, isStarting, isAnalyzing, pendingAnalysisCount, worktreeProgress, queuePosition, poolQueueLength }: FeatureCardProps) {
   // Show Start button for features that are ready to start execution OR not_started (to create worktree)
   const showStart = feature.status === 'ready' || feature.status === 'not_started';
-  // Show Stop button for features that are currently executing
-  const showStop = feature.status === 'in_progress';
+  // Show Stop button for features that are currently executing (developing or verifying)
+  const showStop = feature.status === 'developing' || feature.status === 'verifying';
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
 
   // Close dropdown when clicking outside
@@ -203,8 +188,8 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
             console.error('Failed to start worktree creation:', result.error);
           }
         } else {
-          // For ready features: First update status to in_progress, then start execution
-          const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'in_progress');
+          // For ready features: First update status to developing, then start execution
+          const updateResult = await window.electronAPI.feature.updateStatus(feature.id, 'developing');
           if (updateResult.success) {
             onStart?.(feature.id);
           } else {
@@ -242,31 +227,46 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
     setShowMergeDropdown(false);
   };
 
-  const cardClasses = `feature-card feature-card--${feature.status}`;
+  // Get manager name for color coding (only if feature has been assigned to a manager)
+  const managerName = feature.featureManagerId !== undefined
+    ? getFeatureManagerName(feature.featureManagerId)
+    : null;
+
+  const managerClass = managerName ? ` feature-card--manager-${managerName.toLowerCase()}` : '';
+  const cardClasses = `feature-card feature-card--${feature.status}${managerClass}`;
   const startBtnClasses = `feature-card__action-btn feature-card__action-btn--start${isStarting ? ' feature-card__action-btn--loading' : ''}`;
 
   // Determine status message based on feature state
   const getStatusInfo = (): { message: string; showSpinner: boolean; icon?: React.JSX.Element } | null => {
     if (feature.status === 'planning') {
-      return { message: 'Planning...', showSpinner: false, icon: <PlanningIcon /> };
+      return { message: 'Planning...', showSpinner: true, icon: <PlanningIcon /> };
     }
     if (isAnalyzing) {
       return { message: 'Analyzing...', showSpinner: true };
     }
-    if (feature.status === 'in_progress') {
+    if (feature.status === 'developing') {
       // Show different messages based on what's happening
       if (pendingAnalysisCount && pendingAnalysisCount > 0) {
         return { message: `${pendingAnalysisCount} task${pendingAnalysisCount > 1 ? 's' : ''} need analysis`, showSpinner: false };
       }
       return { message: 'Developing...', showSpinner: true };
     }
-    if (feature.status === 'questioning') {
-      return { message: 'Needs clarification', showSpinner: false, icon: <QuestionMarkIcon /> };
+    if (feature.status === 'verifying') {
+      return { message: 'Verifying...', showSpinner: true };
+    }
+    if (feature.status === 'ready_for_planning') {
+      return { message: 'Ready to plan - click Plan', showSpinner: false, icon: <PlanningIcon /> };
     }
     if (feature.status === 'investigating') {
+      // Show question icon if there are uncertainties (needs clarification)
       return { message: 'Investigating...', showSpinner: false, icon: <MagnifyingGlassIcon /> };
     }
     if (feature.status === 'creating_worktree') {
+      // Show queue position if waiting in queue
+      const pos = feature.queuePosition || queuePosition;
+      if (pos && pos > 0) {
+        return { message: `Waiting in queue (position ${pos})`, showSpinner: false };
+      }
       return { message: worktreeProgress || 'Creating worktree...', showSpinner: true };
     }
     if (feature.status === 'not_started') {
@@ -274,6 +274,12 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
     }
     if (feature.status === 'ready') {
       return { message: 'Ready', showSpinner: false };
+    }
+    if (feature.status === 'needs_merging') {
+      return { message: 'Waiting for merge slot...', showSpinner: false };
+    }
+    if (feature.status === 'merging') {
+      return { message: 'Merging to target branch...', showSpinner: true };
     }
     return null;
   };
@@ -293,17 +299,27 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
       }}
     >
       <div className="feature-card__header">
-        <span className="feature-card__status-badge">
-          {feature.status === 'not_started' && 'NOT STARTED'}
-          {feature.status === 'creating_worktree' && 'CREATING...'}
-          {feature.status === 'investigating' && 'INVESTIGATING'}
-          {feature.status === 'questioning' && 'QUESTIONS'}
-          {feature.status === 'planning' && 'PLANNING'}
-          {feature.status === 'ready' && 'READY'}
-          {feature.status === 'in_progress' && 'IN PROGRESS'}
-          {feature.status === 'completed' && 'COMPLETED'}
-          {feature.status === 'archived' && 'ARCHIVED'}
-        </span>
+        <div className="feature-card__badges">
+          <span className="feature-card__status-badge">
+            {feature.status === 'not_started' && 'NOT STARTED'}
+            {feature.status === 'creating_worktree' && 'CREATING...'}
+            {feature.status === 'investigating' && 'INVESTIGATING'}
+            {feature.status === 'ready_for_planning' && 'READY TO PLAN'}
+            {feature.status === 'planning' && 'PLANNING'}
+            {feature.status === 'ready' && 'READY'}
+            {feature.status === 'developing' && 'DEVELOPING'}
+            {feature.status === 'verifying' && 'VERIFYING'}
+            {feature.status === 'needs_merging' && 'MERGE PENDING'}
+            {feature.status === 'merging' && 'MERGING'}
+            {feature.status === 'archived' && 'ARCHIVED'}
+          </span>
+          {/* Queue position badge - shown for features waiting in pool (queuePosition > 0) */}
+          {(feature.queuePosition !== undefined && feature.queuePosition > 0) && (
+            <span className="feature-card__queue-badge" title={`Position ${feature.queuePosition || queuePosition || 0} in pool queue`}>
+              Queue: {feature.queuePosition || queuePosition || '?'}{poolQueueLength ? `/${poolQueueLength}` : ''}
+            </span>
+          )}
+        </div>
 
         <div className="feature-card__actions">
           {/* Start button - shown on hover for backlog features only */}
@@ -319,7 +335,7 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
             </button>
           )}
 
-          {/* Stop button - shown on hover for in_progress features only */}
+          {/* Stop button - shown on hover for developing/verifying features */}
           {showStop && onStop && (
             <button
               className="feature-card__action-btn feature-card__action-btn--stop"
@@ -363,8 +379,8 @@ export default function FeatureCard({ feature, onSelect, onDelete, onStart, onSt
         </div>
       )}
 
-      {/* Merge button - only shown for completed features */}
-      {feature.status === 'completed' && onMerge && (
+      {/* Merge button - only shown for features ready to merge */}
+      {feature.status === 'needs_merging' && onMerge && (
         <div className="feature-card__footer">
           {/* Merge button with dropdown */}
           <div className="relative">

@@ -36,25 +36,25 @@
   cursor: not-allowed;
 }
 
-.execution-controls__btn--analyze {
-  background: rgba(147, 51, 234, 0.2);
-  color: rgb(192, 132, 252);
-  border: 1px solid rgba(147, 51, 234, 0.4);
+.execution-controls__btn--plan {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(134, 239, 172);
+  border: 1px solid rgba(34, 197, 94, 0.4);
 }
 
-.execution-controls__btn--analyze:hover:not(:disabled) {
-  background: rgba(147, 51, 234, 0.3);
-  border-color: rgba(147, 51, 234, 0.6);
+.execution-controls__btn--plan:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: rgba(34, 197, 94, 0.6);
 }
 
-.execution-controls__btn--analyze:disabled {
+.execution-controls__btn--plan:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
 }
 
-.execution-controls__btn--analyzing {
-  background: rgba(147, 51, 234, 0.15);
-  color: rgb(192, 132, 252);
+.execution-controls__btn--planning {
+  background: rgba(34, 197, 94, 0.15);
+  color: rgb(134, 239, 172);
 }
 
 .execution-controls__btn-icon {

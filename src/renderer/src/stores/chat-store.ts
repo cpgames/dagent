@@ -33,10 +33,20 @@ export interface ActiveToolUse {
 export type ChatContextType = 'feature' | 'task' | 'agent'
 
 /**
- * Compute PM session ID from feature ID.
- * Session ID format: "pm-feature-{featureId}"
+ * Compute session ID from feature ID and status.
+ * Session ID format varies by phase:
+ * - "investigation-feature-{featureId}" for investigating/ready_for_planning phases
+ * - "planning-feature-{featureId}" for planning phase
+ * - "pm-feature-{featureId}" for legacy/other phases
  */
-function getPMSessionId(featureId: string): string {
+function getSessionIdForFeature(featureId: string, status?: string): string {
+  if (status === 'investigating' || status === 'ready_for_planning') {
+    return `investigation-feature-${featureId}`
+  }
+  if (status === 'planning') {
+    return `planning-feature-${featureId}`
+  }
+  // Legacy fallback
   return `pm-feature-${featureId}`
 }
 
@@ -78,7 +88,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   contextLoaded: false,
 
   loadChat: async (contextId: string, contextType: ChatContextType = 'feature') => {
-    const sessionId = getPMSessionId(contextId)
+    // Get feature status to determine correct session ID
+    let featureStatus: string | undefined
+    if (contextType === 'feature') {
+      const featureStore = useFeatureStore.getState()
+      const feature = featureStore.features.find(f => f.id === contextId)
+      featureStatus = feature?.status
+    }
+    const sessionId = getSessionIdForFeature(contextId, featureStatus)
 
     // Clear previous messages before loading new context's chat
     set({
@@ -93,25 +110,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       // Get project root from project store
       const projectRoot = useProjectStore.getState().projectPath
-
-      // Check if migration is needed and perform it transparently
-      if (contextType === 'feature' && projectRoot && window.electronAPI?.session?.needsMigration) {
-        try {
-          const needsMigration = await window.electronAPI.session.needsMigration(projectRoot, contextId)
-          if (needsMigration && window.electronAPI?.session?.migratePMChat) {
-            console.log('[ChatStore] Migrating old chat format for', contextId)
-            const result = await window.electronAPI.session.migratePMChat(projectRoot, contextId)
-            if (result.success) {
-              console.log('[ChatStore] Migration successful:', result.messagesImported, 'messages imported')
-            } else {
-              console.error('[ChatStore] Migration failed:', result.error)
-            }
-          }
-        } catch (migrationError) {
-          console.error('[ChatStore] Migration check failed:', migrationError)
-          // Continue loading - migration is optional
-        }
-      }
 
       // Load chat messages from session API (preferred) or fall back to storage API
       if (contextType === 'feature' && projectRoot && window.electronAPI?.session?.loadMessages) {
@@ -283,8 +281,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const featureStore = useFeatureStore.getState()
       const feature = featureStore.features.find(f => f.id === currentFeatureId)
 
-      // Use PM conversation API if feature is in PM planning phases (investigating, questioning, or planning)
-      if (feature && (feature.status === 'investigating' || feature.status === 'questioning' || feature.status === 'planning')) {
+      // Use PM conversation API if feature is in PM planning phases (investigating or planning)
+      if (feature && (feature.status === 'investigating' || feature.status === 'planning')) {
         return get().sendToPMAgent()
       }
     }
@@ -432,8 +430,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return
       }
 
-      // Reload messages to get PM's response
-      await get().loadChat(currentFeatureId, 'feature')
+      // NOTE: Don't call loadChat() here - it clears messages and causes scroll jump.
+      // The chat:updated event from backend will trigger onUpdated listener
+      // which properly appends new messages without clearing existing ones.
 
       // If PM has more questions, stay in conversation
       if (!result.canProceed && result.uncertainties && result.uncertainties.length > 0) {
@@ -518,12 +517,65 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
 // Subscribe to chat update events from main process
 if (typeof window !== 'undefined' && window.electronAPI?.chat?.onUpdated) {
-  window.electronAPI.chat.onUpdated((data: { featureId: string }) => {
+  window.electronAPI.chat.onUpdated(async (data: { featureId: string }) => {
     const state = useChatStore.getState()
-    // Only reload if this is the currently active feature
+    // Only update if this is the currently active feature
     if (state.currentFeatureId === data.featureId && state.contextType === 'feature') {
-      console.log('[ChatStore] Received chat update, reloading messages')
-      state.loadChat(data.featureId, 'feature')
+      console.log('[ChatStore] Received chat update, fetching new messages')
+
+      // Instead of reloading all messages (which resets scroll),
+      // fetch messages and only append new ones
+      const projectRoot = useProjectStore.getState().projectPath
+      // Get feature status to determine correct session ID
+      const featureStore = useFeatureStore.getState()
+      const feature = featureStore.features.find(f => f.id === data.featureId)
+      const sessionId = getSessionIdForFeature(data.featureId, feature?.status)
+
+      if (projectRoot && window.electronAPI?.session?.loadMessages) {
+        try {
+          const allMessages = await window.electronAPI.session.loadMessages(
+            projectRoot,
+            sessionId,
+            data.featureId
+          )
+
+          if (allMessages && allMessages.length > 0) {
+            // Get current state again to ensure we have latest
+            const currentState = useChatStore.getState()
+            const currentMessages = currentState.messages
+
+            // Build a set of existing message IDs and content hashes for deduplication
+            const existingIds = new Set(currentMessages.map(m => m.id))
+            const existingContentHashes = new Set(
+              currentMessages.map(m => `${m.role}:${m.content.substring(0, 100)}:${m.timestamp}`)
+            )
+
+            // Filter to only truly new messages (not already in local state)
+            const newMessages: ChatMessage[] = allMessages
+              .filter(msg => {
+                const msgId = msg.id || `${data.featureId}-${msg.timestamp}`
+                const contentHash = `${msg.role}:${msg.content.substring(0, 100)}:${msg.timestamp}`
+                // Skip if we already have this message (by ID or content hash)
+                return !existingIds.has(msgId) && !existingContentHashes.has(contentHash)
+              })
+              .map((msg) => ({
+                id: msg.id || `${data.featureId}-${msg.timestamp}-${crypto.randomUUID().slice(0, 8)}`,
+                role: msg.role === 'system' ? 'assistant' : msg.role as 'user' | 'assistant',
+                content: msg.content,
+                timestamp: msg.timestamp
+              }))
+
+            if (newMessages.length > 0) {
+              console.log(`[ChatStore] Appending ${newMessages.length} new messages (deduplicated)`)
+              useChatStore.setState((prev) => ({
+                messages: [...prev.messages, ...newMessages]
+              }))
+            }
+          }
+        } catch (error) {
+          console.error('[ChatStore] Failed to fetch new messages:', error)
+        }
+      }
     }
   })
 }

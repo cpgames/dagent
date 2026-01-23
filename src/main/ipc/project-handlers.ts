@@ -16,6 +16,7 @@ import { initContextService } from './context-handlers'
 import { initializeSettingsStore } from '../storage/settings-store'
 import { FeatureStatusManager } from '../services/feature-status-manager'
 import { EventEmitter } from 'events'
+import { getFeatureManagerPool } from '../git/worktree-pool-manager'
 
 /**
  * DAGent directories that should be git-ignored.
@@ -148,15 +149,31 @@ export function registerProjectHandlers(): void {
                 console.warn('[DAGent] Failed to create initial commit:', error)
               }
             }
+
+            // Commit .gitignore if it was updated
+            const gitignoreResult = await gitManager.commitGitignore()
+            if (!gitignoreResult.success) {
+              console.warn('[DAGent] Failed to commit .gitignore:', gitignoreResult.error)
+            }
+
+            // Commit CLAUDE.md if it exists and is untracked/modified
+            const claudeMdResult = await gitManager.commitClaudeMd()
+            if (!claudeMdResult.success) {
+              console.warn('[DAGent] Failed to commit CLAUDE.md:', claudeMdResult.error)
+            }
           }
         }
 
-        // Initialize storage, history, agent config, context, and settings for the new project
+        // Initialize storage, history, agent config, context, settings, and pool manager for the new project
         initializeStorage(projectRoot)
         setHistoryProjectRoot(projectRoot)
         setAgentConfigProjectRoot(projectRoot)
         initContextService(projectRoot)
         initializeSettingsStore(projectRoot)
+
+        // Initialize worktree pool manager (discovers existing pools or prepares for lazy creation)
+        const poolManager = getFeatureManagerPool()
+        await poolManager.initialize(projectRoot)
 
         // Update current project path
         currentProjectPath = projectRoot

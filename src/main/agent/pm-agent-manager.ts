@@ -1,12 +1,11 @@
 import { EventEmitter } from 'events'
 import { BrowserWindow } from 'electron'
 import type { FeatureStore } from '../storage/feature-store'
-import { getFeatureDir } from '../storage/paths'
+import { getFeatureDirInWorktree } from '../storage/paths'
 import { AgentService } from './agent-service'
 import { FeatureStatusManager } from '../services/feature-status-manager'
 import { setPMToolsFeatureContext } from '../ipc/pm-tools-handlers'
 import { getSessionManager } from '../services/session-manager'
-import { getSettingsStore } from '../storage/settings-store'
 import { getTaskAnalysisOrchestrator } from '../services/task-analysis-orchestrator'
 import { getOrchestrator } from '../dag-engine/orchestrator'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
@@ -46,80 +45,169 @@ export class PMAgentManager {
   }
 
   /**
-   * Start planning workflow for a feature.
-   * Runs asynchronously - does not block feature creation.
+   * Start investigation workflow for a feature.
+   * Called when a feature first starts - runs pre-planning analysis,
+   * asks questions, and gathers requirements.
    *
    * @param featureId - Feature ID
    * @param featureName - Feature name
    * @param description - Optional feature description
    * @param attachments - Optional array of attachment file paths
    */
-  async startPlanningForFeature(
+  async startInvestigationForFeature(
     featureId: string,
     featureName: string,
     description?: string,
     attachments?: string[]
   ): Promise<void> {
-    console.log(`[PMAgentManager] Starting planning for feature: ${featureName} (${featureId})`)
+    console.log(`[PMAgentManager] Starting investigation for feature: ${featureName} (${featureId})`)
+
+    try {
+      // Set PM tools feature context
+      setPMToolsFeatureContext(featureId)
+      console.log(`[PMAgentManager] Set PM tools feature context to: ${featureId}`)
+
+      // Load feature context
+      const context = await this.loadFeatureContext(featureId, featureName, description, attachments)
+
+      // Run pre-planning analysis to start investigation
+      const { canProceed, uncertainties, sessionId } = await this.runPrePlanningAnalysis(featureId, featureName, context)
+      if (!canProceed) {
+        console.log(`[PMAgentManager] Pre-planning analysis indicates uncertainty for ${featureId}, staying in investigating`)
+        // Stay in investigating status - questions are handled internally by the manager
+
+        // Broadcast analysis result to UI (status stays as investigating)
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:analysis-result', {
+              featureId,
+              uncertainties: uncertainties
+            })
+          }
+        })
+
+        console.log(`[PMAgentManager] Feature ${featureId} awaiting input, uncertainties:`, uncertainties)
+        return // Exit - user needs to answer questions
+      }
+
+      // Analysis passed - auto-proceed to planning
+      console.log(`[PMAgentManager] Investigation complete for ${featureId}, auto-proceeding to planning`)
+
+      // Add confirmation message to chat
+      const sessionManager = getSessionManager(this.projectRoot)
+      await sessionManager.addMessage(sessionId, featureId, {
+        role: 'assistant',
+        content: 'Investigation complete. Proceeding to create tasks...'
+      })
+
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('chat:updated', { featureId })
+        }
+      })
+
+      // Auto-proceed to task creation
+      await this.createTasksForFeature(featureId, featureName, description)
+    } catch (error) {
+      console.error(`[PMAgentManager] Investigation failed for ${featureId}:`, error)
+
+      // Stay in investigating status on error - user can retry or send a message
+      this.eventEmitter.emit('investigation-failed', {
+        featureId,
+        error: (error as Error).message,
+        timestamp: new Date().toISOString()
+      })
+    }
+  }
+
+  /**
+   * Create tasks for a feature from existing spec.
+   * Called when user clicks "Plan" from the ready_for_planning state.
+   * At this point, the spec already exists from the investigation phase.
+   *
+   * @param featureId - Feature ID
+   * @param featureName - Feature name
+   * @param description - Optional feature description
+   */
+  async createTasksForFeature(
+    featureId: string,
+    featureName: string,
+    description?: string
+  ): Promise<void> {
+    console.log(`[PMAgentManager] Starting task creation for feature: ${featureName} (${featureId})`)
 
     try {
       // Step 0: Set PM tools feature context (CRITICAL - tools won't work without this!)
       setPMToolsFeatureContext(featureId)
       console.log(`[PMAgentManager] Set PM tools feature context to: ${featureId}`)
 
-      // Step 1: Load feature context
-      const context = await this.loadFeatureContext(featureId, featureName, description, attachments)
-
-      // Step 1.5: Run pre-planning analysis to check understanding
-      // This also creates/gets the PM session and adds messages
-      const { canProceed, uncertainties, sessionId } = await this.runPrePlanningAnalysis(featureId, featureName, context)
-      if (!canProceed) {
-        console.log(`[PMAgentManager] Pre-planning analysis indicates uncertainty for ${featureId}`)
-        await this.statusManager.updateFeatureStatus(featureId, 'questioning')
-
-        // Broadcast status change to UI
-        const analysisWindows = BrowserWindow.getAllWindows()
-        for (const win of analysisWindows) {
-          if (!win.isDestroyed()) {
-            win.webContents.send('feature:status-changed', { featureId, status: 'questioning' })
-            win.webContents.send('feature:analysis-result', {
-              featureId,
-              uncertainties: uncertainties
-            })
-          }
-        }
-
-        console.log(`[PMAgentManager] Moved ${featureId} to questioning, uncertainties:`, uncertainties)
-        return // Exit early, don't proceed to planning
-      }
-
-      // Analysis passed - update status to planning and add confirmation message
-      console.log(`[PMAgentManager] Pre-planning analysis passed for ${featureId}, moving to planning state`)
-
-      // Update feature status to planning (in case it was needs_attention before)
+      // Step 1: Load feature and update status to planning
       const feature = await this.featureStore.loadFeature(featureId)
-      if (feature) {
-        const statusChanged = feature.status !== 'planning'
-        if (statusChanged) {
-          feature.status = 'planning'
-          feature.updatedAt = new Date().toISOString()
-          await this.featureStore.saveFeature(feature)
-        }
-
-        // Always broadcast status change to ensure UI is in sync
-        // (even if feature was already in planning status, UI needs to know analysis passed)
-        BrowserWindow.getAllWindows().forEach((win) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send('feature:status-changed', { featureId, status: 'planning' })
-          }
-        })
+      if (!feature) {
+        throw new Error(`Feature not found: ${featureId}`)
       }
 
-      // Add confirmation message to chat
+      // Update feature status to planning
+      feature.status = 'planning'
+      feature.updatedAt = new Date().toISOString()
+      await this.featureStore.saveFeature(feature)
+
+      // Broadcast status change to UI
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('feature:status-changed', { featureId, status: 'planning' })
+        }
+      })
+
+      // Step 2: Load spec and Q&A context (created during investigation)
+      const specStore = getFeatureSpecStore(this.projectRoot)
+      const spec = await specStore.loadSpec(featureId)
+      if (!spec) {
+        throw new Error('No spec found - investigation phase may not have completed')
+      }
+
+      // Build spec context for task creation
+      let specContext = `## Feature Specification\n\n`
+      specContext += `**Name:** ${spec.featureName}\n\n`
+
+      if (spec.goals.length > 0) {
+        specContext += `**Goals:**\n${spec.goals.map((g) => `- ${g}`).join('\n')}\n\n`
+      }
+
+      if (spec.requirements.length > 0) {
+        specContext += `**Requirements:**\n${spec.requirements.map((r) => `- ${r.description}`).join('\n')}\n\n`
+      }
+
+      if (spec.constraints.length > 0) {
+        specContext += `**Constraints:**\n${spec.constraints.map((c) => `- ${c}`).join('\n')}\n\n`
+      }
+
+      if (spec.acceptanceCriteria.length > 0) {
+        specContext += `**Acceptance Criteria:**\n${spec.acceptanceCriteria.map((ac) => `- ${ac.description}`).join('\n')}\n\n`
+      }
+
+      // Add description if provided
+      if (description) {
+        specContext += `\n## Original Description\n\n${description}\n`
+      }
+
+      // Step 3: Build task creation prompt
+      const prompt = this.buildTaskCreationPrompt(featureName, specContext)
+
+      // Step 4: Get or create PM session and add planning message
       const sessionManager = getSessionManager(this.projectRoot)
+      const sessionOptions: CreateSessionOptions = {
+        type: 'feature',
+        agentType: 'pm',
+        featureId
+      }
+      const session = await sessionManager.getOrCreateSession(sessionOptions)
+      const sessionId = session.id
+
+      // Add message indicating task creation is starting
       await sessionManager.addMessage(sessionId, featureId, {
         role: 'assistant',
-        content: 'Analysis complete. I have enough context to proceed with planning. Beginning feature specification...'
+        content: 'Beginning task creation based on the feature specification...'
       })
 
       // Broadcast chat update
@@ -129,211 +217,154 @@ export class PMAgentManager {
         }
       })
 
-      // Step 2: Build planning prompt
-      const prompt = this.buildPlanningPrompt(featureName, context)
-
-      // Step 3: Start PM agent
-      console.log(`[PMAgentManager] Starting PM agent for ${featureId}`)
-      const featureWorktreePath = path.join(this.projectRoot, '.dagent-worktrees', featureId)
+      // Step 5: Run PM agent to create tasks
+      console.log(`[PMAgentManager] Starting PM agent for task creation: ${featureId}`)
+      const featureWorktreePath = feature.managerWorktreePath || this.projectRoot
 
       let hasError = false
-      let retryCount = 0
-      const maxRetries = 1
+      let planningResponseText = ''
 
-      // Reuse the session created during analysis
-      console.log(`[PMAgentManager] Using existing PM session: ${sessionId}`)
+      try {
+        // Stream PM agent execution
+        for await (const event of this.agentService.streamQuery({
+          prompt,
+          agentType: 'pm',
+          featureId,
+          cwd: featureWorktreePath,
+          toolPreset: 'pmAgent',
+          autoContext: false,
+          permissionMode: 'acceptEdits'
+        })) {
+          if (event.type === 'message' && event.message) {
+            console.log(`[PMAgentManager] PM: ${event.message.content.slice(0, 100)}...`)
 
-      // Add user-friendly initial message to session (not the full system prompt)
-      const userMessage = description
-        ? `Plan feature: ${featureName}\n\n${description}`
-        : `Plan feature: ${featureName}`
-      await sessionManager.addMessage(sessionId, featureId, {
-        role: 'user',
-        content: userMessage
+            if (event.message.type === 'assistant' && event.message.content) {
+              const content = event.message.content.trim()
+              const isSystemMessage = content.startsWith('System:') ||
+                                     content.startsWith('Thinking:') ||
+                                     content.length === 0
+
+              if (!isSystemMessage) {
+                planningResponseText += event.message.content
+              }
+            }
+          } else if (event.type === 'error') {
+            console.error(`[PMAgentManager] PM error: ${event.error}`)
+            hasError = true
+          } else if (event.type === 'tool_use' && event.message && event.message.toolName) {
+            console.log(`[PMAgentManager] PM using tool: ${event.message.toolName}`)
+          }
+        }
+
+        // Save the complete assistant message after streaming ends
+        if (planningResponseText.trim()) {
+          await sessionManager.addMessage(sessionId, featureId, {
+            role: 'assistant',
+            content: planningResponseText
+          })
+        }
+      } catch (error) {
+        console.error(`[PMAgentManager] PM agent execution error:`, error)
+        hasError = true
+      }
+
+      // Broadcast chat update
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('chat:updated', { featureId })
+        }
       })
 
-      while (retryCount <= maxRetries && !hasError) {
-        try {
-          // Stream PM agent execution
-          for await (const event of this.agentService.streamQuery({
-            prompt,
-            agentType: 'pm',
-            featureId,
-            cwd: featureWorktreePath,
-            toolPreset: 'pmAgent',
-            autoContext: false, // We're providing explicit context
-            permissionMode: 'acceptEdits'
-          })) {
-            // Log progress and save messages to session
-            if (event.type === 'message' && event.message) {
-              console.log(`[PMAgentManager] PM: ${event.message.content.slice(0, 100)}...`)
-
-              // Save assistant message to session
-              // Note: event.message.type (not role) is 'assistant' for assistant messages
-              // Filter out system initialization messages and other internal messages
-              if (event.message.type === 'assistant' && event.message.content) {
-                const content = event.message.content.trim()
-                // Skip system messages like "System: init", empty messages, and thinking messages
-                const isSystemMessage = content.startsWith('System:') ||
-                                       content.startsWith('Thinking:') ||
-                                       content.length === 0
-
-                if (!isSystemMessage) {
-                  await sessionManager.addMessage(sessionId, featureId, {
-                    role: 'assistant',
-                    content: event.message.content
-                  })
-                }
-              }
-            } else if (event.type === 'error') {
-              console.error(`[PMAgentManager] PM error: ${event.error}`)
-              hasError = true
-            } else if (event.type === 'tool_use' && event.message && event.message.toolName) {
-              console.log(`[PMAgentManager] PM using tool: ${event.message.toolName}`)
-            }
-          }
-
-          // If we got here without error, break the retry loop
-          if (!hasError) {
-            break
-          }
-        } catch (error) {
-          console.error(`[PMAgentManager] PM agent execution error:`, error)
-          hasError = true
-          retryCount++
-
-          if (retryCount <= maxRetries) {
-            console.log(`[PMAgentManager] Retrying... (${retryCount}/${maxRetries})`)
-            hasError = false // Reset for retry
-          }
-        }
-      }
-
-      // Session messages are saved automatically via SessionManager.addMessage()
-      // Broadcast chat update to UI so it reloads the messages
-      try {
-        const windows = BrowserWindow.getAllWindows()
-        for (const win of windows) {
-          if (!win.isDestroyed()) {
-            win.webContents.send('chat:updated', { featureId })
-          }
-        }
-        console.log(`[PMAgentManager] Broadcast chat update for ${featureId}`)
-      } catch (error) {
-        console.error(`[PMAgentManager] Failed to broadcast chat update:`, error)
-      }
-
-      // Step 4: Verify completion
+      // Step 6: Verify tasks were created
       console.log(`[PMAgentManager] PM agent stream finished for ${featureId}, hasError=${hasError}`)
       if (!hasError) {
-        console.log(`[PMAgentManager] Verifying planning completion for ${featureId}...`)
-        const verified = await this.verifyPlanningComplete(featureId)
-        console.log(`[PMAgentManager] Verification result for ${featureId}: ${verified}`)
+        const dag = await this.featureStore.loadDag(featureId)
+        const hasTasks = dag && dag.nodes.length > 0
 
-        if (verified) {
-          console.log(`[PMAgentManager] Planning complete for ${featureId}`)
+        if (hasTasks) {
+          console.log(`[PMAgentManager] Task creation complete for ${featureId}, ${dag.nodes.length} tasks created`)
 
-          // Step 5: Check if auto-analysis is enabled and run analysis
-          const settingsStore = getSettingsStore()
-          const autoAnalyze = settingsStore
-            ? await settingsStore.get('autoAnalyzeNewFeatures')
-            : true // Default to true if store not available
+          // Step 7: Run task analysis
+          console.log(`[PMAgentManager] Starting task analysis for ${featureId}`)
+          const analysisOrchestrator = getTaskAnalysisOrchestrator(this.featureStore)
+          const ANALYSIS_OVERALL_TIMEOUT_MS = 600000 // 10 minutes max
 
-          if (autoAnalyze) {
-            console.log(`[PMAgentManager] Auto-analysis enabled, starting analysis for ${featureId}`)
+          try {
+            const analysisPromise = (async () => {
+              for await (const event of analysisOrchestrator.analyzeFeatureTasks(featureId)) {
+                console.log(`[PMAgentManager] Analysis event: ${event.type}`)
 
-            // Run analysis - iterate through all needs_analysis tasks
-            // Add overall timeout to prevent analysis from blocking forever
-            const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
-            const ANALYSIS_OVERALL_TIMEOUT_MS = 600000 // 10 minutes max for all tasks
-
-            try {
-              const analysisPromise = (async () => {
-                for await (const event of orchestrator.analyzeFeatureTasks(featureId)) {
-                  console.log(`[PMAgentManager] Analysis event: ${event.type}`)
-
-                  // Broadcast analysis events to renderer for UI updates
-                  const windows = BrowserWindow.getAllWindows()
-                  for (const win of windows) {
-                    if (!win.isDestroyed()) {
-                      win.webContents.send('analysis:event', { featureId, event })
-                    }
+                // Broadcast analysis events to renderer for UI updates
+                BrowserWindow.getAllWindows().forEach((win) => {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('analysis:event', { featureId, event })
                   }
+                })
 
-                  if (event.type === 'complete') {
-                    console.log(`[PMAgentManager] Analysis complete for ${featureId}`)
-                    break
-                  }
-                  if (event.type === 'error') {
-                    console.error(`[PMAgentManager] Analysis error: ${event.error}`)
-                    // Continue - individual task errors shouldn't stop the process
-                  }
+                if (event.type === 'complete') {
+                  console.log(`[PMAgentManager] Analysis complete for ${featureId}`)
+                  break
                 }
-              })()
+                if (event.type === 'error') {
+                  console.error(`[PMAgentManager] Analysis error: ${event.error}`)
+                }
+              }
+            })()
 
-              const timeoutPromise = new Promise<void>((resolve) => {
-                setTimeout(() => {
-                  console.warn(`[PMAgentManager] Analysis timeout for ${featureId} - proceeding to backlog`)
-                  resolve()
-                }, ANALYSIS_OVERALL_TIMEOUT_MS)
-              })
+            const timeoutPromise = new Promise<void>((resolve) => {
+              setTimeout(() => {
+                console.warn(`[PMAgentManager] Analysis timeout for ${featureId} - proceeding to ready`)
+                resolve()
+              }, ANALYSIS_OVERALL_TIMEOUT_MS)
+            })
 
-              await Promise.race([analysisPromise, timeoutPromise])
-            } catch (error) {
-              console.error(`[PMAgentManager] Analysis failed:`, error)
-              // Analysis failure shouldn't prevent feature from going to backlog
-            }
-          } else {
-            console.log(`[PMAgentManager] Auto-analysis disabled, skipping analysis for ${featureId}`)
+            await Promise.race([analysisPromise, timeoutPromise])
+          } catch (error) {
+            console.error(`[PMAgentManager] Analysis failed:`, error)
           }
 
-          // Step 6: Move feature to ready (after analysis if enabled)
+          // Step 8: Move feature to ready
           console.log(`[PMAgentManager] Moving ${featureId} to ready`)
           await this.statusManager.updateFeatureStatus(featureId, 'ready')
 
-          // Broadcast feature status change to UI
-          const statusWindows = BrowserWindow.getAllWindows()
-          for (const win of statusWindows) {
+          // Broadcast status change
+          BrowserWindow.getAllWindows().forEach((win) => {
             if (!win.isDestroyed()) {
               win.webContents.send('feature:status-changed', { featureId, status: 'ready' })
             }
-          }
-          console.log(`[PMAgentManager] Broadcast status change for ${featureId}: ready`)
+          })
 
-          // Broadcast DAG update to UI so it shows the new tasks
-          const dag = await this.featureStore.loadDag(featureId)
-          if (dag) {
-            const windows = BrowserWindow.getAllWindows()
-            for (const win of windows) {
+          // Broadcast DAG update
+          const finalDag = await this.featureStore.loadDag(featureId)
+          if (finalDag) {
+            BrowserWindow.getAllWindows().forEach((win) => {
               if (!win.isDestroyed()) {
-                win.webContents.send('dag:updated', { featureId, graph: dag })
+                win.webContents.send('dag:updated', { featureId, graph: finalDag })
               }
-            }
+            })
             console.log(`[PMAgentManager] Broadcast DAG update for ${featureId}`)
           }
 
-          // Check for auto-start and trigger execution if enabled
-          const feature = await this.featureStore.loadFeature(featureId)
-          if (feature?.autoStart && dag) {
+          // Check for auto-start
+          const updatedFeature = await this.featureStore.loadFeature(featureId)
+          if (updatedFeature?.autoStart && finalDag) {
             console.log(`[PMAgentManager] Auto-start enabled for ${featureId}, starting execution`)
             try {
-              const orchestrator = getOrchestrator()
-              await orchestrator.initialize(featureId, dag)
-              const startResult = await orchestrator.start()
+              const executionOrchestrator = getOrchestrator()
+              await executionOrchestrator.initialize(featureId, finalDag)
+              const startResult = await executionOrchestrator.start()
               if (startResult.success) {
                 console.log(`[PMAgentManager] Auto-start execution started for ${featureId}`)
-                // Broadcast execution started to UI
-                const execWindows = BrowserWindow.getAllWindows()
-                for (const win of execWindows) {
+                BrowserWindow.getAllWindows().forEach((win) => {
                   if (!win.isDestroyed()) {
                     win.webContents.send('execution:auto-started', { featureId })
                   }
-                }
+                })
               } else {
-                console.error(`[PMAgentManager] Auto-start execution failed for ${featureId}: ${startResult.error}`)
+                console.error(`[PMAgentManager] Auto-start execution failed: ${startResult.error}`)
               }
             } catch (autoStartError) {
-              console.error(`[PMAgentManager] Auto-start error for ${featureId}:`, autoStartError)
+              console.error(`[PMAgentManager] Auto-start error:`, autoStartError)
             }
           }
 
@@ -344,31 +375,27 @@ export class PMAgentManager {
             timestamp: new Date().toISOString()
           })
         } else {
-          throw new Error('Planning verification failed: spec.md or DAG tasks not created')
+          throw new Error('No tasks were created')
         }
       } else {
-        throw new Error('PM agent execution failed after retries')
+        throw new Error('PM agent execution failed')
       }
     } catch (error) {
-      // Step 6: Handle failure
       console.error(`[PMAgentManager] Planning failed for ${featureId}:`, error)
 
       try {
-        await this.statusManager.updateFeatureStatus(featureId, 'questioning')
+        // Move back to ready_for_planning so user can try again
+        await this.statusManager.updateFeatureStatus(featureId, 'ready_for_planning')
 
-        // Broadcast feature status change to UI
-        const failWindows = BrowserWindow.getAllWindows()
-        for (const win of failWindows) {
+        BrowserWindow.getAllWindows().forEach((win) => {
           if (!win.isDestroyed()) {
-            win.webContents.send('feature:status-changed', { featureId, status: 'questioning' })
+            win.webContents.send('feature:status-changed', { featureId, status: 'ready_for_planning' })
           }
-        }
-        console.log(`[PMAgentManager] Broadcast status change for ${featureId}: questioning`)
+        })
       } catch (statusError) {
-        console.error(`[PMAgentManager] Failed to update status to needs_attention:`, statusError)
+        console.error(`[PMAgentManager] Failed to update status:`, statusError)
       }
 
-      // Emit failure event
       this.eventEmitter.emit('planning-failed', {
         featureId,
         error: (error as Error).message,
@@ -387,7 +414,7 @@ export class PMAgentManager {
    */
   async continuePrePlanningAnalysis(
     featureId: string,
-    userResponse: string
+    _userResponse: string  // User response is in chat history, not needed here directly
   ): Promise<{ canProceed: boolean; uncertainties?: string[]; sessionId: string }> {
     console.log(`[PMAgentManager] Continuing pre-planning analysis for ${featureId} with user response`)
 
@@ -398,7 +425,8 @@ export class PMAgentManager {
     }
 
     const featureName = feature.name
-    const featureWorktreePath = path.join(this.projectRoot, '.dagent-worktrees', featureId)
+    // Use manager worktree path (where actual code lives), not per-feature path
+    const featureWorktreePath = feature.managerWorktreePath || this.projectRoot
 
     // Get existing PM session
     const sessionManager = getSessionManager(this.projectRoot)
@@ -410,45 +438,57 @@ export class PMAgentManager {
     const session = await sessionManager.getOrCreateSession(sessionOptions)
     const sessionId = session.id
 
-    // Add user's response to session
-    await sessionManager.addMessage(sessionId, featureId, {
-      role: 'user',
-      content: userResponse
-    })
+    // NOTE: User message is already saved by the frontend via session.addUserMessage()
+    // Do NOT save it again here to avoid duplicate messages
 
-    // Update spec with user's answer (add as a goal to capture findings)
-    const questionsAsked = session.pmMetadata?.questionsAsked || 0
+    // NOTE: We don't immediately update the spec with user's answer here.
+    // The PM agent will analyze the response and determine if it's an answer or clarification.
+    // If PM identifies it as an answer (via ANSWER_RECORDED marker), we update the spec then.
+
+    // Load session chat history to include in prompt
+    // This is CRITICAL - PM needs to see the conversation so far including user's responses
+    let chatHistoryContext = ''
     try {
-      const specStore = getFeatureSpecStore(this.projectRoot)
-      const spec = await specStore.loadSpec(featureId)
-      if (spec && questionsAsked > 0) {
-        // Add user's answer as a finding/goal
-        const truncatedAnswer = userResponse.length > 200 ? userResponse.slice(0, 200) + '...' : userResponse
-        spec.goals.push(`A${questionsAsked}: ${truncatedAnswer}`)
-        await specStore.saveSpec(featureId, spec)
-
-        // Broadcast spec update to UI
-        BrowserWindow.getAllWindows().forEach((win) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send('spec:updated', { featureId })
-          }
+      const messages = await sessionManager.getAllMessages(sessionId, featureId)
+      if (messages.length > 0) {
+        const chatLines = messages.map((msg) => {
+          const role = msg.role === 'user' ? 'User' : 'PM'
+          return `${role}: ${msg.content}`
         })
-        console.log(`[PMAgentManager] Updated spec with user answer for ${featureId}`)
+        chatHistoryContext = `\n## Conversation History\n\n${chatLines.join('\n\n')}\n`
       }
-    } catch (specError) {
-      console.error(`[PMAgentManager] Failed to update spec with user answer:`, specError)
+    } catch (chatError) {
+      console.error(`[PMAgentManager] Failed to load chat history:`, chatError)
     }
 
-    // Broadcast chat update
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('chat:updated', { featureId })
+    // Load current spec Q&A state to include in prompt context
+    // This ensures PM knows which questions were already asked and answered
+    let specQAContext = ''
+    try {
+      // Spec no longer stores questions - Q&A is tracked in chat history only
+      const specStore = getFeatureSpecStore(this.projectRoot)
+      const spec = await specStore.loadSpec(featureId)
+      if (spec) {
+        // Add current spec state as context
+        if (spec.goals.length > 0) {
+          specQAContext += `\n## Current Spec - Goals\n${spec.goals.map((g) => `- ${g}`).join('\n')}\n`
+        }
+        if (spec.requirements.length > 0) {
+          specQAContext += `\n## Current Spec - Requirements\n${spec.requirements.map((r) => `- ${r.description}`).join('\n')}\n`
+        }
+        if (spec.constraints.length > 0) {
+          specQAContext += `\n## Current Spec - Constraints\n${spec.constraints.map((c) => `- ${c}`).join('\n')}\n`
+        }
       }
-    })
+    } catch (specError) {
+      console.error(`[PMAgentManager] Failed to load spec:`, specError)
+    }
 
-    // Build analysis prompt with current PM metadata context
-    // For continuation, we don't pass full context - the session history has it
-    const analysisPrompt = this.buildAnalysisPrompt(featureName, '', session.pmMetadata)
+    // Combine chat history and spec context
+    const combinedContext = chatHistoryContext + specQAContext
+
+    // Build analysis prompt with current PM metadata context and conversation history
+    const analysisPrompt = this.buildAnalysisPrompt(featureName, combinedContext, session.pmMetadata)
 
     try {
       let responseText = ''
@@ -464,24 +504,26 @@ export class PMAgentManager {
         permissionMode: 'acceptEdits'
       })) {
         if (event.type === 'message' && event.message) {
-          // Collect response text for parsing
+          // Collect response text for parsing (accumulate, don't save yet)
           if (event.message.type === 'assistant') {
-            responseText += event.message.content
-
-            // Save assistant message to session
             const content = event.message.content.trim()
             const isSystemMessage = content.startsWith('System:') ||
                                    content.startsWith('Thinking:') ||
                                    content.length === 0
 
             if (!isSystemMessage) {
-              await sessionManager.addMessage(sessionId, featureId, {
-                role: 'assistant',
-                content: event.message.content
-              })
+              responseText += event.message.content
             }
           }
         }
+      }
+
+      // Save the complete assistant message after streaming ends
+      if (responseText.trim()) {
+        await sessionManager.addMessage(sessionId, featureId, {
+          role: 'assistant',
+          content: responseText
+        })
       }
 
       // Broadcast chat update to UI
@@ -499,69 +541,66 @@ export class PMAgentManager {
 
       console.log(`[PMAgentManager] Continued analysis response: ${responseText.slice(0, 200)}...`)
 
-      // Parse response (same logic as runPrePlanningAnalysis)
+      // Parse response - detect answer recording, clarification, or new questions
       const uncertainties: string[] = []
       const lowerResponse = responseText.toLowerCase()
 
-      const questionsAsked = session.pmMetadata?.questionsAsked || 0
-      const questionsRequired = session.pmMetadata?.questionsRequired || 0
+      let questionsAsked = session.pmMetadata?.questionsAsked || 0
 
-      // Check for explicit confidence marker
-      if (lowerResponse.includes('confident:') && lowerResponse.includes('ready to proceed')) {
-        // Check if minimum questions have been asked
-        if (questionsAsked < questionsRequired) {
-          console.log(`[PMAgentManager] PM is confident but only ${questionsAsked}/${questionsRequired} questions asked - rejecting and requesting more questions`)
+      // Check for ANSWER_RECORDED marker - PM identified user's response as an answer
+      if (lowerResponse.includes('answer_recorded:')) {
+        console.log(`[PMAgentManager] PM recorded an answer from user`)
 
-          // Reject early confidence
-          const feedbackMessage = `You need to ask at least ${questionsRequired} clarifying questions for this ${session.pmMetadata?.complexity}-complexity feature. You've only asked ${questionsAsked} so far.
+        // Extract the answer summary
+        const answerIndex = responseText.toLowerCase().indexOf('answer_recorded:')
+        let answerSummary = responseText.slice(answerIndex + 'answer_recorded:'.length).trim()
 
-Please continue the conversation by asking ONE more critical implementation question about:
-${questionsAsked < 1 ? '- Which specific files or components need to be modified?' : ''}
-${questionsAsked < 2 ? '- What are the expected behaviors and edge cases to handle?' : ''}
-${questionsAsked < 3 ? '- What technical approach or architecture patterns should be followed?' : ''}
-${questionsAsked < 4 ? '- What data structures, interfaces, or API contracts are involved?' : ''}
-${questionsAsked < 5 ? '- What error handling, validation, or security requirements exist?' : ''}
-
-Remember: Ask ONE question at a time in a conversational manner.`
-
-          uncertainties.push(feedbackMessage)
-          return { canProceed: false, uncertainties, sessionId }
-        } else {
-          console.log(`[PMAgentManager] PM is confident and ${questionsAsked}/${questionsRequired} questions met, proceeding with planning`)
-
-          // Update feature status to planning and trigger spec creation
-          if (feature.status !== 'planning') {
-            feature.status = 'planning'
-            feature.updatedAt = new Date().toISOString()
-            await this.featureStore.saveFeature(feature)
-
-            BrowserWindow.getAllWindows().forEach((win) => {
-              if (!win.isDestroyed()) {
-                win.webContents.send('feature:status-changed', { featureId, status: 'planning' })
-              }
-            })
+        // Truncate at next marker
+        const endMarkers = ['uncertain:', 'confident:', 'clarifying:', 'partial_answer:', '**options']
+        for (const marker of endMarkers) {
+          const markerIndex = answerSummary.toLowerCase().indexOf(marker)
+          if (markerIndex > 0) {
+            answerSummary = answerSummary.slice(0, markerIndex).trim()
           }
-
-          return { canProceed: true, sessionId }
         }
+
+        // Note: Q&A is tracked in chat history, not in spec
+        // PM agent should use tools to update the spec directly when it learns something concrete
+        console.log(`[PMAgentManager] Answer recorded in chat history`)
       }
 
-      // Check for explicit uncertainty marker
-      if (lowerResponse.includes('uncertain:') || lowerResponse.includes('need clarification')) {
-        console.log(`[PMAgentManager] PM indicated uncertainty, extracting question`)
+      // Check for CLARIFYING marker - PM is clarifying, not counting as progress
+      if (lowerResponse.includes('clarifying:')) {
+        console.log(`[PMAgentManager] PM is clarifying question (not counting as answer)`)
+        return { canProceed: false, uncertainties: ['Clarification provided - awaiting answer'], sessionId }
+      }
 
-        const uncertainStartIndex = Math.max(
-          responseText.toLowerCase().indexOf('uncertain:'),
-          responseText.toLowerCase().indexOf('need clarification')
-        )
+      // Check for PARTIAL_ANSWER marker - PM got some info but needs more
+      if (lowerResponse.includes('partial_answer:')) {
+        console.log(`[PMAgentManager] PM received partial answer`)
+        // Note: Q&A tracked in chat history, PM should update spec via tools
+      }
+
+      // Check for explicit confidence marker - PM is ready to proceed
+      if (lowerResponse.includes('confident:') && lowerResponse.includes('ready to proceed')) {
+        console.log(`[PMAgentManager] PM is confident, auto-proceeding to planning`)
+
+        // canProceed: true means auto-proceed to task creation
+        return { canProceed: true, uncertainties: undefined, sessionId }
+      }
+
+      // Check for new UNCERTAIN question
+      if (lowerResponse.includes('uncertain:')) {
+        console.log(`[PMAgentManager] PM asking new question`)
+
+        const uncertainStartIndex = responseText.toLowerCase().indexOf('uncertain:')
 
         if (uncertainStartIndex !== -1) {
-          const afterMarker = responseText.slice(uncertainStartIndex).replace(/^uncertain:\s*/i, '').trim()
+          const afterMarker = responseText.slice(uncertainStartIndex + 'uncertain:'.length).trim()
 
-          // Extract the full question text - capture everything until we hit a marker like
-          // "CONFIDENT:", "COMPLEXITY:", or "UNCERTAIN:" (next question). This preserves multi-line questions with lists.
+          // Extract the question text until **Options or next marker
           let questionText = afterMarker
-          const endMarkers = ['confident:', 'complexity:', 'uncertain:']
+          const endMarkers = ['confident:', 'complexity:', 'uncertain:', '**options', 'answer_recorded:', 'clarifying:', 'partial_answer:']
           for (const marker of endMarkers) {
             const markerIndex = questionText.toLowerCase().indexOf(marker)
             if (markerIndex > 0) {
@@ -570,46 +609,49 @@ Remember: Ask ONE question at a time in a conversational manner.`
           }
           questionText = questionText.trim()
 
+          // Also extract the options if present
+          let optionsText = ''
+          const optionsIndex = responseText.toLowerCase().indexOf('**options')
+          if (optionsIndex !== -1) {
+            optionsText = responseText.slice(optionsIndex)
+            // Truncate at next major section
+            const optionEndMarkers = ['**when ready', '**example', '**important', 'uncertain:', 'confident:']
+            for (const marker of optionEndMarkers) {
+              const markerIndex = optionsText.toLowerCase().indexOf(marker)
+              if (markerIndex > 0) {
+                optionsText = optionsText.slice(0, markerIndex)
+              }
+            }
+          }
+
+          // Combine question with options for display
+          const fullQuestionWithOptions = optionsText ? `${questionText}\n\n${optionsText}` : questionText
+
           if (questionText.length > 0) {
-            uncertainties.push(questionText)
+            uncertainties.push(fullQuestionWithOptions)
 
             // Increment questions asked counter
+            questionsAsked += 1
             const updatedMetadata = {
               ...session.pmMetadata!,
-              questionsAsked: questionsAsked + 1
+              questionsAsked
             }
 
             session.pmMetadata = updatedMetadata
             await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
 
-            console.log(`[PMAgentManager] Question ${updatedMetadata.questionsAsked}/${questionsRequired} asked`)
+            console.log(`[PMAgentManager] Question ${questionsAsked} asked`)
 
-            // Update spec with the question as a constraint (tracks investigation progress)
-            try {
-              const specStore = getFeatureSpecStore(this.projectRoot)
-              const spec = await specStore.loadSpec(featureId)
-              if (spec) {
-                // Add question as a constraint to track what's being clarified
-                spec.constraints.push(`Q${updatedMetadata.questionsAsked}: ${questionText}`)
-                await specStore.saveSpec(featureId, spec)
-
-                // Broadcast spec update to UI
-                BrowserWindow.getAllWindows().forEach((win) => {
-                  if (!win.isDestroyed()) {
-                    win.webContents.send('spec:updated', { featureId })
-                  }
-                })
-                console.log(`[PMAgentManager] Updated spec with question for ${featureId}`)
-              }
-            } catch (specError) {
-              console.error(`[PMAgentManager] Failed to update spec with question:`, specError)
-            }
+            // Note: Questions are tracked in chat history, not in spec
+            // PM agent should use tools to update spec when it learns concrete requirements
+            console.log(`[PMAgentManager] Question asked (tracked in chat history)`)
           }
         }
       }
 
-      const canProceed = uncertainties.length === 0 && questionsAsked >= questionsRequired
-      console.log(`[PMAgentManager] Continued analysis result: canProceed=${canProceed}, uncertainties=${uncertainties.length}, questions=${questionsAsked}/${questionsRequired}`)
+      // PM decides when ready - no fixed question requirement
+      const canProceed = uncertainties.length === 0 && lowerResponse.includes('confident:')
+      console.log(`[PMAgentManager] Continued analysis result: canProceed=${canProceed}, uncertainties=${uncertainties.length}, questionsAsked=${questionsAsked}`)
 
       return { canProceed, uncertainties: uncertainties.length > 0 ? uncertainties : undefined, sessionId }
     } catch (error) {
@@ -629,10 +671,10 @@ Remember: Ask ONE question at a time in a conversational manner.`
   ): Promise<{ canProceed: boolean; uncertainties?: string[]; sessionId: string }> {
     console.log(`[PMAgentManager] Running pre-planning analysis for ${featureId}`)
 
-    // Check current feature status and move to planning if in questioning state
+    // Check current feature status and move to planning if in investigating state
     const feature = await this.featureStore.loadFeature(featureId)
-    if (feature && feature.status === 'questioning') {
-      console.log(`[PMAgentManager] Feature ${featureId} is in questioning, moving to planning before analysis`)
+    if (feature && feature.status === 'investigating') {
+      console.log(`[PMAgentManager] Feature ${featureId} is in investigating, moving to planning before analysis`)
       feature.status = 'planning'
       feature.updatedAt = new Date().toISOString()
       await this.featureStore.saveFeature(feature)
@@ -645,7 +687,8 @@ Remember: Ask ONE question at a time in a conversational manner.`
       })
     }
 
-    const featureWorktreePath = path.join(this.projectRoot, '.dagent-worktrees', featureId)
+    // Use manager worktree path (where actual code lives), not per-feature path
+    const featureWorktreePath = feature?.managerWorktreePath || this.projectRoot
 
     // Get or create PM session for this feature
     const sessionManager = getSessionManager(this.projectRoot)
@@ -663,21 +706,12 @@ Remember: Ask ONE question at a time in a conversational manner.`
         questionsAsked: 0
       }
 
-      // Create initial spec for the feature (so FeatureSpecViewer shows something)
+      // Create initial empty spec for the feature (PM agent will populate via tools)
       const specStore = getFeatureSpecStore(this.projectRoot)
       const existingSpec = await specStore.loadSpec(featureId)
       if (!existingSpec) {
-        console.log(`[PMAgentManager] Creating initial spec for ${featureId}`)
-        const spec = await specStore.createSpec(featureId, featureName)
-
-        // Add initial goal from feature description if available
-        if (context && context.includes('## Feature Description')) {
-          const descMatch = context.match(/## Feature Description\n\n([^\n#]+)/)
-          if (descMatch) {
-            spec.goals.push(descMatch[1].trim())
-            await specStore.saveSpec(featureId, spec)
-          }
-        }
+        console.log(`[PMAgentManager] Creating empty spec for ${featureId}`)
+        await specStore.createSpec(featureId, featureName)
 
         // Broadcast spec update to UI
         BrowserWindow.getAllWindows().forEach((win) => {
@@ -711,24 +745,26 @@ Remember: Ask ONE question at a time in a conversational manner.`
         permissionMode: 'acceptEdits'
       })) {
         if (event.type === 'message' && event.message) {
-          // Collect response text for parsing
+          // Collect response text for parsing (accumulate, don't save yet)
           if (event.message.type === 'assistant') {
-            responseText += event.message.content
-
-            // Save assistant message to session
             const content = event.message.content.trim()
             const isSystemMessage = content.startsWith('System:') ||
                                    content.startsWith('Thinking:') ||
                                    content.length === 0
 
             if (!isSystemMessage) {
-              await sessionManager.addMessage(sessionId, featureId, {
-                role: 'assistant',
-                content: event.message.content
-              })
+              responseText += event.message.content
             }
           }
         }
+      }
+
+      // Save the complete assistant message after streaming ends
+      if (responseText.trim()) {
+        await sessionManager.addMessage(sessionId, featureId, {
+          role: 'assistant',
+          content: responseText
+        })
       }
 
       // Broadcast chat update to UI
@@ -779,57 +815,43 @@ Remember: Ask ONE question at a time in a conversational manner.`
         console.log(`[PMAgentManager] Complexity assessed: ${complexity}, questions required: ${questionsRequired}`)
       }
 
-      const questionsAsked = session.pmMetadata?.questionsAsked || 0
-      const questionsRequired = session.pmMetadata?.questionsRequired || 0
+      let questionsAsked = session.pmMetadata?.questionsAsked || 0
 
-      // Check for explicit confidence marker
+      // Check for explicit confidence marker - PM decides when ready
       if (lowerResponse.includes('confident:') && lowerResponse.includes('ready to proceed')) {
-        // Check if minimum questions have been asked
-        if (questionsAsked < questionsRequired) {
-          console.log(`[PMAgentManager] PM is confident but only ${questionsAsked}/${questionsRequired} questions asked - rejecting and requesting more questions`)
+        console.log(`[PMAgentManager] PM is confident after ${questionsAsked} questions, moving to ready_for_planning`)
 
-          // Reject early confidence - add feedback message and return with canProceed=false
-          const feedbackMessage = `You need to ask at least ${questionsRequired} clarifying questions for this ${session.pmMetadata?.complexity}-complexity feature. You've only asked ${questionsAsked} so far.
+        // Update feature status to ready_for_planning - user must click Plan to proceed
+        if (feature && feature.status !== 'ready_for_planning' && feature.status !== 'planning') {
+          feature.status = 'ready_for_planning'
+          feature.updatedAt = new Date().toISOString()
+          await this.featureStore.saveFeature(feature)
 
-Please continue the conversation by asking ONE more critical implementation question about:
-${questionsAsked < 1 ? '- Which specific files or components need to be modified?' : ''}
-${questionsAsked < 2 ? '- What are the expected behaviors and edge cases to handle?' : ''}
-${questionsAsked < 3 ? '- What technical approach or architecture patterns should be followed?' : ''}
-${questionsAsked < 4 ? '- What data structures, interfaces, or API contracts are involved?' : ''}
-${questionsAsked < 5 ? '- What error handling, validation, or security requirements exist?' : ''}
-
-Remember: Ask ONE question at a time in a conversational manner.`
-
-          uncertainties.push(feedbackMessage)
-
-          // Immediately return - don't proceed with planning
-          console.log(`[PMAgentManager] Returning canProceed=false to continue questioning`)
-          return { canProceed: false, uncertainties, sessionId }
-        } else {
-          console.log(`[PMAgentManager] PM is confident and ${questionsAsked}/${questionsRequired} questions met, proceeding with planning`)
-          return { canProceed: true, sessionId }
+          BrowserWindow.getAllWindows().forEach((win) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send('feature:status-changed', { featureId, status: 'ready_for_planning' })
+            }
+          })
         }
+
+        // canProceed: false means we stop automatic flow - user must manually click Plan
+        return { canProceed: false, uncertainties: undefined, sessionId }
       }
 
       // Check for explicit uncertainty marker
-      if (lowerResponse.includes('uncertain:') || lowerResponse.includes('need clarification')) {
+      if (lowerResponse.includes('uncertain:')) {
         console.log(`[PMAgentManager] PM indicated uncertainty, extracting question`)
 
         // Extract the question after "UNCERTAIN:"
-        const uncertainStartIndex = Math.max(
-          responseText.toLowerCase().indexOf('uncertain:'),
-          responseText.toLowerCase().indexOf('need clarification')
-        )
+        const uncertainStartIndex = responseText.toLowerCase().indexOf('uncertain:')
 
         if (uncertainStartIndex !== -1) {
           // Get everything after "UNCERTAIN:" marker
-          const afterMarker = responseText.slice(uncertainStartIndex).replace(/^uncertain:\s*/i, '').trim()
+          const afterMarker = responseText.slice(uncertainStartIndex + 'uncertain:'.length).trim()
 
-          // Extract the full question text - capture everything until we hit a marker like
-          // "CONFIDENT:", "COMPLEXITY:", or end of response. This preserves multi-line questions with lists.
+          // Extract the question text until **Options or next marker
           let questionText = afterMarker
-          // Check for any subsequent markers that would indicate end of question
-          const endMarkers = ['confident:', 'complexity:', 'uncertain:']
+          const endMarkers = ['confident:', 'complexity:', 'uncertain:', '**options', 'answer_recorded:', 'clarifying:', 'partial_answer:']
           for (const marker of endMarkers) {
             const markerIndex = questionText.toLowerCase().indexOf(marker)
             if (markerIndex > 0) {
@@ -838,46 +860,47 @@ Remember: Ask ONE question at a time in a conversational manner.`
           }
           questionText = questionText.trim()
 
+          // Also extract the options if present
+          let optionsText = ''
+          const optionsIndex = responseText.toLowerCase().indexOf('**options')
+          if (optionsIndex !== -1) {
+            optionsText = responseText.slice(optionsIndex)
+            // Truncate at next major section
+            const optionEndMarkers = ['**when ready', '**example', '**important', 'uncertain:', 'confident:', '**judging']
+            for (const marker of optionEndMarkers) {
+              const markerIndex = optionsText.toLowerCase().indexOf(marker)
+              if (markerIndex > 0) {
+                optionsText = optionsText.slice(0, markerIndex)
+              }
+            }
+          }
+
+          // Combine question with options for display
+          const fullQuestionWithOptions = optionsText ? `${questionText}\n\n${optionsText}` : questionText
+
           if (questionText.length > 0) {
-            uncertainties.push(questionText)
+            uncertainties.push(fullQuestionWithOptions)
 
             // Increment questions asked counter
+            questionsAsked += 1
             const updatedMetadata = {
               ...session.pmMetadata!,
-              questionsAsked: questionsAsked + 1
+              questionsAsked
             }
 
             session.pmMetadata = updatedMetadata
             await sessionManager.updatePMMetadata(sessionId, featureId, updatedMetadata)
 
-            console.log(`[PMAgentManager] Question ${updatedMetadata.questionsAsked}/${questionsRequired} asked`)
-
-            // Update spec with the question as a constraint (tracks investigation progress)
-            try {
-              const specStore = getFeatureSpecStore(this.projectRoot)
-              const spec = await specStore.loadSpec(featureId)
-              if (spec) {
-                // Add question as a constraint to track what's being clarified
-                spec.constraints.push(`Q${updatedMetadata.questionsAsked}: ${questionText}`)
-                await specStore.saveSpec(featureId, spec)
-
-                // Broadcast spec update to UI
-                BrowserWindow.getAllWindows().forEach((win) => {
-                  if (!win.isDestroyed()) {
-                    win.webContents.send('spec:updated', { featureId })
-                  }
-                })
-                console.log(`[PMAgentManager] Updated spec with question for ${featureId}`)
-              }
-            } catch (specError) {
-              console.error(`[PMAgentManager] Failed to update spec with question:`, specError)
-            }
+            console.log(`[PMAgentManager] Question ${questionsAsked} asked (tracked in chat history)`)
+            // Note: Questions are tracked in chat history, not in spec
+            // PM agent should use tools to update spec when it learns concrete requirements
           }
         }
       }
 
-      const canProceed = uncertainties.length === 0 && questionsAsked >= questionsRequired
-      console.log(`[PMAgentManager] Analysis result: canProceed=${canProceed}, uncertainties=${uncertainties.length}, questions=${questionsAsked}/${questionsRequired}`)
+      // PM decides when ready - no fixed question requirement
+      const canProceed = uncertainties.length === 0 && lowerResponse.includes('confident:')
+      console.log(`[PMAgentManager] Analysis result: canProceed=${canProceed}, uncertainties=${uncertainties.length}, questionsAsked=${questionsAsked}`)
 
       return { canProceed, uncertainties: uncertainties.length > 0 ? uncertainties : undefined, sessionId }
     } catch (error) {
@@ -889,122 +912,118 @@ Remember: Ask ONE question at a time in a conversational manner.`
 
   /**
    * Build analysis prompt for pre-planning uncertainty detection.
+   * First analysis is detailed; continuation is streamlined.
    */
   private buildAnalysisPrompt(featureName: string, context: string, pmMetadata?: { complexity?: 'low' | 'medium' | 'high'; questionsRequired?: number; questionsAsked?: number }): string {
     const isFirstAnalysis = !pmMetadata?.complexity
     const questionsAsked = pmMetadata?.questionsAsked || 0
-    const questionsRequired = pmMetadata?.questionsRequired || 0
     const complexity = pmMetadata?.complexity
 
-    return `You are the PM Agent analyzing ${isFirstAnalysis ? 'a new' : 'an existing'} feature request: "${featureName}".
+    // Continuation prompt is much shorter - just process the answer and respond
+    if (!isFirstAnalysis) {
+      return this.buildContinuationPrompt(featureName, context, complexity!, questionsAsked)
+    }
+
+    // First analysis prompt - detailed investigation
+    return `You are the PM Agent analyzing a new feature request: "${featureName}".
 
 Your task is to:
-1. ${isFirstAnalysis ? 'Assess the complexity of this feature' : `Continue gathering information (${questionsAsked}/${questionsRequired} questions asked so far)`}
-2. Ask clarifying questions to gather implementation details
-3. Only proceed when you have enough information
+1. Assess the complexity of this feature
+2. **RESEARCH the codebase** using your tools (Glob, Grep, Read) to understand the current implementation
+3. Ask clarifying questions based on what you learned from the codebase
+4. Only proceed when you have enough information
 
 ${context ? `\n${context}\n` : ''}
 
-${isFirstAnalysis ? `**Step 1: Assess Complexity**
+**CRITICAL: Research Before Asking**
 
-First, evaluate the feature complexity based on:
-- **Low Complexity**: Simple, isolated change (add button, fix typo, update text, single file change)
-- **Medium Complexity**: Moderate change affecting 2-5 files, some integration work, standard patterns
-- **High Complexity**: Large change affecting 6+ files, architectural decisions, new systems/patterns, significant integration
+You have access to codebase exploration tools:
+- **Glob**: Find files by pattern (e.g., \`**/*.tsx\` for React components)
+- **Grep**: Search for code patterns (e.g., function names, class names)
+- **Read**: Read file contents to understand implementation
 
-Your first response MUST include: "COMPLEXITY: [low|medium|high]"` : `**Current Progress:**
-- Complexity: ${complexity?.toUpperCase()}
-- Questions asked: ${questionsAsked}/${questionsRequired}
-- Questions remaining: ${questionsRequired - questionsAsked}`}
+**MANDATORY RESEARCH STEPS** (do these BEFORE asking ANY question):
+
+1. **Extract keywords from the feature name**: Parse "${featureName}" for file names, class names, component names
+2. **Search for each keyword**: Use Glob to find files like \`**/*keyword*\`
+3. **Read the relevant files**: Once found, READ the files to understand what they do
+4. **NEVER ask "what is X?" if X could be found in the codebase** - search first!
+
+**Step 1: Assess Complexity**
+
+First, evaluate the feature complexity:
+- **Low Complexity**: Simple, isolated change (add button, fix typo, single file change)
+- **Medium Complexity**: Moderate change affecting 2-5 files, some integration work
+- **High Complexity**: Large change affecting 6+ files, architectural decisions, new systems
+
+Your first response MUST include: "COMPLEXITY: [low|medium|high]"
 
 **Step 2: Gather Information**
 
-${isFirstAnalysis ? `Based on complexity, you MUST ask the minimum number of clarifying questions:
-- **Low complexity**: 0-1 questions (only if truly unclear)
-- **Medium complexity**: At least 3 questions
-- **High complexity**: At least 5 questions` : `You MUST ask ${questionsRequired - questionsAsked} more question${questionsRequired - questionsAsked === 1 ? '' : 's'} before you can proceed to planning.`}
+Based on complexity, ask clarifying questions:
+- **Low complexity**: May need 0-1 questions if truly simple
+- **Medium complexity**: Typically 2-4 questions about approach
+- **High complexity**: More questions about architecture, edge cases, integration
 
-Ask questions ONE AT A TIME in a conversational manner. Focus on implementation details:
-- Specific files/components to modify
-- Expected behavior and edge cases
-- Technical approach or architecture patterns to follow
-- Data structures, interfaces, or API contracts
-- Error handling, validation, or security requirements
-- Integration points with existing systems
-- Performance or scalability considerations
-
-**Step 3: Analysis Task**
-
-Review the feature name${context ? ', description, and attached files' : ''} and identify any uncertainties or ambiguities that would prevent you from creating a clear, actionable specification.
-
-**Critical Questions to Consider:**
-
-1. **Scope & Goal:**
-   - Is the exact goal and desired outcome clear?
-   - Is the scope well-defined (what's included and what's NOT included)?
-   - Are there boundary conditions or edge cases mentioned?
-
-2. **Technical Context:**
-   - Which specific files, components, or modules need to be modified?
-   - What's the existing architecture/pattern we should follow?
-   - Are there performance, security, or compatibility requirements?
-
-3. **Requirements Specificity:**
-   - Are the requirements concrete and testable?
-   - Are there vague terms like "improve", "better", "nice" without quantifiable metrics?
-   - Is the user experience flow clearly described?
-
-4. **Implementation Details:**
-   - Are there multiple valid approaches without guidance on which to choose?
-   - Is there missing information about data structures, APIs, or interfaces?
-   - Are dependencies on other systems/features mentioned but unclear?
-
-5. **Size & Complexity:**
-   - For LARGE features: Is there enough detail to break down into tasks?
-   - For VAGUE features: Are the acceptance criteria clear enough to verify completion?
-
-**Decision Criteria:**
-
-Mark as CONFIDENT only if:
-- The feature is small, simple, and self-contained (e.g., "add a delete button to X")
-- OR the description provides specific, concrete details that answer all critical questions above
-
-Mark as UNCERTAIN if:
-- The feature is large or complex WITHOUT detailed requirements
-- There are vague/ambiguous terms without concrete definitions
-- You would need to make significant assumptions about scope, approach, or implementation
-- Multiple valid interpretations exist and you don't know which one is intended
-- Technical details are missing (which files to modify, what pattern to follow)
+**You decide when you have enough information** - stop asking when you can write a detailed, actionable spec.
 
 **Response Format:**
 
-${isFirstAnalysis ? `**On your FIRST response:**
-- Start with: "COMPLEXITY: [low|medium|high]"
-- Then provide a brief 1-sentence explanation of why
-- Then ask your first question (if any) with "UNCERTAIN: [question]"
+1. First, USE TOOLS to search the codebase
+2. After researching, respond with: "COMPLEXITY: [low|medium|high]"
+3. Briefly explain what you found in the codebase (1-2 sentences)
+4. Then ask your first question
 
-**On subsequent responses:**` : `**Your response format:**`}
-- If you need more information: "UNCERTAIN: [question]"
-- If you've asked enough questions (${questionsRequired} total): "CONFIDENT: Ready to proceed with planning."
+**Question Format:**
+UNCERTAIN: [Your question here - specific and concise]
 
-**Question Guidelines:**
-- Ask ONE question at a time - this is a conversation
-- Be specific and actionable
-- Focus on implementation details, not high-level requirements
-- Keep questions conversational (1-3 sentences max)
-- ${isFirstAnalysis ? 'Don\'t proceed to CONFIDENT until you\'ve asked the minimum required questions' : `You MUST ask ${questionsRequired - questionsAsked} more question${questionsRequired - questionsAsked === 1 ? '' : 's'} before saying CONFIDENT`}
+**Options:**
+1. [Option A] - [Brief explanation]
+2. [Option B] - [Brief explanation]
+3. [Option C] - [Optional third option]
 
-**Important:**
-${isFirstAnalysis ? `- You CANNOT skip questions for medium/high complexity features
-- Even if the description seems clear, you must ask implementation questions
-- For high complexity: Ask about architecture, data flow, integration points, edge cases, error handling
-- For medium complexity: Ask about technical approach, specific files, expected behavior
-- Be thorough - it's better to over-clarify than to make wrong assumptions` : `- You have asked ${questionsAsked}/${questionsRequired} questions so far
-- DO NOT say CONFIDENT until you've asked all ${questionsRequired} required questions
-- The user has provided more information - ask your next clarifying question
-- Continue the conversation naturally based on their response`}
+**When ready to proceed:**
+Say "CONFIDENT: Ready to proceed with planning." when you have enough information.
 
 Begin your analysis.`
+  }
+
+  /**
+   * Build a streamlined prompt for continuation (after user responds).
+   * Much shorter than initial prompt - just process answer and respond quickly.
+   */
+  private buildContinuationPrompt(featureName: string, context: string, complexity: string, questionsAsked: number): string {
+    return `You are continuing analysis for feature: "${featureName}" (${complexity} complexity).
+
+${context}
+
+**Your task is simple:**
+1. Read the user's answer in the conversation history above
+2. Acknowledge what you learned from their answer
+3. Either ask your next question OR say you're ready to proceed
+
+**Response markers (use exactly one):**
+
+- **ANSWER_RECORDED: [brief summary]** - Then ask next question or proceed
+- **CLARIFYING:** - If user asked for clarification, re-explain your question
+- **PARTIAL_ANSWER: [what you learned]** - Then ask follow-up
+- **CONFIDENT: Ready to proceed with planning.** - When you have enough info
+
+**If asking another question, use this format:**
+UNCERTAIN: [Your question]
+
+**Options:**
+1. [Option A] - [Brief explanation]
+2. [Option B] - [Brief explanation]
+
+**Guidelines:**
+- Be brief - don't re-analyze the whole feature
+- Don't repeat questions already asked
+- Build on the user's answer
+- If the spec is already updated with their answer, you can proceed
+- Questions asked so far: ${questionsAsked}
+
+Respond now.`
   }
 
   /**
@@ -1035,36 +1054,43 @@ Begin your analysis.`
       console.log('[PMAgentManager] attachmentPaths has length, adding to context')
       contextParts.push('\n## Attached Files\n')
 
-      const featureDir = getFeatureDir(this.projectRoot, featureId)
-      console.log('[PMAgentManager] featureDir:', featureDir)
+      // Load feature to get the worktree path
+      const feature = await this.featureStore.loadFeature(featureId)
+      if (!feature?.managerWorktreePath) {
+        console.error('[PMAgentManager] Feature does not have a worktree path, cannot read attachments')
+      } else {
+        const featureDir = getFeatureDirInWorktree(feature.managerWorktreePath, featureId)
+        console.log('[PMAgentManager] featureDir:', featureDir)
 
-      for (const relPath of attachmentPaths) {
-        console.log('[PMAgentManager] Processing attachment:', relPath)
-        try {
-          const fullPath = path.join(featureDir, '..', relPath) // relPath is relative to feature worktree root
-          const fileName = path.basename(fullPath)
-          const ext = path.extname(fileName).toLowerCase()
+        for (const relPath of attachmentPaths) {
+          console.log('[PMAgentManager] Processing attachment:', relPath)
+          try {
+            // relPath is like "attachments/filename.png"
+            const fullPath = path.join(featureDir, relPath)
+            const fileName = path.basename(fullPath)
+            const ext = path.extname(fileName).toLowerCase()
 
-          // Read file based on type
-          if (['.md', '.txt', '.csv', '.json'].includes(ext)) {
-            // Text files - read content
-            const content = await fs.readFile(fullPath, 'utf-8')
-            contextParts.push(`\n### ${fileName}\n\n\`\`\`\n${content}\n\`\`\`\n`)
-          } else if (['.png', '.jpg', '.jpeg', '.gif', '.pdf'].includes(ext)) {
-            // Binary files - just mention them
-            contextParts.push(`\n### ${fileName}\n\n[Attached file: ${fileName}]\n`)
-          } else {
-            // Unknown type - try to read as text
-            try {
+            // Read file based on type
+            if (['.md', '.txt', '.csv', '.json'].includes(ext)) {
+              // Text files - read content
               const content = await fs.readFile(fullPath, 'utf-8')
               contextParts.push(`\n### ${fileName}\n\n\`\`\`\n${content}\n\`\`\`\n`)
-            } catch {
+            } else if (['.png', '.jpg', '.jpeg', '.gif', '.pdf'].includes(ext)) {
+              // Binary files - just mention them
               contextParts.push(`\n### ${fileName}\n\n[Attached file: ${fileName}]\n`)
+            } else {
+              // Unknown type - try to read as text
+              try {
+                const content = await fs.readFile(fullPath, 'utf-8')
+                contextParts.push(`\n### ${fileName}\n\n\`\`\`\n${content}\n\`\`\`\n`)
+              } catch {
+                contextParts.push(`\n### ${fileName}\n\n[Attached file: ${fileName}]\n`)
+              }
             }
+          } catch (error) {
+            console.error(`[PMAgentManager] Failed to read attachment ${relPath}:`, error)
+            contextParts.push(`\n### ${path.basename(relPath)}\n\n[Failed to read file]\n`)
           }
-        } catch (error) {
-          console.error(`[PMAgentManager] Failed to read attachment ${relPath}:`, error)
-          contextParts.push(`\n### ${path.basename(relPath)}\n\n[Failed to read file]\n`)
         }
       }
     }
@@ -1073,63 +1099,49 @@ Begin your analysis.`
   }
 
   /**
-   * Build planning prompt for PM agent.
-   * Instructs PM to create spec.md only (tasks are created via orchestrator analysis).
+   * Build task creation prompt for PM agent.
+   * Called during the "planning" phase when user clicks Plan button.
+   * At this point, the spec already exists - we just need to create tasks.
    */
-  private buildPlanningPrompt(featureName: string, context: string): string {
-    return `You are the PM Agent for a new feature: "${featureName}".
+  private buildTaskCreationPrompt(featureName: string, specContext: string): string {
+    return `You are the PM Agent creating tasks for feature: "${featureName}".
 
-Your task is to create a feature specification.
+The feature specification has already been created during the investigation phase. Your task is to create executable tasks based on this specification.
 
-${context ? `\n${context}\n` : ''}
+${specContext}
 
 **Your workflow:**
 
-1. **Create Feature Specification**:
-   - Use the CreateSpec tool to create a feature-spec.md file
-   - Include goals, requirements, and acceptance criteria
-   - Base the spec on the feature name${context ? ', description, and attached files' : ''}
-   - **CRITICAL**: If the description specifies how tasks should be broken down (e.g., "split into X tasks", "one task per Y", "separate tasks for each Z"), you MUST include these as explicit requirements in the spec. These task breakdown instructions take priority.
+1. **Review the Specification**:
+   - Read the spec carefully, including goals, requirements, and Q&A decisions
+   - Understand what needs to be implemented
 
-2. **Verification**:
-   - Ensure spec is created with meaningful content
-   - Your work is complete when the spec is saved
+2. **Create Tasks**:
+   - Use the CreateTask tool to create tasks for implementing the feature
+   - Each task should be atomic and implementable by a single dev agent session
+   - Tasks should be small enough to complete in one focused session (ideally 1-3 files changed)
+   - Include clear descriptions with implementation details
+   - Set up dependencies between tasks using the dependsOn parameter
+
+3. **Task Guidelines**:
+   - **Atomic**: Each task does ONE thing well
+   - **Clear**: Description includes what files to change, what to implement
+   - **Ordered**: Use dependencies to enforce execution order where needed
+   - **Complete**: Cover all requirements from the spec
+
+**Task Creation Pattern:**
+- First, call ListTasks to see if any tasks already exist
+- Create tasks with descriptive titles like "Add X component to Y"
+- Include specific file paths and implementation details in descriptions
+- Link dependent tasks using the dependsOn parameter with task IDs
 
 **Important:**
 - This is autonomous - do not wait for user input
-- Create the spec, then finish
-- Do NOT create tasks - task creation happens in the analysis phase
-- The system will analyze and create tasks after planning completes
-- Preserve any user-specified task breakdown structure in the requirements
+- Do NOT recreate or modify the spec - it already exists
+- Focus ONLY on creating tasks from the existing spec
+- Create ALL tasks needed to implement the feature
 
-Begin planning for "${featureName}".`
-  }
-
-  /**
-   * Verify that planning completed successfully.
-   * Checks for spec.md existence only (tasks are created by analysis orchestrator).
-   */
-  private async verifyPlanningComplete(featureId: string): Promise<boolean> {
-    try {
-      // Check: Verify spec.md exists
-      const featureDir = getFeatureDir(this.projectRoot, featureId)
-      const specPath = path.join(featureDir, 'feature-spec.md')
-
-      try {
-        await fs.access(specPath)
-      } catch {
-        console.error(`[PMAgentManager] Verification failed: spec.md not found at ${specPath}`)
-        return false
-      }
-
-      // Spec exists - planning complete
-      // Note: Tasks are created by the analysis orchestrator, not during planning
-      console.log(`[PMAgentManager] Verification passed: spec.md exists`)
-      return true
-    } catch (error) {
-      console.error(`[PMAgentManager] Verification error:`, error)
-      return false
-    }
+Begin creating tasks for "${featureName}".`
   }
 }
 

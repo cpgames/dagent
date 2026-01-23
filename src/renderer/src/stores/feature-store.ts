@@ -25,8 +25,9 @@ interface FeatureState {
   updateFeatureStatus: (featureId: string, newStatus: FeatureStatus) => Promise<boolean>;
 }
 
-// Track the cleanup function for status change listener
+// Track the cleanup functions for event listeners
 let statusChangeCleanup: (() => void) | null = null;
+let managerAssignedCleanup: (() => void) | null = null;
 
 /**
  * Subscribe to feature status changes from the orchestrator.
@@ -50,6 +51,23 @@ export function subscribeToFeatureStatusChanges(): void {
       store.loadFeatures();
     }
   });
+
+  // Subscribe to manager assignment events to update the manager badge
+  managerAssignedCleanup = window.electronAPI.feature.onManagerAssigned((data) => {
+    console.log(`[FeatureStore] Received manager assigned event: ${data.featureId} -> manager ${data.featureManagerId} (queue ${data.queuePosition})`);
+    const store = useFeatureStore.getState();
+    const existingFeature = store.features.find(f => f.id === data.featureId);
+    if (existingFeature) {
+      store.updateFeature(data.featureId, {
+        featureManagerId: data.featureManagerId,
+        queuePosition: data.queuePosition
+      });
+      console.log(`[FeatureStore] Updated feature ${data.featureId} with manager ${data.featureManagerId}`);
+    } else {
+      console.log(`[FeatureStore] Feature ${data.featureId} not found in store, reloading features...`);
+      store.loadFeatures();
+    }
+  });
 }
 
 /**
@@ -60,6 +78,10 @@ export function unsubscribeFromFeatureStatusChanges(): void {
   if (statusChangeCleanup) {
     statusChangeCleanup();
     statusChangeCleanup = null;
+  }
+  if (managerAssignedCleanup) {
+    managerAssignedCleanup();
+    managerAssignedCleanup = null;
   }
 }
 

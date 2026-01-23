@@ -43,16 +43,18 @@ const LayoutIcon = (): JSX.Element => (
   </svg>
 )
 
-// Status display configuration for 9-state feature lifecycle
+// Status display configuration for state-based feature lifecycle
 const statusConfig: Record<FeatureStatus, { label: string; className: string }> = {
   not_started: { label: 'Not Started', className: 'layout-controls__status--not-started' },
   creating_worktree: { label: 'Creating...', className: 'layout-controls__status--creating' },
   investigating: { label: 'Investigating', className: 'layout-controls__status--investigating' },
-  questioning: { label: 'Questions', className: 'layout-controls__status--questioning' },
+  ready_for_planning: { label: 'Ready to Plan', className: 'layout-controls__status--ready-for-planning' },
   planning: { label: 'Planning', className: 'layout-controls__status--planning' },
   ready: { label: 'Ready', className: 'layout-controls__status--ready' },
-  in_progress: { label: 'In Progress', className: 'layout-controls__status--in-progress' },
-  completed: { label: 'Completed', className: 'layout-controls__status--completed' },
+  developing: { label: 'Developing', className: 'layout-controls__status--developing' },
+  verifying: { label: 'Verifying', className: 'layout-controls__status--verifying' },
+  needs_merging: { label: 'Merge Pending', className: 'layout-controls__status--needs-merging' },
+  merging: { label: 'Merging', className: 'layout-controls__status--merging' },
   archived: { label: 'Archived', className: 'layout-controls__status--archived' }
 }
 

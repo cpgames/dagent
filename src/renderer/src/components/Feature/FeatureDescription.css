@@ -45,6 +45,38 @@
   letter-spacing: 0.05em;
 }
 
+/* Uncertainties section */
+.feature-description__uncertainties {
+  background: var(--color-warning-dim);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.feature-description__uncertainties-intro {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.feature-description__uncertainties-list {
+  margin: 0 0 var(--space-md) var(--space-md);
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.feature-description__uncertainties-list li {
+  margin-bottom: var(--space-xs);
+}
+
+.feature-description__uncertainties-note {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  margin: 0;
+  font-style: italic;
+}
+
 .feature-description__input {
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-elevated);

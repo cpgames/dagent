@@ -12,13 +12,13 @@ import { getPMToolInstructions } from './pm-tool-handlers'
 export interface AgentPromptOptions {
   featureId?: string
   taskId?: string
-  agentType: 'pm' | 'harness' | 'task' | 'merge' | 'qa'
+  agentType: 'pm' | 'investigation' | 'planning' | 'harness' | 'task' | 'merge' | 'qa'
 }
 
 /**
  * Agent type union for type safety.
  */
-export type AgentType = 'pm' | 'harness' | 'task' | 'merge' | 'qa'
+export type AgentType = 'pm' | 'investigation' | 'planning' | 'harness' | 'task' | 'merge' | 'qa'
 
 /**
  * Build a system prompt for an agent with full context.
@@ -42,7 +42,9 @@ export async function buildAgentPrompt(options: AgentPromptOptions): Promise<str
 
     const contextSection = contextService.formatContextAsPrompt(fullContext)
     const roleSection = getAgentRoleInstructions(options.agentType)
-    const toolSection = options.agentType === 'pm' ? getPMToolInstructions() : ''
+    // PM, investigation, and planning agents all use PM tools (different subsets via presets)
+    const needsToolInstructions = ['pm', 'investigation', 'planning'].includes(options.agentType)
+    const toolSection = needsToolInstructions ? getPMToolInstructions() : ''
 
     return `${roleSection}\n\n${contextSection}\n\n${toolSection}`.trim()
   } catch (error) {
@@ -74,7 +76,9 @@ This ensures the spec is always the source of truth for what the feature should 
 ## Spec Content
 - Extract requirements from ANY user request, even simple ones like "delete file X"
 - Requirements should be actionable: "Delete helloworld.txt" not "User wants deletion"
-- Add acceptance criteria when verifiable: "File no longer exists after task completion"
+- Each requirement MUST have a matching acceptance criterion that defines "done"
+- When updating requirements, ALWAYS update acceptance criteria to match
+- Example: Requirement "Delete file X" → Acceptance Criterion "File X no longer exists"
 
 ## Task Management Modes
 - When in PLANNING mode: Do NOT create tasks. Only create the feature spec.
@@ -137,6 +141,48 @@ If a "Current Task" section appears in context:
 - Be brief: "Added requirement, created task: [title]"
 - Don't explain systems or show tables`
 
+    case 'investigation':
+      return `You are an Investigation Agent analyzing a new feature request.
+
+## Your Role
+Explore the codebase to understand how to implement the feature, then write a complete specification.
+
+## Tools Available
+- **Read, Glob, Grep**: Explore the codebase
+- **CreateSpec, UpdateSpec, GetSpec**: Manage the feature specification
+
+## Workflow
+1. **Research First**: ALWAYS search the codebase before asking questions
+2. **Ask Clarifying Questions**: When you need user input, ask ONE question at a time
+3. **Update Spec**: As you learn information, update the spec using UpdateSpec
+
+## Response Markers
+- UNCERTAIN: [question] - When you need to ask the user
+- CONFIDENT: Ready to proceed - When spec is complete
+
+## Critical Rules
+- Search the codebase before asking "what is X?"
+- Update spec immediately when you learn something concrete
+- The spec must be complete enough for task creation`
+
+    case 'planning':
+      return `You are a Planning Agent. Your ONLY job is creating tasks from a spec.
+
+## CRITICAL: Do NOT investigate
+- NO codebase exploration (no Read, Glob, Grep)
+- NO questions to user
+- ONLY create tasks using CreateTask tool
+
+## Tools
+- **CreateTask**: Create implementation tasks (USE THIS)
+- **ListTasks**: Check existing tasks
+- **AddDependency**: Link dependent tasks
+
+## Task Rules
+- One task per logical unit of work
+- Clear titles and descriptions
+- Use dependsOn for ordering`
+
     case 'harness':
       return `You are a Harness Agent reviewing task intentions before execution.
 Your role is to evaluate if a task's planned approach is sound and approve or suggest changes.
@@ -171,7 +217,8 @@ Keep feedback brief and actionable.`
  */
 function getBasicPrompt(agentType: AgentType): string {
   const roleSection = getAgentRoleInstructions(agentType)
-  const toolSection = agentType === 'pm' ? getPMToolInstructions() : ''
+  const needsToolInstructions = ['pm', 'investigation', 'planning'].includes(agentType)
+  const toolSection = needsToolInstructions ? getPMToolInstructions() : ''
 
   return `${roleSection}\n\n${toolSection}`.trim()
 }

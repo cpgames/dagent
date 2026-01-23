@@ -238,19 +238,19 @@ export async function createPMMcpServer(): Promise<unknown | null> {
       ),
       tool(
         'UpdateSpec',
-        'Update an existing feature specification. Use when user refines requirements in conversation.',
+        'Update the feature specification. Uses "set" semantics - provided arrays REPLACE existing content entirely. Omit fields to keep them unchanged. Call GetSpec first to see current state, then provide the complete updated arrays. IMPORTANT: Requirements and acceptance criteria must stay in sync - when adding/changing a requirement, always add/update the corresponding acceptance criterion that defines how to verify it is done.',
         {
-          addGoals: z.array(z.string()).optional().describe('Goals to add'),
-          addRequirements: z.array(z.string()).optional().describe('Requirements to add'),
-          addConstraints: z.array(z.string()).optional().describe('Constraints to add'),
-          addAcceptanceCriteria: z.array(z.string()).optional().describe('Acceptance criteria to add'),
-          historyNote: z.string().optional().describe('Note about what changed (for history)')
+          goals: z.array(z.string()).optional().describe('Complete list of goals (replaces all existing goals)'),
+          requirements: z.array(z.string()).optional().describe('Complete list of requirements (replaces all existing). Each requirement should have a matching acceptance criterion.'),
+          constraints: z.array(z.string()).optional().describe('Complete list of constraints (replaces all existing)'),
+          acceptanceCriteria: z.array(z.string()).optional().describe('Complete list of acceptance criteria (replaces all existing). MUST match requirements - each requirement needs a criterion defining "done".'),
+          historyNote: z.string().optional().describe('Note about what changed (appended to history)')
         },
         async (args: {
-          addGoals?: string[]
-          addRequirements?: string[]
-          addConstraints?: string[]
-          addAcceptanceCriteria?: string[]
+          goals?: string[]
+          requirements?: string[]
+          constraints?: string[]
+          acceptanceCriteria?: string[]
           historyNote?: string
         }) => {
           const featureId = getPMToolsFeatureContext()
@@ -264,21 +264,14 @@ export async function createPMMcpServer(): Promise<unknown | null> {
           }
           const result = await pmUpdateSpec({
             featureId,
-            addGoals: args.addGoals,
-            addRequirements: args.addRequirements,
-            addConstraints: args.addConstraints,
-            addAcceptanceCriteria: args.addAcceptanceCriteria,
+            goals: args.goals,
+            requirements: args.requirements,
+            constraints: args.constraints,
+            acceptanceCriteria: args.acceptanceCriteria,
             historyNote: args.historyNote
           })
           if (result.success) {
-            const parts: string[] = ['Spec updated.']
-            if (result.addedRequirementIds?.length) {
-              parts.push(`Added requirements: ${result.addedRequirementIds.join(', ')}`)
-            }
-            if (result.addedCriterionIds?.length) {
-              parts.push(`Added criteria: ${result.addedCriterionIds.join(', ')}`)
-            }
-            return { content: [{ type: 'text', text: parts.join(' ') }] }
+            return { content: [{ type: 'text', text: 'Spec updated successfully.' }] }
           }
           return {
             content: [{

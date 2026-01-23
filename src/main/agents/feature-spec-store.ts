@@ -4,8 +4,9 @@
  * Each feature has a feature-spec.md in its .dagent directory.
  */
 
-import { readFile, writeFile, unlink, access } from 'fs/promises'
-import { getFeatureSpecPath } from '../storage/paths'
+import { readFile, writeFile, unlink, access, mkdir } from 'fs/promises'
+import path from 'path'
+import { getFeatureSpecPathInWorktree } from '../storage/paths'
 import type {
   FeatureSpec,
   RequirementItem,
@@ -17,6 +18,7 @@ import {
   generateRequirementId,
   generateAcceptanceCriterionId
 } from './feature-spec-types'
+import { getFeatureStore } from '../ipc/storage-handlers'
 
 // Singleton store per projectRoot
 const stores = new Map<string, FeatureSpecStore>()
@@ -38,13 +40,28 @@ export function getFeatureSpecStore(projectRoot: string): FeatureSpecStore {
  * Specs are stored as human-readable markdown files.
  */
 export class FeatureSpecStore {
-  constructor(private projectRoot: string) {}
+  // projectRoot passed to constructor is used as the cache key in the stores Map
+  constructor(_projectRoot: string) {
+    // Constructor parameter used only for Map key lookup in getFeatureSpecStore()
+    void _projectRoot
+  }
 
   /**
    * Get the file path for a feature's spec.
+   * Requires feature to have a managerWorktreePath set.
    */
-  private getPath(featureId: string): string {
-    return getFeatureSpecPath(this.projectRoot, featureId)
+  private async getPath(featureId: string): Promise<string | null> {
+    const featureStore = getFeatureStore()
+    if (!featureStore) {
+      console.error('[FeatureSpecStore] FeatureStore not initialized')
+      return null
+    }
+    const feature = await featureStore.loadFeature(featureId)
+    if (!feature?.managerWorktreePath) {
+      console.error(`[FeatureSpecStore] Feature ${featureId} does not have a worktree path`)
+      return null
+    }
+    return getFeatureSpecPathInWorktree(feature.managerWorktreePath, featureId)
   }
 
   // ===========================================================================
@@ -66,7 +83,8 @@ export class FeatureSpecStore {
    * @returns FeatureSpec or null if not found.
    */
   async loadSpec(featureId: string): Promise<FeatureSpec | null> {
-    const filePath = this.getPath(featureId)
+    const filePath = await this.getPath(featureId)
+    if (!filePath) return null
     try {
       const content = await readFile(filePath, 'utf-8')
       return this.parseMarkdown(content, featureId)
@@ -82,7 +100,12 @@ export class FeatureSpecStore {
   async saveSpec(featureId: string, spec: FeatureSpec): Promise<void> {
     spec.updatedAt = new Date().toISOString()
     const content = this.toMarkdown(spec)
-    const filePath = this.getPath(featureId)
+    const filePath = await this.getPath(featureId)
+    if (!filePath) {
+      throw new Error(`Cannot save spec: feature ${featureId} does not have a worktree path`)
+    }
+    // Ensure directory exists
+    await mkdir(path.dirname(filePath), { recursive: true })
     await writeFile(filePath, content, 'utf-8')
   }
 
@@ -91,7 +114,8 @@ export class FeatureSpecStore {
    * @returns true if deleted, false if didn't exist.
    */
   async deleteSpec(featureId: string): Promise<boolean> {
-    const filePath = this.getPath(featureId)
+    const filePath = await this.getPath(featureId)
+    if (!filePath) return false
     try {
       await unlink(filePath)
       return true
@@ -104,7 +128,8 @@ export class FeatureSpecStore {
    * Check if a FeatureSpec exists.
    */
   async specExists(featureId: string): Promise<boolean> {
-    const filePath = this.getPath(featureId)
+    const filePath = await this.getPath(featureId)
+    if (!filePath) return false
     try {
       await access(filePath)
       return true
@@ -116,6 +141,69 @@ export class FeatureSpecStore {
   // ===========================================================================
   // Update Operations
   // ===========================================================================
+
+  /**
+   * Update spec sections using "set" semantics.
+   * Provided arrays replace existing content entirely. Omitted fields are unchanged.
+   * Handles ID generation for requirements and acceptance criteria.
+   * @throws Error if spec not found.
+   */
+  async updateSpec(
+    featureId: string,
+    updates: {
+      goals?: string[]
+      requirements?: string[]
+      constraints?: string[]
+      acceptanceCriteria?: string[]
+      historyNote?: string
+    }
+  ): Promise<void> {
+    const spec = await this.loadSpec(featureId)
+    if (!spec) {
+      throw new Error(`FeatureSpec not found for feature ${featureId}`)
+    }
+
+    const now = new Date().toISOString()
+
+    // Replace goals if provided
+    if (updates.goals !== undefined) {
+      spec.goals = updates.goals
+    }
+
+    // Replace requirements if provided (generate new IDs)
+    if (updates.requirements !== undefined) {
+      spec.requirements = updates.requirements.map((desc, idx) => ({
+        id: `REQ-${String(idx + 1).padStart(3, '0')}`,
+        description: desc,
+        completed: false,
+        addedAt: now
+      }))
+    }
+
+    // Replace constraints if provided
+    if (updates.constraints !== undefined) {
+      spec.constraints = updates.constraints
+    }
+
+    // Replace acceptance criteria if provided (generate new IDs)
+    if (updates.acceptanceCriteria !== undefined) {
+      spec.acceptanceCriteria = updates.acceptanceCriteria.map((desc, idx) => ({
+        id: `AC-${String(idx + 1).padStart(3, '0')}`,
+        description: desc,
+        passed: false
+      }))
+    }
+
+    // Add history note if provided
+    if (updates.historyNote) {
+      spec.history.push({
+        timestamp: now,
+        change: updates.historyNote
+      })
+    }
+
+    await this.saveSpec(featureId, spec)
+  }
 
   /**
    * Add a goal to the spec.

@@ -24,6 +24,8 @@ import { registerDAGLayoutHandlers } from './dag-layout-handlers'
 import { registerSessionHandlers } from './session-handlers'
 import { registerAnalysisHandlers } from './analysis-handlers'
 import { registerSettingsHandlers } from './settings-handlers'
+import { registerPoolHandlers } from './pool-handlers'
+import { registerManagerHandlers } from './manager-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -80,6 +82,10 @@ export function registerIpcHandlers(): void {
   registerAnalysisHandlers()
   // Register settings handlers (app-wide configuration)
   registerSettingsHandlers()
+  // Register pool handlers (worktree pool management)
+  registerPoolHandlers()
+  // Register manager handlers (state-based manager debugging)
+  registerManagerHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

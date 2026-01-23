@@ -1,0 +1,481 @@
+/**
+ * PoolManagerView styles
+ * Visual display of worktree pools with synthwave theming.
+ */
+
+.pool-manager-view {
+  height: 100%;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  overflow-y: auto;
+}
+
+/* Loading and empty states */
+.pool-manager-view__loading,
+.pool-manager-view__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.pool-manager-view__empty-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+  opacity: 0.5;
+}
+
+.pool-manager-view__empty-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-secondary);
+}
+
+.pool-manager-view__empty-text {
+  font-size: 0.875rem;
+}
+
+/* Header Stats */
+.pool-manager-view__header {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.pool-manager-view__stats {
+  display: flex;
+  gap: var(--space-xl);
+}
+
+.pool-manager-view__stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.pool-manager-view__stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+}
+
+.pool-manager-view__stat-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Pool Cards Grid */
+.pool-manager-view__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-lg);
+}
+
+/* Pool Card */
+.pool-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pool-card:hover {
+  border-color: var(--border-highlight);
+}
+
+.pool-card--placeholder {
+  opacity: 0.6;
+}
+
+.pool-card--placeholder:hover {
+  opacity: 0.8;
+}
+
+/* Pool Card Header */
+.pool-card__header {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-primary) 5%, transparent),
+    transparent
+  );
+}
+
+.pool-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.pool-card__name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pool-card__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pool-card__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pool-card__status-dot--pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pool-card__branch {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+/* Pool Card Features List */
+.pool-card__features {
+  flex: 1;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-height: 120px;
+}
+
+.pool-card__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  gap: var(--space-xs);
+}
+
+.pool-card__empty-icon {
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+
+.pool-card__empty-text {
+  font-style: italic;
+}
+
+/* Feature Item Button */
+.pool-card__feature {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.pool-card__feature:hover {
+  background: var(--bg-highlight);
+  border-color: var(--border-highlight);
+  transform: translateX(4px);
+}
+
+.pool-card__feature:first-child {
+  border-left: 3px solid var(--accent-primary);
+}
+
+.pool-card__feature-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pool-card__feature-position {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.pool-card__feature:first-child .pool-card__feature-position {
+  color: var(--accent-primary);
+}
+
+.pool-card__feature-status {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.pool-card__feature-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pool Card Stats */
+.pool-card__stats {
+  display: flex;
+  gap: var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pool-card__stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+}
+
+.pool-card__stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.pool-card__stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Merge Queue Section */
+.merge-queue {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.merge-queue__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merge-queue__title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--color-success);
+  border-radius: 2px;
+}
+
+.merge-queue__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merge-queue__item {
+  display: grid;
+  grid-template-columns: 40px 1fr auto 120px;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.merge-queue__position {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.merge-queue__feature {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merge-queue__status {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.merge-queue__status--pending {
+  background: color-mix(in srgb, var(--accent-secondary) 20%, transparent);
+  color: var(--accent-secondary);
+}
+
+.merge-queue__status--in_progress {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+}
+
+.merge-queue__status--completed {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+}
+
+.merge-queue__status--failed {
+  background: color-mix(in srgb, var(--color-error) 20%, transparent);
+  color: var(--color-error);
+}
+
+.merge-queue__target {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* Token Status Section */
+.token-status {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.token-status__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.token-status__title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+}
+
+.token-status__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.token-status__item {
+  padding: var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.token-status__item--available {
+  border-left: 3px solid var(--color-success);
+}
+
+.token-status__item--held {
+  border-left: 3px solid var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-elevated));
+}
+
+.token-status__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.token-status__id {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.token-status__indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.token-status__indicator--active {
+  background: var(--accent-primary);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.token-status__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.token-status__holder {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.token-status__item--available .token-status__holder {
+  color: var(--color-success);
+}
+
+.token-status__item--held .token-status__holder {
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.token-status__pending {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  font-style: italic;
+}

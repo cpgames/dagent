@@ -119,15 +119,21 @@ export class AgentService {
         return
       }
 
-      // Check if PM tools are needed
-      const isPMAgent = options.toolPreset === 'pmAgent' || options.agentType === 'pm'
+      // Check if PM tools are needed (PM, investigation, and planning agents all use PM MCP tools)
+      const needsPMTools =
+        options.toolPreset === 'pmAgent' ||
+        options.toolPreset === 'investigationAgent' ||
+        options.toolPreset === 'planningAgent' ||
+        options.agentType === 'pm' ||
+        options.agentType === 'investigation' ||
+        options.agentType === 'planning'
 
       // Resolve tools from preset or explicit list
       let tools =
         options.allowedTools || (options.toolPreset ? getToolsForPreset(options.toolPreset) : [])
 
       // For PM Agent, replace PM tool names with MCP-prefixed names
-      if (isPMAgent) {
+      if (needsPMTools) {
         // Filter out the old PM tool names (they won't work without MCP)
         const pmToolNames = ['CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask']
         tools = tools.filter(t => !pmToolNames.includes(t))
@@ -146,10 +152,15 @@ export class AgentService {
         queryOptions.hooks = options.hooks
       }
 
-      console.log(`[AgentService] SDK query options: cwd=${options.cwd}, tools=${tools.join(',')}, permissionMode=${queryOptions.permissionMode}, hooks=${options.hooks ? 'configured' : 'none'}`)
+      // Add maxTurns if provided (limits agentic turns to prevent runaway execution)
+      if (options.maxTurns) {
+        queryOptions.maxTurns = options.maxTurns
+      }
+
+      console.log(`[AgentService] SDK query options: cwd=${options.cwd}, tools=${tools.join(',')}, permissionMode=${queryOptions.permissionMode}, hooks=${options.hooks ? 'configured' : 'none'}, maxTurns=${options.maxTurns || 'unlimited'}`)
 
       // Add PM MCP server if PM tools are needed
-      if (isPMAgent) {
+      if (needsPMTools) {
         if (!this.pmMcpServer) {
           this.pmMcpServer = await createPMMcpServer()
         }
@@ -182,7 +193,7 @@ export class AgentService {
 
       // MCP servers require streaming input (async generator for prompt)
       // Create an async generator that yields the user message
-      const promptGenerator = isPMAgent && this.pmMcpServer
+      const promptGenerator = needsPMTools && this.pmMcpServer
         ? (async function* () {
             yield {
               type: 'user' as const,
