@@ -1,6 +1,7 @@
 node_modules
 dist
 out
+build
 .DS_Store
 .eslintcache
 *.log*
@@ -12,3 +13,4 @@ out
 nul
 CLAUDE.md
 DAGENT_SPEC.md
+doc/
