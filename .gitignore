@@ -4,3 +4,9 @@ out
 .DS_Store
 .eslintcache
 *.log*
+
+# Local config and working directories
+.claude/
+.dagent-worktrees/
+.planning/
+nul
