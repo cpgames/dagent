@@ -29,11 +29,6 @@ export function registerAgentHandlers(): void {
     return pool.getAgentsByType(type)
   })
 
-  ipcMain.handle('agent:get-harness', async () => {
-    const pool = getAgentPool()
-    return pool.getHarness()
-  })
-
   ipcMain.handle('agent:can-spawn', async (_event, type: AgentType) => {
     const pool = getAgentPool()
     return pool.canSpawn(type)

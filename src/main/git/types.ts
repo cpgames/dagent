@@ -50,21 +50,9 @@ export interface GitOperationResult {
   data?: unknown
 }
 
-// Branch naming per DAGENT_SPEC section 8.1
-// Note: Feature branch uses /main suffix to avoid git ref conflicts with task branches
-// Git cannot have both 'feature/test' (branch) and 'feature/test/task-xxx' (branch)
-// because refs/heads/feature/test would need to be both a file and a directory
-export function getFeatureBranchName(featureId: string): string {
-  // feature-car -> feature/car/main
-  const cleanId = featureId.replace(/^feature-/, '')
-  return `feature/${cleanId}/main`
-}
-
-export function getTaskBranchName(featureId: string, taskId: string): string {
-  // feature/car/task-2145 (sits alongside feature/car/main)
-  const cleanId = featureId.replace(/^feature-/, '')
-  return `feature/${cleanId}/task-${taskId}`
-}
+// Re-export branch naming functions from shared types
+// These are the canonical implementations per DAGENT_SPEC section 8.1
+export { getFeatureBranchName, getTaskBranchName } from '@shared/types/feature'
 
 // Worktree directory naming per DAGENT_SPEC section 8.2
 export function getFeatureWorktreeName(featureId: string): string {

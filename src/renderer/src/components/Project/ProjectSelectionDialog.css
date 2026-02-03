@@ -83,9 +83,13 @@
   background: var(--bg-hover);
 }
 
-.project-selection-dialog__recent-item:disabled {
+.project-selection-dialog__recent-item--disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.project-selection-dialog__recent-item--disabled:hover {
+  background: var(--bg-surface);
 }
 
 .project-selection-dialog__recent-icon {

@@ -36,7 +36,7 @@ import type {
   DAGAnalysisSerialized,
   TaskDependencies
 } from '../main/dag-engine/types'
-import type { TransitionResult } from '../main/dag-engine/state-machine'
+import type { TransitionResult } from '../main/dag-engine/task-controller'
 import type { CascadeResult } from '../main/dag-engine/cascade'
 import type {
   ExecutionState,
@@ -50,8 +50,6 @@ import type {
   BranchInfo,
   GitOperationResult,
   WorktreeInfo,
-  FeatureWorktreeResult,
-  TaskWorktreeResult,
   MergeResult,
   MergeConflict,
   TaskMergeResult,
@@ -184,6 +182,8 @@ export interface StorageAPI {
 
   // Task session operations
   loadTaskSession: (featureId: string, taskId: string) => Promise<DevAgentSession | null>
+  listTaskSessions: (featureId: string) => Promise<string[]>
+  clearSessionMessages: (featureId: string, taskId: string) => Promise<boolean>
 }
 
 /**
@@ -296,6 +296,12 @@ export interface ExecutionAPI {
   stop: () => Promise<{ success: boolean; error?: string }>
 
   /**
+   * Start a single task in step-by-step execution mode.
+   * Use when feature.executionMode === 'step' to manually start individual tasks.
+   */
+  startSingleTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
    * Get current execution state
    */
   getState: () => Promise<ExecutionState>
@@ -354,6 +360,11 @@ export interface ExecutionAPI {
    * Abort a task's loop
    */
   abortLoop: (taskId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Abort a paused task - discard all changes and reset to ready status
+   */
+  abortTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
 
   /**
    * Subscribe to loop status updates
@@ -434,16 +445,6 @@ export interface GitAPI {
   worktreeExists: (worktreePath: string) => Promise<boolean>
 
   /**
-   * Create a feature worktree with .dagent directory
-   */
-  createFeatureWorktree: (featureId: string) => Promise<FeatureWorktreeResult>
-
-  /**
-   * Create a task worktree branching from feature branch
-   */
-  createTaskWorktree: (featureId: string, taskId: string) => Promise<TaskWorktreeResult>
-
-  /**
    * Remove a worktree (and optionally its branch)
    */
   removeWorktree: (worktreePath: string, deleteBranch?: boolean) => Promise<GitOperationResult>
@@ -494,6 +495,25 @@ export interface GitAPI {
    * Checkout a branch
    */
   checkout: (branchName: string) => Promise<GitOperationResult>
+
+  /**
+   * Get commit diff text for in-app rendering
+   */
+  getCommitDiff: (
+    commitHash: string,
+    worktreePath?: string
+  ) => Promise<{
+    success: boolean
+    diff?: string
+    commit?: {
+      hash: string
+      message: string
+      author: string
+      email: string
+      date: string
+    }
+    error?: string
+  }>
 }
 
 /**
@@ -925,7 +945,7 @@ export interface FeatureContext {
   featureId: string
   featureName: string
   goal: string
-  tasks: Array<{ id: string; title: string; status: string; description?: string }>
+  tasks: Array<{ id: string; title: string; status: string; spec?: string }>
   dagSummary: string
 }
 
@@ -1039,12 +1059,6 @@ export interface FeatureAPI {
   onAnalysisResult: (callback: (data: { featureId: string; uncertainties?: string[] }) => void) => () => void
 
   /**
-   * Subscribe to worktree creation progress events.
-   * Returns an unsubscribe function.
-   */
-  onWorktreeProgress: (callback: (data: { featureId: string; message: string }) => void) => () => void
-
-  /**
    * Subscribe to feature manager assignment events.
    * Fired when a feature is assigned to a manager.
    * Returns an unsubscribe function.
@@ -1053,7 +1067,8 @@ export interface FeatureAPI {
 
   /**
    * Save an attachment file for a feature.
-   * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
+   * For active features: .dagent-worktrees/{managerName}/.dagent/features/{featureId}/attachments/
+   * For backlog features: .dagent/features/{featureId}/attachments/
    */
   saveAttachment: (featureId: string, fileName: string, fileBuffer: ArrayBuffer) => Promise<string>
 
@@ -1090,9 +1105,9 @@ export interface FeatureAPI {
   ) => Promise<{ success: boolean; canProceed: boolean; uncertainties?: string[]; error?: string }>
 
   /**
-   * Start worktree creation for a not_started feature.
-   * Updates status to creating_worktree immediately and creates worktree in background.
-   * On success transitions to investigating, on failure reverts to not_started.
+   * Start worktree creation for a backlog feature.
+   * Creates worktree and transitions feature to active status.
+   * On failure reverts to backlog.
    */
   startWorktreeCreation: (featureId: string) => Promise<{ success: boolean; featureId?: string; error?: string }>
 
@@ -1184,6 +1199,16 @@ export interface PRAPI {
    * Create a pull request on GitHub.
    */
   create: (request: CreatePRRequest) => Promise<CreatePRResult>
+
+  /**
+   * Generate PR title and body from feature spec using AI.
+   */
+  generateSummary: (featureId: string) => Promise<{
+    success: boolean
+    title?: string
+    body?: string
+    error?: string
+  }>
 }
 
 /**
@@ -1387,7 +1412,7 @@ export interface PMToolsAPI {
   getTask: (input: GetTaskInput) => Promise<GetTaskResult>
 
   /**
-   * Update an existing task's title and/or description.
+   * Update an existing task's title and/or spec.
    * Only provided fields will be updated.
    */
   updateTask: (input: UpdateTaskInput) => Promise<UpdateTaskResult>
@@ -1723,6 +1748,25 @@ export interface ElectronAPI {
   setWindowTitle: (title: string) => Promise<void>
 
   /**
+   * Open a detached panel window for viewing specific feature panels
+   */
+  openPanelWindow: (options: {
+    panelId: string
+    featureId: string
+    taskId?: string
+    title?: string
+  }) => Promise<{ success: boolean; windowId?: number }>
+
+  /**
+   * Close a detached panel window
+   */
+  closePanelWindow: (
+    panelId: string,
+    featureId: string,
+    taskId?: string
+  ) => Promise<{ success: boolean }>
+
+  /**
    * Storage API for persistent data operations
    */
   storage: StorageAPI
@@ -1871,11 +1915,6 @@ export interface ElectronAPI {
    * Pool API for worktree pool management
    */
   pool: PoolAPI
-
-  /**
-   * Manager Debug API for state-based manager system
-   */
-  managers: ManagerAPI
 }
 
 /**
@@ -2046,74 +2085,6 @@ export interface PoolAPI {
    * Subscribe to merge failed events.
    */
   onMergeFailed: (callback: (data: any) => void) => () => void
-}
-
-/**
- * Token status for a single worktree.
- */
-export interface TokenStatus {
-  worktreeId: number
-  available: boolean
-  holder: string | null
-  pendingCount: number
-}
-
-/**
- * Manager queue status (for worktree-bound managers).
- */
-export interface ManagerQueueStatus {
-  worktreeId: number
-  featureCount: number
-  features: string[]
-}
-
-/**
- * Individual manager status.
- */
-export interface ManagerStatus {
-  managerId: string
-  states: string[]
-  featureCount?: number
-  features?: string[]
-  running?: boolean
-  queues?: ManagerQueueStatus[]
-}
-
-/**
- * Combined status for all managers and tokens.
- */
-export interface AllManagerStatus {
-  tokens: TokenStatus[]
-  managers: ManagerStatus[]
-}
-
-/**
- * Manager status update event.
- */
-export interface ManagerStatusUpdate {
-  type: 'token' | 'manager' | 'transition'
-  payload: unknown
-}
-
-/**
- * Manager Debug API for observing state-based manager system.
- * Provides visibility into token ownership and manager states.
- */
-export interface ManagerAPI {
-  /**
-   * Get token service status (who holds each worktree token).
-   */
-  getTokenStatus: () => Promise<TokenStatus[]>
-
-  /**
-   * Get all manager statuses.
-   */
-  getAllStatus: () => Promise<AllManagerStatus>
-
-  /**
-   * Subscribe to manager status updates.
-   */
-  onStatusUpdate: (callback: (data: ManagerStatusUpdate) => void) => () => void
 }
 
 declare global {

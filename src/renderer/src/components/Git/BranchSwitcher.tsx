@@ -119,7 +119,7 @@ export function BranchSwitcher({ isOpen, onClose }: BranchSwitcherProps): JSX.El
   return (
     <div
       ref={dropdownRef}
-      className="absolute bottom-full left-0 mb-1 min-w-[200px] max-h-[300px] overflow-y-auto
+      className="fixed right-4 bottom-10 min-w-[200px] max-h-[calc(100vh-4rem)] overflow-y-auto
                  bg-gray-800 border border-gray-600 rounded-md shadow-lg z-50"
     >
       {/* Header */}

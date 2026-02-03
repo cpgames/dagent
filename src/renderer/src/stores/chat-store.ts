@@ -34,19 +34,9 @@ export type ChatContextType = 'feature' | 'task' | 'agent'
 
 /**
  * Compute session ID from feature ID and status.
- * Session ID format varies by phase:
- * - "investigation-feature-{featureId}" for investigating/ready_for_planning phases
- * - "planning-feature-{featureId}" for planning phase
- * - "pm-feature-{featureId}" for legacy/other phases
+ * Session ID format: "pm-feature-{featureId}" for all features
  */
-function getSessionIdForFeature(featureId: string, status?: string): string {
-  if (status === 'investigating' || status === 'ready_for_planning') {
-    return `investigation-feature-${featureId}`
-  }
-  if (status === 'planning') {
-    return `planning-feature-${featureId}`
-  }
-  // Legacy fallback
+function getSessionIdForFeature(featureId: string, _status?: string): string {
   return `pm-feature-${featureId}`
 }
 
@@ -68,7 +58,6 @@ interface ChatState {
   sendMessage: () => Promise<void> // Auto-selects SDK or ChatService
   sendToAI: () => Promise<void>
   sendToAgent: () => Promise<void> // Agent SDK streaming
-  sendToPMAgent: () => Promise<void> // PM agent conversational API
   abortAgent: () => void
   refreshContext: () => Promise<void>
   clearChat: () => void
@@ -272,20 +261,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendToAgent: async () => {
-    const { messages, currentFeatureId, contextType } = get()
+    const { messages, currentFeatureId } = get()
     if (!currentFeatureId || messages.length === 0) return
-
-    // Check if this is a PM agent conversation (feature context + planning phase)
-    // If so, use the PM conversation API instead of generic SDK agent
-    if (contextType === 'feature') {
-      const featureStore = useFeatureStore.getState()
-      const feature = featureStore.features.find(f => f.id === currentFeatureId)
-
-      // Use PM conversation API if feature is in PM planning phases (investigating or planning)
-      if (feature && (feature.status === 'investigating' || feature.status === 'planning')) {
-        return get().sendToPMAgent()
-      }
-    }
 
     // Check if SDK agent API is available
     if (!window.electronAPI?.sdkAgent) {
@@ -410,56 +387,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendToPMAgent: async () => {
-    const { messages, currentFeatureId } = get()
-    if (!currentFeatureId || messages.length === 0) return
-
-    // Get the last user message as the response to PM
-    const lastMessage = messages[messages.length - 1]
-    if (lastMessage.role !== 'user') return
-
-    set({ isResponding: true })
-
-    try {
-      // Call PM conversation API
-      const result = await window.electronAPI.feature.respondToPM(currentFeatureId, lastMessage.content)
-
-      if (!result.success) {
-        toast.error(result.error || 'Failed to communicate with PM agent')
-        set({ isResponding: false })
-        return
-      }
-
-      // NOTE: Don't call loadChat() here - it clears messages and causes scroll jump.
-      // The chat:updated event from backend will trigger onUpdated listener
-      // which properly appends new messages without clearing existing ones.
-
-      // If PM has more questions, stay in conversation
-      if (!result.canProceed && result.uncertainties && result.uncertainties.length > 0) {
-        // Feature should be in needs_attention status
-        // Messages have been updated with PM's new question
-        console.log('[ChatStore] PM has more questions, continuing conversation')
-      } else if (result.canProceed) {
-        // PM is ready to proceed with planning
-        console.log('[ChatStore] PM is ready to proceed with planning')
-        toast.success('PM agent is creating feature specification...')
-
-        // Refresh feature and DAG to show planning progress
-        const featureStore = useFeatureStore.getState()
-        const dagStore = useDAGStore.getState()
-        if (featureStore.activeFeatureId) {
-          dagStore.loadDag(featureStore.activeFeatureId)
-        }
-      }
-
-      set({ isResponding: false })
-    } catch (error) {
-      console.error('PM agent conversation error:', error)
-      toast.error('Failed to communicate with PM agent')
-      set({ isResponding: false })
-    }
-  },
-
   abortAgent: () => {
     if (window.electronAPI?.sdkAgent) {
       window.electronAPI.sdkAgent.abort()
@@ -515,13 +442,103 @@ export const useChatStore = create<ChatState>((set, get) => ({
   }
 }))
 
+// Subscribe to automatic investigation events (broadcast from main process)
+// These events have a featureId attached so we can filter to the active feature
+if (typeof window !== 'undefined' && window.electronAPI?.sdkAgent?.onStream) {
+  window.electronAPI.sdkAgent.onStream((event: AgentStreamEvent & { featureId?: string }) => {
+    const state = useChatStore.getState()
+
+    // Only handle events for the current feature (investigation events have featureId)
+    if (!event.featureId || event.featureId !== state.currentFeatureId) {
+      return
+    }
+
+    // Skip if user is currently typing (isResponding from manual query)
+    // This prevents interference with manual queries
+    // Note: automatic investigation sets isResponding via this handler
+
+    if (event.type === 'message' && event.message) {
+      // Filter out internal system messages like "System: init"
+      if (event.message.type === 'system' && !event.message.content.startsWith('Starting')) {
+        return
+      }
+
+      // Handle user messages (from investigation prompt) - add directly to messages
+      if (event.message.type === 'user') {
+        const userMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: event.message.content,
+          timestamp: event.message.timestamp || new Date().toISOString()
+        }
+        useChatStore.setState((prev) => ({
+          messages: [...prev.messages, userMessage],
+          isResponding: true
+        }))
+        return
+      }
+
+      // Replace streaming content for assistant messages (SDK sends accumulated text)
+      useChatStore.setState({
+        streamingContent: event.message.content,
+        activeToolUse: null,
+        isResponding: true
+      })
+    } else if (event.type === 'tool_use' && event.message) {
+      // Show tool usage
+      useChatStore.setState({
+        activeToolUse: {
+          name: event.message.toolName!,
+          input: event.message.toolInput
+        },
+        isResponding: true
+      })
+    } else if (event.type === 'tool_result' && event.message) {
+      // Update tool result
+      useChatStore.setState((prev) => ({
+        activeToolUse: prev.activeToolUse
+          ? { ...prev.activeToolUse, result: event.message!.toolResult }
+          : null
+      }))
+    } else if (event.type === 'done') {
+      // Finalize the investigation response
+      // Note: Backend saves messages to session, we just update UI state here
+      const { streamingContent, currentFeatureId: featId } = useChatStore.getState()
+      if (streamingContent && featId) {
+        const assistantMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: streamingContent,
+          timestamp: new Date().toISOString()
+        }
+        useChatStore.setState((prev) => ({
+          messages: [...prev.messages, assistantMessage],
+          isResponding: false,
+          streamingContent: '',
+          activeToolUse: null
+        }))
+
+        // Refresh DAG to show any spec changes
+        const dagStore = useDAGStore.getState()
+        if (featId) {
+          dagStore.loadDag(featId)
+        }
+      } else {
+        useChatStore.setState({ isResponding: false, streamingContent: '', activeToolUse: null })
+      }
+    } else if (event.type === 'error') {
+      useChatStore.setState({ isResponding: false, streamingContent: '', activeToolUse: null })
+      toast.error(event.error || 'Investigation failed')
+    }
+  })
+}
+
 // Subscribe to chat update events from main process
 if (typeof window !== 'undefined' && window.electronAPI?.chat?.onUpdated) {
   window.electronAPI.chat.onUpdated(async (data: { featureId: string }) => {
     const state = useChatStore.getState()
     // Only update if this is the currently active feature
     if (state.currentFeatureId === data.featureId && state.contextType === 'feature') {
-      console.log('[ChatStore] Received chat update, fetching new messages')
 
       // Instead of reloading all messages (which resets scroll),
       // fetch messages and only append new ones
@@ -566,7 +583,6 @@ if (typeof window !== 'undefined' && window.electronAPI?.chat?.onUpdated) {
               }))
 
             if (newMessages.length > 0) {
-              console.log(`[ChatStore] Appending ${newMessages.length} new messages (deduplicated)`)
               useChatStore.setState((prev) => ({
                 messages: [...prev.messages, ...newMessages]
               }))

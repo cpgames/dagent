@@ -14,11 +14,11 @@ export interface ParsedAnalysisResponse {
   decision: 'keep' | 'split'
   /** Refined title (for keep decisions) */
   refinedTitle?: string
-  /** Refined description (for keep decisions) */
-  refinedDescription?: string
+  /** Refined spec (for keep decisions) */
+  refinedSpec?: string
   tasks?: Array<{
     title: string
-    description: string
+    spec: string
     dependsOn?: string[]
   }>
   error?: string
@@ -39,7 +39,7 @@ ${featureSpec || '(No spec available)'}
 
 ## Task to Analyze
 Title: ${task.title}
-Description: ${task.description || '(No description)'}
+Spec: ${task.spec || '(No spec)'}
 
 ## Your Decision
 
@@ -77,7 +77,7 @@ If KEEP:
 {
   "decision": "keep",
   "title": "Refined, clear task title",
-  "description": "Detailed description of what needs to be done, implementation approach, and expected outcome"
+  "spec": "Detailed specification of what needs to be done, implementation approach, and expected outcome"
 }
 
 If SPLIT:
@@ -86,20 +86,20 @@ If SPLIT:
   "tasks": [
     {
       "title": "First subtask title",
-      "description": "What this subtask accomplishes",
+      "spec": "What this subtask accomplishes",
       "dependsOn": []
     },
     {
       "title": "Second subtask title",
-      "description": "What this subtask accomplishes",
+      "spec": "What this subtask accomplishes",
       "dependsOn": ["First subtask title"]
     }
   ]
 }
 
-**For KEEP decisions, ALWAYS provide refined title and description:**
+**For KEEP decisions, ALWAYS provide refined title and spec:**
 - Title should be clear, action-oriented (e.g., "Add user authentication endpoint" not "Auth stuff")
-- Description should explain WHAT needs to be built, HOW to approach it, and acceptance criteria
+- Spec should explain WHAT needs to be built, HOW to approach it, and acceptance criteria
 
 ## IMPORTANT RULES
 
@@ -222,10 +222,10 @@ export function parseAnalysisResponse(response: string): ParsedAnalysisResponse 
             error: `Task ${i} missing or invalid title`
           }
         }
-        if (!task.description || typeof task.description !== 'string') {
+        if (!task.spec || typeof task.spec !== 'string') {
           return {
             decision: 'keep',
-            error: `Task ${i} missing or invalid description`
+            error: `Task ${i} missing or invalid spec`
           }
         }
         // Validate dependsOn is array if present
@@ -240,16 +240,16 @@ export function parseAnalysisResponse(response: string): ParsedAnalysisResponse 
       return {
         decision: 'split',
         tasks: parsed.tasks.map(
-          (t: { title: string; description: string; dependsOn?: string[] }) => ({
+          (t: { title: string; spec: string; dependsOn?: string[] }) => ({
             title: t.title,
-            description: t.description,
+            spec: t.spec,
             dependsOn: t.dependsOn || []
           })
         )
       }
     }
 
-    // Keep decision - extract refined title/description if provided
+    // Keep decision - extract refined title/spec if provided
     const result: ParsedAnalysisResponse = {
       decision: 'keep'
     }
@@ -257,8 +257,8 @@ export function parseAnalysisResponse(response: string): ParsedAnalysisResponse 
     if (parsed.title && typeof parsed.title === 'string') {
       result.refinedTitle = parsed.title
     }
-    if (parsed.description && typeof parsed.description === 'string') {
-      result.refinedDescription = parsed.description
+    if (parsed.spec && typeof parsed.spec === 'string') {
+      result.refinedSpec = parsed.spec
     }
 
     return result

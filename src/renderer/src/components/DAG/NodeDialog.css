@@ -51,12 +51,6 @@
   border-color: var(--accent-secondary);
 }
 
-.node-dialog__status-badge--ready_for_merge {
-  background: var(--color-warning-dim);
-  color: var(--color-warning);
-  border-color: var(--color-warning);
-}
-
 .node-dialog__status-badge--completed {
   background: var(--color-success-dim);
   color: var(--color-success);

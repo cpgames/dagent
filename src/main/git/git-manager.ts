@@ -9,8 +9,6 @@ import type {
   BranchInfo,
   GitOperationResult,
   WorktreeInfo,
-  FeatureWorktreeResult,
-  TaskWorktreeResult,
   MergeResult,
   MergeConflict,
   TaskMergeResult,
@@ -26,7 +24,6 @@ import {
 } from './types'
 import * as path from 'path'
 import * as fs from 'fs/promises'
-import { BrowserWindow } from 'electron'
 
 export class GitManager {
   private git: SimpleGit
@@ -326,197 +323,6 @@ export class GitManager {
     } catch (error) {
       console.error('Failed to list worktrees:', error)
       return []
-    }
-  }
-
-  /**
-   * Create a feature worktree with .dagent directory.
-   */
-  async createFeatureWorktree(featureId: string): Promise<FeatureWorktreeResult> {
-    this.ensureInitialized()
-
-    // Helper to broadcast progress
-    const broadcastProgress = (message: string): void => {
-      const windows = BrowserWindow.getAllWindows()
-      for (const win of windows) {
-        if (!win.isDestroyed()) {
-          win.webContents.send('feature:worktree-progress', { featureId, message })
-        }
-      }
-    }
-
-    try {
-      const branchName = getFeatureBranchName(featureId)
-      const worktreeName = getFeatureWorktreeName(featureId)
-      const worktreePath = path.join(this.config.worktreesDir, worktreeName)
-
-      broadcastProgress('Checking for existing worktree...')
-
-      // Check if worktree already exists in git's worktree list
-      const worktrees = await this.listWorktrees()
-      const normalizedWorktreePath = path.normalize(worktreePath)
-      if (worktrees.some((w) => path.normalize(w.path) === normalizedWorktreePath)) {
-        return {
-          success: false,
-          error: `Worktree already exists at ${worktreePath}`
-        }
-      }
-
-      // Check if directory exists but is not a proper worktree (orphaned from failed attempt)
-      try {
-        const dirStat = await fs.stat(worktreePath)
-        if (dirStat.isDirectory()) {
-          broadcastProgress('Cleaning up orphaned worktree directory...')
-          // Remove the orphaned directory
-          await fs.rm(worktreePath, { recursive: true, force: true })
-          console.log(`[GitManager] Removed orphaned worktree directory: ${worktreePath}`)
-        }
-      } catch {
-        // Directory doesn't exist, which is expected
-      }
-
-      broadcastProgress('Creating feature branch...')
-
-      // Create branch if it doesn't exist
-      const branchExistsResult = await this.branchExists(branchName)
-      if (!branchExistsResult) {
-        // Create from current branch (HEAD) to avoid 'master' not found errors
-        const currentBranch = await this.getCurrentBranch()
-        await this.git.branch([branchName, currentBranch || 'HEAD'])
-      }
-
-      broadcastProgress('Copying project files to worktree...')
-
-      // Create worktree (this is the slow operation for large repos)
-      await this.git.raw(['worktree', 'add', worktreePath, branchName])
-
-      broadcastProgress('Setting up .dagent directory...')
-
-      // Create .dagent directory in worktree
-      const dagentPath = path.join(worktreePath, '.dagent')
-      await fs.mkdir(dagentPath, { recursive: true })
-      await fs.mkdir(path.join(dagentPath, 'nodes'), { recursive: true })
-      await fs.mkdir(path.join(dagentPath, 'dag_history'), { recursive: true })
-
-      broadcastProgress('Worktree created successfully')
-
-      return {
-        success: true,
-        worktreePath,
-        branchName,
-        dagentPath
-      }
-    } catch (error) {
-      broadcastProgress(`Error: ${(error as Error).message}`)
-      return { success: false, error: (error as Error).message }
-    }
-  }
-
-  /**
-   * Create a task worktree branching from feature branch.
-   */
-  async createTaskWorktree(featureId: string, taskId: string): Promise<TaskWorktreeResult> {
-    this.ensureInitialized()
-    try {
-      const featureBranchName = getFeatureBranchName(featureId)
-      const taskBranchName = getTaskBranchName(featureId, taskId)
-      const worktreeName = getTaskWorktreeName(featureId, taskId)
-      const worktreePath = path.join(this.config.worktreesDir, worktreeName)
-
-      // Check if worktree already exists (orphaned from previous failed run)
-      const worktrees = await this.listWorktrees()
-      const normalizedWorktreePath = path.normalize(worktreePath)
-      const existingWorktree = worktrees.find((w) => path.normalize(w.path) === normalizedWorktreePath)
-      if (existingWorktree) {
-        console.log(`[GitManager] Worktree already exists at ${worktreePath}, removing orphaned worktree...`)
-        try {
-          // Force remove the orphaned worktree
-          await this.git.raw(['worktree', 'remove', existingWorktree.path, '--force'])
-          // Also prune to clean up any stale entries
-          await this.git.raw(['worktree', 'prune'])
-        } catch (removeError) {
-          console.warn(`[GitManager] Could not remove orphaned worktree: ${removeError}`)
-          return {
-            success: false,
-            error: `Worktree already exists at ${worktreePath} and could not be removed`
-          }
-        }
-      }
-
-      // Check if directory exists but isn't a registered worktree (orphaned directory)
-      try {
-        await fs.access(worktreePath)
-        // Directory exists but isn't a registered worktree - remove it
-        console.log(`[GitManager] Orphaned directory exists at ${worktreePath}, removing...`)
-        await fs.rm(worktreePath, { recursive: true, force: true })
-      } catch {
-        // Directory doesn't exist, which is expected - continue
-      }
-
-      // Create feature branch if it doesn't exist (auto-recovery for failed feature setup)
-      const featureBranchExists = await this.branchExists(featureBranchName)
-      if (!featureBranchExists) {
-        console.log(`[GitManager] Feature branch ${featureBranchName} not found, creating it...`)
-        // Create from current branch (HEAD) to avoid 'master' not found errors
-        const currentBranch = await this.getCurrentBranch()
-        await this.git.branch([featureBranchName, currentBranch || 'HEAD'])
-      }
-
-      // Check if task branch already exists (orphaned from previous failed run)
-      const taskBranchExists = await this.branchExists(taskBranchName)
-      if (taskBranchExists) {
-        console.log(`[GitManager] Task branch ${taskBranchName} already exists, deleting orphaned branch...`)
-        // Force delete the orphaned branch so we can create fresh
-        try {
-          await this.git.branch(['-D', taskBranchName])
-        } catch (deleteError) {
-          console.warn(`[GitManager] Could not delete orphaned branch: ${deleteError}`)
-          // Continue anyway - the worktree add might still work if branch was already merged
-        }
-      }
-
-      // Get the commit SHA of the feature branch to create task branch from
-      // We use the commit SHA instead of branch name because the feature branch
-      // may be checked out in the feature worktree, and git doesn't allow
-      // checking out the same branch in multiple worktrees.
-      let featureCommit: string
-      try {
-        const result = await this.git.revparse([featureBranchName])
-        featureCommit = result.trim()
-        console.log(`[GitManager] Feature branch ${featureBranchName} is at commit ${featureCommit}`)
-      } catch (revParseError) {
-        console.error(`[GitManager] Failed to get commit for ${featureBranchName}:`, revParseError)
-        return { success: false, error: `Failed to resolve feature branch: ${featureBranchName}` }
-      }
-
-      // Create task branch from feature branch's commit and worktree
-      console.log(`[GitManager] Creating worktree at ${worktreePath} with branch ${taskBranchName} from commit ${featureCommit}`)
-      await this.git.raw([
-        'worktree',
-        'add',
-        '-b',
-        taskBranchName,
-        worktreePath,
-        featureCommit  // Use commit SHA instead of branch name
-      ])
-
-      // Verify worktree was created successfully
-      const gitFile = path.join(worktreePath, '.git')
-      try {
-        await fs.access(gitFile)
-        console.log(`[GitManager] Worktree created successfully at ${worktreePath}`)
-      } catch {
-        console.error(`[GitManager] Worktree creation failed - .git file not found at ${gitFile}`)
-        return { success: false, error: 'Worktree creation failed - .git file not found' }
-      }
-
-      return {
-        success: true,
-        worktreePath,
-        branchName: taskBranchName
-      }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
     }
   }
 
@@ -1189,7 +995,9 @@ export class GitManager {
       console.log(`[GitManager] Creating manager worktree ${featureManagerId}: branch=${branchName}, path=${worktreePath}`)
 
       // Check if worktree already exists
+      console.log(`[GitManager] Step 1: Listing existing worktrees...`)
       const worktrees = await this.listWorktrees()
+      console.log(`[GitManager] Step 1 complete: Found ${worktrees.length} worktrees`)
       const normalizedPath = path.normalize(worktreePath)
       if (worktrees.some((w) => path.normalize(w.path) === normalizedPath)) {
         console.log(`[GitManager] Manager worktree ${featureManagerId} already exists`)
@@ -1197,34 +1005,42 @@ export class GitManager {
       }
 
       // Clean up orphaned directory if exists
+      console.log(`[GitManager] Step 2: Checking for orphaned directory...`)
       try {
         const dirStat = await fs.stat(worktreePath)
         if (dirStat.isDirectory()) {
+          console.log(`[GitManager] Step 2: Found orphaned directory, removing...`)
           await fs.rm(worktreePath, { recursive: true, force: true })
           console.log(`[GitManager] Removed orphaned manager directory: ${worktreePath}`)
         }
       } catch {
-        // Directory doesn't exist, expected
+        console.log(`[GitManager] Step 2: No orphaned directory found (expected)`)
       }
 
       // Create branch if it doesn't exist
+      console.log(`[GitManager] Step 3: Checking if branch exists...`)
       const branchExists = await this.branchExists(branchName)
+      console.log(`[GitManager] Step 3 complete: branchExists=${branchExists}`)
       if (!branchExists) {
+        console.log(`[GitManager] Step 3: Creating branch ${branchName}...`)
         const currentBranch = await this.getCurrentBranch()
         await this.git.branch([branchName, currentBranch || 'HEAD'])
         console.log(`[GitManager] Created manager branch ${branchName}`)
       }
 
       // Create worktree
+      console.log(`[GitManager] Running: git worktree add "${worktreePath}" "${branchName}"`)
       await this.git.raw(['worktree', 'add', worktreePath, branchName])
+      console.log(`[GitManager] Worktree created at: ${worktreePath}`)
 
       // Create .dagent directory in pool worktree
       const dagentPath = path.join(worktreePath, '.dagent')
       await fs.mkdir(dagentPath, { recursive: true })
       await fs.mkdir(path.join(dagentPath, 'nodes'), { recursive: true })
       await fs.mkdir(path.join(dagentPath, 'sessions'), { recursive: true })
+      console.log(`[GitManager] Created .dagent directories in worktree`)
 
-      console.log(`[GitManager] Manager worktree ${featureManagerId} created successfully`)
+      console.log(`[GitManager] Manager worktree ${featureManagerId} created successfully at ${worktreePath}`)
       return { success: true }
     } catch (error) {
       console.error(`[GitManager] Failed to create manager worktree ${featureManagerId}:`, error)

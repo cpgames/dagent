@@ -1,38 +1,36 @@
-import { memo, type JSX } from 'react'
+import { memo, useState, type JSX } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { Task, TaskStatus } from '@shared/types'
-import type { TaskLoopStatus } from '../../../../main/dag-engine/orchestrator-types'
+import { DiffDialog } from './DiffDialog'
 import './TaskNode.css'
 
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task
-  loopStatus?: TaskLoopStatus | null
   isBeingAnalyzed?: boolean
-  onEdit: (taskId: string) => void
-  onDelete: (taskId: string) => void
-  onLog: (taskId: string) => void
-  onReanalyze: (taskId: string) => void
+  worktreePath?: string
 }
 
-// Status badge configuration - all statuses get badges now
+// Status badge configuration
 const statusBadgeConfig: Record<TaskStatus, { label: string; cssClass: string }> = {
-  needs_analysis: { label: 'NEEDS ANALYSIS', cssClass: 'task-node__badge--needs-analysis' },
-  blocked: { label: 'BLOCKED', cssClass: 'task-node__badge--blocked' },
-  ready_for_dev: { label: 'READY FOR DEV', cssClass: 'task-node__badge--ready' },
-  in_progress: { label: 'DEV', cssClass: 'task-node__badge--dev' },
-  ready_for_qa: { label: 'QA', cssClass: 'task-node__badge--qa' },
-  ready_for_merge: { label: 'MERGE', cssClass: 'task-node__badge--merge' },
-  completed: { label: 'COMPLETED', cssClass: 'task-node__badge--completed' },
-  failed: { label: 'FAILED', cssClass: 'task-node__badge--failed' }
+  ready: { label: 'READY', cssClass: 'task-node__badge--ready' },
+  analyzing: { label: 'ANALYZING', cssClass: 'task-node__badge--analyzing' },
+  developing: { label: 'DEV', cssClass: 'task-node__badge--dev' },
+  developing_paused: { label: 'PAUSED (DEV)', cssClass: 'task-node__badge--paused' },
+  verifying: { label: 'QA', cssClass: 'task-node__badge--qa' },
+  verifying_paused: { label: 'PAUSED (QA)', cssClass: 'task-node__badge--paused' },
+  done: { label: 'DONE', cssClass: 'task-node__badge--completed' }
 }
 
 function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
   const nodeData = data as TaskNodeData
-  // loopStatus kept in data for NodeDialog/debugging, but not rendered on TaskNode
-  const { task, loopStatus: _loopStatus, isBeingAnalyzed, onEdit, onDelete, onLog, onReanalyze } = nodeData
+  const { task, isBeingAnalyzed, worktreePath } = nodeData
+  const [showDiffDialog, setShowDiffDialog] = useState(false)
 
-  // Can reanalyze if task is ready_for_dev, blocked, or failed (not in progress or completed)
-  const canReanalyze = ['ready_for_dev', 'blocked', 'failed'].includes(task.status)
+  const handleCommitClick = (e: React.MouseEvent): void => {
+    e.stopPropagation() // Prevent node selection
+    if (!task.commitHash) return
+    setShowDiffDialog(true)
+  }
 
   const nodeClasses = [
     'task-node',
@@ -43,45 +41,61 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
     .filter(Boolean)
     .join(' ')
 
-  const badgeConfig = statusBadgeConfig[task.status]
+  // Status badge - always show the actual status
+  const statusConfig = statusBadgeConfig[task.status]
 
   return (
     <div className={nodeClasses}>
       {/* Target handle (top) - input from dependencies */}
       <Handle type="target" position={Position.Top} className="task-node__handle" />
 
-      {/* Status Badge */}
+      {/* Status Badges */}
       <div className="task-node__badge-section">
+        {/* Primary status badge */}
         <span
-          className={`task-node__badge ${badgeConfig.cssClass}`}
+          className={`task-node__badge ${statusConfig.cssClass}`}
           title={
-            task.status === 'needs_analysis'
-              ? 'This task needs complexity analysis'
-              : `Status: ${badgeConfig.label}${task.assignedAgentId ? `\nAgent: ${task.assignedAgentId}` : ''}`
+            task.status === 'ready'
+              ? 'This task is ready to start'
+              : `Status: ${statusConfig.label}${task.assignedAgentId ? `\nAgent: ${task.assignedAgentId}` : ''}`
           }
         >
-          {badgeConfig.label}
+          {statusConfig.label}
         </span>
+        {/* Commit hash - shown next to DONE badge */}
+        {task.status === 'done' && task.commitHash && (
+          <button
+            type="button"
+            className="task-node__badge task-node__badge--commit"
+            title={`Commit: ${task.commitHash}\nClick to view diff`}
+            onClick={handleCommitClick}
+          >
+            {task.commitHash.slice(0, 7)}
+          </button>
+        )}
+        {/* Blocked badge - shown alongside status */}
+        {task.blocked && (
+          <span
+            className="task-node__badge task-node__badge--blocked"
+            title="Blocked - waiting on dependencies"
+          >
+            BLOCKED
+          </span>
+        )}
+        {/* Paused badge - shown alongside status */}
+        {task.isPaused && !task.blocked && (
+          <span
+            className="task-node__badge task-node__badge--paused"
+            title="Task execution paused"
+          >
+            PAUSED
+          </span>
+        )}
       </div>
 
-      {/* Title - multiline, no ellipsis */}
+      {/* Title - fixed width with ellipsis overflow */}
       <div className="task-node__body">
-        {task.locked && (
-          <svg
-            className="task-node__lock-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-            />
-          </svg>
-        )}
-        <h3 className="task-node__title">{task.title}</h3>
+        <h3 className="task-node__title" title={task.title}>{task.title}</h3>
       </div>
 
       {/* Status indicator - below title */}
@@ -91,145 +105,29 @@ function TaskNodeComponent({ data, selected }: NodeProps): JSX.Element {
           <span>Analyzing...</span>
         </div>
       )}
-      {!isBeingAnalyzed && task.status === 'in_progress' && (
+      {!isBeingAnalyzed && task.status === 'developing' && !task.isPaused && (
         <div className="task-node__status-indicator">
           <div className="task-node__status-spinner" />
           <span>Developing...</span>
         </div>
       )}
-      {!isBeingAnalyzed && task.status === 'ready_for_qa' && (
+      {!isBeingAnalyzed && task.status === 'verifying' && !task.isPaused && (
         <div className="task-node__status-indicator">
           <div className="task-node__status-spinner" />
           <span>Testing...</span>
         </div>
       )}
-      {!isBeingAnalyzed && task.status === 'ready_for_merge' && (
-        <div className="task-node__status-indicator">
-          <div className="task-node__status-spinner" />
-          <span>Merging...</span>
-        </div>
-      )}
-
-      {/* Error message for failed tasks */}
-      {task.status === 'failed' && task.errorMessage && (
-        <div className="task-node__error-indicator" title={task.errorMessage}>
-          <svg
-            className="task-node__error-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="task-node__error-text">
-            {task.errorMessage.length > 50
-              ? `${task.errorMessage.slice(0, 50)}...`
-              : task.errorMessage}
-          </span>
-        </div>
-      )}
-
-      {/* Action buttons - absolute positioned, show on hover */}
-      <div className="task-node__actions">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onEdit(task.id)
-          }}
-          className="task-node__action-btn"
-          title="Edit task"
-        >
-          <svg
-            className="task-node__action-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-            />
-          </svg>
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onLog(task.id)
-          }}
-          className="task-node__action-btn"
-          title="View agent logs for this task"
-        >
-          <svg
-            className="task-node__action-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-        </button>
-        {canReanalyze && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onReanalyze(task.id)
-            }}
-            className="task-node__action-btn task-node__action-btn--reanalyze"
-            title="Re-analyze task"
-          >
-            <svg
-              className="task-node__action-icon"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(task.id)
-          }}
-          className="task-node__action-btn task-node__action-btn--delete"
-          title="Delete task"
-        >
-          <svg
-            className="task-node__action-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-        </button>
-      </div>
-
       {/* Source handle (bottom) - output to dependents */}
       <Handle type="source" position={Position.Bottom} className="task-node__handle" />
+
+      {/* Diff Dialog */}
+      {showDiffDialog && task.commitHash && (
+        <DiffDialog
+          commitHash={task.commitHash}
+          worktreePath={worktreePath}
+          onClose={() => setShowDiffDialog(false)}
+        />
+      )}
     </div>
   )
 }

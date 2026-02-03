@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { useState } from 'react';
 import type { Feature } from '@shared/types';
-import { Dialog, DialogHeader, DialogBody, DialogFooter, Checkbox, Button } from '../UI';
+import { Dialog, DialogHeader, DialogBody, DialogFooter, Button } from '../UI';
 import './DeleteFeatureDialog.css';
 
 interface DeleteFeatureDialogProps {
@@ -17,7 +17,6 @@ export function DeleteFeatureDialog({
   feature,
   onConfirm
 }: DeleteFeatureDialogProps): JSX.Element | null {
-  const [deleteBranch, setDeleteBranch] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
 
   if (!isOpen || !feature) return null;
@@ -25,7 +24,8 @@ export function DeleteFeatureDialog({
   const handleConfirm = async (): Promise<void> => {
     setIsDeleting(true);
     try {
-      await onConfirm(deleteBranch);
+      // Never delete branches/worktrees - they can be cleaned up separately
+      await onConfirm(false);
     } finally {
       setIsDeleting(false);
     }
@@ -33,7 +33,6 @@ export function DeleteFeatureDialog({
 
   const handleClose = (): void => {
     if (!isDeleting) {
-      setDeleteBranch(true); // Reset to default
       onClose();
     }
   };
@@ -52,15 +51,6 @@ export function DeleteFeatureDialog({
           <div className="delete-feature-dialog__warning">
             <p className="delete-feature-dialog__warning-title">This action is irreversible!</p>
             <p>All task data, chat history, and related files will be permanently deleted.</p>
-          </div>
-
-          <div className="delete-feature-dialog__option">
-            <Checkbox
-              checked={deleteBranch}
-              onChange={(e) => setDeleteBranch(e.target.checked)}
-              disabled={isDeleting}
-              label="Also delete git branch and worktrees"
-            />
           </div>
         </div>
       </DialogBody>

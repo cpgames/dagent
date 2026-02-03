@@ -21,9 +21,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useFeatureStore } from '../stores/feature-store'
 import { useDAGStore } from '../stores/dag-store'
 import { useDialogStore } from '../stores/dialog-store'
+import { useExecutionStore } from '../stores/execution-store'
 import {
   TaskNode,
   NodeDialog,
@@ -37,9 +39,7 @@ import {
   type SelectableEdgeData
 } from '../components/DAG'
 import type { LogEntry, DevAgentSession } from '@shared/types'
-import type { TaskLoopStatus } from '../../../main/dag-engine/orchestrator-types'
-import { ResizeHandle } from '../components/Layout'
-import { FeatureSidebar } from '../components/Feature'
+import { DockablePanel, PanelToolbar, usePanelLayout } from '../components/Feature'
 import type { DAGGraph, Task } from '@shared/types'
 import { toast } from '../stores/toast-store'
 
@@ -53,15 +53,7 @@ const edgeTypes = {
 }
 
 // Convert DAG nodes to React Flow format
-function dagToNodes(
-  dag: DAGGraph | null,
-  loopStatuses: Record<string, TaskLoopStatus>,
-  onEdit: (taskId: string) => void,
-  onDelete: (taskId: string) => void,
-  onLog: (taskId: string) => void,
-  onReanalyze: (taskId: string) => void,
-  analyzingTaskId: string | null = null
-): Node[] {
+function dagToNodes(dag: DAGGraph | null, analyzingTaskId: string | null = null, worktreePath?: string): Node[] {
   if (!dag) return []
 
   return dag.nodes.map((task) => ({
@@ -70,12 +62,8 @@ function dagToNodes(
     position: task.position,
     data: {
       task,
-      loopStatus: loopStatuses[task.id] || null,
       isBeingAnalyzed: task.id === analyzingTaskId,
-      onEdit,
-      onDelete,
-      onLog,
-      onReanalyze
+      worktreePath
     } as TaskNodeData
   }))
 }
@@ -83,14 +71,15 @@ function dagToNodes(
 // Convert DAG connections to React Flow edges
 function dagToEdges(
   dag: DAGGraph | null,
-  selectedEdgeId: string | null,
-  onSelectEdge: (edgeId: string) => void,
+  selectedEdge: { source: string; target: string } | null,
+  onSelectEdge: (source: string, target: string) => void,
   onDeleteEdge: (source: string, target: string) => void
 ): Edge[] {
   if (!dag) return []
 
   return dag.connections.map((conn) => {
-    const edgeId = `${conn.from}-${conn.to}`
+    const edgeId = `${conn.from}->${conn.to}`
+    const isSelected = selectedEdge?.source === conn.from && selectedEdge?.target === conn.to
     return {
       id: edgeId,
       source: conn.from,
@@ -102,7 +91,7 @@ function dagToEdges(
         height: 20
       },
       data: {
-        selected: edgeId === selectedEdgeId,
+        selected: isSelected,
         onSelect: onSelectEdge,
         onDelete: onDeleteEdge
       } as SelectableEdgeData
@@ -116,35 +105,34 @@ function DAGViewInner({
 }: {
   activeFeatureId: string | null
 }): JSX.Element {
-  const {
-    dag,
-    loopStatuses,
-    isMutating,
-    error,
-    setError,
-    addNode,
-    updateNode,
-    addConnection,
-    removeNode,
-    removeConnection,
-    setSelectedNode,
-    historyState,
-    undo,
-    redo,
-    autoLayout
-  } = useDAGStore()
-  const {
-    nodeDialogOpen,
-    nodeDialogTaskId,
-    openNodeDialog,
-    closeNodeDialog,
-    logDialogOpen,
-    logDialogTitle,
-    logDialogTaskId,
-    logDialogSource,
-    openLogDialog,
-    closeLogDialog
-  } = useDialogStore()
+  // Use granular selectors to prevent unnecessary re-renders
+  const dag = useDAGStore((state) => state.dag)
+  const isMutating = useDAGStore((state) => state.isMutating)
+  const error = useDAGStore((state) => state.error)
+  const setError = useDAGStore((state) => state.setError)
+  const addNode = useDAGStore((state) => state.addNode)
+  const addConnection = useDAGStore((state) => state.addConnection)
+  const removeNode = useDAGStore((state) => state.removeNode)
+  const removeConnection = useDAGStore((state) => state.removeConnection)
+  const selectedNodeId = useDAGStore((state) => state.selectedNodeId)
+  const setSelectedNode = useDAGStore((state) => state.setSelectedNode)
+  // Use shallow comparison for object values to prevent unnecessary re-renders
+  const historyState = useDAGStore(useShallow((state) => state.historyState))
+  const undo = useDAGStore((state) => state.undo)
+  const redo = useDAGStore((state) => state.redo)
+  const autoLayout = useDAGStore((state) => state.autoLayout)
+  const layoutVersion = useDAGStore((state) => state.layoutVersion)
+
+  const nodeDialogOpen = useDialogStore((state) => state.nodeDialogOpen)
+  const nodeDialogTaskId = useDialogStore((state) => state.nodeDialogTaskId)
+  const openNodeDialog = useDialogStore((state) => state.openNodeDialog)
+  const closeNodeDialog = useDialogStore((state) => state.closeNodeDialog)
+  const logDialogOpen = useDialogStore((state) => state.logDialogOpen)
+  const logDialogTitle = useDialogStore((state) => state.logDialogTitle)
+  const logDialogTaskId = useDialogStore((state) => state.logDialogTaskId)
+  const logDialogSource = useDialogStore((state) => state.logDialogSource)
+  const openLogDialog = useDialogStore((state) => state.openLogDialog)
+  const closeLogDialog = useDialogStore((state) => state.closeLogDialog)
 
   // React Flow instance for programmatic control (fitView, etc.)
   const { fitView } = useReactFlow()
@@ -155,31 +143,28 @@ function DAGViewInner({
   // Task session for SessionLogDialog
   const [taskSession, setTaskSession] = useState<DevAgentSession | null>(null)
 
-  // Debounce timer for layout persistence
-  const saveLayoutTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // Session for selected task (for TaskDetailsPanel inline logs)
+  const [selectedTaskSession, setSelectedTaskSession] = useState<DevAgentSession | null>(null)
 
   // Track previous node count to only fit view when first node is added
   const prevNodeCountRef = useRef<number>(0)
 
-  // Chat panel width state with localStorage persistence
-  const [chatWidth, setChatWidth] = useState(() => {
-    const saved = localStorage.getItem('dagent.chatPanelWidth')
-    return saved ? parseInt(saved, 10) : 320
-  })
 
-  // Handle chat panel resize
-  const handleChatResize = useCallback((deltaX: number) => {
-    // For left-edge resize: negative deltaX (drag right) = smaller, positive (drag left) = larger
-    setChatWidth((w) => Math.min(600, Math.max(280, w - deltaX)))
-  }, [])
+  // Panel layout management
+  const {
+    layoutState,
+    activePanels,
+    togglePanel,
+    updatePanelPosition,
+    removePanel: removePanelFromLayout,
+    groupPanels,
+    ungroupPanel,
+    setActiveTab,
+    updateGroupPosition
+  } = usePanelLayout()
 
-  // Persist width to localStorage when resize ends
-  const handleChatResizeEnd = useCallback(() => {
-    localStorage.setItem('dagent.chatPanelWidth', chatWidth.toString())
-  }, [chatWidth])
-
-  // Edge selection state
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  // Edge selection state - store source/target directly to avoid parsing edge IDs
+  const [selectedEdge, setSelectedEdge] = useState<{ source: string; target: string } | null>(null)
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; taskId: string | null; taskTitle: string }>({
@@ -195,22 +180,23 @@ function DAGViewInner({
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false)
 
   // Handle edge selection
-  const handleSelectEdge = useCallback((edgeId: string) => {
-    setSelectedEdgeId(edgeId)
+  const handleSelectEdge = useCallback((source: string, target: string) => {
+    setSelectedEdge({ source, target })
   }, [])
 
   // Handle edge deletion
   const handleDeleteEdge = useCallback(
     (source: string, target: string) => {
       removeConnection(source, target)
-      setSelectedEdgeId(null)
+      setSelectedEdge(null)
     },
     [removeConnection]
   )
 
   // Clear edge and node selection when clicking on pane
   const handlePaneClick = useCallback(() => {
-    setSelectedEdgeId(null)
+    // Zustand handles duplicate value detection, so just set directly
+    setSelectedEdge(null)
     setSelectedNode(null)
   }, [setSelectedNode])
 
@@ -218,6 +204,8 @@ function DAGViewInner({
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setSelectedNode(node.id)
+      // Only update edge selection if there was a selected edge
+      setSelectedEdge((prev) => prev ? null : prev)
     },
     [setSelectedNode]
   )
@@ -230,37 +218,26 @@ function DAGViewInner({
     return dag.nodes.find((n) => n.id === nodeDialogTaskId) || undefined
   }, [nodeDialogOpen, nodeDialogTaskId, dag])
 
-  // Handlers for task node actions
-  const handleEditTask = useCallback(
-    (taskId: string) => {
-      openNodeDialog(taskId)
-    },
-    [openNodeDialog]
-  )
-
-  // Handle save from dialog
-  const handleDialogSave = useCallback(
-    (updates: Partial<Task>) => {
-      if (nodeDialogTaskId) {
-        updateNode(nodeDialogTaskId, updates)
-      }
-    },
-    [nodeDialogTaskId, updateNode]
-  )
+  // Get the selected task for the Task panel
+  const selectedTask = useMemo(() => {
+    if (!selectedNodeId || !dag) return null
+    return dag.nodes.find((n) => n.id === selectedNodeId) || null
+  }, [selectedNodeId, dag])
 
   // Handle create task from dialog
   const handleCreateTask = useCallback(
-    async (title: string, description: string) => {
+    async (title: string) => {
       if (!activeFeatureId) return
 
       // Create a new task directly in the DAG
       const newTask: Task = {
         id: `task-${Date.now()}`, // Temporary ID, DAGManager will assign proper one
         title,
-        description,
-        status: 'ready_for_dev',
-        locked: false,
-        position: { x: 0, y: 0 } // DAGManager will auto-place it
+        spec: '', // Spec is generated by PM, starts empty
+        status: 'ready',
+        blocked: false,
+        position: { x: 0, y: 0 }, // DAGManager will auto-place it
+        dependencies: [] // No dependencies initially
       }
 
       await addNode(newTask)
@@ -290,26 +267,35 @@ function DAGViewInner({
     }
   }, [deleteConfirm.taskId, removeNode])
 
-  // Handle log button click on task
-  const handleLogTask = useCallback(
-    async (taskId: string) => {
-      const task = dag?.nodes.find((n) => n.id === taskId)
-      const taskTitle = task?.title || 'Task'
-      openLogDialog(`${taskTitle} Session`, taskId, 'task')
+  // Handle keyboard Delete key to delete selected task or edge
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle Delete/Backspace
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return
 
-      // Load task session
-      if (activeFeatureId) {
-        try {
-          const session = await window.electronAPI.storage.loadTaskSession(activeFeatureId, taskId)
-          setTaskSession(session)
-        } catch (error) {
-          console.error('Failed to load task session:', error)
-          setTaskSession(null)
-        }
+      // Don't trigger if user is typing in an input/textarea
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
       }
-    },
-    [dag, activeFeatureId, openLogDialog]
-  )
+
+      // Delete selected edge (direct deletion, no confirmation)
+      if (selectedEdge) {
+        e.preventDefault()
+        handleDeleteEdge(selectedEdge.source, selectedEdge.target)
+        return
+      }
+
+      // Delete selected node (with confirmation dialog)
+      if (selectedNodeId) {
+        e.preventDefault()
+        handleDeleteTask(selectedNodeId)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedNodeId, selectedEdge, handleDeleteTask, handleDeleteEdge])
 
   // Handle abort loop
   const handleAbortLoop = useCallback(async (taskId: string) => {
@@ -368,32 +354,88 @@ function DAGViewInner({
     }
   }, [activeFeatureId])
 
-  // Handle reanalyze task
-  const handleReanalyzeTask = useCallback(async (taskId: string) => {
+  // Handle clear logs
+  const handleClearLogs = useCallback(async (taskId: string) => {
     if (!activeFeatureId) return
-
     try {
-      setAnalyzingTaskId(taskId)
-      const result = await window.electronAPI.analysis.reanalyzeTask(activeFeatureId, taskId)
-      if (!result.success) {
-        toast.error(`Failed to reanalyze task: ${result.error}`)
-        setAnalyzingTaskId(null)
-      }
-      // Analysis events will update via IPC listener
+      await window.electronAPI.storage.clearSessionMessages(activeFeatureId, taskId)
+      // Refresh the session by clearing the local state
+      setSelectedTaskSession(null)
+      toast.success('Logs cleared')
     } catch (error) {
-      toast.error(`Failed to reanalyze task: ${(error as Error).message}`)
-      setAnalyzingTaskId(null)
+      toast.error(`Failed to clear logs: ${(error as Error).message}`)
     }
   }, [activeFeatureId])
 
+  // Handle abort task (discard all changes and reset to ready)
+  const handleAbortTask = useCallback(async (taskId: string) => {
+    if (!activeFeatureId) return
+    try {
+      const result = await window.electronAPI.execution.abortTask(taskId)
+      if (result.success) {
+        toast.success('Task aborted and reset to Ready')
+        // Clear the session for this task
+        setSelectedTaskSession(null)
+      } else {
+        toast.error(`Failed to abort task: ${result.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to abort task: ${(error as Error).message}`)
+    }
+  }, [activeFeatureId])
+
+  // Handle start single task (step-by-step execution mode)
+  const handleStartTask = useCallback(async (taskId: string) => {
+    if (!activeFeatureId) return
+
+    try {
+      // First, initialize the orchestrator with the feature's DAG
+      // This is required before startSingleTask can work
+      const currentDag = await window.electronAPI.storage.loadDag(activeFeatureId)
+      if (!currentDag) {
+        toast.error('Failed to load DAG for feature')
+        return
+      }
+      await window.electronAPI.execution.initialize(activeFeatureId, currentDag)
+
+      // Now start the single task
+      const result = await window.electronAPI.execution.startSingleTask(taskId)
+      if (!result.success) {
+        toast.error(`Failed to start task: ${result.error}`)
+      } else {
+        toast.success('Task started')
+      }
+    } catch (error) {
+      console.error('[DAGView] Error starting task:', error)
+      toast.error('Failed to start task')
+    }
+  }, [activeFeatureId])
+
+  // Get the active feature status to check if we can start tasks
+  // Use a selector that only extracts what we need to prevent re-renders
+  const canStartTasks = useFeatureStore(
+    useCallback(
+      (state) => state.features.find(f => f.id === activeFeatureId)?.status === 'active',
+      [activeFeatureId]
+    )
+  )
+
+  // Get the active feature's worktreePath for git operations
+  const activeWorktreePath = useFeatureStore(
+    useCallback(
+      (state) => state.features.find(f => f.id === activeFeatureId)?.worktreePath,
+      [activeFeatureId]
+    )
+  )
+
   // Convert DAG to React Flow format
   const initialNodes = useMemo(
-    () => dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, analyzingTaskId),
-    [dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, analyzingTaskId]
+    () => dagToNodes(dag, analyzingTaskId, activeWorktreePath),
+    [dag, analyzingTaskId, activeWorktreePath]
   )
   const initialEdges = useMemo(
-    () => dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge),
-    [dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge]
+    () => dagToEdges(dag, selectedEdge, handleSelectEdge, handleDeleteEdge),
+    [dag, selectedEdge, handleSelectEdge, handleDeleteEdge]
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
@@ -425,6 +467,16 @@ function DAGViewInner({
 
     loadLayout()
   }, [activeFeatureId])
+
+  // Clear saved positions when auto-layout is applied (layoutVersion changes)
+  // This ensures the new calculated positions are used instead of old saved positions
+  const prevLayoutVersionRef = useRef(layoutVersion)
+  useEffect(() => {
+    if (layoutVersion !== prevLayoutVersionRef.current) {
+      layoutPositionsRef.current = {}
+      prevLayoutVersionRef.current = layoutVersion
+    }
+  }, [layoutVersion])
 
   // Fetch initial analysis status on feature change
   useEffect(() => {
@@ -485,26 +537,22 @@ function DAGViewInner({
     }
   }, [activeFeatureId])
 
-  // Update nodes/edges when DAG or selection changes, merging in saved layout positions
+  // Update nodes when DAG changes, merging in saved layout positions
   useEffect(() => {
     const nodeCount = dag?.nodes?.length ?? 0
     const prevNodeCount = prevNodeCountRef.current
-    console.log(`[DAGViewInner] DAG changed, nodes: ${nodeCount}, updating React Flow`)
-    const newNodes = dagToNodes(dag, loopStatuses, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, analyzingTaskId).map((node) => {
+    const newNodes = dagToNodes(dag, analyzingTaskId, activeWorktreePath).map((node) => {
       const savedPos = layoutPositionsRef.current[node.id]
       if (savedPos) {
         return { ...node, position: savedPos }
       }
       return node
     })
-    console.log(`[DAGViewInner] Setting ${newNodes.length} nodes to React Flow`)
     setNodes(newNodes)
-    setEdges(dagToEdges(dag, selectedEdgeId, handleSelectEdge, handleDeleteEdge))
 
     // Only fit view when going from 0 nodes to 1+ nodes (first node added)
     // This prevents the view from constantly re-centering during planning updates
     if (prevNodeCount === 0 && nodeCount > 0) {
-      console.log('[DAGViewInner] First node added, fitting view')
       // Use setTimeout to ensure nodes are rendered before fitting
       setTimeout(() => {
         fitView({ padding: 0.2, duration: 200 })
@@ -513,7 +561,13 @@ function DAGViewInner({
 
     // Update previous node count
     prevNodeCountRef.current = nodeCount
-  }, [dag, loopStatuses, analyzingTaskId, handleEditTask, handleDeleteTask, handleLogTask, handleReanalyzeTask, selectedEdgeId, handleSelectEdge, handleDeleteEdge, setNodes, setEdges, fitView])
+  }, [dag, analyzingTaskId, activeWorktreePath, setNodes, fitView])
+
+  // Update edges separately when DAG or edge selection changes
+  // This prevents node selection from being reset when only edge selection changes
+  useEffect(() => {
+    setEdges(dagToEdges(dag, selectedEdge, handleSelectEdge, handleDeleteEdge))
+  }, [dag, selectedEdge, handleSelectEdge, handleDeleteEdge, setEdges])
 
   // Poll for real-time session updates when task log dialog is open
   useEffect(() => {
@@ -545,7 +599,47 @@ function DAGViewInner({
     return () => clearInterval(intervalId)
   }, [logDialogOpen, logDialogSource, logDialogTaskId, activeFeatureId])
 
-  // Handle node position changes
+  // Poll for selected task session (for TaskDetailsPanel inline logs)
+  // Debounce the initial load to prevent lag during rapid node selection
+  useEffect(() => {
+    if (!selectedNodeId || !activeFeatureId) {
+      setSelectedTaskSession(null)
+      return
+    }
+
+    // Debounce initial load to avoid IPC call lag during selection
+    const loadTimeout = setTimeout(async () => {
+      try {
+        const session = await window.electronAPI.storage.loadTaskSession(activeFeatureId, selectedNodeId)
+        setSelectedTaskSession(session)
+      } catch (error) {
+        console.error('Failed to load selected task session:', error)
+        setSelectedTaskSession(null)
+      }
+    }, 300) // 300ms debounce
+
+    // Poll every 2 seconds for updates (only after initial debounce)
+    const intervalId = setInterval(async () => {
+      try {
+        const session = await window.electronAPI.storage.loadTaskSession(activeFeatureId, selectedNodeId)
+        setSelectedTaskSession((prev) => {
+          if (session?.messages.length !== prev?.messages.length) {
+            return session
+          }
+          return prev
+        })
+      } catch (error) {
+        console.error('Failed to poll selected task session:', error)
+      }
+    }, 2000)
+
+    return () => {
+      clearTimeout(loadTimeout)
+      clearInterval(intervalId)
+    }
+  }, [selectedNodeId, activeFeatureId])
+
+  // Handle node position changes (during drag - no snapping for smooth movement)
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       onNodesChange(changes)
@@ -559,24 +653,36 @@ function DAGViewInner({
           }
         }
       })
+    },
+    [onNodesChange]
+  )
 
-      // Debounce layout save (500ms after last position change)
-      if (activeFeatureId && changes.some((c) => c.type === 'position')) {
-        if (saveLayoutTimerRef.current) {
-          clearTimeout(saveLayoutTimerRef.current)
-        }
+  // Snap to grid after drag ends
+  const SNAP_GRID = 20
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      // Snap position to grid
+      const snappedX = Math.round(node.position.x / SNAP_GRID) * SNAP_GRID
+      const snappedY = Math.round(node.position.y / SNAP_GRID) * SNAP_GRID
 
-        saveLayoutTimerRef.current = setTimeout(async () => {
-          try {
-            // Save positions from the ref
-            await window.electronAPI.dagLayout.save(activeFeatureId, layoutPositionsRef.current)
-          } catch (error) {
-            console.error('[DAGView] Failed to save layout:', error)
-          }
-        }, 500)
+      // Update node position to snapped value
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === node.id ? { ...n, position: { x: snappedX, y: snappedY } } : n
+        )
+      )
+
+      // Update layout ref with snapped position
+      layoutPositionsRef.current[node.id] = { x: snappedX, y: snappedY }
+
+      // Save layout to backend
+      if (activeFeatureId) {
+        window.electronAPI.dagLayout.save(activeFeatureId, layoutPositionsRef.current).catch((error) => {
+          console.error('[DAGView] Failed to save layout:', error)
+        })
       }
     },
-    [onNodesChange, activeFeatureId]
+    [setNodes, activeFeatureId]
   )
 
   // Handle new connections
@@ -612,8 +718,43 @@ function DAGViewInner({
     [onEdgesChange, removeConnection]
   )
 
+  // Panel toolbar element
+  const panelToolbar = (
+    <PanelToolbar
+      activePanels={activePanels}
+      onTogglePanel={togglePanel}
+    />
+  )
+
+  // Overlay panels element - rendered on top of the graph
+  const overlayPanels = activeFeatureId && activePanels.length > 0 && (
+    <DockablePanel
+      featureId={activeFeatureId}
+      worktreePath={activeWorktreePath}
+      layoutState={layoutState}
+      onUpdatePosition={updatePanelPosition}
+      onRemovePanel={removePanelFromLayout}
+      onGroupPanels={groupPanels}
+      onUngroupPanel={ungroupPanel}
+      onSetActiveTab={setActiveTab}
+      onUpdateGroupPosition={updateGroupPosition}
+      onShowLogs={handleShowPMLogs}
+      selectedTask={selectedTask || undefined}
+      taskSession={selectedTaskSession}
+      canStartTask={canStartTasks}
+      onAbortLoop={handleAbortLoop}
+      onStartTask={handleStartTask}
+      onDeleteTask={handleDeleteTask}
+      onClearLogs={handleClearLogs}
+      onAbortTask={handleAbortTask}
+    />
+  )
+
   return (
     <div className="flex h-full overflow-hidden">
+      {/* Panel toolbar - always on left */}
+      {panelToolbar}
+
       {/* React Flow canvas */}
       <div className="flex-1 flex flex-col">
         <div className="flex-1 relative">
@@ -639,7 +780,8 @@ function DAGViewInner({
                   onConnect={handleConnect}
                   onPaneClick={handlePaneClick}
                   onNodeClick={handleNodeClick}
-                  onEdgeClick={(_event, edge) => handleSelectEdge(edge.id)}
+                  onNodeDragStop={handleNodeDragStop}
+                  onEdgeClick={(_event, edge) => handleSelectEdge(edge.source, edge.target)}
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
                   fitView
@@ -647,8 +789,6 @@ function DAGViewInner({
                   minZoom={0.25}
                   maxZoom={2}
                   nodesDraggable
-                  snapToGrid={true}
-                  snapGrid={[20, 20]}
                   translateExtent={[
                     [-5000, -5000],
                     [10000, 10000]
@@ -715,6 +855,9 @@ function DAGViewInner({
                     <span className="text-sm text-[var(--text-secondary)]">Saving...</span>
                   </div>
                 )}
+
+                {/* Dockable panels overlay */}
+                {overlayPanels}
         </div>
 
         {/* Control bar at bottom */}
@@ -731,23 +874,11 @@ function DAGViewInner({
         </div>
       </div>
 
-      {/* Feature sidebar with tabs */}
-      {activeFeatureId && (
-        <div className="relative flex flex-col h-full" style={{ width: chatWidth }}>
-          <ResizeHandle onResize={handleChatResize} onResizeEnd={handleChatResizeEnd} position="left" />
-          <FeatureSidebar featureId={activeFeatureId} onShowLogs={handleShowPMLogs} />
-        </div>
-      )}
-
-      {/* Node Dialog */}
-      {dialogTask !== undefined && (
+      {/* Node Dialog - only for creating new tasks */}
+      {dialogTask === null && (
         <NodeDialog
-          task={dialogTask}
-          loopStatus={dialogTask ? loopStatuses[dialogTask.id] || null : null}
-          onSave={handleDialogSave}
           onCreate={handleCreateTask}
           onClose={closeNodeDialog}
-          onAbortLoop={handleAbortLoop}
         />
       )}
 
@@ -771,29 +902,65 @@ function DAGViewInner({
         onConfirm={confirmDeleteTask}
         onCancel={() => setDeleteConfirm({ open: false, taskId: null, taskTitle: '' })}
       />
+
     </div>
   )
 }
 
 // Outer component wrapper
 export default function DAGView(): JSX.Element {
-  const { activeFeatureId } = useFeatureStore()
-  const { loadDag, setCurrentFeatureForEvents } = useDAGStore()
+  const { activeFeatureId, features } = useFeatureStore()
+  const { loadDag, setCurrentFeatureForEvents, dag } = useDAGStore()
+  const { execution, start } = useExecutionStore()
+  const autoResumeAttemptedRef = useRef<string | null>(null)
 
   // Set feature for events IMMEDIATELY when feature changes (sync, before async loadDag)
   useEffect(() => {
-    console.log(`[DAGView] Setting current feature for events: ${activeFeatureId}`)
     setCurrentFeatureForEvents(activeFeatureId)
   }, [activeFeatureId, setCurrentFeatureForEvents])
 
   // Load DAG when active feature changes
   useEffect(() => {
-    console.log(`[DAGView] useEffect triggered, activeFeatureId=${activeFeatureId}`)
     if (activeFeatureId) {
-      console.log(`[DAGView] Calling loadDag for ${activeFeatureId}`)
       loadDag(activeFeatureId)
     }
   }, [activeFeatureId, loadDag])
+
+  // Reset auto-resume tracking when feature changes
+  useEffect(() => {
+    autoResumeAttemptedRef.current = null
+  }, [activeFeatureId])
+
+  // Auto-resume: If feature has tasks in 'developing' or 'verifying' status, auto-start execution
+  useEffect(() => {
+    // Skip if already attempted for this feature or already running
+    if (!activeFeatureId || !dag || execution.status === 'running') {
+      return
+    }
+
+    // Only attempt auto-resume once per feature
+    if (autoResumeAttemptedRef.current === activeFeatureId) {
+      return
+    }
+
+    // Check if any tasks are in progress (developing or verifying)
+    const inProgressTasks = dag.nodes.filter(
+      task => task.status === 'developing' || task.status === 'verifying'
+    )
+    if (inProgressTasks.length === 0) {
+      return
+    }
+
+    // Check if feature is active (not backlog/archived)
+    const feature = features.find(f => f.id === activeFeatureId)
+    if (!feature || feature.status !== 'active') {
+      return
+    }
+
+    // Mark as attempted before starting
+    autoResumeAttemptedRef.current = activeFeatureId
+    start(activeFeatureId)
+  }, [activeFeatureId, dag, execution.status, features, start])
 
   return (
     <div className="h-full">

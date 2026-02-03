@@ -122,8 +122,8 @@ export interface TaskControllerConfig {
   useContextCheckpointing: boolean
   /** Token limit for context-aware checkpointing (default: 150000) */
   contextTokenLimit: number
-  /** Manager worktree path - if provided, use instead of creating task worktree */
-  managerWorktreePath?: string
+  /** Worktree path - if provided, use instead of creating task worktree */
+  worktreePath?: string
 }
 
 // =============================================================================

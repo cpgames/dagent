@@ -26,6 +26,8 @@ export interface CreatePRRequest {
   draft?: boolean
   /** Feature ID (optional, for auto-archive on PR creation) */
   featureId?: string
+  /** Working directory to run gh command in (project root) */
+  cwd?: string
 }
 
 /**

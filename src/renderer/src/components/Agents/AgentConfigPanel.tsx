@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import { useState, useEffect } from 'react'
 import { useAgentStore } from '../../stores'
-import { Input, Textarea, Select, Checkbox, Button } from '../UI'
+import { Textarea, Select, Button } from '../UI'
 import type { AgentConfig, AgentRole } from '@shared/types'
 import './AgentConfigPanel.css'
 
@@ -22,39 +22,31 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
   const status = runtimeStatus[role]
 
   // Local state for editing
-  const [name, setName] = useState(config.name)
   const [instructions, setInstructions] = useState(config.instructions)
-  const [enabled, setEnabled] = useState(config.enabled)
   const [permissionMode, setPermissionMode] = useState(config.permissionMode)
   const [isSaving, setIsSaving] = useState(false)
 
   // Reset local state when role changes
   useEffect(() => {
-    setName(config.name)
     setInstructions(config.instructions)
-    setEnabled(config.enabled)
     setPermissionMode(config.permissionMode)
   }, [config])
 
   const hasChanges =
-    name !== config.name ||
     instructions !== config.instructions ||
-    enabled !== config.enabled ||
     permissionMode !== config.permissionMode
 
   const handleSave = async (): Promise<void> => {
     setIsSaving(true)
     try {
-      await updateConfig(role, { name, instructions, enabled, permissionMode })
+      await updateConfig(role, { instructions, permissionMode })
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleReset = (): void => {
-    setName(config.name)
     setInstructions(config.instructions)
-    setEnabled(config.enabled)
     setPermissionMode(config.permissionMode)
   }
 
@@ -62,12 +54,7 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
     <div className="agent-config">
       {/* Header */}
       <div className="agent-config__header">
-        <div className="agent-config__header-left">
-          <h3 className="agent-config__title">{config.name}</h3>
-          <span className={`agent-config__status-badge agent-config__status-badge--${status.status}`}>
-            {status.status}
-          </span>
-        </div>
+        <h3 className="agent-config__title">{config.name}</h3>
         <button onClick={onClose} className="agent-config__close-btn">
           <svg className="agent-config__close-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -81,15 +68,6 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
           Currently working on: {status.currentTaskTitle}
         </div>
       )}
-
-      {/* Name field */}
-      <div className="agent-config__field">
-        <label className="agent-config__label">Display Name</label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
 
       {/* Instructions field */}
       <div className="agent-config__field">
@@ -112,18 +90,6 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
           onChange={(e) => setPermissionMode(e.target.value as AgentConfig['permissionMode'])}
           options={PERMISSION_OPTIONS}
         />
-      </div>
-
-      {/* Enabled toggle */}
-      <div className="agent-config__checkbox-field">
-        <Checkbox
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-          label="Agent enabled"
-        />
-        <p className="agent-config__checkbox-hint">
-          Disabled agents won&apos;t be used for task execution
-        </p>
       </div>
 
       {/* Tools display (read-only for now) */}

@@ -72,6 +72,8 @@ export function registerExecutionHandlers(): void {
   ipcMain.handle(
     'execution:initialize',
     async (_event, featureId: string, graph: DAGGraph) => {
+      console.log(`[ExecutionHandlers] Initialize called for feature: ${featureId}`)
+      console.log(`[ExecutionHandlers] Graph has ${graph.nodes.length} nodes:`, graph.nodes.map(n => `${n.id}: ${n.status}`))
       const orchestrator = getOrchestrator()
       await orchestrator.initialize(featureId, graph)
       return orchestrator.getSnapshot()
@@ -79,8 +81,11 @@ export function registerExecutionHandlers(): void {
   )
 
   ipcMain.handle('execution:start', async () => {
+    console.log(`[ExecutionHandlers] Start called`)
     const orchestrator = getOrchestrator()
-    return orchestrator.start()
+    const result = await orchestrator.start()
+    console.log(`[ExecutionHandlers] Start result:`, result)
+    return result
   })
 
   ipcMain.handle('execution:pause', async () => {
@@ -96,6 +101,15 @@ export function registerExecutionHandlers(): void {
   ipcMain.handle('execution:stop', async () => {
     const orchestrator = getOrchestrator()
     return orchestrator.stop()
+  })
+
+  /**
+   * Start a single task in step-by-step execution mode.
+   * Use this when feature.executionMode === 'step' to manually start individual tasks.
+   */
+  ipcMain.handle('execution:start-single-task', async (_event, taskId: string) => {
+    const orchestrator = getOrchestrator()
+    return orchestrator.startSingleTask(taskId)
   })
 
   ipcMain.handle('execution:get-state', async () => {
@@ -118,10 +132,8 @@ export function registerExecutionHandlers(): void {
     return orchestrator.completeTaskCode(taskId)
   })
 
-  ipcMain.handle('execution:complete-merge', async (_event, taskId: string) => {
-    const orchestrator = getOrchestrator()
-    return orchestrator.completeMerge(taskId)
-  })
+  // Note: Per-task merge removed in simplified architecture.
+  // Feature-level merge happens when all tasks complete.
 
   ipcMain.handle('execution:fail-task', async (_event, taskId: string, error?: string) => {
     const orchestrator = getOrchestrator()
@@ -158,5 +170,11 @@ export function registerExecutionHandlers(): void {
   ipcMain.handle('execution:abort-loop', async (_event, taskId: string) => {
     const orchestrator = getOrchestrator()
     return orchestrator.abortLoop(taskId)
+  })
+
+  // Abort a paused task - discard all changes and reset to ready status
+  ipcMain.handle('execution:abort-task', async (_event, taskId: string) => {
+    const orchestrator = getOrchestrator()
+    return orchestrator.abortTask(taskId)
   })
 }

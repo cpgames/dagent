@@ -131,30 +131,27 @@ function getStartButtonState(
   featureStatus: FeatureStatus | undefined,
   isRunning: boolean,
   isPaused: boolean,
-  isPlanningInProgress: boolean
+  _isPlanningInProgress: boolean
 ): StartButtonState {
-  // Check planning phases first (higher priority)
-  if (featureStatus === 'creating_worktree') {
-    return { disabled: true, tooltip: 'Setting up worktree...' }
+  // Feature status checks
+  if (featureStatus === 'backlog') {
+    return { disabled: true, tooltip: 'Start feature first to enable execution' }
   }
-  if (featureStatus === 'investigating') {
-    return { disabled: true, tooltip: 'PM agent investigating codebase. Answer any questions first.' }
+  if (featureStatus === 'merging') {
+    return { disabled: true, tooltip: 'All tasks done - merge or archive' }
   }
-  if (featureStatus === 'ready_for_planning') {
-    return { disabled: true, tooltip: 'Click Plan to create tasks first' }
-  }
-  if (featureStatus === 'planning' || isPlanningInProgress) {
-    return { disabled: true, tooltip: 'PM agent creating tasks...' }
+  if (featureStatus === 'archived') {
+    return { disabled: true, tooltip: 'Feature archived' }
   }
   // Running/paused states
   if (isRunning) {
     return { disabled: false, tooltip: 'Pause execution' }
   }
   if (isPaused) {
-    return { disabled: false, tooltip: 'Resume execution' }
+    return { disabled: false, tooltip: 'Resume auto execution' }
   }
-  // Default: ready to start
-  return { disabled: false, tooltip: 'Start execution' }
+  // Default: ready to start (active status)
+  return { disabled: false, tooltip: 'Start auto execution (runs all ready tasks)' }
 }
 
 export default function ExecutionControls({
@@ -179,8 +176,8 @@ export default function ExecutionControls({
   const feature = featureId ? features.find((f) => f.id === featureId) : null
   const featureStatus = feature?.status
 
-  // Show Plan button when feature is ready for planning or still investigating (disabled if investigating)
-  const showPlanButton = featureStatus === 'ready_for_planning' || featureStatus === 'investigating'
+  // Show Plan button for active features (simplified 4-state model)
+  const showPlanButton = featureStatus === 'active'
 
   // Get Start button state based on feature status and other conditions
   const startButtonState = getStartButtonState(featureStatus, isRunning, isPaused, isPlanningInProgress)
@@ -211,26 +208,20 @@ export default function ExecutionControls({
 
   return (
     <div className="execution-controls">
-      {/* Plan button - shown when feature is ready for planning */}
+      {/* Plan button - shown when feature is active */}
       {showPlanButton && (
         <button
           onClick={onPlan}
-          disabled={isPlanningInProgress || !featureId || featureStatus === 'investigating'}
+          disabled={isPlanningInProgress || !featureId}
           className={`execution-controls__btn execution-controls__btn--plan ${isPlanningInProgress ? 'execution-controls__btn--planning' : ''}`}
-          title={
-            featureStatus === 'investigating'
-              ? 'Answer PM agent questions first'
-              : isPlanningInProgress
-                ? 'Planning in progress...'
-                : 'Start creating tasks from spec'
-          }
+          title={isPlanningInProgress ? 'Planning in progress...' : 'Start creating tasks from spec'}
         >
           {isPlanningInProgress ? <SpinnerIcon /> : <PlanIcon />}
           {isPlanningInProgress ? 'Planning...' : 'Plan'}
         </button>
       )}
 
-      {/* Play/Pause button */}
+      {/* Play/Pause button - Start All begins auto execution of all ready tasks */}
       <button
         onClick={handlePlayPause}
         disabled={isLoading || !featureId || startButtonState.disabled}
@@ -238,7 +229,7 @@ export default function ExecutionControls({
         title={startButtonState.tooltip}
       >
         {isRunning ? <PauseIcon /> : <PlayIcon />}
-        {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
+        {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start All'}
       </button>
 
       {/* Stop button */}

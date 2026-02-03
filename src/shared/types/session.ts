@@ -7,8 +7,9 @@
 
 /**
  * Agent types supported by the session system.
+ * Note: 'pm' is for PM MCP tool sessions (not a real agent, but sessions track chat history)
  */
-export type AgentType = 'pm' | 'investigation' | 'planning' | 'dev' | 'qa' | 'harness' | 'merge'
+export type AgentType = 'pm' | 'dev' | 'qa' | 'harness' | 'merge'
 
 /**
  * Session types based on what context they're attached to.
@@ -17,6 +18,7 @@ export type SessionType = 'feature' | 'task'
 
 /**
  * Task execution states that can have separate sessions.
+ * Simplified to match the task-centric workflow.
  */
 export type TaskState =
   | 'planning'
@@ -24,8 +26,6 @@ export type TaskState =
   | 'dev_complete'
   | 'in_qa'
   | 'qa_complete'
-  | 'ready_for_merge'
-  | 'merged'
 
 /**
  * Verification result summary for message metadata.
@@ -255,6 +255,6 @@ export interface SessionUpdateEvent {
   sessionId: string
   featureId: string
   taskId?: string
-  action: 'created' | 'message_added' | 'compacted' | 'archived'
+  action: 'ready' | 'message_added' | 'compacted' | 'archived'
   timestamp: string
 }

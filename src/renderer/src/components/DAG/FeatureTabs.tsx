@@ -8,6 +8,14 @@ interface FeatureTabsProps {
   onSelectFeature: (featureId: string) => void
 }
 
+// Status display config
+const STATUS_LABELS: Record<string, string> = {
+  backlog: 'BACKLOG',
+  active: 'ACTIVE',
+  merging: 'MERGING',
+  archived: 'ARCHIVED'
+}
+
 export function FeatureTabs({
   features,
   activeFeatureId,
@@ -20,10 +28,11 @@ export function FeatureTabs({
   return (
     <div className="feature-tabs">
       {features.map((feature) => {
+        const isActive = feature.id === activeFeatureId
         const tabClasses = [
           'feature-tabs__tab',
           `feature-tabs__tab--${feature.status}`,
-          feature.id === activeFeatureId ? 'feature-tabs__tab--active' : ''
+          isActive ? 'feature-tabs__tab--selected' : ''
         ]
           .filter(Boolean)
           .join(' ')
@@ -34,7 +43,10 @@ export function FeatureTabs({
             onClick={() => onSelectFeature(feature.id)}
             className={tabClasses}
           >
-            {feature.name}
+            <span className="feature-tabs__name">{feature.name}</span>
+            <span className={`feature-tabs__status feature-tabs__status--${feature.status}`}>
+              {STATUS_LABELS[feature.status] || feature.status.toUpperCase()}
+            </span>
           </button>
         )
       })}

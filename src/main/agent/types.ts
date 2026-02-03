@@ -37,7 +37,7 @@ export interface AgentQueryOptions {
   prompt: string
   systemPrompt?: string
   allowedTools?: string[]
-  toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'qaAgent' | 'pmAgent' | 'investigationAgent' | 'planningAgent' | 'none'
+  toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'qaAgent' | 'pmAgent' | 'investigationAgent' | 'none'
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
   cwd?: string // Working directory for file operations
   hooks?: AgentHooks // SDK hooks for intercepting tool calls
@@ -45,7 +45,7 @@ export interface AgentQueryOptions {
   // Context options for autoContext
   featureId?: string
   taskId?: string
-  agentType?: 'pm' | 'investigation' | 'planning' | 'harness' | 'task' | 'merge' | 'qa'
+  agentType?: 'pm' | 'investigation' | 'harness' | 'task' | 'merge' | 'qa'
   autoContext?: boolean // If true, auto-build context prompt using buildAgentPrompt()
   // Request priority options for RequestManager
   priority?: RequestPriority // Priority level (defaults to DEV if not specified)

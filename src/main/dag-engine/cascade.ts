@@ -1,7 +1,7 @@
-import type { DAGGraph, TaskStatus } from '@shared/types'
+import type { DAGGraph } from '@shared/types'
 import type { TaskStateChange } from './task-controller'
 import { getTaskDependents, getTaskDependencies } from './topological-sort'
-import { transitionTask, createStateChangeRecord } from './task-controller'
+import { createStateChangeRecord } from './task-controller'
 
 export interface CascadeResult {
   changes: TaskStateChange[]
@@ -9,8 +9,8 @@ export interface CascadeResult {
 }
 
 /**
- * When a task completes, check and update dependent tasks.
- * Dependents may transition from 'blocked' to 'ready_for_dev'.
+ * When a task completes (archives), check and update dependent tasks.
+ * Dependents may have their blocked flag set to false.
  */
 export function cascadeTaskCompletion(completedTaskId: string, graph: DAGGraph): CascadeResult {
   const changes: TaskStateChange[] = []
@@ -21,24 +21,21 @@ export function cascadeTaskCompletion(completedTaskId: string, graph: DAGGraph):
 
   for (const depId of dependentIds) {
     const depTask = graph.nodes.find((n) => n.id === depId)
-    if (!depTask || depTask.status !== 'blocked') continue
+    if (!depTask || !depTask.blocked) continue
 
-    // Check if ALL dependencies are now completed
+    // Check if ALL dependencies are now completed (archived)
     const allDependencies = getTaskDependencies(depId, graph.connections)
     const allMet = allDependencies.every((id) => {
       const task = graph.nodes.find((n) => n.id === id)
-      return task?.status === 'completed'
+      return task?.status === 'done'
     })
 
     if (allMet) {
-      const result = transitionTask(depTask, 'DEPENDENCIES_MET')
-      if (result.success) {
-        changes.push(
-          createStateChangeRecord(depId, result.previousStatus, result.newStatus, 'DEPENDENCIES_MET')
-        )
-      } else if (result.error) {
-        errors.push({ taskId: depId, error: result.error })
-      }
+      const previousStatus = depTask.status
+      depTask.blocked = false
+      changes.push(
+        createStateChangeRecord(depId, previousStatus, depTask.status, 'DEPENDENCIES_MET')
+      )
     }
   }
 
@@ -88,23 +85,20 @@ export function resetTaskAndDependents(taskId: string, graph: DAGGraph): Cascade
     if (!task) continue
 
     // Skip already blocked tasks
-    if (task.status === 'blocked') continue
+    if (task.blocked) continue
 
     const previousStatus = task.status
-    const result = transitionTask(task, 'RESET')
+    task.blocked = true
+    task.status = 'ready'
 
-    if (result.success) {
-      changes.push(createStateChangeRecord(id, previousStatus, result.newStatus, 'RESET'))
-    } else if (result.error) {
-      errors.push({ taskId: id, error: result.error })
-    }
+    changes.push(createStateChangeRecord(id, previousStatus, 'ready', 'REANALYZE'))
   }
 
   return { changes, errors }
 }
 
 /**
- * Recalculates all task statuses based on current dependency state.
+ * Recalculates all task blocked flags based on current dependency state.
  * Useful after loading a graph or making structural changes.
  */
 export function recalculateAllStatuses(graph: DAGGraph): CascadeResult {
@@ -113,31 +107,30 @@ export function recalculateAllStatuses(graph: DAGGraph): CascadeResult {
 
   for (const task of graph.nodes) {
     // Skip active and terminal states
-    if (['in_progress', 'ready_for_qa', 'ready_for_merge', 'completed'].includes(task.status)) {
+    if (['analyzing', 'developing', 'verifying', 'archived'].includes(task.status)) {
       continue
     }
 
     const dependencies = getTaskDependencies(task.id, graph.connections)
 
-    // Check if all dependencies are completed
+    // Check if all dependencies are completed (archived)
     const allMet =
       dependencies.length === 0 ||
       dependencies.every((depId) => {
         const depTask = graph.nodes.find((n) => n.id === depId)
-        return depTask?.status === 'completed'
+        return depTask?.status === 'done'
       })
 
-    const targetStatus: TaskStatus = allMet ? 'ready_for_dev' : 'blocked'
+    const previousBlocked = task.blocked
+    task.blocked = !allMet
 
-    if (task.status !== targetStatus && task.status !== 'failed') {
+    if (previousBlocked !== task.blocked) {
       const previousStatus = task.status
-      task.status = targetStatus
-
       changes.push(
         createStateChangeRecord(
           task.id,
           previousStatus,
-          targetStatus,
+          task.status,
           allMet ? 'DEPENDENCIES_MET' : 'DEPENDENCY_CHANGED'
         )
       )

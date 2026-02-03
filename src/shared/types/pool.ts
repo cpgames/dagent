@@ -49,8 +49,6 @@ export const DEFAULT_MANAGER_CONFIG: FeatureManagerConfig = {
 export interface FeatureQueueEntry {
   /** Feature ID */
   featureId: string
-  /** Target branch to merge back to (captured when feature was started) */
-  targetBranch: string
   /** ISO timestamp when feature was added to queue */
   addedAt: string
   /** Current status of the feature in the queue */
@@ -192,15 +190,15 @@ export interface FeatureManagerPoolStatus {
  * Events emitted by FeatureManager
  */
 export interface FeatureManagerEvents {
-  'feature:started': { featureId: string; targetBranch: string }
-  'feature:prepared': { featureId: string; targetBranch: string }
+  'feature:started': { featureId: string }
+  'feature:prepared': { featureId: string }
   'feature:prep_failed': { featureId: string; error: string }
   'feature:completed': { featureId: string }
-  'feature:merged': { featureId: string; targetBranch: string }
+  'feature:merged': { featureId: string }
   'feature:merge_failed': { featureId: string; error: string }
   'task:started': { featureId: string; taskId: string }
   'task:completed': { featureId: string; taskId: string }
-  'merge:requested': { featureId: string; targetBranch: string }
+  'merge:requested': { featureId: string }
   'queue:updated': { queueLength: number }
 }
 

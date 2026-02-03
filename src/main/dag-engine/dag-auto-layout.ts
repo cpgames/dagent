@@ -21,12 +21,21 @@ const CANVAS_PADDING = 100
 /**
  * Compute automatic layout for a DAG graph.
  * Returns a map of node IDs to their computed positions.
+ *
+ * Preserves user's relative horizontal ordering within each layer:
+ * If user positioned node A to the right of node B, that order is maintained.
  */
 export function computeAutoLayout(graph: DAGGraph): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>()
 
   if (graph.nodes.length === 0) {
     return positions
+  }
+
+  // Build a map of node ID to current position for preserving user ordering
+  const currentPositions = new Map<string, { x: number; y: number }>()
+  for (const node of graph.nodes) {
+    currentPositions.set(node.id, node.position)
   }
 
   // Build adjacency list for incoming edges (dependencies)
@@ -55,18 +64,17 @@ export function computeAutoLayout(graph: DAGGraph): Map<string, { x: number; y: 
     maxLayer = Math.max(maxLayer, layer)
   }
 
-  // Order nodes within each layer to minimize crossings
+  // Order nodes within each layer - preserve user's horizontal ordering
   for (let layer = 0; layer <= maxLayer; layer++) {
     const nodesInLayer = layerGroups.get(layer) || []
-    if (layer > 0 && nodesInLayer.length > 1) {
-      // Order based on average position of parents
-      const parentLayer = layerGroups.get(layer - 1) || []
+    if (nodesInLayer.length > 1) {
+      // Sort by current X position to preserve user's left-to-right ordering
       nodesInLayer.sort((a, b) => {
-        const aParents = incoming.get(a) || []
-        const bParents = incoming.get(b) || []
-        const aAvg = averageIndex(aParents, parentLayer)
-        const bAvg = averageIndex(bParents, parentLayer)
-        return aAvg - bAvg
+        const aPos = currentPositions.get(a)
+        const bPos = currentPositions.get(b)
+        const aX = aPos?.x ?? 0
+        const bX = bPos?.x ?? 0
+        return aX - bX
       })
     }
     layerGroups.set(layer, nodesInLayer)
@@ -154,27 +162,6 @@ function assignLayers(
   }
 
   return layers
-}
-
-/**
- * Calculate average index of parent nodes in their layer.
- * Used for ordering nodes to minimize edge crossings.
- */
-function averageIndex(parentIds: string[], parentLayer: string[]): number {
-  if (parentIds.length === 0) return 0
-
-  let sum = 0
-  let count = 0
-
-  for (const parentId of parentIds) {
-    const idx = parentLayer.indexOf(parentId)
-    if (idx >= 0) {
-      sum += idx
-      count++
-    }
-  }
-
-  return count > 0 ? sum / count : 0
 }
 
 /**

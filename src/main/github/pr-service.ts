@@ -92,7 +92,9 @@ export class PRService {
         args.push('--draft')
       }
 
-      const { stdout } = await execFileAsync('gh', args)
+      // Run gh in the project directory (required for gh to find the repo)
+      const options = req.cwd ? { cwd: req.cwd } : {}
+      const { stdout } = await execFileAsync('gh', args, options)
 
       // gh pr create outputs the PR URL directly
       // Format: https://github.com/owner/repo/pull/123

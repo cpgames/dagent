@@ -176,11 +176,18 @@ export function ProjectSelectionDialog({
             <h3 className="project-selection-dialog__section-title">Recent Projects</h3>
             <div className="project-selection-dialog__recent-list">
               {recentProjects.map((project) => (
-                <button
+                <div
                   key={project.path}
-                  onClick={() => handleOpenRecent(project.path)}
-                  disabled={isLoading}
-                  className="project-selection-dialog__recent-item"
+                  onClick={() => !isLoading && handleOpenRecent(project.path)}
+                  role="button"
+                  tabIndex={isLoading ? -1 : 0}
+                  onKeyDown={(e) => {
+                    if (!isLoading && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault()
+                      handleOpenRecent(project.path)
+                    }
+                  }}
+                  className={`project-selection-dialog__recent-item ${isLoading ? 'project-selection-dialog__recent-item--disabled' : ''}`}
                 >
                   <FolderIcon className="project-selection-dialog__recent-icon" />
                   <div className="project-selection-dialog__recent-info">
@@ -196,7 +203,7 @@ export function ProjectSelectionDialog({
                   >
                     <XIcon className="project-selection-dialog__remove-icon" />
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           </div>

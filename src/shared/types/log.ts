@@ -12,7 +12,7 @@ export type LogEntryType =
   | 'task_failed'
   | 'info'
   | 'warning';
-export type AgentType = 'harness' | 'task' | 'merge' | 'pm';
+export type AgentType = 'pm' | 'task' | 'merge' | 'qa' | 'orchestrator';
 
 export interface LogEntry {
   timestamp: string;

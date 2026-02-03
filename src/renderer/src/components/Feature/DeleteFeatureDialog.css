@@ -31,14 +31,3 @@
   font-weight: 500;
   margin-bottom: var(--space-xs);
 }
-
-.delete-feature-dialog__option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.delete-feature-dialog__option-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}

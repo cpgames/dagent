@@ -56,6 +56,22 @@
   color: var(--text-primary);
   line-height: 1.6;
   font-size: 0.875rem;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Preformatted text (ASCII diagrams, etc.) */
+.chat-message__content pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  overflow-x: auto;
+  margin: var(--space-sm) 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre;
 }
 
 /* Markdown elements */

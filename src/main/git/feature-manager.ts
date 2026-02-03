@@ -21,7 +21,7 @@ import type {
 } from '../../shared/types/pool'
 import { getMergeManager } from '../services/merge-manager'
 import type { MergeOperationResult } from '../services/merge-types'
-import { getFeatureStatusManager } from '../ipc/feature-handlers'
+import { getGitManager } from './git-manager'
 
 /**
  * FeatureManager class - manages feature queue for a single worktree
@@ -59,22 +59,13 @@ export class FeatureManager extends EventEmitter {
   private setupMergeManagerListeners(): void {
     const mergeManager = getMergeManager()
 
-    // Listen for merge started to transition needs_merging → merging
+    // Listen for merge started events
     mergeManager.on('merge:started', ({ request }: { request: { id: string; featureId: string } }) => {
       // Only handle our pending request
       if (request.id !== this.state.pendingMergeRequestId) {
         return
       }
-
-      // Transition feature status: needs_merging → merging
-      const statusManager = getFeatureStatusManager()
-      statusManager.updateFeatureStatus(request.featureId, 'merging')
-        .then(() => {
-          console.log(`[FeatureManager:${this.state.featureManagerId}] Feature ${request.featureId} status: merging`)
-        })
-        .catch((error) => {
-          console.error(`[FeatureManager:${this.state.featureManagerId}] Failed to update feature status to merging:`, error)
-        })
+      console.log(`[FeatureManager:${this.state.featureManagerId}] Merge started for feature ${request.featureId}`)
     })
 
     mergeManager.on('merge:completed', (result: MergeOperationResult) => {
@@ -98,7 +89,7 @@ export class FeatureManager extends EventEmitter {
       if (result.success) {
         console.log(`[FeatureManager:${this.state.featureManagerId}] Preparation merge completed for ${featureId}`)
         this.state.status = 'executing'
-        this.emit('feature:prepared', { featureId: featureId!, targetBranch: this.state.currentFeature?.targetBranch || '' })
+        this.emit('feature:prepared', { featureId: featureId! })
       } else {
         console.error(`[FeatureManager:${this.state.featureManagerId}] Preparation merge failed for ${featureId}:`, result.error)
         this.state.status = 'preparing'
@@ -173,10 +164,9 @@ export class FeatureManager extends EventEmitter {
    * Add a feature to the queue
    * @returns Queue position (0 if immediately active, 1+ if queued)
    */
-  enqueue(featureId: string, targetBranch: string): number {
+  enqueue(featureId: string): number {
     const entry: FeatureQueueEntry = {
       featureId,
-      targetBranch,
       addedAt: new Date().toISOString(),
       status: 'queued'
     }
@@ -262,14 +252,15 @@ export class FeatureManager extends EventEmitter {
 
     console.log(`[FeatureManager:${this.state.featureManagerId}] Starting feature ${nextEntry.featureId}`)
 
-    this.emit('feature:started', {
-      featureId: nextEntry.featureId,
-      targetBranch: nextEntry.targetBranch
-    })
+    this.emit('feature:started', { featureId: nextEntry.featureId })
     this.emit('queue:updated', { queueLength: this.state.queue.length })
 
+    // Get current branch for preparation merge
+    const gitManager = getGitManager()
+    const targetBranch = await gitManager.getCurrentBranch()
+
     // Request preparation merge: target → manager
-    await this.requestPreparationMerge(nextEntry.featureId, nextEntry.targetBranch)
+    await this.requestPreparationMerge(nextEntry.featureId, targetBranch)
 
     return true
   }
@@ -362,7 +353,10 @@ export class FeatureManager extends EventEmitter {
     }
 
     const featureId = this.state.currentFeature.featureId
-    const targetBranch = this.state.currentFeature.targetBranch
+
+    // Get current branch for completion merge
+    const gitManager = getGitManager()
+    const targetBranch = await gitManager.getCurrentBranch()
 
     this.state.status = 'waiting_for_completion_merge'
     this.state.currentTaskId = null
@@ -404,7 +398,7 @@ export class FeatureManager extends EventEmitter {
       console.log(`[FeatureManager:${this.state.featureManagerId}] Submitted completion merge request ${request.id}`)
 
       // Emit legacy event for compatibility
-      this.emit('merge:requested', { featureId, targetBranch })
+      this.emit('merge:requested', { featureId })
     } catch (error) {
       console.error(`[FeatureManager:${this.state.featureManagerId}] Failed to submit completion merge:`, error)
       this.state.status = 'merging'
@@ -415,7 +409,7 @@ export class FeatureManager extends EventEmitter {
   /**
    * Finish the current feature after merge completes
    *
-   * Status flow: merging → archived (merge succeeded)
+   * Status flow: Feature stays in 'merging' - user must manually archive
    */
   private async finishCurrentFeature(success: boolean): Promise<void> {
     if (!this.state.currentFeature) {
@@ -425,20 +419,11 @@ export class FeatureManager extends EventEmitter {
     const featureId = this.state.currentFeature.featureId
 
     if (success) {
-      const targetBranch = this.state.currentFeature.targetBranch
       this.state.currentFeature.status = 'completed'  // Internal queue status
       console.log(`[FeatureManager:${this.state.featureManagerId}] Feature ${featureId} merge completed successfully`)
+      // Feature stays in 'merging' status - user must manually archive
 
-      // Update feature status: merging → archived
-      const statusManager = getFeatureStatusManager()
-      try {
-        await statusManager.updateFeatureStatus(featureId, 'archived')
-        console.log(`[FeatureManager:${this.state.featureManagerId}] Feature ${featureId} status: archived`)
-      } catch (error) {
-        console.error(`[FeatureManager:${this.state.featureManagerId}] Failed to update feature status:`, error)
-      }
-
-      this.emit('feature:merged', { featureId, targetBranch })
+      this.emit('feature:merged', { featureId })
     }
 
     // Clear current feature

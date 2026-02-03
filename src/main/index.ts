@@ -4,11 +4,9 @@ import { createWindow } from './window'
 import { registerIpcHandlers } from './ipc/handlers'
 import { getAuthManager } from './auth'
 import { getGitManager } from './git'
-import { initializeStorage, getFeatureStore } from './ipc/storage-handlers'
+import { initializeStorage } from './ipc/storage-handlers'
 import { setHistoryProjectRoot } from './ipc/history-handlers'
 import { initializeSettingsStore } from './storage/settings-store'
-import { FeatureStatusManager } from './services/feature-status-manager'
-import { EventEmitter } from 'events'
 // TODO: Agent Process Manager - Orchestrate AI agent processes
 
 /**
@@ -108,28 +106,6 @@ app.whenReady().then(async () => {
     initializeSettingsStore(projectRoot)
   }
 
-  // Run migration for feature statuses (not_started → planning)
-  // This is a one-time migration that's idempotent
-  try {
-    const featureStore = getFeatureStore()
-    if (featureStore) {
-      const eventEmitter = new EventEmitter()
-      const statusManager = new FeatureStatusManager(featureStore, eventEmitter)
-      const migratedCount = await statusManager.migrateExistingFeatures()
-      if (migratedCount > 0) {
-        console.log(`[DAGent] Migrated ${migratedCount} feature(s) to new status types`)
-      }
-
-      // Recover features stuck in 'planning' status (happens when app closed during planning)
-      const recoveredCount = await statusManager.recoverStuckPlanningFeatures()
-      if (recoveredCount > 0) {
-        console.log(`[DAGent] Recovered ${recoveredCount} feature(s) stuck in planning`)
-      }
-    }
-  } catch (error) {
-    console.error('[DAGent] Feature status migration/recovery failed:', error)
-    // Don't block app startup on migration failure
-  }
 
   // Initialize auth manager (non-blocking)
   const auth = getAuthManager()

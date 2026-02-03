@@ -1,11 +1,23 @@
 /**
  * Types for FeatureMergeAgent - handles merging completed features into main branch.
- * Different from MergeAgent which handles task-to-feature merges.
  */
 
 import type { MergeConflict } from '../git/types'
-import type { IntentionDecision } from './harness-types'
-import type { ConflictAnalysis } from './merge-types'
+import type { IntentionDecision } from './dev-types'
+
+/**
+ * Analysis of merge conflicts for AI-assisted resolution.
+ */
+export interface ConflictAnalysis {
+  autoResolvable: boolean
+  recommendation: string
+  conflictDetails: {
+    file: string
+    analysis: string
+    suggestedResolution: 'ours' | 'theirs' | 'both' | 'manual'
+  }[]
+  suggestions: string[]
+}
 
 export type FeatureMergeAgentStatus =
   | 'initializing'

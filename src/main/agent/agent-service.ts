@@ -56,8 +56,8 @@ export class AgentService {
       priority = options.priority
     } else if (options.agentType === 'pm') {
       priority = RequestPriority.PM
-    } else if (options.agentType === 'harness') {
-      priority = RequestPriority.HARNESS_DEV // Default for harness, specific routing handled later
+    } else if (options.agentType === 'investigation') {
+      priority = RequestPriority.PM // Investigation is PM-like activity
     } else if (options.agentType === 'merge') {
       priority = RequestPriority.MERGE
     } else if (options.agentType === 'qa') {
@@ -119,14 +119,12 @@ export class AgentService {
         return
       }
 
-      // Check if PM tools are needed (PM, investigation, and planning agents all use PM MCP tools)
+      // Check if PM tools are needed (PM and investigation agents use PM MCP tools)
       const needsPMTools =
         options.toolPreset === 'pmAgent' ||
         options.toolPreset === 'investigationAgent' ||
-        options.toolPreset === 'planningAgent' ||
         options.agentType === 'pm' ||
-        options.agentType === 'investigation' ||
-        options.agentType === 'planning'
+        options.agentType === 'investigation'
 
       // Resolve tools from preset or explicit list
       let tools =

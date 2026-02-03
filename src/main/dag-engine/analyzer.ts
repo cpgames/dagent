@@ -2,8 +2,8 @@ import type { DAGGraph, Task, TaskStatus } from '@shared/types'
 import type { DAGAnalysis, TaskDependencies } from './types'
 import { topologicalSort, getTaskDependencies, getTaskDependents } from './topological-sort'
 
-const COMPLETED_STATUSES: TaskStatus[] = ['completed']
-const ACTIVE_STATUSES: TaskStatus[] = ['in_progress', 'ready_for_qa', 'ready_for_merge']
+const COMPLETED_STATUSES: TaskStatus[] = ['done']
+const ACTIVE_STATUSES: TaskStatus[] = ['analyzing', 'developing', 'verifying']
 
 /**
  * Analyzes a DAG to determine task dependencies and ready/blocked states.
@@ -73,7 +73,7 @@ export function analyzeDAG(graph: DAGGraph): DAGAnalysis {
  */
 export function getReadyTasks(graph: DAGGraph): Task[] {
   const analysis = analyzeDAG(graph)
-  return graph.nodes.filter((n) => analysis.readyTasks.includes(n.id) && n.status === 'ready_for_dev')
+  return graph.nodes.filter((n) => analysis.readyTasks.includes(n.id) && !n.blocked)
 }
 
 /**
@@ -84,38 +84,38 @@ export function isTaskReady(taskId: string, graph: DAGGraph): boolean {
   if (!task) return false
 
   // Already active or completed
-  if (['in_progress', 'ready_for_qa', 'ready_for_merge', 'completed'].includes(task.status)) {
+  if (['analyzing', 'developing', 'verifying', 'archived'].includes(task.status)) {
     return false
   }
 
-  // Check all dependencies are completed
+  // Check all dependencies are completed (archived)
   const dependencies = getTaskDependencies(taskId, graph.connections)
   return dependencies.every((depId) => {
     const depTask = graph.nodes.find((n) => n.id === depId)
-    return depTask?.status === 'completed'
+    return depTask?.status === 'done'
   })
 }
 
 /**
  * Updates task statuses based on dependency state.
- * Returns tasks whose status changed from blocked to ready.
+ * Returns tasks whose blocked flag changed from true to false.
  */
 export function updateTaskStatuses(graph: DAGGraph): string[] {
   const newlyReady: string[] = []
 
   for (const node of graph.nodes) {
     // Only update blocked tasks
-    if (node.status !== 'blocked') continue
+    if (!node.blocked) continue
 
-    // Check if all dependencies are now completed
+    // Check if all dependencies are now completed (archived)
     const dependencies = getTaskDependencies(node.id, graph.connections)
     const allCompleted = dependencies.every((depId) => {
       const depTask = graph.nodes.find((n) => n.id === depId)
-      return depTask?.status === 'completed'
+      return depTask?.status === 'done'
     })
 
     if (allCompleted) {
-      node.status = 'ready_for_dev'
+      node.blocked = false
       newlyReady.push(node.id)
     }
   }

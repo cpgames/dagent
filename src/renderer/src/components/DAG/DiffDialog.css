@@ -1,0 +1,225 @@
+/**
+ * DiffDialog Component Styles
+ * Draggable, resizable window for viewing commit diffs
+ */
+
+.diff-dialog {
+  position: fixed;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+/* Resize handles */
+.diff-dialog__resize {
+  position: absolute;
+  z-index: 10;
+}
+
+.diff-dialog__resize--n {
+  top: -4px;
+  left: 8px;
+  right: 8px;
+  height: 8px;
+  cursor: n-resize;
+}
+
+.diff-dialog__resize--s {
+  bottom: -4px;
+  left: 8px;
+  right: 8px;
+  height: 8px;
+  cursor: s-resize;
+}
+
+.diff-dialog__resize--e {
+  top: 8px;
+  right: -4px;
+  bottom: 8px;
+  width: 8px;
+  cursor: e-resize;
+}
+
+.diff-dialog__resize--w {
+  top: 8px;
+  left: -4px;
+  bottom: 8px;
+  width: 8px;
+  cursor: w-resize;
+}
+
+.diff-dialog__resize--ne {
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: ne-resize;
+}
+
+.diff-dialog__resize--nw {
+  top: -4px;
+  left: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: nw-resize;
+}
+
+.diff-dialog__resize--se {
+  bottom: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: se-resize;
+}
+
+.diff-dialog__resize--sw {
+  bottom: -4px;
+  left: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: sw-resize;
+}
+
+/* Header */
+.diff-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  cursor: move;
+}
+
+.diff-dialog__title-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  flex: 1;
+}
+
+.diff-dialog__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.diff-dialog__commit-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.8125rem;
+  flex-wrap: wrap;
+}
+
+.diff-dialog__hash {
+  font-family: var(--font-mono);
+  color: var(--color-success);
+  background: rgba(0, 255, 136, 0.1);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.diff-dialog__message {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+.diff-dialog__meta {
+  color: var(--text-muted);
+}
+
+.diff-dialog__close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  margin-left: var(--space-md);
+}
+
+.diff-dialog__close-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.diff-dialog__close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Content */
+.diff-dialog__content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Loading state */
+.diff-dialog__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  height: 100%;
+  color: var(--text-muted);
+}
+
+.diff-dialog__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: diff-spin 1s linear infinite;
+}
+
+@keyframes diff-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state */
+.diff-dialog__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 100%;
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.diff-dialog__error-icon {
+  font-size: 1.25rem;
+}
+
+/* Iframe for isolated diff content */
+.diff-dialog__iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #1a1a2e;
+}

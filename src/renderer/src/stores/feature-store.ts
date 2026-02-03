@@ -39,32 +39,29 @@ export function subscribeToFeatureStatusChanges(): void {
     return;
   }
 
-  statusChangeCleanup = window.electronAPI.feature.onStatusChanged((data) => {
-    console.log(`[FeatureStore] Received status change event: ${data.featureId} -> ${data.status}`);
+  statusChangeCleanup = window.electronAPI.feature.onStatusChanged(async (data) => {
     const store = useFeatureStore.getState();
-    const existingFeature = store.features.find(f => f.id === data.featureId);
-    if (existingFeature) {
-      store.updateFeature(data.featureId, { status: data.status as FeatureStatus });
-      console.log(`[FeatureStore] Updated feature ${data.featureId}: ${existingFeature.status} -> ${data.status}`);
+    // Reload the full feature from backend to get all updated fields (branch, worktreePath, etc.)
+    const updatedFeature = await window.electronAPI.storage.loadFeature(data.featureId);
+    if (updatedFeature) {
+      store.updateFeature(data.featureId, updatedFeature);
     } else {
-      console.log(`[FeatureStore] Feature ${data.featureId} not found in store, reloading features...`);
       store.loadFeatures();
     }
   });
 
-  // Subscribe to manager assignment events to update the manager badge
+  // Subscribe to worktree assignment events to update the worktree badge
   managerAssignedCleanup = window.electronAPI.feature.onManagerAssigned((data) => {
-    console.log(`[FeatureStore] Received manager assigned event: ${data.featureId} -> manager ${data.featureManagerId} (queue ${data.queuePosition})`);
+    // Map featureManagerId to worktreeId
+    const worktreeIdMap = { 1: 'neon', 2: 'cyber', 3: 'pulse' } as const;
+    const worktreeId = worktreeIdMap[data.featureManagerId as 1 | 2 | 3] || undefined;
     const store = useFeatureStore.getState();
     const existingFeature = store.features.find(f => f.id === data.featureId);
     if (existingFeature) {
       store.updateFeature(data.featureId, {
-        featureManagerId: data.featureManagerId,
-        queuePosition: data.queuePosition
+        worktreeId: worktreeId as 'neon' | 'cyber' | 'pulse' | undefined
       });
-      console.log(`[FeatureStore] Updated feature ${data.featureId} with manager ${data.featureManagerId}`);
     } else {
-      console.log(`[FeatureStore] Feature ${data.featureId} not found in store, reloading features...`);
       store.loadFeatures();
     }
   });
@@ -109,39 +106,22 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
   setError: (error) => set({ error }),
 
   loadFeatures: async () => {
-    console.log('[FeatureStore] loadFeatures called');
     set({ isLoading: true, error: null });
     try {
-      console.log('[FeatureStore] Calling listFeatures...');
       const featureIds = await window.electronAPI.storage.listFeatures();
-      console.log('[FeatureStore] listFeatures returned:', featureIds, 'type:', typeof featureIds);
-
       const features: Feature[] = [];
-      console.log('[FeatureStore] features array initialized:', Array.isArray(features));
 
-      // Guard against undefined/null featureIds
       if (featureIds) {
-        console.log('[FeatureStore] featureIds is truthy, iterating...');
         for (const id of featureIds) {
-          console.log('[FeatureStore] Loading feature:', id);
           const feature = await window.electronAPI.storage.loadFeature(id);
-          console.log('[FeatureStore] Loaded feature:', feature);
           if (feature) {
-            console.log('[FeatureStore] Pushing feature to array...');
             features.push(feature);
-            console.log('[FeatureStore] features.length after push:', features.length);
           }
         }
-      } else {
-        console.log('[FeatureStore] featureIds is falsy, skipping iteration');
       }
 
-      console.log('[FeatureStore] Setting features state with:', features);
       set({ features, isLoading: false });
-      console.log('[FeatureStore] loadFeatures completed successfully');
     } catch (error) {
-      console.error('[FeatureStore] loadFeatures error:', error);
-      console.error('[FeatureStore] Error stack:', (error as Error).stack);
       const message = (error as Error).message;
       set({ error: message, isLoading: false });
       toast.error(`Failed to load features: ${message}`);

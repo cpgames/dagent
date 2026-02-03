@@ -1,0 +1,6 @@
+export { AnalyzingManager } from './analyzing-manager'
+export { DevelopingManager } from './developing-manager'
+export { DevelopingPausedManager } from './developing-paused-manager'
+export { VerifyingManager } from './verifying-manager'
+export { VerifyingPausedManager } from './verifying-paused-manager'
+export { DoneTaskManager } from './archived-manager'

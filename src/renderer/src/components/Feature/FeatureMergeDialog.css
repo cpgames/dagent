@@ -3,11 +3,26 @@
  * Merge/PR dialog with progress states
  */
 
+/* Fixed height dialog */
+.merge-dialog {
+  height: 80vh;
+}
+
+/* Make dialog body a flex container for PR form stretching */
+.merge-dialog__body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* No scroll on body - textarea handles its own scroll */
+  flex: 1; /* Stretch to fill dialog */
+  height: auto; /* Override fixed 60vh from base dialog */
+}
+
 .merge-dialog__feature-info {
   padding: var(--space-md);
   background: var(--bg-hover);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-md);
+  flex-shrink: 0;
 }
 
 .merge-dialog__feature-name {
@@ -24,6 +39,25 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.merge-dialog__branch-source {
+  color: var(--accent-secondary);
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+.merge-dialog__branch-arrow {
+  color: var(--text-muted);
+}
+
+.merge-dialog__branch-target {
+  color: var(--accent-primary);
+  font-weight: 500;
+  font-family: var(--font-mono);
 }
 
 /* Options section */
@@ -32,6 +66,7 @@
   flex-direction: column;
   gap: var(--space-md);
   margin-bottom: var(--space-md);
+  flex-shrink: 0;
 }
 
 .merge-dialog__field {
@@ -81,7 +116,29 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  margin-bottom: var(--space-md);
+  flex: 1;
+  min-height: 0;
+}
+
+.merge-dialog__pr-form .merge-dialog__field:last-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.merge-dialog__pr-form .merge-dialog__field:last-child .ui-textarea-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.merge-dialog__pr-form .merge-dialog__field:last-child textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  overflow-y: auto;
 }
 
 /* Status messages */
@@ -89,6 +146,7 @@
   padding: var(--space-md);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-md);
+  flex-shrink: 0;
 }
 
 .merge-dialog__status--processing {
@@ -139,4 +197,10 @@
 .merge-dialog__pr-link:hover {
   color: var(--accent-primary);
   filter: brightness(1.2);
+}
+
+.merge-dialog__generating {
+  font-weight: normal;
+  font-style: italic;
+  color: var(--text-muted);
 }

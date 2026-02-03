@@ -1,49 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
+import { FeatureCard } from '../components/Kanban';
 import type { Feature } from '@shared/types';
 import type { FeatureManagerInfo, FeatureManagerPoolStatus, MergeQueueEntry } from '@shared/types/pool';
-import type { TokenStatus } from '../../../preload/index.d';
 import { getFeatureManagerName } from '@shared/types/pool';
 import './WorktreesView.css';
-
-/**
- * Token status card showing worktree token ownership.
- */
-interface TokenStatusCardProps {
-  tokens: TokenStatus[];
-}
-
-function TokenStatusCard({ tokens }: TokenStatusCardProps) {
-  return (
-    <div className="token-status">
-      <h3 className="token-status__title">Token Status</h3>
-      <div className="token-status__grid">
-        {tokens.map((token) => (
-          <div
-            key={token.worktreeId}
-            className={`token-status__item ${token.available ? 'token-status__item--available' : 'token-status__item--held'}`}
-          >
-            <div className="token-status__header">
-              <span className="token-status__id">Worktree {token.worktreeId}</span>
-              <span className={`token-status__indicator ${token.available ? '' : 'token-status__indicator--active'}`} />
-            </div>
-            <div className="token-status__details">
-              <span className="token-status__holder">
-                {token.available ? 'Available' : token.holder || 'Unknown'}
-              </span>
-              {token.pendingCount > 0 && (
-                <span className="token-status__pending">
-                  {token.pendingCount} waiting
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /**
  * Manager card component displaying a single feature manager with its features.
@@ -87,27 +49,6 @@ function ManagerCard({ manager, features, onSelectFeature }: ManagerCardProps) {
     }
   };
 
-  // Get feature status badge color
-  const getFeatureStatusColor = (status: string) => {
-    switch (status) {
-      case 'investigating':
-      case 'ready_for_planning':
-        return 'var(--accent-primary)';
-      case 'planning':
-        return 'var(--accent-secondary)';
-      case 'ready':
-      case 'developing':
-        return 'var(--color-success)';
-      case 'needs_merging':
-      case 'merging':
-        return 'var(--color-warning)';
-      case 'creating_worktree':
-        return 'var(--accent-secondary)';
-      default:
-        return 'var(--text-muted)';
-    }
-  };
-
   return (
     <div className="pool-card">
       {/* Manager Header */}
@@ -136,25 +77,13 @@ function ManagerCard({ manager, features, onSelectFeature }: ManagerCardProps) {
             <span className="pool-card__empty-text">No features assigned</span>
           </div>
         ) : (
-          features.map((feature, index) => (
-            <button
+          features.map((feature) => (
+            <FeatureCard
               key={feature.id}
-              className="pool-card__feature"
-              onClick={() => onSelectFeature(feature.id)}
-            >
-              <div className="pool-card__feature-header">
-                <span className="pool-card__feature-position">
-                  {index === 0 ? 'Active' : `Queue #${index}`}
-                </span>
-                <span
-                  className="pool-card__feature-status"
-                  style={{ color: getFeatureStatusColor(feature.status) }}
-                >
-                  {feature.status.replace(/_/g, ' ')}
-                </span>
-              </div>
-              <span className="pool-card__feature-name">{feature.name}</span>
-            </button>
+              feature={feature}
+              onSelect={onSelectFeature}
+              isDragDisabled
+            />
           ))
         )}
       </div>
@@ -219,7 +148,6 @@ export default function WorktreesView() {
 
   const [poolStatus, setPoolStatus] = useState<FeatureManagerPoolStatus | null>(null);
   const [mergeQueue, setMergeQueue] = useState<MergeQueueEntry[]>([]);
-  const [tokenStatus, setTokenStatus] = useState<TokenStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch pool status and token status
@@ -230,12 +158,6 @@ export default function WorktreesView() {
 
       const queue = await window.electronAPI.pool.getMergeQueue();
       setMergeQueue(queue);
-
-      // Fetch token status
-      if (window.electronAPI.managers?.getTokenStatus) {
-        const tokens = await window.electronAPI.managers.getTokenStatus();
-        setTokenStatus(tokens);
-      }
     } catch (error) {
       console.error('Failed to fetch pool status:', error);
     } finally {
@@ -274,9 +196,12 @@ export default function WorktreesView() {
     setView('dag');
   };
 
-  // Get features assigned to a specific manager
+  // Get features assigned to a specific manager (excludes archived)
   const getFeaturesForManager = (featureManagerId: number): Feature[] => {
-    return features.filter(f => f.featureManagerId === featureManagerId);
+    // Map featureManagerId to worktreeId
+    const managerIdToWorktreeId = { 1: 'neon', 2: 'cyber', 3: 'pulse' } as const;
+    const worktreeId = managerIdToWorktreeId[featureManagerId as 1 | 2 | 3];
+    return features.filter(f => f.worktreeId === worktreeId && f.status !== 'archived');
   };
 
   // Loading state
@@ -363,11 +288,6 @@ export default function WorktreesView() {
 
       {/* Merge Queue Section */}
       <MergeQueueSection mergeQueue={mergeQueue} features={features} />
-
-      {/* Token Status Section (Debug) */}
-      {tokenStatus.length > 0 && (
-        <TokenStatusCard tokens={tokenStatus} />
-      )}
     </div>
   );
 }

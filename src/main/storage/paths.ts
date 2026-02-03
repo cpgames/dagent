@@ -4,9 +4,10 @@ import { promises as fs } from 'fs';
 /**
  * Path utilities for .dagent storage structure.
  *
- * Features have two storage locations:
- * 1. Pending features (status: not_started): .dagent/features/{featureId}/
+ * Features have three storage locations:
+ * 1. Backlog features (status: backlog): .dagent/features/backlog/{featureId}/
  * 2. Active features (in manager worktree): .dagent-worktrees/{managerName}/.dagent/features/{featureId}/
+ * 3. Archived features (status: archived): .dagent/features/archived/{featureId}/
  *
  * Manager worktrees are named: neon, cyber, pulse (pool of 3)
  */
@@ -124,72 +125,138 @@ export function getSessionsDirInWorktree(managerWorktreePath: string, featureId:
 }
 
 // ============================================================================
-// Pending Feature Paths (for features without worktrees, status: not_started)
+// Backlog Feature Paths (for features without worktrees, status: backlog)
 // ============================================================================
 
 /**
- * Get the root directory for all pending features.
- * Location: {projectRoot}/.dagent/features/
+ * Get the root directory for all backlog features.
+ * Location: {projectRoot}/.dagent/features/backlog/
  */
-export function getPendingFeaturesDir(projectRoot: string): string {
-  return path.join(projectRoot, '.dagent', 'features');
+export function getBacklogFeaturesDir(projectRoot: string): string {
+  return path.join(projectRoot, '.dagent', 'features', 'backlog');
 }
 
 /**
- * Get the directory for a specific pending feature.
- * Location: {projectRoot}/.dagent/features/{featureId}/
+ * Get the directory for a specific backlog feature.
+ * Location: {projectRoot}/.dagent/features/backlog/{featureId}/
  */
-export function getPendingFeatureDir(projectRoot: string, featureId: string): string {
-  return path.join(getPendingFeaturesDir(projectRoot), featureId);
+export function getBacklogFeatureDir(projectRoot: string, featureId: string): string {
+  return path.join(getBacklogFeaturesDir(projectRoot), featureId);
 }
 
 /**
- * Get the path to feature.json for a pending feature.
- * Location: {projectRoot}/.dagent/features/{featureId}/feature.json
+ * Get the path to feature.json for a backlog feature.
+ * Location: {projectRoot}/.dagent/features/backlog/{featureId}/feature.json
  */
-export function getPendingFeaturePath(projectRoot: string, featureId: string): string {
-  return path.join(getPendingFeatureDir(projectRoot, featureId), 'feature.json');
+export function getBacklogFeaturePath(projectRoot: string, featureId: string): string {
+  return path.join(getBacklogFeatureDir(projectRoot, featureId), 'feature.json');
 }
 
 /**
- * Get the path to dag.json for a pending feature.
- * Location: {projectRoot}/.dagent/features/{featureId}/dag.json
+ * Get the path to dag.json for a backlog feature.
+ * Location: {projectRoot}/.dagent/features/backlog/{featureId}/dag.json
  */
-export function getPendingDagPath(projectRoot: string, featureId: string): string {
-  return path.join(getPendingFeatureDir(projectRoot, featureId), 'dag.json');
+export function getBacklogDagPath(projectRoot: string, featureId: string): string {
+  return path.join(getBacklogFeatureDir(projectRoot, featureId), 'dag.json');
 }
 
 /**
- * Get the attachments directory for a pending feature.
- * Location: {projectRoot}/.dagent/features/{featureId}/attachments/
+ * Get the attachments directory for a backlog feature.
+ * Location: {projectRoot}/.dagent/features/backlog/{featureId}/attachments/
  */
-export function getPendingAttachmentsDir(projectRoot: string, featureId: string): string {
-  return path.join(getPendingFeatureDir(projectRoot, featureId), 'attachments');
+export function getBacklogAttachmentsDir(projectRoot: string, featureId: string): string {
+  return path.join(getBacklogFeatureDir(projectRoot, featureId), 'attachments');
 }
 
 /**
- * Get the sessions directory for a pending feature.
- * Location: {projectRoot}/.dagent/features/{featureId}/sessions/
+ * Get the sessions directory for a backlog feature.
+ * Location: {projectRoot}/.dagent/features/backlog/{featureId}/sessions/
  */
-export function getPendingSessionsDir(projectRoot: string, featureId: string): string {
-  return path.join(getPendingFeatureDir(projectRoot, featureId), 'sessions');
+export function getBacklogSessionsDir(projectRoot: string, featureId: string): string {
+  return path.join(getBacklogFeatureDir(projectRoot, featureId), 'sessions');
 }
+
+// Aliases for backward compatibility
+export const getPendingFeaturesDir = getBacklogFeaturesDir;
+export const getPendingFeatureDir = getBacklogFeatureDir;
+export const getPendingFeaturePath = getBacklogFeaturePath;
+export const getPendingDagPath = getBacklogDagPath;
+export const getPendingAttachmentsDir = getBacklogAttachmentsDir;
+export const getPendingSessionsDir = getBacklogSessionsDir;
 
 // ============================================================================
-// Other Paths
+// Archived Feature Paths
 // ============================================================================
 
 /**
  * Get the root directory for archived features.
- * Location: {projectRoot}/.dagent-archived/
+ * Location: {projectRoot}/.dagent/features/archived/
  */
-export function getArchivedDir(projectRoot: string): string {
-  return path.join(projectRoot, '.dagent-archived');
+export function getArchivedFeaturesDir(projectRoot: string): string {
+  return path.join(projectRoot, '.dagent', 'features', 'archived');
 }
 
 /**
- * Get the path to agents.json for agent configurations.
+ * Get the directory for a specific archived feature.
+ * Location: {projectRoot}/.dagent/features/archived/{featureId}/
+ */
+export function getArchivedFeatureDir(projectRoot: string, featureId: string): string {
+  return path.join(getArchivedFeaturesDir(projectRoot), featureId);
+}
+
+/**
+ * Get the path to feature.json for an archived feature.
+ * Location: {projectRoot}/.dagent/features/archived/{featureId}/feature.json
+ */
+export function getArchivedFeaturePath(projectRoot: string, featureId: string): string {
+  return path.join(getArchivedFeatureDir(projectRoot, featureId), 'feature.json');
+}
+
+/**
+ * Get the path to dag.json for an archived feature.
+ * Location: {projectRoot}/.dagent/features/archived/{featureId}/dag.json
+ */
+export function getArchivedDagPath(projectRoot: string, featureId: string): string {
+  return path.join(getArchivedFeatureDir(projectRoot, featureId), 'dag.json');
+}
+
+// Legacy alias - use getArchivedFeaturesDir instead
+export function getArchivedDir(projectRoot: string): string {
+  return getArchivedFeaturesDir(projectRoot);
+}
+
+// ============================================================================
+// Agent Configuration Paths
+// ============================================================================
+
+/**
+ * Get the directory for agent configurations.
+ * Location: {projectRoot}/.dagent/agents/
+ */
+export function getAgentsDir(projectRoot: string): string {
+  return path.join(projectRoot, '.dagent', 'agents');
+}
+
+/**
+ * Get the path to a specific agent's configuration file.
+ * Location: {projectRoot}/.dagent/agents/{role}.json
+ */
+export function getAgentConfigPath(projectRoot: string, role: string): string {
+  return path.join(getAgentsDir(projectRoot), `${role}.json`);
+}
+
+/**
+ * Ensure the .dagent/agents/ directory exists.
+ */
+export async function ensureAgentsDir(projectRoot: string): Promise<void> {
+  const agentsDir = getAgentsDir(projectRoot);
+  await fs.mkdir(agentsDir, { recursive: true });
+}
+
+/**
+ * Legacy: Get the path to agents.json for agent configurations.
  * Location: {projectRoot}/.dagent/agents.json
+ * @deprecated Use getAgentConfigPath instead for per-agent configs
  */
 export function getAgentConfigsPath(projectRoot: string): string {
   return path.join(projectRoot, '.dagent', 'agents.json');
@@ -209,10 +276,22 @@ export async function ensureDagentStructure(projectRoot: string): Promise<void> 
 }
 
 /**
- * Ensure the .dagent/features/ directory exists.
+ * Ensure the .dagent/features/backlog/ directory exists.
  * Creates the directory if it doesn't exist.
  */
-export async function ensurePendingFeaturesDir(projectRoot: string): Promise<void> {
-  const pendingDir = getPendingFeaturesDir(projectRoot);
-  await fs.mkdir(pendingDir, { recursive: true });
+export async function ensureBacklogFeaturesDir(projectRoot: string): Promise<void> {
+  const backlogDir = getBacklogFeaturesDir(projectRoot);
+  await fs.mkdir(backlogDir, { recursive: true });
 }
+
+/**
+ * Ensure the .dagent/features/archived/ directory exists.
+ * Creates the directory if it doesn't exist.
+ */
+export async function ensureArchivedFeaturesDir(projectRoot: string): Promise<void> {
+  const archivedDir = getArchivedFeaturesDir(projectRoot);
+  await fs.mkdir(archivedDir, { recursive: true });
+}
+
+// Alias for backward compatibility
+export const ensurePendingFeaturesDir = ensureBacklogFeaturesDir;

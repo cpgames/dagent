@@ -31,6 +31,10 @@ interface DAGStoreState {
   // Loop status tracking (Ralph Loop)
   loopStatuses: Record<string, TaskLoopStatus>
 
+  // Layout version - increments when auto-layout is applied
+  // Used by components to detect when to clear saved positions
+  layoutVersion: number
+
   // Actions
   setDag: (dag: DAGGraph | null) => void
   setSelectedNode: (nodeId: string | null) => void
@@ -57,6 +61,7 @@ interface DAGStoreState {
 
   // Loop status actions
   loadLoopStatuses: () => Promise<void>
+  clearLoopStatus: (taskId: string) => void
 
   // DAGManager initialization
   initializeDAGManager: (featureId: string, projectRoot: string) => Promise<void>
@@ -96,6 +101,7 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     totalVersions: 0
   },
   loopStatuses: {},
+  layoutVersion: 0,
 
   setDag: (dag) => set({ dag }),
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
@@ -104,7 +110,6 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
   // Set current feature for event handling - call immediately when feature is selected
   setCurrentFeatureForEvents: (featureId) => {
-    console.log(`[DAGStore] setCurrentFeatureForEvents: ${featureId}`)
     if (featureId) {
       // Set feature ID and ensure we have an empty DAG ready to receive events
       const { dag } = get()
@@ -303,12 +308,9 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
   },
 
   loadDag: async (featureId) => {
-    console.log(`[DAGStore] ========== loadDag START for feature ${featureId} ==========`)
     set({ isLoading: true, error: null, currentFeatureId: featureId })
     try {
-      console.log('[DAGStore] Getting project root...')
       const projectRoot = await getProjectRoot()
-      console.log(`[DAGStore] loadDag: projectRoot=${projectRoot}`)
 
       // Initialize DAGManager for this feature
       await get().initializeDAGManager(featureId, projectRoot)
@@ -328,7 +330,6 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
         const { currentFeatureId } = get()
         // Only update if it's for the current feature
         if (data.featureId === currentFeatureId) {
-          console.log('[DAGStore] Received DAG update from orchestrator')
           set({ dag: data.graph })
         }
       })
@@ -338,8 +339,10 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
         loopStatusUnsubscribe()
       }
       loopStatusUnsubscribe = window.electronAPI.execution.onLoopStatusUpdated((status) => {
+        if (!status || !status.taskId) {
+          return
+        }
         const { loopStatuses } = get()
-        console.log('[DAGStore] Received loop status update:', status.taskId, status.status)
         set({ loopStatuses: { ...loopStatuses, [status.taskId]: status } })
       })
 
@@ -426,10 +429,15 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
     }
   },
 
+  clearLoopStatus: (taskId: string) => {
+    const { loopStatuses } = get()
+    const newStatuses = { ...loopStatuses }
+    delete newStatuses[taskId]
+    set({ loopStatuses: newStatuses })
+  },
+
   initializeDAGManager: async (featureId: string, projectRoot: string) => {
     try {
-      console.log(`[DAGStore] ========== initializeDAGManager START for ${featureId} ==========`)
-
       // Set currentFeatureId so event handler knows which feature to accept events for
       // Also initialize DAG to empty if not already set, so events can add nodes
       const { dag } = get()
@@ -441,7 +449,6 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
       // Create/get DAGManager instance for this feature
       const result = await window.electronAPI.dagManager.create(featureId, projectRoot)
-      console.log('[DAGStore] DAGManager initialized:', featureId)
 
       // Update local DAG with the graph from the manager (in case it has existing data)
       if (result.graph) {
@@ -450,10 +457,8 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
 
       // NOTE: Event handling is done by the global subscription set up in setupGlobalDAGEventSubscription()
       // No need to set up a local subscription here - that would cause duplicate event processing
-
-      console.log('[DAGStore] ========== initializeDAGManager COMPLETE ==========')
     } catch (error) {
-      console.error('[DAGStore] ========== initializeDAGManager FAILED:', error)
+      console.error('[DAGStore] initializeDAGManager failed:', error)
       toast.error(`Failed to initialize DAG: ${(error as Error).message}`)
     }
   },
@@ -470,7 +475,20 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
       const result = await window.electronAPI.dagManager.autoLayout(currentFeatureId, projectRoot)
 
       if (result.success && result.graph) {
-        set({ dag: result.graph })
+        // Increment layoutVersion to signal components to clear saved positions
+        const { layoutVersion } = get()
+        set({ dag: result.graph, layoutVersion: layoutVersion + 1 })
+
+        // Save new layout positions to backend for persistence
+        const positions: Record<string, { x: number; y: number }> = {}
+        for (const node of result.graph.nodes) {
+          positions[node.id] = node.position
+        }
+        try {
+          await window.electronAPI.dagLayout.save(currentFeatureId, positions)
+        } catch (error) {
+          console.error('Failed to save layout positions:', error)
+        }
 
         // Push to history for undo/redo
         try {
@@ -503,22 +521,16 @@ export const useDAGStore = create<DAGStoreState>((set, get) => ({
  */
 export function setupGlobalDAGEventSubscription(): void {
   if (globalEventSubscriptionActive) {
-    console.log('[DAGStore] Global event subscription already active')
     return
   }
-
-  console.log('[DAGStore] ========== Setting up GLOBAL DAGManager event subscription ==========')
 
   // Set up the subscription
   window.electronAPI.dagManager.onEvent((data) => {
     const state = useDAGStore.getState()
-    const { currentFeatureId, dag } = state
-
-    console.log(`[DAGStore.GLOBAL] Received DAGManager event: ${data.event.type} for feature ${data.featureId} (current: ${currentFeatureId}, dag nodes: ${dag?.nodes.length ?? 'null'})`)
+    const { currentFeatureId } = state
 
     // Only update if it's for the current feature
     if (data.featureId !== currentFeatureId) {
-      console.log('[DAGStore.GLOBAL] Ignoring event - feature mismatch')
       return
     }
 
@@ -529,7 +541,6 @@ export function setupGlobalDAGEventSubscription(): void {
         // Get fresh state to avoid stale closure issues with rapid events
         const freshDag = useDAGStore.getState().dag
         if (freshDag) {
-          console.log(`[DAGStore.GLOBAL] node-added: adding "${data.event.node?.title}" to DAG (current: ${freshDag.nodes.length} nodes)`)
           useDAGStore.setState({
             dag: {
               ...freshDag,
@@ -537,7 +548,6 @@ export function setupGlobalDAGEventSubscription(): void {
             }
           })
         } else {
-          console.log(`[DAGStore.GLOBAL] node-added: no DAG to add to, creating new DAG`)
           useDAGStore.setState({
             dag: {
               nodes: [data.event.node],
@@ -550,7 +560,6 @@ export function setupGlobalDAGEventSubscription(): void {
       case 'node-removed': {
         const freshDag = useDAGStore.getState().dag
         if (freshDag) {
-          console.log(`[DAGStore.GLOBAL] node-removed: removing ${data.event.nodeId}`)
           useDAGStore.setState({
             dag: {
               ...freshDag,
@@ -560,10 +569,23 @@ export function setupGlobalDAGEventSubscription(): void {
         }
         break
       }
+      case 'node-updated': {
+        const freshDag = useDAGStore.getState().dag
+        if (freshDag) {
+          useDAGStore.setState({
+            dag: {
+              ...freshDag,
+              nodes: freshDag.nodes.map((n) =>
+                n.id === data.event.node.id ? { ...n, ...data.event.node } : n
+              )
+            }
+          })
+        }
+        break
+      }
       case 'connection-added': {
         const freshDag = useDAGStore.getState().dag
         if (freshDag) {
-          console.log(`[DAGStore.GLOBAL] connection-added: ${data.event.connection?.from} -> ${data.event.connection?.to}`)
           useDAGStore.setState({
             dag: {
               ...freshDag,
@@ -577,7 +599,6 @@ export function setupGlobalDAGEventSubscription(): void {
         const freshDag = useDAGStore.getState().dag
         if (freshDag) {
           const [from, to] = data.event.connectionId.split('->')
-          console.log(`[DAGStore.GLOBAL] connection-removed: ${from} -> ${to}`)
           useDAGStore.setState({
             dag: {
               ...freshDag,
@@ -602,7 +623,6 @@ export function setupGlobalDAGEventSubscription(): void {
         break
       }
       case 'graph-reset': {
-        console.log(`[DAGStore.GLOBAL] graph-reset: updating DAG with ${data.event.graph?.nodes?.length ?? 0} nodes`)
         useDAGStore.setState({ dag: data.event.graph })
         break
       }
@@ -610,5 +630,4 @@ export function setupGlobalDAGEventSubscription(): void {
   })
 
   globalEventSubscriptionActive = true
-  console.log('[DAGStore] ========== Global event subscription ACTIVE ==========')
 }

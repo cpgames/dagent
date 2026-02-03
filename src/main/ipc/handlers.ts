@@ -1,12 +1,11 @@
 import { ipcMain, BrowserWindow } from 'electron'
+import { createPanelWindow, closePanelWindow, type PanelWindowOptions } from '../window'
 import { registerStorageHandlers } from './storage-handlers'
 import { registerDagHandlers } from './dag-handlers'
 import { registerExecutionHandlers } from './execution-handlers'
 import { registerGitHandlers } from './git-handlers'
 import { registerAgentHandlers } from './agent-handlers'
-import { registerHarnessHandlers } from './harness-handlers'
 import { registerDevAgentHandlers } from './dev-agent-handlers'
-import { registerMergeAgentHandlers } from './merge-agent-handlers'
 import { registerAuthHandlers } from './auth-handlers'
 import { registerHistoryHandlers } from './history-handlers'
 import { registerProjectHandlers } from './project-handlers'
@@ -25,7 +24,6 @@ import { registerSessionHandlers } from './session-handlers'
 import { registerAnalysisHandlers } from './analysis-handlers'
 import { registerSettingsHandlers } from './settings-handlers'
 import { registerPoolHandlers } from './pool-handlers'
-import { registerManagerHandlers } from './manager-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -44,12 +42,8 @@ export function registerIpcHandlers(): void {
   registerGitHandlers()
   // Register agent pool handlers (agent lifecycle, status management)
   registerAgentHandlers()
-  // Register harness agent handlers (intention-approval workflow)
-  registerHarnessHandlers()
   // Register dev agent handlers (task execution lifecycle)
   registerDevAgentHandlers()
-  // Register merge agent handlers (branch integration)
-  registerMergeAgentHandlers()
   // Register auth handlers (credential management)
   registerAuthHandlers()
   // Register history handlers (undo/redo versioning)
@@ -84,8 +78,6 @@ export function registerIpcHandlers(): void {
   registerSettingsHandlers()
   // Register pool handlers (worktree pool management)
   registerPoolHandlers()
-  // Register manager handlers (state-based manager debugging)
-  registerManagerHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'
@@ -127,5 +119,16 @@ export function registerIpcHandlers(): void {
     } else {
       console.error('[DAGent] Could not find window to set title')
     }
+  })
+
+  // Panel window controls (for popout panels)
+  ipcMain.handle('window:openPanel', async (_event, options: PanelWindowOptions) => {
+    const panelWindow = createPanelWindow(options)
+    return { success: true, windowId: panelWindow.id }
+  })
+
+  ipcMain.handle('window:closePanel', async (_event, panelId: string, featureId: string, taskId?: string) => {
+    const closed = closePanelWindow(panelId, featureId, taskId)
+    return { success: closed }
   })
 }

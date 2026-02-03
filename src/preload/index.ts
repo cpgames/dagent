@@ -33,7 +33,7 @@ import type {
   FullContext
 } from '../main/context'
 import type { TopologicalResult, DAGAnalysisSerialized } from '../main/dag-engine/types'
-import type { TransitionResult } from '../main/dag-engine/state-machine'
+import type { TransitionResult } from '../main/dag-engine/task-controller'
 import type { CascadeResult } from '../main/dag-engine/cascade'
 import type {
   ExecutionConfig,
@@ -47,8 +47,6 @@ import type {
   BranchInfo,
   GitOperationResult,
   WorktreeInfo,
-  FeatureWorktreeResult,
-  TaskWorktreeResult,
   MergeResult,
   MergeConflict,
   TaskMergeResult,
@@ -61,21 +59,14 @@ import type {
   AgentPoolConfig,
   AgentSpawnOptions
 } from '../main/agents/types'
-import type {
-  HarnessStatus,
-  TaskExecutionState,
-  PendingIntention,
-  HarnessMessage,
-  IntentionDecision
-} from '../main/agents/harness-types'
 import type { AgentQueryOptions, AgentStreamEvent } from '../main/agent/types'
 import type {
   DevAgentState,
   DevAgentStatus,
   DevAgentConfig,
-  TaskExecutionResult
+  TaskExecutionResult,
+  IntentionDecision
 } from '../main/agents/dev-types'
-import type { MergeAgentState, MergeAgentStatus } from '../main/agents/merge-types'
 import type { CreatePRRequest, CreatePRResult, GhCliStatus } from '../main/github'
 import type { FeatureMergeAgentState, FeatureMergeResult } from '../main/agents/feature-merge-types'
 import type {
@@ -109,6 +100,21 @@ const electronAPI = {
   maximizeWindow: (): Promise<void> => ipcRenderer.invoke('window:maximize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close'),
   setWindowTitle: (title: string): Promise<void> => ipcRenderer.invoke('window:setTitle', title),
+
+  // Panel window controls (for popout/detached panels)
+  openPanelWindow: (options: {
+    panelId: string
+    featureId: string
+    taskId?: string
+    title?: string
+  }): Promise<{ success: boolean; windowId?: number }> =>
+    ipcRenderer.invoke('window:openPanel', options),
+  closePanelWindow: (
+    panelId: string,
+    featureId: string,
+    taskId?: string
+  ): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('window:closePanel', panelId, featureId, taskId),
 
   // Storage API
   storage: {
@@ -163,7 +169,9 @@ const electronAPI = {
     loadTaskSession: (featureId: string, taskId: string): Promise<DevAgentSession | null> =>
       ipcRenderer.invoke('storage:loadTaskSession', featureId, taskId),
     listTaskSessions: (featureId: string): Promise<string[]> =>
-      ipcRenderer.invoke('storage:listTaskSessions', featureId)
+      ipcRenderer.invoke('storage:listTaskSessions', featureId),
+    clearSessionMessages: (featureId: string, taskId: string): Promise<boolean> =>
+      ipcRenderer.invoke('storage:clearSessionMessages', featureId, taskId)
   },
 
   // DAG Engine API
@@ -226,6 +234,8 @@ const electronAPI = {
       ipcRenderer.invoke('execution:resume'),
     stop: (): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('execution:stop'),
+    startSingleTask: (taskId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:start-single-task', taskId),
     getState: (): Promise<ExecutionState> => ipcRenderer.invoke('execution:get-state'),
     getNextTasks: (): Promise<NextTasksResult> =>
       ipcRenderer.invoke('execution:get-next-tasks'),
@@ -258,6 +268,8 @@ const electronAPI = {
       ipcRenderer.invoke('execution:get-all-loop-statuses'),
     abortLoop: (taskId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('execution:abort-loop', taskId),
+    abortTask: (taskId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('execution:abort-task', taskId),
     onLoopStatusUpdated: (callback: (status: TaskLoopStatus) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, status: TaskLoopStatus): void =>
         callback(status)
@@ -290,10 +302,6 @@ const electronAPI = {
       ipcRenderer.invoke('git:get-worktree', worktreePath),
     worktreeExists: (worktreePath: string): Promise<boolean> =>
       ipcRenderer.invoke('git:worktree-exists', worktreePath),
-    createFeatureWorktree: (featureId: string): Promise<FeatureWorktreeResult> =>
-      ipcRenderer.invoke('git:create-feature-worktree', featureId),
-    createTaskWorktree: (featureId: string, taskId: string): Promise<TaskWorktreeResult> =>
-      ipcRenderer.invoke('git:create-task-worktree', featureId, taskId),
     removeWorktree: (worktreePath: string, deleteBranch?: boolean): Promise<GitOperationResult> =>
       ipcRenderer.invoke('git:remove-worktree', worktreePath, deleteBranch),
 
@@ -314,7 +322,22 @@ const electronAPI = {
     getDiffSummary: (from: string, to: string): Promise<DiffSummary> =>
       ipcRenderer.invoke('git:get-diff-summary', from, to),
     checkout: (branchName: string): Promise<GitOperationResult> =>
-      ipcRenderer.invoke('git:checkout', branchName)
+      ipcRenderer.invoke('git:checkout', branchName),
+    getCommitDiff: (
+      commitHash: string,
+      worktreePath?: string
+    ): Promise<{
+      success: boolean
+      diff?: string
+      commit?: {
+        hash: string
+        message: string
+        author: string
+        email: string
+        date: string
+      }
+      error?: string
+    }> => ipcRenderer.invoke('git:get-commit-diff', commitHash, worktreePath)
   },
 
   // Agent Pool API
@@ -347,60 +370,9 @@ const electronAPI = {
       idle: number
       busy: number
       terminated: number
-      hasHarness: boolean
       taskAgents: number
       mergeAgents: number
     }> => ipcRenderer.invoke('agent:get-status')
-  },
-
-  // Harness Agent API
-  harness: {
-    initialize: (
-      featureId: string,
-      featureGoal: string,
-      graph: DAGGraph,
-      claudeMd?: string,
-      projectRoot?: string
-    ): Promise<boolean> =>
-      ipcRenderer.invoke('harness:initialize', featureId, featureGoal, graph, claudeMd, projectRoot),
-    start: (): Promise<boolean> => ipcRenderer.invoke('harness:start'),
-    pause: (): Promise<boolean> => ipcRenderer.invoke('harness:pause'),
-    resume: (): Promise<boolean> => ipcRenderer.invoke('harness:resume'),
-    stop: (): Promise<boolean> => ipcRenderer.invoke('harness:stop'),
-    getState: (): Promise<{
-      status: HarnessStatus
-      featureId: string | null
-      featureGoal: string | null
-      claudeMd: string | null
-      activeTasks: TaskExecutionState[]
-      pendingIntentions: PendingIntention[]
-      messageHistory: HarnessMessage[]
-      startedAt: string | null
-      stoppedAt: string | null
-    }> => ipcRenderer.invoke('harness:get-state'),
-    getStatus: (): Promise<HarnessStatus> => ipcRenderer.invoke('harness:get-status'),
-    registerTaskAssignment: (taskId: string, agentId: string): Promise<boolean> =>
-      ipcRenderer.invoke('harness:register-task-assignment', taskId, agentId),
-    receiveIntention: (
-      agentId: string,
-      taskId: string,
-      intention: string,
-      files?: string[]
-    ): Promise<boolean> =>
-      ipcRenderer.invoke('harness:receive-intention', agentId, taskId, intention, files),
-    processIntention: (taskId: string): Promise<IntentionDecision | null> =>
-      ipcRenderer.invoke('harness:process-intention', taskId),
-    markTaskWorking: (taskId: string): Promise<boolean> =>
-      ipcRenderer.invoke('harness:mark-task-working', taskId),
-    markTaskMerging: (taskId: string): Promise<boolean> =>
-      ipcRenderer.invoke('harness:mark-task-merging', taskId),
-    completeTask: (taskId: string): Promise<boolean> =>
-      ipcRenderer.invoke('harness:complete-task', taskId),
-    failTask: (taskId: string, error: string): Promise<boolean> =>
-      ipcRenderer.invoke('harness:fail-task', taskId, error),
-    getMessageHistory: (): Promise<HarnessMessage[]> =>
-      ipcRenderer.invoke('harness:get-message-history'),
-    reset: (): Promise<boolean> => ipcRenderer.invoke('harness:reset')
   },
 
   // Dev Agent API
@@ -438,31 +410,6 @@ const electronAPI = {
     cleanup: (taskId: string, removeWorktree?: boolean): Promise<boolean> =>
       ipcRenderer.invoke('dev-agent:cleanup', taskId, removeWorktree),
     clearAll: (): Promise<boolean> => ipcRenderer.invoke('dev-agent:clear-all')
-  },
-
-  // Merge Agent API
-  mergeAgent: {
-    create: (
-      featureId: string,
-      taskId: string,
-      taskTitle: string
-    ): Promise<{ success: boolean; state: MergeAgentState }> =>
-      ipcRenderer.invoke('merge-agent:create', featureId, taskId, taskTitle),
-    getState: (taskId: string): Promise<MergeAgentState | null> =>
-      ipcRenderer.invoke('merge-agent:get-state', taskId),
-    getStatus: (taskId: string): Promise<MergeAgentStatus | null> =>
-      ipcRenderer.invoke('merge-agent:get-status', taskId),
-    getAll: (): Promise<MergeAgentState[]> => ipcRenderer.invoke('merge-agent:get-all'),
-    proposeIntention: (taskId: string): Promise<boolean> =>
-      ipcRenderer.invoke('merge-agent:propose-intention', taskId),
-    receiveApproval: (taskId: string, decision: IntentionDecision): Promise<boolean> =>
-      ipcRenderer.invoke('merge-agent:receive-approval', taskId, decision),
-    execute: (taskId: string): Promise<TaskMergeResult> =>
-      ipcRenderer.invoke('merge-agent:execute', taskId),
-    abort: (taskId: string): Promise<boolean> => ipcRenderer.invoke('merge-agent:abort', taskId),
-    cleanup: (taskId: string): Promise<boolean> =>
-      ipcRenderer.invoke('merge-agent:cleanup', taskId),
-    clearAll: (): Promise<boolean> => ipcRenderer.invoke('merge-agent:clear-all')
   },
 
   // Auth API
@@ -618,17 +565,6 @@ const electronAPI = {
       return () => ipcRenderer.removeListener('feature:analysis-result', handler)
     },
 
-    onWorktreeProgress: (
-      callback: (data: { featureId: string; message: string }) => void
-    ): (() => void) => {
-      const handler = (
-        _event: Electron.IpcRendererEvent,
-        data: { featureId: string; message: string }
-      ): void => callback(data)
-      ipcRenderer.on('feature:worktree-progress', handler)
-      return () => ipcRenderer.removeListener('feature:worktree-progress', handler)
-    },
-
     // Listen for feature manager assignment
     onManagerAssigned: (
       callback: (data: { featureId: string; featureManagerId: number; queuePosition: number }) => void
@@ -673,8 +609,8 @@ const electronAPI = {
     ): Promise<{ success: boolean; canProceed: boolean; uncertainties?: string[]; error?: string }> =>
       ipcRenderer.invoke('feature:respondToPM', featureId, userResponse),
 
-    // Start worktree creation for a not_started feature
-    // Transitions to creating_worktree immediately, worktree created in background
+    // Start worktree creation for a backlog feature
+    // Creates worktree and transitions feature to active status
     startWorktreeCreation: (featureId: string): Promise<{ success: boolean; featureId?: string; error?: string }> =>
       ipcRenderer.invoke('feature:startWorktreeCreation', featureId),
 
@@ -733,7 +669,9 @@ const electronAPI = {
   pr: {
     checkGhCli: (): Promise<GhCliStatus> => ipcRenderer.invoke('pr:check-gh-cli'),
     create: (request: CreatePRRequest): Promise<CreatePRResult> =>
-      ipcRenderer.invoke('pr:create', request)
+      ipcRenderer.invoke('pr:create', request),
+    generateSummary: (featureId: string): Promise<{ success: boolean; title?: string; body?: string; error?: string }> =>
+      ipcRenderer.invoke('pr:generate-summary', featureId)
   },
 
   // Feature Merge API (merging completed features into main)
@@ -788,13 +726,10 @@ const electronAPI = {
       ipcRenderer.invoke('dag-manager:auto-layout', featureId, projectRoot),
     onEvent: (callback: (data: { featureId: string; event: any }) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: { featureId: string; event: any }): void => {
-        console.log('[Preload] Received dag-manager:event:', data.event?.type, 'for feature:', data.featureId)
         callback(data)
       }
-      console.log('[Preload] Setting up dag-manager:event listener')
       ipcRenderer.on('dag-manager:event', handler)
       return () => {
-        console.log('[Preload] Removing dag-manager:event listener')
         ipcRenderer.removeListener('dag-manager:event', handler)
       }
     }
@@ -976,49 +911,6 @@ const electronAPI = {
       const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
       ipcRenderer.on('pool:merge-failed', handler)
       return () => ipcRenderer.removeListener('pool:merge-failed', handler)
-    }
-  },
-
-  // Manager Debug API
-  managers: {
-    /** Get token service status (who holds each worktree token) */
-    getTokenStatus: (): Promise<Array<{
-      worktreeId: number
-      available: boolean
-      holder: string | null
-      pendingCount: number
-    }>> => ipcRenderer.invoke('manager:getTokenStatus'),
-
-    /** Get all manager statuses */
-    getAllStatus: (): Promise<{
-      tokens: Array<{
-        worktreeId: number
-        available: boolean
-        holder: string | null
-        pendingCount: number
-      }>
-      managers: Array<{
-        managerId: string
-        states: string[]
-        featureCount?: number
-        running?: boolean
-        queues?: Array<{
-          worktreeId: number
-          featureCount: number
-          features: string[]
-        }>
-      }>
-    }> => ipcRenderer.invoke('manager:getAllStatus'),
-
-    /** Subscribe to manager status updates */
-    onStatusUpdate: (callback: (data: {
-      type: 'token' | 'manager' | 'transition'
-      payload: unknown
-    }) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: unknown): void =>
-        callback(data as { type: 'token' | 'manager' | 'transition'; payload: unknown })
-      ipcRenderer.on('manager:status-update', handler)
-      return () => ipcRenderer.removeListener('manager:status-update', handler)
     }
   }
 }

@@ -83,11 +83,11 @@ export function registerAnalysisHandlers(): void {
           return { success: false, error: `Task ${taskId} not found` }
         }
 
-        // Set task status to needs_analysis
-        dag.nodes[taskIndex].status = 'needs_analysis'
+        // Set task status to created (for re-analysis)
+        dag.nodes[taskIndex].status = 'ready'
         await manager.resetGraph(dag)
 
-        // Start analysis for this feature (will pick up the needs_analysis task)
+        // Start analysis for this feature (will pick up the created task)
         if (!runningAnalysis.get(featureId)) {
           const orchestrator = getTaskAnalysisOrchestrator(featureStore)
           runningAnalysis.set(featureId, true)

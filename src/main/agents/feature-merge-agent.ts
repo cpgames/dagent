@@ -14,16 +14,15 @@ import type { MergeConflict } from '../git/types'
 import type {
   FeatureMergeAgentState,
   FeatureMergeAgentStatus,
-  FeatureMergeResult
+  FeatureMergeResult,
+  ConflictAnalysis
 } from './feature-merge-types'
 import { DEFAULT_FEATURE_MERGE_AGENT_STATE } from './feature-merge-types'
-import type { IntentionDecision } from './harness-types'
-import type { ConflictAnalysis } from './merge-types'
+import type { IntentionDecision } from './dev-types'
 import { getAgentPool } from './agent-pool'
 import { getGitManager, getFeatureBranchName } from '../git'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
-import { getFeatureStatusManager } from '../ipc/feature-handlers'
 
 export class FeatureMergeAgent extends EventEmitter {
   private state: FeatureMergeAgentState
@@ -203,7 +202,7 @@ export class FeatureMergeAgent extends EventEmitter {
   /**
    * Execute the merge.
    */
-  async executeMerge(deleteBranchOnSuccess: boolean = false): Promise<FeatureMergeResult> {
+  async executeMerge(_deleteBranchOnSuccess: boolean = false): Promise<FeatureMergeResult> {
     if (!this.state.approval?.approved) {
       return {
         success: false,
@@ -219,25 +218,12 @@ export class FeatureMergeAgent extends EventEmitter {
     try {
       const gitManager = getGitManager()
 
-      // Archive feature BEFORE merge deletes the worktree (which contains feature.json)
-      // We archive first because mergeFeatureIntoMain with deleteBranchOnSuccess=true
-      // will delete the worktree directory, including the feature.json file
-      let archivedBeforeMerge = false
-      if (deleteBranchOnSuccess) {
-        try {
-          await this.archiveFeature()
-          archivedBeforeMerge = true
-        } catch (archiveError) {
-          console.warn(`[FeatureMergeAgent] Failed to archive before merge: ${(archiveError as Error).message}`)
-          // Continue with merge anyway - worst case is we can't archive
-        }
-      }
-
       // Perform the merge using GitManager
-      // Pass the feature branch name to handle legacy naming conventions
+      // Note: We don't auto-archive - user decides when to archive the feature
+      // We also don't delete branch/worktree since archiving handles cleanup
       const result = await gitManager.mergeFeatureIntoMain(
         this.state.featureId,
-        deleteBranchOnSuccess,
+        false, // Never auto-delete - archiving will handle cleanup
         this.state.targetBranch!,
         this.state.featureBranch || undefined
       )
@@ -254,11 +240,6 @@ export class FeatureMergeAgent extends EventEmitter {
         this.state.status = 'resolving_conflicts'
         this.state.conflicts = result.conflicts
 
-        // Revert archive if we archived before merge
-        if (archivedBeforeMerge) {
-          await this.unarchiveFeature()
-        }
-
         // Analyze conflicts using SDK
         const analysis = await this.analyzeConflicts(result.conflicts)
         if (analysis) {
@@ -270,11 +251,6 @@ export class FeatureMergeAgent extends EventEmitter {
       } else {
         this.state.status = 'failed'
         this.state.error = result.error || 'Merge failed'
-
-        // Revert archive if we archived before merge
-        if (archivedBeforeMerge) {
-          await this.unarchiveFeature()
-        }
 
         this.emit('feature-merge-agent:failed', result)
       }
@@ -481,39 +457,6 @@ export class FeatureMergeAgent extends EventEmitter {
    */
   getStatus(): FeatureMergeAgentStatus {
     return this.state.status
-  }
-
-  /**
-   * Archive the feature after successful merge.
-   * Transitions feature from 'merging' to 'archived' status.
-   */
-  private async archiveFeature(): Promise<void> {
-    const statusManager = getFeatureStatusManager()
-    await statusManager.updateFeatureStatus(this.state.featureId, 'archived')
-
-    console.log(`[FeatureMergeAgent] Feature ${this.state.featureId} archived`)
-
-    this.emit('feature-archived', {
-      featureId: this.state.featureId,
-      mergeType: 'ai'
-    })
-  }
-
-  /**
-   * Revert archive if merge fails after we archived.
-   * Transitions feature from 'archived' back to 'needs_merging' for retry.
-   */
-  private async unarchiveFeature(): Promise<void> {
-    try {
-      const statusManager = getFeatureStatusManager()
-      // Go back to needs_merging so merge can be retried
-      await statusManager.updateFeatureStatus(this.state.featureId, 'not_started')
-
-      console.log(`[FeatureMergeAgent] Feature ${this.state.featureId} un-archived after merge failure`)
-    } catch (error) {
-      // Log error but don't fail - the feature might already be in a valid state
-      console.warn(`[FeatureMergeAgent] Failed to un-archive feature ${this.state.featureId}:`, (error as Error).message)
-    }
   }
 
   /**

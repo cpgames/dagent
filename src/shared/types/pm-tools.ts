@@ -7,7 +7,7 @@
  */
 export interface CreateTaskInput {
   title: string
-  description: string
+  spec: string
   // Optional position (defaults to automatic placement)
   positionX?: number
   positionY?: number
@@ -39,7 +39,7 @@ export interface ListTasksResult {
     id: string
     title: string
     status: string
-    description: string
+    spec: string
   }>
 }
 
@@ -74,7 +74,7 @@ export interface GetTaskResult {
     id: string
     title: string
     status: string
-    description: string
+    spec: string
     dependencies: string[] // IDs of tasks this depends on
     dependents: string[] // IDs of tasks that depend on this
   } | null
@@ -87,7 +87,7 @@ export interface GetTaskResult {
 export interface UpdateTaskInput {
   taskId: string
   title?: string // New title (optional)
-  description?: string // New description (optional)
+  spec?: string // New spec (optional)
 }
 
 /**

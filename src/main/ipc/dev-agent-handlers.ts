@@ -13,8 +13,7 @@ import {
   clearDevAgents
 } from '../agents'
 import type { Task, DAGGraph } from '@shared/types'
-import type { DevAgentConfig } from '../agents/dev-types'
-import type { IntentionDecision } from '../agents/harness-types'
+import type { DevAgentConfig, IntentionDecision } from '../agents/dev-types'
 
 export function registerDevAgentHandlers(): void {
   ipcMain.handle(

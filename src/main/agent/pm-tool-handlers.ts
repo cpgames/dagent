@@ -148,9 +148,9 @@ export const PM_TOOLS: PMToolHandler[] = [
           type: 'string',
           description: 'The title of the task'
         },
-        description: {
+        spec: {
           type: 'string',
-          description: 'Detailed description of what the task should accomplish'
+          description: 'Detailed spec of what the task should accomplish'
         },
         dependsOn: {
           type: 'array',
@@ -158,7 +158,7 @@ export const PM_TOOLS: PMToolHandler[] = [
           description: 'Array of task IDs that must complete before this task can start'
         }
       },
-      required: ['title', 'description']
+      required: ['title', 'spec']
     },
     handler: async (input: unknown): Promise<CreateTaskResult> => {
       if (!createTaskHandler) {
@@ -232,7 +232,7 @@ export const PM_TOOLS: PMToolHandler[] = [
   {
     name: 'UpdateTask',
     description:
-      'Update an existing task. Use this to modify task title or description. Only provided fields will be updated.',
+      'Update an existing task. Use this to modify task title or spec. Only provided fields will be updated.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -244,9 +244,9 @@ export const PM_TOOLS: PMToolHandler[] = [
           type: 'string',
           description: 'New title for the task (optional)'
         },
-        description: {
+        spec: {
           type: 'string',
-          description: 'New description for the task (optional)'
+          description: 'New spec/description for the task (optional)'
         }
       },
       required: ['taskId']
@@ -318,14 +318,14 @@ export const PM_TOOLS: PMToolHandler[] = [
 export function getPMToolInstructions(): string {
   return `## Tools
 - ListTasks: Call FIRST to see existing tasks
-- CreateTask(title, description, dependsOn?): Create task
-- UpdateTask(taskId, title?, description?): Modify task
+- CreateTask(title, spec, dependsOn?): Create task
+- UpdateTask(taskId, title?, spec?): Modify task
 - DeleteTask(taskId, reassignDependents?): Remove task
 - AddDependency(fromTaskId, toTaskId): Link tasks
 - RemoveDependency(fromTaskId, toTaskId): Unlink tasks
 
 ## Workflow
 1. ListTasks first
-2. CreateTask with good description (all details go there)
+2. CreateTask with good spec (all details go there)
 3. Reply briefly: "Created task: [title]"`
 }

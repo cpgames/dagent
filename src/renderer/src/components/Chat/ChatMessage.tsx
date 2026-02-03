@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import { memo, type JSX } from 'react'
 import type { ChatMessage as ChatMessageType } from '../../stores/chat-store'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -8,8 +8,12 @@ interface ChatMessageProps {
   message: ChatMessageType
 }
 
-export function ChatMessage({ message }: ChatMessageProps): JSX.Element {
+// Memoize to prevent re-renders when parent updates but message hasn't changed
+export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps): JSX.Element {
   const isUser = message.role === 'user'
+
+  // Preserve newlines by converting to Markdown line breaks (two trailing spaces)
+  const content = message.content.replace(/\n/g, '  \n')
 
   return (
     <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--assistant'}`}>
@@ -58,9 +62,9 @@ export function ChatMessage({ message }: ChatMessageProps): JSX.Element {
             )
           }}
         >
-          {message.content}
+          {content}
         </ReactMarkdown>
       </div>
     </div>
   )
-}
+})

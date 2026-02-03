@@ -15,10 +15,10 @@ import type {
   DevAgentConfig,
   TaskExecutionResult,
   TaskProgressEvent,
-  OtherTaskInfo
+  OtherTaskInfo,
+  IntentionDecision
 } from './dev-types'
 import { DEFAULT_DEV_AGENT_STATE, DEFAULT_DEV_AGENT_CONFIG } from './dev-types'
-import type { IntentionDecision } from './harness-types'
 import { getAgentPool } from './agent-pool'
 import { getGitManager } from '../git'
 import { getAgentService } from '../agent'
@@ -219,6 +219,8 @@ export class DevAgent extends EventEmitter {
 
   /**
    * Load context for task execution.
+   * DEPRECATED: In the new manager worktree architecture, use initializeForIteration instead.
+   * This method is only kept for backwards compatibility during transition.
    */
   private async loadContext(
     graph: DAGGraph,
@@ -230,27 +232,27 @@ export class DevAgent extends EventEmitter {
       const task = this.state.task!
       console.log(`[DevAgent] Initializing context for task ${this.state.taskId}`)
 
-      // Create task worktree
-      const gitManager = getGitManager()
-      console.log(`[DevAgent] Creating worktree for feature ${this.state.featureId}, task ${this.state.taskId}`)
-      const worktreeResult = await gitManager.createTaskWorktree(
-        this.state.featureId,
-        this.state.taskId
-      )
-
-      console.log(`[DevAgent] Worktree creation result:`, worktreeResult)
-
-      if (!worktreeResult.success || !worktreeResult.worktreePath) {
-        console.error(`[DevAgent] Failed to create worktree: ${worktreeResult.error}`)
-        this.state.error = worktreeResult.error || 'Failed to create task worktree'
+      // In the new architecture, tasks should use the manager worktree
+      // If loadContext is called, it means no worktreePath was provided (legacy mode)
+      // Try to get the feature's worktreePath instead of creating a task worktree
+      const store = getFeatureStore()
+      if (!store) {
+        this.state.error = 'FeatureStore not available'
         return false
       }
 
-      console.log(`[DevAgent] Worktree created at ${worktreeResult.worktreePath}`)
-      this.state.worktreePath = worktreeResult.worktreePath
+      const feature = await store.loadFeature(this.state.featureId)
+      if (!feature?.worktreePath) {
+        console.error(`[DevAgent] Feature ${this.state.featureId} has no worktreePath - cannot run task without manager worktree`)
+        this.state.error = 'Feature has no worktree assigned. Start the feature first to assign a manager worktree.'
+        return false
+      }
 
-      // Copy feature attachments to task worktree and get the list
-      const attachments = await this.copyFeatureAttachments(worktreeResult.worktreePath)
+      console.log(`[DevAgent] Using feature's manager worktree: ${feature.worktreePath}`)
+      this.state.worktreePath = feature.worktreePath
+
+      // Get attachments from feature (manager worktree)
+      const attachments = await this.copyFeatureAttachments(feature.worktreePath)
 
       // Get dependency context from completed parent tasks
       const dependencyContext = this.assembleDependencyContext(graph)
@@ -264,12 +266,12 @@ export class DevAgent extends EventEmitter {
         featureGoal: featureGoal || null,
         featureSpec: featureSpec || null,
         taskTitle: task.title,
-        taskDescription: task.description,
+        taskSpec: task.spec,
         dependencyContext,
         otherTasks,
         attachments: attachments.length > 0 ? attachments : undefined,
         qaFeedback: task.qaFeedback || undefined,
-        worktreePath: worktreeResult.worktreePath
+        worktreePath: feature.worktreePath
       }
 
       console.log(`[DevAgent] Context built with attachments: ${attachments.length > 0 ? attachments.join(', ') : 'none'}`)
@@ -296,11 +298,11 @@ export class DevAgent extends EventEmitter {
     // Get completed parent tasks
     for (const parentId of parentIds) {
       const parentTask = graph.nodes.find((n) => n.id === parentId)
-      if (parentTask && parentTask.status === 'completed') {
+      if (parentTask && parentTask.status === 'done') {
         dependencies.push({
           taskId: parentTask.id,
           taskTitle: parentTask.title,
-          summary: `Completed: ${parentTask.description}`
+          summary: `Completed: ${parentTask.spec}`
           // In full implementation, would load from task logs/summary
         })
       }
@@ -318,24 +320,58 @@ export class DevAgent extends EventEmitter {
       .filter((node) => node.id !== this.state.taskId)
       .map((node) => ({
         title: node.title,
-        description: node.description || '',
+        spec: node.spec || '',
         status: node.status
       }))
   }
 
   /**
-   * Copy feature attachments folder to task worktree.
-   * This makes uploaded files (screenshots, mockups, etc.) available to dev agent.
-   * Returns the list of attachment filenames.
+   * Get feature attachments from the manager worktree.
+   * In the new architecture, attachments are stored at:
+   * .dagent-worktrees/{managerName}/.dagent/features/{featureId}/attachments/
+   *
+   * Returns the list of attachment filenames (files are in the manager worktree, not copied).
    */
-  private async copyFeatureAttachments(taskWorktreePath: string): Promise<string[]> {
+  private async copyFeatureAttachments(_taskWorktreePath: string): Promise<string[]> {
     try {
-      const gitManager = getGitManager()
-      const config = gitManager.getConfig()
+      // Load feature to get its worktreePath (manager worktree)
+      const store = getFeatureStore()
+      if (!store) {
+        console.log(`[DevAgent] No feature store available, skipping attachments`)
+        return []
+      }
 
-      // Feature worktree: .dagent-worktrees/{featureId}/
-      const featureWorktreePath = path.join(config.worktreesDir, this.state.featureId)
-      const featureAttachmentsDir = path.join(featureWorktreePath, '.dagent', 'attachments')
+      const feature = await store.loadFeature(this.state.featureId)
+      if (!feature) {
+        console.log(`[DevAgent] Feature ${this.state.featureId} not found, skipping attachments`)
+        return []
+      }
+
+      // In new architecture: .dagent-worktrees/{managerName}/.dagent/features/{featureId}/attachments/
+      let featureAttachmentsDir: string
+
+      if (feature.worktreePath) {
+        // Feature is in a manager worktree
+        featureAttachmentsDir = path.join(
+          feature.worktreePath,
+          '.dagent',
+          'features',
+          this.state.featureId,
+          'attachments'
+        )
+      } else {
+        // Feature is still in pending location (fallback)
+        const gitManager = getGitManager()
+        const config = gitManager.getConfig()
+        const projectRoot = path.dirname(config.worktreesDir) // Get project root from worktrees dir
+        featureAttachmentsDir = path.join(
+          projectRoot,
+          '.dagent',
+          'features',
+          this.state.featureId,
+          'attachments'
+        )
+      }
 
       console.log(`[DevAgent] Looking for attachments at: ${featureAttachmentsDir}`)
 
@@ -344,31 +380,20 @@ export class DevAgent extends EventEmitter {
         await fs.access(featureAttachmentsDir)
         console.log(`[DevAgent] Attachments directory found`)
       } catch {
-        // No attachments folder exists - nothing to copy
-        console.log(`[DevAgent] No attachments folder found for feature ${this.state.featureId} at ${featureAttachmentsDir}`)
+        // No attachments folder exists
+        console.log(`[DevAgent] No attachments folder found for feature ${this.state.featureId}`)
         return []
       }
 
-      // Task worktree attachments: .dagent-worktrees/{featureId}--task-{taskId}/.dagent/attachments/
-      const taskDagentDir = path.join(taskWorktreePath, '.dagent')
-      const taskAttachmentsDir = path.join(taskDagentDir, 'attachments')
+      // Get list of attachment files (no need to copy - agent works in manager worktree)
+      const attachmentFiles = await this.listAttachmentFiles(featureAttachmentsDir)
 
-      // Ensure .dagent directory exists in task worktree
-      await fs.mkdir(taskDagentDir, { recursive: true })
-
-      // Copy the entire attachments folder
-      await this.copyDirectory(featureAttachmentsDir, taskAttachmentsDir)
-
-      // Get list of attachment files
-      const attachmentFiles = await this.listAttachmentFiles(taskAttachmentsDir)
-
-      console.log(`[DevAgent] Copied attachments from feature to task worktree: ${taskAttachmentsDir}`)
-      console.log(`[DevAgent] Attachment files: ${attachmentFiles.join(', ')}`)
+      console.log(`[DevAgent] Found attachments: ${attachmentFiles.join(', ')}`)
 
       return attachmentFiles
     } catch (error) {
       // Log error but don't fail task execution - attachments are nice-to-have
-      console.error(`[DevAgent] Failed to copy attachments: ${(error as Error).message}`)
+      console.error(`[DevAgent] Failed to get attachments: ${(error as Error).message}`)
       return []
     }
   }
@@ -389,25 +414,6 @@ export class DevAgent extends EventEmitter {
       // Directory might not exist
     }
     return files
-  }
-
-  /**
-   * Recursively copy a directory.
-   */
-  private async copyDirectory(src: string, dest: string): Promise<void> {
-    await fs.mkdir(dest, { recursive: true })
-    const entries = await fs.readdir(src, { withFileTypes: true })
-
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry.name)
-      const destPath = path.join(dest, entry.name)
-
-      if (entry.isDirectory()) {
-        await this.copyDirectory(srcPath, destPath)
-      } else {
-        await fs.copyFile(srcPath, destPath)
-      }
-    }
   }
 
   /**
@@ -451,8 +457,8 @@ export class DevAgent extends EventEmitter {
 
     let intention = `INTENTION: Implement "${task.title}"`
 
-    if (task.description) {
-      intention += `\n\n${task.description}`
+    if (task.spec) {
+      intention += `\n\n${task.spec}`
     }
 
     if (context.dependencyContext.length > 0) {
@@ -627,12 +633,7 @@ export class DevAgent extends EventEmitter {
             toolInput: event.message.toolInput
           }
           this.emit('dev-agent:tool-use', progressEvent)
-
-          // Log tool usage to session
-          await this.logToSessionManager('assistant', `Using tool: ${event.message.toolName}`, {
-            toolName: event.message.toolName,
-            toolUse: true
-          })
+          // Note: Tool usage not logged to session - too verbose
         }
 
         if (event.type === 'tool_result' && event.message) {
@@ -774,7 +775,7 @@ export class DevAgent extends EventEmitter {
     parts.push(
       '## Task to Implement',
       `**Title:** ${task.title}`,
-      `**Description:** ${task.description || 'No additional description'}`,
+      `**Spec:** ${task.spec || 'No spec provided'}`,
       ''
     )
 
@@ -797,7 +798,7 @@ export class DevAgent extends EventEmitter {
           ''
         )
         for (const otherTask of upcomingTasks) {
-          parts.push(`- **${otherTask.title}**: ${otherTask.description}`)
+          parts.push(`- **${otherTask.title}**: ${otherTask.spec}`)
         }
         parts.push('')
       }
@@ -907,7 +908,7 @@ export class DevAgent extends EventEmitter {
   /**
    * Initialize dev agent for iteration mode.
    * Simplified initialization that uses existing worktree and does not register with MessageBus or agent pool.
-   * Used by TaskController for Ralph Loop iterations after the first iteration.
+   * Used by TaskController for Ralph Loop iterations (both first and subsequent iterations in pool mode).
    */
   async initializeForIteration(
     task: Task,
@@ -931,14 +932,22 @@ export class DevAgent extends EventEmitter {
     // Get dependency context from completed parent tasks
     const dependencyContext = this.assembleDependencyContext(graph)
 
+    // Get other tasks in the workflow for scope awareness
+    const otherTasks = this.getOtherTasks(graph)
+
+    // Get attachments from feature (manager worktree)
+    const attachments = await this.copyFeatureAttachments(worktreePath)
+
     // Build context using existing worktree path
     this.state.context = {
       claudeMd: claudeMd || null,
       featureGoal: featureGoal || null,
       featureSpec: featureSpec || null,
       taskTitle: task.title,
-      taskDescription: task.description,
+      taskSpec: task.spec,
       dependencyContext,
+      otherTasks,
+      attachments: attachments.length > 0 ? attachments : undefined,
       qaFeedback: task.qaFeedback || undefined,
       worktreePath
     }
@@ -992,6 +1001,9 @@ export class DevAgent extends EventEmitter {
       console.log(`[DevAgent ${this.state.taskId}] Executing iteration in worktree: ${this.state.worktreePath}`)
       console.log(`[DevAgent ${this.state.taskId}] Prompt length: ${prompt.length} chars`)
       console.log(`[DevAgent ${this.state.taskId}] Prompt preview: ${prompt.substring(0, 200)}...`)
+
+      // Log iteration start to session
+      await this.logToSession('harness_to_task', 'progress', `Starting iteration in worktree: ${this.state.worktreePath}`)
 
       // Verify worktree path exists before executing
       const fs = await import('fs/promises')
@@ -1049,6 +1061,8 @@ export class DevAgent extends EventEmitter {
           this.emit('dev-agent:progress', progressEvent)
           summary = event.message.content
           console.log(`[DevAgent ${this.state.taskId}] Assistant message (${event.message.content.length} chars): ${event.message.content.substring(0, 100)}...`)
+          // Log assistant message to session
+          await this.logToSession('task_to_harness', 'progress', event.message.content)
         }
 
         if (event.type === 'tool_use' && event.message) {
@@ -1061,12 +1075,7 @@ export class DevAgent extends EventEmitter {
           }
           this.emit('dev-agent:tool-use', progressEvent)
           console.log(`[DevAgent ${this.state.taskId}] Tool use #${toolUseCount}: ${event.message.toolName}`)
-
-          // Log tool usage to session
-          await this.logToSessionManager('assistant', `Using tool: ${event.message.toolName}`, {
-            toolName: event.message.toolName,
-            toolUse: true
-          })
+          // Note: Tool usage not logged to session - too verbose
         }
 
         if (event.type === 'tool_result' && event.message) {
@@ -1082,10 +1091,14 @@ export class DevAgent extends EventEmitter {
         if (event.type === 'message' && event.message?.type === 'result') {
           summary = event.message.content
           console.log(`[DevAgent ${this.state.taskId}] Result: ${event.message.content.substring(0, 200)}...`)
+          // Log result to session
+          await this.logToSession('task_to_harness', 'completion', event.message.content)
         }
 
         if (event.type === 'error') {
           console.error(`[DevAgent ${this.state.taskId}] Error event: ${event.error}`)
+          // Log error to session
+          await this.logToSession('task_to_harness', 'error', event.error || 'Unknown error')
           throw new Error(event.error)
         }
       }

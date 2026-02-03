@@ -1,32 +1,32 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
-import { useExecutionStore } from '../stores/execution-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
 import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
 import './KanbanView.css';
 
 /**
- * Analysis status for a feature.
+ * Task execution status for a feature.
  */
-interface AnalysisStatus {
+interface FeatureTaskStatus {
   analyzing: boolean;
-  pendingCount: number;
+  isDeveloping: boolean;
+  isVerifying: boolean;
 }
 
 /**
  * Column configuration for the Kanban board.
- * 4-column layout mapping state-based workflow:
- * - Backlog: not_started (feature exists, not yet started)
- * - In Progress: creating_worktree, investigating, ready_for_planning, planning, ready, developing, verifying
- * - Completed: needs_merging, merging (all tasks done, awaiting merge)
- * - Archived: archived (after successful merge)
+ * 4-column layout mapping simplified workflow:
+ * - Backlog: backlog (feature exists, not yet started)
+ * - In Progress: creating_worktree (worktree being set up), active (has worktree, work in progress)
+ * - Merging: merging (all tasks done, ready to merge)
+ * - Archived: archived (user manually archived)
  */
 const columns: { title: string; statuses: FeatureStatus[] }[] = [
-  { title: 'Backlog', statuses: ['not_started'] },
-  { title: 'In Progress', statuses: ['creating_worktree', 'investigating', 'ready_for_planning', 'planning', 'ready', 'developing', 'verifying'] },
-  { title: 'Completed', statuses: ['needs_merging', 'merging'] },
+  { title: 'Backlog', statuses: ['backlog'] },
+  { title: 'In Progress', statuses: ['creating_worktree', 'active'] },
+  { title: 'Merging', statuses: ['merging'] },
   { title: 'Archived', statuses: ['archived'] },
 ];
 
@@ -34,7 +34,7 @@ const columns: { title: string; statuses: FeatureStatus[] }[] = [
  * Props for KanbanView component.
  */
 interface KanbanViewProps {
-  /** Selected manager filters - Set of featureManagerIds to show (empty = show none, full = show all) */
+  /** Selected worktree filters - Set of worktreeIds to show (empty = show none, full = show all) */
   selectedManagerFilters: Set<number>;
   /** Callback to open New Feature dialog */
   onNewFeature: () => void;
@@ -47,75 +47,33 @@ interface KanbanViewProps {
 export default function KanbanView({ selectedManagerFilters, onNewFeature }: KanbanViewProps) {
   const { features, isLoading, setActiveFeature, deleteFeature } = useFeatureStore();
   const setView = useViewStore((state) => state.setView);
-  const { start: startExecution, stop: stopExecution } = useExecutionStore();
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
-
-  // Start execution state
-  const [startingFeatureId, setStartingFeatureId] = useState<string | null>(null);
 
   // Merge dialog state
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [featureToMerge, setFeatureToMerge] = useState<Feature | null>(null);
   const [mergeType, setMergeType] = useState<MergeType | null>(null);
 
-  // Analysis status per feature
-  const [analysisStatus, setAnalysisStatus] = useState<Record<string, AnalysisStatus>>({});
-
-  // Worktree creation progress per feature
-  const [worktreeProgress, setWorktreeProgress] = useState<Record<string, string>>({});
-
-  // Fetch initial pending counts for features in planning status only
-  // Features in backlog or later stages cannot have needs_analysis tasks
-  useEffect(() => {
-    const fetchPendingCounts = async () => {
-      const statuses: Record<string, AnalysisStatus> = {};
-      for (const feature of features) {
-        // Only check pending analysis for features in planning status
-        if (feature.status === 'planning') {
-          try {
-            const result = await window.electronAPI.analysis.pending(feature.id);
-            statuses[feature.id] = { analyzing: false, pendingCount: result.count };
-          } catch {
-            statuses[feature.id] = { analyzing: false, pendingCount: 0 };
-          }
-        } else {
-          // Features not in planning have no pending analysis
-          statuses[feature.id] = { analyzing: false, pendingCount: 0 };
-        }
-      }
-      setAnalysisStatus(statuses);
-    };
-
-    if (features.length > 0) {
-      fetchPendingCounts();
-    }
-  }, [features]);
+  // Task execution status per feature
+  const [taskStatus, setTaskStatus] = useState<Record<string, FeatureTaskStatus>>({});
 
   // Handle analysis events
   const handleAnalysisEvent = useCallback((data: { featureId: string; event: { type: string; taskId?: string; taskTitle?: string; decision?: string; newTaskCount?: number; error?: string } }) => {
     const { featureId, event } = data;
 
-    setAnalysisStatus((prev) => {
-      const current = prev[featureId] || { analyzing: false, pendingCount: 0 };
+    setTaskStatus((prev) => {
+      const current = prev[featureId] || { analyzing: false, isDeveloping: false, isVerifying: false };
 
       switch (event.type) {
         case 'analyzing':
           return { ...prev, [featureId]: { ...current, analyzing: true } };
         case 'kept':
         case 'split':
-          // Task was analyzed, decrement pending count
-          return {
-            ...prev,
-            [featureId]: {
-              analyzing: true,
-              pendingCount: Math.max(0, current.pendingCount - 1) + (event.newTaskCount || 0)
-            }
-          };
         case 'complete':
-          return { ...prev, [featureId]: { analyzing: false, pendingCount: 0 } };
+          return { ...prev, [featureId]: { ...current, analyzing: false } };
         case 'error':
           return { ...prev, [featureId]: { ...current, analyzing: false } };
         default:
@@ -129,19 +87,6 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
     const unsubscribe = window.electronAPI.analysis.onEvent(handleAnalysisEvent);
     return unsubscribe;
   }, [handleAnalysisEvent]);
-
-  // Subscribe to worktree progress events
-  useEffect(() => {
-    const unsubscribe = window.electronAPI.feature.onWorktreeProgress(
-      (data: { featureId: string; message: string }) => {
-        setWorktreeProgress(prev => ({
-          ...prev,
-          [data.featureId]: data.message
-        }));
-      }
-    );
-    return unsubscribe;
-  }, []);
 
   // Group features by column (each column may contain multiple statuses)
   // Apply pool filter: Backlog and Archived show all, In Progress and Completed filter by selected pool
@@ -157,10 +102,12 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
       // Find which column this feature belongs to
       const column = columns.find(col => col.statuses.includes(feature.status));
       if (column) {
-        // Apply manager filter for In Progress and Completed columns
-        const shouldFilter = column.title === 'In Progress' || column.title === 'Completed';
+        // Apply worktree filter for In Progress and Merging columns
+        const shouldFilter = column.title === 'In Progress' || column.title === 'Merging';
+        const worktreeIdToNum = { neon: 1, cyber: 2, pulse: 3 } as const;
+        const worktreeNum = feature.worktreeId ? worktreeIdToNum[feature.worktreeId] : undefined;
 
-        if (shouldFilter && feature.featureManagerId !== undefined && !selectedManagerFilters.has(feature.featureManagerId)) {
+        if (shouldFilter && worktreeNum !== undefined && !selectedManagerFilters.has(worktreeNum)) {
           continue; // Skip features not matching any selected filter
         }
 
@@ -175,8 +122,14 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
     return grouped;
   }, [features, selectedManagerFilters]);
 
-  // Handle feature selection - navigate to DAG view
+  // Handle feature selection - navigate to DAG view (only for active features)
   const handleSelectFeature = (featureId: string) => {
+    const feature = features.find((f) => f.id === featureId);
+    if (feature?.status === 'backlog') {
+      // Can't view/edit backlog features - they need to be started first
+      // Drag to "In Progress" to start the feature
+      return;
+    }
     setActiveFeature(featureId);
     setView('dag');
   };
@@ -199,25 +152,6 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
     }
   };
 
-  // Handle start execution
-  const handleStartFeature = async (featureId: string) => {
-    setStartingFeatureId(featureId);
-    try {
-      await startExecution(featureId);
-    } finally {
-      setStartingFeatureId(null);
-    }
-  };
-
-  // Handle stop execution
-  const handleStopFeature = async (_featureId: string) => {
-    try {
-      await stopExecution();
-    } catch (error) {
-      console.error('Failed to stop execution:', error);
-    }
-  };
-
   // Handle merge feature - opens merge dialog
   const handleMergeFeature = (featureId: string, type: MergeType) => {
     const feature = features.find((f) => f.id === featureId);
@@ -225,6 +159,34 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
       setFeatureToMerge(feature);
       setMergeType(type);
       setMergeDialogOpen(true);
+    }
+  };
+
+  // Handle feature drop - update status via IPC
+  const handleDropFeature = async (featureId: string, fromStatus: FeatureStatus, toStatus: FeatureStatus) => {
+
+    // Special case: backlog -> In Progress requires starting the feature (creates worktree)
+    // Note: toStatus can be 'creating_worktree' or 'active' depending on column configuration
+    if (fromStatus === 'backlog' && (toStatus === 'active' || toStatus === 'creating_worktree')) {
+      try {
+        const result = await window.electronAPI.feature.startWorktreeCreation(featureId);
+        if (!result.success) {
+          console.error('Failed to start feature via drag:', result.error);
+        }
+      } catch (error) {
+        console.error('Error starting feature via drag:', error);
+      }
+      return;
+    }
+
+    // Standard status update
+    try {
+      const result = await window.electronAPI.feature.updateStatus(featureId, toStatus);
+      if (!result.success) {
+        console.error('Failed to update feature status:', result.error);
+      }
+    } catch (error) {
+      console.error('Error updating feature status:', error);
     }
   };
 
@@ -249,12 +211,9 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
               features={featuresByColumn.get(column.title) || []}
               onSelectFeature={handleSelectFeature}
               onDeleteFeature={handleDeleteFeature}
-              onStartFeature={handleStartFeature}
-              onStopFeature={handleStopFeature}
               onMergeFeature={handleMergeFeature}
-              startingFeatureId={startingFeatureId}
-              analysisStatus={analysisStatus}
-              worktreeProgress={worktreeProgress}
+              onDropFeature={handleDropFeature}
+              taskStatus={taskStatus}
               onNewFeature={column.title === 'Backlog' ? onNewFeature : undefined}
             />
           ))}

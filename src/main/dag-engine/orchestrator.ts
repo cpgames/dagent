@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { BrowserWindow } from 'electron'
 import type { DAGGraph, Task } from '@shared/types'
-import type { FeatureStatus } from '@shared/types/feature'
+import type { FeatureStatus, WorktreeId } from '@shared/types/feature'
 import type {
   ExecutionState,
   ExecutionConfig,
@@ -15,23 +15,59 @@ import { DEFAULT_EXECUTION_CONFIG } from './orchestrator-types'
 import type { TaskStateChange, TaskControllerState } from './task-controller'
 import { transitionTask, createStateChangeRecord, createTaskController, TaskController } from './task-controller'
 import { cascadeTaskCompletion, recalculateAllStatuses } from './cascade'
-import { getTaskPoolManager, resetTaskPoolManager } from './task-pool'
+// Task pool functionality replaced by manager architecture
+// Keeping stubs for compatibility
+interface TaskPoolStub {
+  assignTask: () => null
+  getAssignedTasks: () => []
+  releaseTask: () => void
+  initializeFromGraph: (graph: DAGGraph) => void
+  getPool: (status: string) => []
+  getCounts: () => { ready: number, in_progress: number, ready_for_qa: number, completed: number, blocked: number }
+  moveTask: (taskId: string, from: string, to: string) => void
+}
+function getTaskPoolManager(): TaskPoolStub {
+  return {
+    assignTask: () => null,
+    getAssignedTasks: () => [],
+    releaseTask: () => void 0,
+    initializeFromGraph: () => void 0,
+    getPool: () => [],
+    getCounts: () => ({ ready: 0, in_progress: 0, ready_for_qa: 0, completed: 0, blocked: 0 }),
+    moveTask: () => void 0
+  }
+}
+function resetTaskPoolManager(): void { /* noop */ }
 import { getDevAgent, getAllDevAgents, removeDevAgent, getAgentPool } from '../agents'
-import { getHarnessAgent, HarnessAgent } from '../agents/harness-agent'
-import { createMergeAgent, registerMergeAgent, removeMergeAgent } from '../agents/merge-agent'
 import { createFeatureMergeAgent, registerFeatureMergeAgent, removeFeatureMergeAgent } from '../agents/feature-merge-agent'
 import { getPRService } from '../github'
 import { getFeatureStatusManager } from '../ipc/feature-handlers'
 import { createQAAgent, registerQAAgent, getQAAgent, removeQAAgent, getAllQAAgents, clearQAAgents } from '../agents/qa-agent'
 import type { QAReviewResult } from '../agents/qa-types'
-import type { HarnessMessage } from '../agents/harness-types'
+import type { LogEntry, LogEntryType } from '@shared/types'
 import { getFeatureStore } from '../ipc/storage-handlers'
 import { getContextService } from '../context'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import { getLogService } from '../storage/log-service'
 import { getGitManager } from '../git'
 import { getFeatureManagerPool } from '../git/worktree-pool-manager'
-import { computeFeatureStatus } from './feature-status'
+
+/**
+ * Compute feature status based on task states.
+ * With the simplified 4-state model:
+ * - active: work in progress (any task not archived)
+ * - merging: all tasks archived, ready for merge
+ *
+ * Note: backlog and archived are set explicitly by user actions, not computed.
+ */
+function computeFeatureStatus(tasks: Task[]): FeatureStatus {
+  if (tasks.length === 0) {
+    return 'active' // Empty feature is still active
+  }
+
+  const allArchived = tasks.every((t) => t.status === 'done')
+  return allArchived ? 'merging' : 'active'
+}
 
 export class ExecutionOrchestrator extends EventEmitter {
   private state: ExecutionState
@@ -47,9 +83,11 @@ export class ExecutionOrchestrator extends EventEmitter {
   private initFailureCounts: Map<string, number> = new Map()
   private readonly MAX_INIT_RETRIES = 3
   // Track current feature status to detect changes
-  private currentFeatureStatus: FeatureStatus = 'planning'
+  private currentFeatureStatus: FeatureStatus = 'active'
   // Track TaskController instances for Ralph Loop execution
   private taskControllers: Map<string, TaskController> = new Map()
+  // Single task mode - when set, only this task runs and no auto-assignment
+  private singleTaskId: string | null = null
 
   constructor(config: Partial<ExecutionConfig> = {}) {
     super()
@@ -61,15 +99,15 @@ export class ExecutionOrchestrator extends EventEmitter {
       startedAt: null,
       stoppedAt: null,
       error: null,
-      featureManagerId: null,
-      managerWorktreePath: null
-    }
+      worktreeId: null,
+      worktreePath: null
+    } as ExecutionState
     this.assignments = new Map()
     this.history = []
     this.events = []
     this.failedThisTick = new Set()
     this.initFailureCounts = new Map()
-    this.currentFeatureStatus = 'planning'
+    this.currentFeatureStatus = 'active'
   }
 
   /**
@@ -108,11 +146,15 @@ export class ExecutionOrchestrator extends EventEmitter {
    * In pool architecture, assigns feature to a pool worktree.
    */
   async start(): Promise<{ success: boolean; error?: string }> {
+    console.log(`[Orchestrator] start() called - featureId: ${this.state.featureId}, graph: ${!!this.state.graph}`)
+
     if (!this.state.graph || !this.state.featureId) {
+      console.log(`[Orchestrator] start() failed: No graph loaded`)
       return { success: false, error: 'No graph loaded' }
     }
 
     if (this.state.status === 'running') {
+      console.log(`[Orchestrator] start() failed: Already running`)
       return { success: false, error: 'Execution already running' }
     }
 
@@ -123,6 +165,12 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: 'Cannot start execution on archived feature' }
     }
 
+    // Set to auto mode when start() is called directly (not from startSingleTask)
+    // singleTaskId is set before start() is called from startSingleTask
+    if (!this.singleTaskId) {
+      await this.setExecutionMode('auto')
+    }
+
     // Validate git repository is ready for execution
     const gitValidation = await this.validateGitReady()
     if (!gitValidation.ready) {
@@ -131,59 +179,63 @@ export class ExecutionOrchestrator extends EventEmitter {
 
     // Get target branch (current branch when starting) for pool merge
     const gitManager = getGitManager()
-    const targetBranch = feature?.targetBranch || await gitManager.getCurrentBranch()
+    const targetBranch = await gitManager.getCurrentBranch()
 
-    // Check if feature already has a manager assigned (resuming execution)
+    // Check if feature already has a worktree assigned (resuming execution)
     const managerPool = getFeatureManagerPool()
     try {
-      // If feature already has manager assignment, reuse it instead of reassigning
-      if (feature?.featureManagerId !== undefined && feature?.managerWorktreePath) {
+      // If feature already has worktree assignment, reuse it instead of reassigning
+      if (feature?.worktreeId && feature?.worktreePath) {
         // Verify worktree still exists on disk - it may have been deleted
         const fs = await import('fs/promises')
         let worktreeExists = false
         try {
-          await fs.access(feature.managerWorktreePath)
+          await fs.access(feature.worktreePath)
           worktreeExists = true
         } catch {
           worktreeExists = false
         }
 
         if (worktreeExists) {
-          console.log(`[Orchestrator] Feature ${this.state.featureId} already assigned to manager ${feature.featureManagerId}, reusing existing assignment`)
-          this.state.featureManagerId = feature.featureManagerId
-          this.state.managerWorktreePath = feature.managerWorktreePath
+          console.log(`[Orchestrator] Feature ${this.state.featureId} already assigned to worktree ${feature.worktreeId}, reusing existing assignment`)
+          this.state.worktreeId = feature.worktreeId
+          this.state.worktreePath = feature.worktreePath
         } else {
           // Worktree was deleted - recreate it
           console.log(`[Orchestrator] Worktree for feature ${this.state.featureId} missing, recreating...`)
-          this.state.featureManagerId = feature.featureManagerId
-          this.state.managerWorktreePath = await managerPool.ensureWorktree(feature.featureManagerId)
-          console.log(`[Orchestrator] Recreated manager worktree path: ${this.state.managerWorktreePath}`)
+          this.state.worktreeId = feature.worktreeId
+          // Map worktreeId to featureManagerId for pool manager
+          const worktreeIdToManagerId = { neon: 1, cyber: 2, pulse: 3 } as const
+          const managerId = worktreeIdToManagerId[feature.worktreeId]
+          this.state.worktreePath = await managerPool.ensureWorktree(managerId)
+          console.log(`[Orchestrator] Recreated worktree path: ${this.state.worktreePath}`)
         }
       } else {
-        // New assignment - feature not yet assigned to a manager
+        // New assignment - feature not yet assigned to a worktree
         const assignment = await managerPool.assignFeature(this.state.featureId, targetBranch)
-        this.state.featureManagerId = assignment.featureManagerId
+        // Map featureManagerId to worktreeId
+        const managerIdToWorktreeId = { 1: 'neon', 2: 'cyber', 3: 'pulse' } as const
+        this.state.worktreeId = (managerIdToWorktreeId[assignment.featureManagerId as 1 | 2 | 3] || 'neon') as WorktreeId
 
-        console.log(`[Orchestrator] Feature ${this.state.featureId} assigned to manager ${assignment.featureManagerId}, queue position ${assignment.queuePosition}`)
+        console.log(`[Orchestrator] Feature ${this.state.featureId} assigned to worktree ${this.state.worktreeId}, queue position ${assignment.queuePosition}`)
 
         // If queued (not immediately active), just update status and return
         if (assignment.queuePosition > 0) {
-          console.log(`[Orchestrator] Feature queued at position ${assignment.queuePosition}, waiting for manager availability`)
-          // Feature status should be set to 'queued' by the caller (feature-handlers)
+          console.log(`[Orchestrator] Feature queued at position ${assignment.queuePosition}, waiting for worktree availability`)
           return { success: true }
         }
 
         // Ensure worktree exists and get the path (creates lazily if needed)
-        this.state.managerWorktreePath = await managerPool.ensureWorktree(assignment.featureManagerId)
-        console.log(`[Orchestrator] Manager worktree path: ${this.state.managerWorktreePath}`)
+        this.state.worktreePath = await managerPool.ensureWorktree(assignment.featureManagerId)
+        console.log(`[Orchestrator] Worktree path: ${this.state.worktreePath}`)
       }
     } catch (error) {
       console.error('[Orchestrator] Failed to assign feature to pool:', error)
       return { success: false, error: `Pool assignment failed: ${(error as Error).message}` }
     }
 
-    // Initialize harness agent before starting execution
-    await this.initializeHarness()
+    // Log execution started
+    await this.logEntry('info', 'Execution started')
 
     this.state.status = 'running'
     this.state.startedAt = new Date().toISOString()
@@ -191,6 +243,10 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.state.error = null
 
     this.addEvent('started')
+
+    // Resume tasks that were in-progress when app restarted
+    await this.resumeInProgressTasks()
+
     this.startLoop()
     return { success: true }
   }
@@ -228,60 +284,21 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Initialize harness agent for execution.
+   * Log an entry directly to the feature's log file.
+   * This replaces the harness agent's logging functionality.
    */
-  private async initializeHarness(): Promise<void> {
-    if (!this.state.featureId || !this.state.graph) {
-      return
+  private async logEntry(type: LogEntryType, content: string, taskId?: string): Promise<void> {
+    if (!this.state.featureId) return
+
+    const logService = getLogService()
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      type,
+      agent: 'orchestrator',
+      content,
+      taskId
     }
-
-    // Load feature for goal
-    const featureStore = getFeatureStore()
-    const feature = featureStore ? await featureStore.loadFeature(this.state.featureId) : null
-    const featureGoal = feature?.name || 'Complete tasks'
-
-    // Load CLAUDE.md
-    let claudeMd: string | undefined
-    const contextService = getContextService()
-    if (contextService) {
-      claudeMd = (await contextService.getClaudeMd()) || undefined
-    }
-
-    // Get project root from context service
-    const projectRoot = contextService?.getProjectRoot() || undefined
-
-    // Reset harness and agent pool before initializing (clean slate for new execution)
-    const harness = getHarnessAgent()
-    harness.reset()
-    const pool = getAgentPool()
-    pool.cleanup() // Remove terminated agents
-    console.log('[Orchestrator] Reset harness and cleaned up agent pool')
-
-    // Initialize and start harness
-    const initialized = await harness.initialize(
-      this.state.featureId,
-      featureGoal,
-      this.state.graph,
-      claudeMd,
-      projectRoot
-    )
-
-    if (initialized) {
-      // Subscribe to harness messages for real-time logging
-      harness.on('harness:message', async (msg: HarnessMessage) => {
-        const logService = getLogService()
-        const entry = HarnessAgent.toLogEntry(msg)
-        await logService.appendEntry(this.state.featureId!, entry)
-      })
-
-      // Note: Task completion and merge is handled by handleCompletedTasks() in the tick loop.
-      // The harness 'task:completed' event is for notification only, not for triggering merge.
-
-      harness.start()
-      console.log('[Orchestrator] Harness agent initialized and started')
-    } else {
-      console.warn('[Orchestrator] Failed to initialize harness agent')
-    }
+    await logService.appendEntry(this.state.featureId, entry)
   }
 
   /**
@@ -331,10 +348,11 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.assignments.clear()
     this.failedThisTick.clear()
     this.initFailureCounts.clear()
+    this.singleTaskId = null // Clear single-task mode
 
-    // Clear pool state
-    this.state.featureManagerId = null
-    this.state.managerWorktreePath = null
+    // Clear worktree state
+    this.state.worktreeId = null
+    this.state.worktreePath = null
 
     // Abort all running TaskControllers
     for (const controller of this.taskControllers.values()) {
@@ -342,12 +360,6 @@ export class ExecutionOrchestrator extends EventEmitter {
     }
     this.taskControllers.clear()
     console.log('[Orchestrator] TaskControllers aborted and cleared')
-
-    // Stop and reset harness agent
-    const harness = getHarnessAgent()
-    harness.stop()
-    harness.reset()
-    console.log('[Orchestrator] Harness agent stopped and reset')
 
     // Cleanup QA agents
     for (const agent of getAllQAAgents()) {
@@ -414,18 +426,22 @@ export class ExecutionOrchestrator extends EventEmitter {
     // Clear per-tick failure tracking (allows retry next tick)
     this.failedThisTick.clear()
 
-    // Pool architecture: Check if all tasks are completed
-    // If so, transition feature to needs_merging (not orchestrator completed)
+    // Check if all tasks are completed
+    // If so, transition feature to completed
     if (this.checkAllTasksComplete()) {
-      await this.transitionToNeedsMerging()
+      await this.transitionToCompleted()
       return
     }
 
     // Get ready tasks that can be assigned
     const { available, canAssign } = this.getNextTasks()
 
-    // Assign agents to available tasks
-    if (available.length > 0 && canAssign > 0) {
+    // Check execution mode - in step mode, don't auto-assign tasks
+    const stepMode = await this.isStepMode()
+
+    // Assign agents to available tasks (only in auto mode, and not in single-task mode)
+    // Single-task mode is used when user manually starts one specific task
+    if (!stepMode && !this.singleTaskId && available.length > 0 && canAssign > 0) {
       const tasksToAssign = available.slice(0, canAssign)
       for (const task of tasksToAssign) {
         await this.assignAgentToTask(task)
@@ -449,27 +465,23 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Transition feature to needs_merging when all tasks complete.
-   * This is the pool architecture completion path - feature-level merge instead of per-task.
-   *
-   * Flow: verifying → needs_merging → merging → archived
+   * Transition feature to completed when all tasks complete.
+   * Handles completion actions (auto_merge, auto_pr, manual).
    */
-  private async transitionToNeedsMerging(): Promise<void> {
+  private async transitionToCompleted(): Promise<void> {
     if (!this.state.featureId) return
 
-    console.log(`[Orchestrator] All tasks complete for feature ${this.state.featureId}, transitioning to needs_merging`)
+    console.log(`[Orchestrator] All tasks complete for feature ${this.state.featureId}, transitioning to completed`)
 
     // Stop the execution loop
     this.state.status = 'completed'
     this.state.stoppedAt = new Date().toISOString()
     this.stopLoop()
 
-    // Update feature status: verifying → needs_merging
-    // Note: syncFeatureStatus may have already set this via computeFeatureStatus,
-    // so we check current status first to avoid duplicate transition error
+    // Update feature status to completed
     const featureStore = getFeatureStore()
     if (!featureStore) {
-      console.error(`[Orchestrator] FeatureStore not available for needs_merging transition`)
+      console.error(`[Orchestrator] FeatureStore not available for completion transition`)
       this.addEvent('error', { error: 'FeatureStore not available' })
       return
     }
@@ -477,49 +489,42 @@ export class ExecutionOrchestrator extends EventEmitter {
     const currentStatus = feature?.status
 
     try {
-      if (currentStatus === 'needs_merging') {
-        // Already in needs_merging (set by syncFeatureStatus), just log and continue
-        console.log(`[Orchestrator] Feature ${this.state.featureId} already in needs_merging status`)
-      } else {
-        // Transition via status manager for validation
+      if (currentStatus === 'archived' || currentStatus === 'merging') {
+        // Already in terminal/merging state, just log and continue
+        console.log(`[Orchestrator] Feature ${this.state.featureId} already in ${currentStatus} status`)
+      } else if (currentStatus === 'active') {
+        // Transition to merging - user must manually archive
         const statusManager = getFeatureStatusManager()
-        await statusManager.updateFeatureStatus(this.state.featureId, 'needs_merging')
-        console.log(`[Orchestrator] Feature ${this.state.featureId} status updated to needs_merging`)
+        await statusManager.updateFeatureStatus(this.state.featureId, 'merging')
+        console.log(`[Orchestrator] Feature ${this.state.featureId} status updated to merging (all tasks done)`)
       }
 
       // Emit event for UI
-      this.emit('feature_needs_merging', {
+      this.emit('feature_completed', {
         featureId: this.state.featureId,
-        featureManagerId: this.state.featureManagerId,
-        managerWorktreePath: this.state.managerWorktreePath
+        worktreeId: this.state.worktreeId,
+        worktreePath: this.state.worktreePath
       })
 
       // Check completionAction to determine what to do next
-      // - auto_merge: Request merge through FeatureManager → then transition to archived
+      // - auto_merge: Merge to target branch → then transition to archived
       // - auto_pr: Push branch and create PR (no merge) → then transition to archived
-      // - manual: Stay in needs_merging, wait for user action
+      // - manual: Stay in completed, wait for user action
       const completionAction = feature?.completionAction || 'manual'
 
-      if (completionAction === 'auto_merge') {
-        // Request merge through FeatureManager (which delegates to MergeManager)
-        if (this.state.featureManagerId !== null) {
-          const poolManager = getFeatureManagerPool()
-          const featureManager = poolManager.getFeatureManager(this.state.featureManagerId)
-          if (featureManager) {
-            await featureManager.completeCurrentFeature()
-            console.log(`[Orchestrator] Feature ${this.state.featureId} merge requested through FeatureManager`)
-          }
-        }
+      if (completionAction === 'auto_merge' && feature) {
+        console.log(`[Orchestrator] Feature ${this.state.featureId} has auto_merge - executing merge`)
+        await this.executeAutoMerge(feature)
       } else if (completionAction === 'auto_pr' && feature) {
         // Create PR directly without merging - push manager branch and open PR
         console.log(`[Orchestrator] Feature ${this.state.featureId} has auto_pr - creating PR without merge`)
         await this.executeAutoPR(feature)
       } else {
-        // Manual: stay in needs_merging, user needs to take action
+        // Manual: stay in completed, user needs to take action
         console.log(`[Orchestrator] Feature ${this.state.featureId} has manual completion action - awaiting user action`)
       }
     } catch (error) {
-      console.error(`[Orchestrator] Failed to transition feature to needs_merging:`, error)
+      console.error(`[Orchestrator] Failed to transition feature to completed:`, error)
       this.addEvent('error', { error: (error as Error).message })
     }
 
@@ -532,26 +537,24 @@ export class ExecutionOrchestrator extends EventEmitter {
    */
   private async handleCompletedTasks(): Promise<void> {
     const devAgents = getAllDevAgents()
-    const harness = getHarnessAgent()
 
     for (const agent of devAgents) {
       const agentState = agent.getState()
 
-      // Check for ready_for_merge - task has finished dev work and committed, ready for QA
-      if (agentState.status === 'ready_for_merge') {
+      // Check for 'completed' status - task has finished dev work and committed, ready for QA
+      if (agentState.status === 'completed') {
         const taskId = agentState.taskId
         console.log('[Orchestrator] Task dev complete, moving to QA:', taskId)
 
-        // Transition task: dev → qa (NOT merge - QA must pass first)
+        // Transition task: dev → qa
         const codeResult = this.completeTaskCode(taskId)
         if (codeResult.success) {
           console.log('[Orchestrator] Task moved to QA state:', taskId)
-          // Don't merge yet - QA agent will be spawned by handleQATasks
-          // When QA passes, handleQAResult will trigger the merge
+          // QA agent will be spawned by handleQATasks
         }
 
-        // Notify harness that dev work is done
-        harness.completeTask(taskId)
+        // Log task completion
+        await this.logEntry('task_completed', `Task ${taskId} dev complete`, taskId)
 
         // Cleanup dev agent (but keep worktree for QA!)
         // Note: Don't call agent.cleanup() here - QA needs the worktree
@@ -567,8 +570,8 @@ export class ExecutionOrchestrator extends EventEmitter {
         // Mark task as failed in orchestrator
         this.failTask(taskId, errorMsg)
 
-        // Notify harness
-        harness.failTask(taskId, errorMsg)
+        // Log task failure
+        await this.logEntry('task_failed', `Task ${taskId} failed: ${errorMsg}`, taskId)
 
         // Cleanup agent
         await agent.cleanup()
@@ -580,7 +583,7 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Handle QA reviews for tasks in ready_for_qa state.
+   * Handle QA reviews for tasks in verifying state.
    * Spawns QA agents to review code changes.
    */
   private async handleQATasks(): Promise<void> {
@@ -588,8 +591,10 @@ export class ExecutionOrchestrator extends EventEmitter {
       return
     }
 
-    const poolManager = getTaskPoolManager()
-    const qaTasks = poolManager.getPool('ready_for_qa')
+    // Query graph directly for tasks in 'verifying' status (pool manager is stubbed)
+    const qaTasks = this.state.graph.nodes
+      .filter((t) => t.status === 'verifying')
+      .map((t) => t.id)
 
     // Load feature spec once for all QA tasks in this feature
     const contextService = getContextService()
@@ -604,9 +609,8 @@ export class ExecutionOrchestrator extends EventEmitter {
       const task = this.state.graph.nodes.find((n) => n.id === taskId)
       if (!task) continue
 
-      // Pool architecture: Use manager worktree path
-      // All tasks execute in the same pool worktree, not individual task worktrees
-      let worktreePath = this.state.managerWorktreePath
+      // Use worktree path - all tasks execute in the same worktree
+      let worktreePath = this.state.worktreePath
 
       if (!worktreePath) {
         // Fallback: try dev agent (legacy path)
@@ -623,7 +627,7 @@ export class ExecutionOrchestrator extends EventEmitter {
       const qaAgent = createQAAgent(this.state.featureId, taskId)
       const initialized = await qaAgent.initialize(
         task.title,
-        task.description,
+        task.spec,
         worktreePath,
         featureSpec || undefined
       )
@@ -642,8 +646,7 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Handle QA review result.
-   * Pool architecture: On pass, mark task completed (no per-task merge)
-   * Legacy mode: On pass, transition to merging
+   * On pass: mark task completed (changes are committed to worktree branch)
    * On fail: store feedback and transition back to dev
    */
   private handleQAResult(taskId: string, result: QAReviewResult): void {
@@ -658,64 +661,60 @@ export class ExecutionOrchestrator extends EventEmitter {
     }
 
     const taskPoolManager = getTaskPoolManager()
-    const useManagerMode = this.state.featureManagerId !== null
 
     if (result.passed) {
-      if (useManagerMode) {
-        // Pool architecture: QA passed → mark task completed directly (no per-task merge)
-        // Changes are committed to pool branch, feature-level merge happens later
-        const transitionResult = transitionTask(task, 'QA_PASSED_POOL')
-        if (transitionResult.success) {
-          taskPoolManager.moveTask(taskId, 'ready_for_qa', 'completed')
-          this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'completed', 'QA_PASSED_POOL'))
-          this.assignments.delete(taskId)
-
-          console.log(`[Orchestrator] Task ${taskId} completed (pool mode - no per-task merge)`)
-          this.addEvent('qa_passed', { taskId })
-          this.addEvent('task_completed', { taskId })
-
-          // Cascade to unblock dependents
-          const cascade = cascadeTaskCompletion(taskId, this.state.graph)
-          this.history.push(...cascade.changes)
-          for (const change of cascade.changes) {
-            taskPoolManager.moveTask(change.taskId, change.previousStatus, change.newStatus)
-          }
+      // QA passed → mark task completed directly
+      // Changes are committed to worktree branch, feature-level merge happens later
+      const transitionResult = transitionTask(task, 'QA_PASSED')
+      if (transitionResult.success) {
+        // Store commit hash on the task
+        if (result.commitHash) {
+          task.commitHash = result.commitHash
         }
-      } else {
-        // Legacy mode: QA passed → transition to ready_for_merge and execute per-task merge
-        const transitionResult = transitionTask(task, 'QA_PASSED')
-        if (transitionResult.success) {
-          taskPoolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_merge')
-          this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_merge', 'QA_PASSED'))
-          this.addEvent('qa_passed', { taskId })
 
-          // Start merge (transition to in_progress for merge)
-          const mergeTransition = transitionTask(task, 'MERGE_STARTED')
-          if (mergeTransition.success) {
-            taskPoolManager.moveTask(taskId, 'ready_for_merge', 'in_progress')
+        taskPoolManager.moveTask(taskId, 'verifying', 'done')
+        this.history.push(createStateChangeRecord(taskId, 'verifying', 'done', 'QA_PASSED'))
+        this.assignments.delete(taskId)
 
-            // Execute merge
-            this.executeMerge(taskId).then((mergeSuccess) => {
-              if (mergeSuccess) {
-                this.completeMerge(taskId)
-              }
-            })
-          }
+        console.log(`[Orchestrator] Task ${taskId} completed`)
+        this.addEvent('qa_passed', { taskId })
+        this.addEvent('task_completed', { taskId })
+
+        // Clear single-task mode if this was the single task
+        if (this.singleTaskId === taskId) {
+          console.log(`[Orchestrator] Single task ${taskId} completed, exiting single-task mode`)
+          this.singleTaskId = null
+        }
+
+        // Cascade to unblock dependents
+        const cascade = cascadeTaskCompletion(taskId, this.state.graph)
+        this.history.push(...cascade.changes)
+        for (const change of cascade.changes) {
+          taskPoolManager.moveTask(change.taskId, change.previousStatus, change.newStatus)
         }
       }
 
       // Update feature status
       this.updateFeatureStatus()
     } else {
-      // QA failed → store feedback and move back to ready_for_dev
+      // QA failed → store feedback and move back to ready for dev rework
       task.qaFeedback = result.feedback
       const transitionResult = transitionTask(task, 'QA_FAILED')
       if (transitionResult.success) {
-        // Move from ready_for_qa back to ready_for_dev for dev rework
-        taskPoolManager.moveTask(taskId, 'ready_for_qa', 'ready_for_dev')
-        this.history.push(createStateChangeRecord(taskId, 'ready_for_qa', 'ready_for_dev', 'QA_FAILED'))
+        // Move task to new status (ready for rework)
+        taskPoolManager.moveTask(taskId, transitionResult.previousStatus, transitionResult.newStatus)
+        this.history.push(createStateChangeRecord(taskId, transitionResult.previousStatus, transitionResult.newStatus, 'QA_FAILED'))
         this.addEvent('qa_failed', { taskId, feedback: result.feedback })
-        console.log(`[Orchestrator] Task ${taskId} returned to dev (ready_for_dev) with feedback: ${result.feedback}`)
+        console.log(`[Orchestrator] Task ${taskId} transitioned ${transitionResult.previousStatus} -> ${transitionResult.newStatus} with QA feedback: ${result.feedback}`)
+
+        // Clear assignment so task can be re-assigned for dev rework
+        this.assignments.delete(taskId)
+
+        // Clear single-task mode if this was the single task
+        if (this.singleTaskId === taskId) {
+          console.log(`[Orchestrator] Single task ${taskId} QA failed, exiting single-task mode`)
+          this.singleTaskId = null
+        }
 
         // Update feature status
         this.updateFeatureStatus()
@@ -731,67 +730,6 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Execute merge via merge agent.
-   * Merges task branch into feature branch.
-   * Returns true if merge succeeded, false otherwise.
-   */
-  private async executeMerge(taskId: string): Promise<boolean> {
-    if (!this.state.featureId || !this.state.graph) {
-      console.warn('[Orchestrator] Cannot execute merge - no feature/graph loaded')
-      return false
-    }
-
-    const task = this.state.graph.nodes.find((n) => n.id === taskId)
-    if (!task) {
-      console.warn(`[Orchestrator] Task ${taskId} not found for merge`)
-      return false
-    }
-
-    // Create and initialize merge agent
-    const mergeAgent = createMergeAgent(this.state.featureId, taskId)
-    registerMergeAgent(mergeAgent)
-
-    const initialized = await mergeAgent.initialize(task.title)
-    if (!initialized) {
-      console.error(`[Orchestrator] Failed to initialize merge agent for task ${taskId}`)
-      this.failTask(taskId, 'Failed to initialize merge agent')
-      removeMergeAgent(taskId)
-      return false
-    }
-
-    // Check branches for conflicts
-    const branchesOk = await mergeAgent.checkBranches()
-    if (!branchesOk) {
-      const mergeError = mergeAgent.getState().error || 'Branch check failed'
-      console.error(`[Orchestrator] Branch check failed for task ${taskId}: ${mergeError}`)
-      this.failTask(taskId, mergeError)
-      await mergeAgent.cleanup()
-      removeMergeAgent(taskId)
-      return false
-    }
-
-    // For now, auto-approve clean merges (no conflicts)
-    // In the future, this could go through harness approval
-    mergeAgent.receiveApproval({ approved: true, type: 'approved' })
-
-    // Execute the merge
-    const mergeResult = await mergeAgent.executeMerge()
-
-    // Cleanup merge agent
-    await mergeAgent.cleanup()
-    removeMergeAgent(taskId)
-
-    if (mergeResult.success && mergeResult.merged) {
-      console.log(`[Orchestrator] Merge successful for task ${taskId}`)
-      return true
-    } else {
-      console.error(`[Orchestrator] Merge failed for task ${taskId}: ${mergeResult.error}`)
-      this.failTask(taskId, mergeResult.error || 'Merge failed')
-      return false
-    }
-  }
-
-  /**
    * Assign an agent to a task - creates TaskController for Ralph Loop execution.
    * In pool architecture, uses pool worktree path instead of creating task worktree.
    */
@@ -801,9 +739,9 @@ export class ExecutionOrchestrator extends EventEmitter {
       return
     }
 
-    // Pool architecture: Require pool worktree path
-    if (!this.state.managerWorktreePath) {
-      console.error('[Orchestrator] Cannot assign: no pool worktree path')
+    // Require worktree path
+    if (!this.state.worktreePath) {
+      console.error('[Orchestrator] Cannot assign: no worktree path')
       return
     }
 
@@ -827,7 +765,7 @@ export class ExecutionOrchestrator extends EventEmitter {
       const projectRoot = contextService?.getProjectRoot() || process.cwd()
 
       // Create TaskController with loop config from orchestrator config
-      // Pass pool worktree path for use instead of creating task worktree
+      // Pass worktree path for use instead of creating task worktree
       const controller = createTaskController(
         this.state.featureId,
         task.id,
@@ -838,7 +776,7 @@ export class ExecutionOrchestrator extends EventEmitter {
           runLint: this.config.runLint ?? true,
           runTests: this.config.runTests ?? false,
           continueOnLintFail: this.config.continueOnLintFail ?? true,
-          managerWorktreePath: this.state.managerWorktreePath // Manager worktree path
+          worktreePath: this.state.worktreePath // Worktree path
         }
       )
 
@@ -867,11 +805,57 @@ export class ExecutionOrchestrator extends EventEmitter {
         this.addEvent('agent_assigned', { taskId: task.id, agentId: `controller-${task.id}` })
 
         // Start the loop (non-blocking)
+        console.log(`[Orchestrator] Starting TaskController for task ${task.id} in worktree ${this.state.worktreePath}`)
         controller.start(task, this.state.graph!, claudeMd, featureGoal)
           .catch(err => console.error(`[Orchestrator] TaskController error for ${task.id}:`, err))
+      } else {
+        console.error(`[Orchestrator] Failed to assign task ${task.id}: ${result.error}`)
       }
     } catch (error) {
       console.error('[Orchestrator] Error assigning TaskController:', error)
+    }
+  }
+
+  /**
+   * Resume tasks that were in 'developing' or 'verifying' state when app restarted.
+   * Creates TaskControllers for any tasks that don't have one.
+   * Respects singleTaskId - if set, only resumes that specific task.
+   */
+  private async resumeInProgressTasks(): Promise<void> {
+    console.log(`[Orchestrator] resumeInProgressTasks called`)
+    console.log(`[Orchestrator] State check - graph: ${!!this.state.graph}, featureId: ${this.state.featureId}, worktreePath: ${this.state.worktreePath}, singleTaskId: ${this.singleTaskId}`)
+
+    if (!this.state.graph || !this.state.featureId || !this.state.worktreePath) {
+      console.log(`[Orchestrator] resumeInProgressTasks: missing required state, skipping`)
+      return
+    }
+
+    // Log all task statuses for debugging
+    console.log(`[Orchestrator] All tasks:`, this.state.graph.nodes.map(t => `${t.id}: ${t.status}`))
+
+    // Find tasks in 'developing' or 'verifying' status that don't have a TaskController
+    // Skip paused tasks - they should stay paused until user explicitly resumes
+    // If singleTaskId is set, only resume that specific task (user manually started it)
+    const inProgressTasks = this.state.graph.nodes.filter(
+      (task) => {
+        if (task.status !== 'developing' && task.status !== 'verifying') return false
+        if (task.isPaused) return false
+        if (this.taskControllers.has(task.id)) return false
+        // In single-task mode, only resume the specified task
+        if (this.singleTaskId && task.id !== this.singleTaskId) return false
+        return true
+      }
+    )
+
+    if (inProgressTasks.length === 0) {
+      console.log(`[Orchestrator] No tasks in progress to resume`)
+      return
+    }
+
+    console.log(`[Orchestrator] Resuming ${inProgressTasks.length} in-progress task(s)`)
+
+    for (const task of inProgressTasks) {
+      await this.resumeSingleTask(task)
     }
   }
 
@@ -929,7 +913,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     if (!this.state.graph || this.state.graph.nodes.length === 0) {
       return true // Empty graph is considered complete
     }
-    return this.state.graph.nodes.every((n) => n.status === 'completed')
+    return this.state.graph.nodes.every((n) => n.status === 'done')
   }
 
   /**
@@ -941,14 +925,11 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { ready: [], available: [], canAssign: 0 }
     }
 
-    // Get ready task IDs from pool (O(1) lookup)
-    const poolManager = getTaskPoolManager()
-    const readyIds = poolManager.getPool('ready_for_dev')
-
-    // Map IDs to Task objects
-    const ready = readyIds
-      .map((id) => this.state.graph!.nodes.find((n) => n.id === id))
-      .filter((t): t is Task => t !== undefined)
+    // Query graph directly for tasks in 'ready' status (pool manager is stubbed)
+    // Also filter out blocked tasks
+    const ready = this.state.graph.nodes.filter(
+      (t) => t.status === 'ready' && !t.blocked
+    )
 
     // Filter out already assigned tasks, tasks that failed this tick,
     // and tasks that exceeded max init retries
@@ -961,10 +942,11 @@ export class ExecutionOrchestrator extends EventEmitter {
       return true
     })
 
-    // Pool architecture: Sequential execution - max 1 task at a time
-    // Check if any task is currently running (in_progress, ready_for_qa, or ready_for_merge)
-    const counts = poolManager.getCounts()
-    const currentActive = counts.in_progress + counts.ready_for_qa + counts.ready_for_merge
+    // Sequential execution - max 1 task at a time
+    // Check if any task is currently running (developing or verifying)
+    const currentActive = this.state.graph.nodes.filter(
+      (t) => t.status === 'developing' || t.status === 'verifying'
+    ).length
 
     // Only allow 1 concurrent task in pool mode
     const canAssign = currentActive === 0 ? 1 : 0
@@ -989,7 +971,7 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: 'Task not found' }
     }
 
-    if (task.status !== 'ready_for_dev') {
+    if (task.status !== 'ready') {
       return { success: false, error: `Task not ready_for_dev (status: ${task.status})` }
     }
 
@@ -1040,7 +1022,7 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: 'Task not found' }
     }
 
-    if (task.status !== 'in_progress') {
+    if (task.status !== 'developing') {
       return { success: false, error: `Task not in_progress (status: ${task.status})` }
     }
 
@@ -1060,65 +1042,6 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.updateFeatureStatus()
 
     return { success: true }
-  }
-
-  /**
-   * Mark a task's merge as successful.
-   * Triggers cascade to unblock dependent tasks.
-   */
-  completeMerge(taskId: string): { success: boolean; unblocked: string[]; error?: string } {
-    if (!this.state.graph) {
-      return { success: false, unblocked: [], error: 'No graph loaded' }
-    }
-
-    const task = this.state.graph.nodes.find((n) => n.id === taskId)
-    if (!task) {
-      return { success: false, unblocked: [], error: 'Task not found' }
-    }
-
-    if (task.status !== 'in_progress') {
-      return { success: false, unblocked: [], error: `Task not in_progress (status: ${task.status})` }
-    }
-
-    const result = transitionTask(task, 'MERGE_SUCCESS')
-    if (!result.success) {
-      return { success: false, unblocked: [], error: result.error }
-    }
-
-    // Update pools for completed task
-    const poolManager = getTaskPoolManager()
-    poolManager.moveTask(taskId, result.previousStatus, result.newStatus)
-
-    this.history.push(
-      createStateChangeRecord(taskId, result.previousStatus, result.newStatus, 'MERGE_SUCCESS')
-    )
-
-    // Remove assignment
-    this.assignments.delete(taskId)
-
-    // Cascade to unblock dependents
-    const cascade = cascadeTaskCompletion(taskId, this.state.graph)
-    this.history.push(...cascade.changes)
-
-    // Update pools for unblocked tasks (blocked → ready)
-    for (const change of cascade.changes) {
-      poolManager.moveTask(change.taskId, change.previousStatus, change.newStatus)
-    }
-
-    const unblocked = cascade.changes.map((c) => c.taskId)
-
-    this.addEvent('task_completed', {
-      taskId,
-      previousStatus: result.previousStatus,
-      newStatus: result.newStatus
-    })
-
-    // Completion is now checked by the tick loop
-
-    // Update feature status
-    this.updateFeatureStatus()
-
-    return { success: true, unblocked }
   }
 
   /**
@@ -1143,10 +1066,8 @@ export class ExecutionOrchestrator extends EventEmitter {
       return { success: false, error: result.error }
     }
 
-    // Store error message on the task for UI visibility
-    if (error) {
-      task.errorMessage = error
-    }
+    // Note: Error messages are shown in loop status UI and session logs,
+    // not stored on the task object
 
     // Update pools
     getTaskPoolManager().moveTask(taskId, result.previousStatus, result.newStatus)
@@ -1167,6 +1088,237 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.updateFeatureStatus()
 
     return { success: true }
+  }
+
+  /**
+   * Start a single task in step-by-step execution mode.
+   * This starts the orchestrator if needed and executes just the specified task.
+   * Does not automatically start other tasks when this one completes.
+   */
+  async startSingleTask(taskId: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.state.graph || !this.state.featureId) {
+      return { success: false, error: 'No graph loaded' }
+    }
+
+    const task = this.state.graph.nodes.find((n) => n.id === taskId)
+    if (!task) {
+      return { success: false, error: 'Task not found' }
+    }
+
+    // Check if task is already being worked on (has a controller)
+    if (this.taskControllers.has(taskId)) {
+      return { success: false, error: 'Task already has an active agent' }
+    }
+
+    // Allow 'ready' (new start), 'developing' (resume dev), and 'verifying' (resume QA)
+    if (task.status !== 'ready' && task.status !== 'developing' && task.status !== 'verifying') {
+      return { success: false, error: `Task not ready for work (status: ${task.status})` }
+    }
+
+    console.log(`[Orchestrator] Starting single task: ${taskId} (status: ${task.status})`)
+
+    // Set to step mode - user is manually controlling task execution
+    await this.setExecutionMode('step')
+
+    // Enable single-task mode BEFORE starting orchestrator - prevents auto-assignment of other tasks
+    // This must be set before start() to avoid race condition where tick() runs before singleTaskId is set
+    this.singleTaskId = taskId
+
+    // If orchestrator not running, start it first (tick won't auto-assign due to singleTaskId)
+    if (this.state.status !== 'running') {
+      const startResult = await this.start()
+      if (!startResult.success) {
+        this.singleTaskId = null // Clear on failure
+        return startResult
+      }
+    }
+
+    // For tasks in 'developing' or 'verifying' status, resume without status transition
+    if (task.status === 'developing' || task.status === 'verifying') {
+      const resumeResult = await this.resumeSingleTask(task)
+      if (!resumeResult.success) {
+        this.singleTaskId = null // Clear single-task mode on failure
+        return resumeResult
+      }
+    } else {
+      // For 'ready' tasks, use normal assignment flow
+      await this.assignAgentToTask(task)
+    }
+
+    return { success: true }
+  }
+
+  /**
+   * Resume a single task that's already in 'developing' or 'verifying' status.
+   * Creates a TaskController without transitioning status.
+   * Returns error if stash has merge conflicts.
+   */
+  private async resumeSingleTask(task: Task): Promise<{ success: boolean; error?: string }> {
+    if (!this.state.featureId || !this.state.graph || !this.state.worktreePath) {
+      console.error('[Orchestrator] Cannot resume: missing required state')
+      return { success: false, error: 'Missing required state' }
+    }
+
+    // Unstash changes if task has a stash
+    if (task.stashId && this.state.worktreePath) {
+      try {
+        const { simpleGit } = await import('simple-git')
+        const git = simpleGit({ baseDir: this.state.worktreePath })
+
+        // Find the stash for this task by message
+        const stashList = await git.stashList()
+        const stashMessage = `dagent-pause:${task.id}`
+        const stashIndex = stashList.all.findIndex(s => s.message.includes(stashMessage))
+
+        if (stashIndex >= 0) {
+          // Use apply (not pop) so we can keep stash on conflict
+          await git.stash(['apply', `stash@{${stashIndex}}`])
+          // Apply succeeded - now drop the stash
+          await git.stash(['drop', `stash@{${stashIndex}}`])
+          console.log(`[Orchestrator] Unstashed changes for task ${task.id}`)
+          // Clear stash reference only on success
+          task.stashId = undefined
+        } else {
+          console.log(`[Orchestrator] No stash found for task ${task.id}, may have been manually cleared`)
+          task.stashId = undefined
+        }
+      } catch (error) {
+        const errorMsg = (error as Error).message || 'Unknown error'
+        console.error(`[Orchestrator] Failed to unstash changes for task ${task.id}:`, error)
+        // Check if it's a merge conflict
+        if (errorMsg.includes('conflict') || errorMsg.includes('CONFLICT')) {
+          return {
+            success: false,
+            error: 'Stash has merge conflicts. Please resolve conflicts manually in the worktree before resuming.'
+          }
+        }
+        // For other errors, keep stash and return error
+        return {
+          success: false,
+          error: `Failed to unstash changes: ${errorMsg}`
+        }
+      }
+    }
+
+    // Clear paused flag when resuming
+    task.isPaused = false
+
+    // Save DAG immediately to persist cleared isPaused flag and stashId
+    const featureStore = getFeatureStore()
+    if (featureStore && this.state.graph) {
+      await featureStore.saveDag(this.state.featureId, this.state.graph)
+      // Emit graph_updated to notify UI of isPaused change
+      this.emit('graph_updated', {
+        featureId: this.state.featureId,
+        graph: this.state.graph
+      })
+
+      // Add [RESUMED] message to session logs
+      await featureStore.appendSessionMessage(this.state.featureId, task.id, {
+        timestamp: new Date().toISOString(),
+        direction: 'harness_to_task',
+        type: 'progress',
+        content: '[RESUMED] Task execution resumed'
+      })
+    }
+
+    // Load context
+    const feature = featureStore ? await featureStore.loadFeature(this.state.featureId) : null
+    let featureGoal = feature?.name || 'Complete tasks'
+    if (feature?.description) {
+      featureGoal += `\n\n${feature.description}`
+    }
+
+    let claudeMd: string | undefined
+    const contextService = getContextService()
+    if (contextService) {
+      claudeMd = (await contextService.getClaudeMd()) || undefined
+    }
+    const projectRoot = contextService?.getProjectRoot() || process.cwd()
+
+    try {
+      // Create TaskController
+      const controller = createTaskController(
+        this.state.featureId,
+        task.id,
+        projectRoot,
+        {
+          maxIterations: this.config.maxIterations ?? 10,
+          runBuild: this.config.runBuild ?? true,
+          runLint: this.config.runLint ?? true,
+          runTests: this.config.runTests ?? false,
+          continueOnLintFail: this.config.continueOnLintFail ?? true,
+          worktreePath: this.state.worktreePath
+        }
+      )
+
+      // Track controller
+      this.taskControllers.set(task.id, controller)
+
+      // Subscribe to events
+      controller.on('loop:start', () => {
+        console.log(`[Orchestrator] Resumed task ${task.id} loop started`)
+      })
+
+      controller.on('iteration:complete', (result) => {
+        console.log(`[Orchestrator] Task ${task.id} iteration ${result.iteration} complete`)
+        this.emit('task_loop_update', this.getLoopStatus(task.id))
+      })
+
+      controller.on('loop:complete', async (state: TaskControllerState) => {
+        console.log(`[Orchestrator] Task ${task.id} loop complete: ${state.exitReason}`)
+        await this.handleControllerComplete(task.id, state)
+      })
+
+      // Track assignment
+      this.assignments.set(task.id, {
+        taskId: task.id,
+        agentId: `controller-${task.id}`,
+        assignedAt: new Date().toISOString()
+      })
+
+      this.addEvent('agent_assigned', { taskId: task.id, agentId: `controller-${task.id}` })
+
+      // Start the loop
+      console.log(`[Orchestrator] Starting resumed TaskController for task ${task.id}`)
+      controller.start(task, this.state.graph!, claudeMd, featureGoal)
+        .catch(err => console.error(`[Orchestrator] TaskController error for resumed ${task.id}:`, err))
+
+      return { success: true }
+    } catch (error) {
+      console.error(`[Orchestrator] Error resuming task ${task.id}:`, error)
+      return { success: false, error: `Failed to resume task: ${(error as Error).message}` }
+    }
+  }
+
+  /**
+   * Check if the feature is in step-by-step execution mode.
+   */
+  private async isStepMode(): Promise<boolean> {
+    if (!this.state.featureId) return false
+
+    const featureStore = getFeatureStore()
+    if (!featureStore) return false
+
+    const feature = await featureStore.loadFeature(this.state.featureId)
+    return feature?.executionMode === 'step'
+  }
+
+  /**
+   * Set the feature's execution mode.
+   */
+  private async setExecutionMode(mode: 'auto' | 'step'): Promise<void> {
+    if (!this.state.featureId) return
+
+    const featureStore = getFeatureStore()
+    if (!featureStore) return
+
+    const feature = await featureStore.loadFeature(this.state.featureId)
+    if (feature && feature.executionMode !== mode) {
+      feature.executionMode = mode
+      await featureStore.saveFeature(feature)
+      console.log(`[Orchestrator] Execution mode changed to '${mode}' for feature ${this.state.featureId}`)
+    }
   }
 
   /**
@@ -1247,17 +1399,183 @@ export class ExecutionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Abort a task's iteration loop.
+   * Abort a task's iteration loop and return task to ready status.
    */
-  abortLoop(taskId: string): { success: boolean; error?: string } {
+  async abortLoop(taskId: string): Promise<{ success: boolean; error?: string }> {
     const controller = this.taskControllers.get(taskId)
     if (!controller) {
-      return { success: false, error: 'No active loop for this task' }
+      // Check if task exists and provide helpful message
+      const task = this.state.graph?.nodes.find((n) => n.id === taskId)
+      if (task) {
+        if (task.status === 'ready') {
+          return { success: false, error: 'Task is not running. Click Start to begin development.' }
+        } else if (task.status === 'done') {
+          return { success: false, error: 'Task is already completed.' }
+        } else if (task.status === 'verifying') {
+          // QA is running but there's no TaskController - QA agent handles its own execution
+          return { success: false, error: 'QA review is in progress. Wait for it to complete.' }
+        }
+      }
+      return { success: false, error: 'No active work to pause for this task.' }
     }
 
+    // Get status before aborting (abort may trigger cleanup that removes controller)
+    const state = controller.getState()
     controller.abort()
     console.log(`[Orchestrator] Aborted loop for task ${taskId}`)
-    this.emit('task_loop_update', this.getLoopStatus(taskId))
+
+    // Remove controller from tracking
+    this.taskControllers.delete(taskId)
+
+    // Build and emit aborted status FIRST (before UI updates)
+    const abortedStatus: TaskLoopStatus = {
+      taskId,
+      status: 'aborted',
+      currentIteration: state.currentIteration,
+      maxIterations: state.maxIterations,
+      worktreePath: state.worktreePath,
+      checklistSnapshot: {},
+      exitReason: 'aborted',
+      error: null
+    }
+    this.emit('task_loop_update', abortedStatus)
+
+    // Set isPaused flag and stash changes
+    if (this.state.graph && this.state.featureId) {
+      const task = this.state.graph.nodes.find((n) => n.id === taskId)
+      if (task) {
+        task.isPaused = true
+
+        // Stash any uncommitted changes
+        if (this.state.worktreePath) {
+          try {
+            const { simpleGit } = await import('simple-git')
+            const git = simpleGit({ baseDir: this.state.worktreePath })
+
+            // Check if there are changes to stash
+            const status = await git.status()
+            const hasChanges = !status.isClean()
+
+            if (hasChanges) {
+              // Create a stash with task ID as message for easy identification
+              const stashMessage = `dagent-pause:${taskId}`
+              await git.stash(['push', '-m', stashMessage, '--include-untracked'])
+
+              // Get the stash reference (stash@{0} after we just pushed)
+              const stashList = await git.stashList()
+              if (stashList.all.length > 0) {
+                task.stashId = 'stash@{0}'
+                console.log(`[Orchestrator] Stashed changes for task ${taskId}`)
+              }
+            } else {
+              console.log(`[Orchestrator] No changes to stash for task ${taskId}`)
+            }
+          } catch (error) {
+            console.error(`[Orchestrator] Failed to stash changes for task ${taskId}:`, error)
+            // Don't fail the pause operation, just log the error
+          }
+        }
+
+        console.log(`[Orchestrator] Task ${taskId} paused (status: ${task.status}, isPaused: true, stashId: ${task.stashId || 'none'})`)
+
+        // Add [PAUSED] message to session logs
+        const featureStore = getFeatureStore()
+        if (featureStore) {
+          const stashInfo = task.stashId ? ' Changes have been stashed.' : ''
+          await featureStore.appendSessionMessage(this.state.featureId, taskId, {
+            timestamp: new Date().toISOString(),
+            direction: 'harness_to_task',
+            type: 'progress',
+            content: `[PAUSED] Task execution paused by user.${stashInfo}`
+          })
+        }
+
+        // Clear assignment
+        this.assignments.delete(taskId)
+
+        // Switch to step mode when user pauses a task
+        // This prevents auto-assignment of other tasks while user is debugging
+        await this.setExecutionMode('step')
+
+        // Save DAG and emit update
+        this.updateFeatureStatus()
+      }
+    }
+
+    // Clear single-task mode if this was the single task
+    if (this.singleTaskId === taskId) {
+      console.log(`[Orchestrator] Single task ${taskId} aborted, exiting single-task mode`)
+      this.singleTaskId = null
+    }
+
+    return { success: true }
+  }
+
+  /**
+   * Abort a paused task - drop stashed changes and reset to ready status.
+   * This discards the stashed changes that were saved when the task was paused.
+   */
+  async abortTask(taskId: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.state.graph || !this.state.featureId) {
+      return { success: false, error: 'No graph or feature loaded' }
+    }
+
+    const task = this.state.graph.nodes.find((n) => n.id === taskId)
+    if (!task) {
+      return { success: false, error: 'Task not found' }
+    }
+
+    // Only allow aborting paused tasks
+    if (!task.isPaused) {
+      return { success: false, error: 'Task is not paused. Pause the task first before aborting.' }
+    }
+
+    // Drop the stash if one exists
+    if (task.stashId && this.state.worktreePath) {
+      try {
+        const { simpleGit } = await import('simple-git')
+        const git = simpleGit({ baseDir: this.state.worktreePath })
+
+        // Find and drop the stash for this task
+        const stashList = await git.stashList()
+        const stashMessage = `dagent-pause:${taskId}`
+        const stashIndex = stashList.all.findIndex(s => s.message.includes(stashMessage))
+
+        if (stashIndex >= 0) {
+          await git.stash(['drop', `stash@{${stashIndex}}`])
+          console.log(`[Orchestrator] Dropped stash for task ${taskId}`)
+        } else {
+          console.log(`[Orchestrator] No stash found for task ${taskId}, may have been manually cleared`)
+        }
+      } catch (error) {
+        console.error(`[Orchestrator] Failed to drop stash for task ${taskId}:`, error)
+        // Don't fail - the stash might have been manually dropped
+      }
+    }
+
+    // Reset task status to ready
+    task.status = 'ready'
+    task.isPaused = false
+    task.stashId = undefined // Clear stash reference
+    task.qaFeedback = undefined // Clear any QA feedback
+    task.commitHash = undefined // Clear commit hash
+
+    // Add [ABORTED] message to session logs
+    const featureStore = getFeatureStore()
+    if (featureStore) {
+      await featureStore.appendSessionMessage(this.state.featureId, taskId, {
+        timestamp: new Date().toISOString(),
+        direction: 'harness_to_task',
+        type: 'progress',
+        content: '[ABORTED] Task aborted - stashed changes discarded, reset to Ready'
+      })
+    }
+
+    console.log(`[Orchestrator] Task ${taskId} aborted and reset to ready`)
+
+    // Save DAG and emit update
+    this.updateFeatureStatus()
+
     return { success: true }
   }
 
@@ -1331,7 +1649,7 @@ export class ExecutionOrchestrator extends EventEmitter {
    * Handle feature completion - trigger configured completion action.
    * Called when feature transitions to archived status (after merge).
    */
-  private async handleFeatureCompleted(feature: { id: string; name: string; branchName: string; completionAction?: string; featureManagerId?: number; targetBranch?: string }): Promise<void> {
+  private async handleFeatureCompleted(feature: { id: string; name: string; branch?: string; completionAction?: string; worktreeId?: WorktreeId; targetBranch?: string }): Promise<void> {
     const completionAction = feature.completionAction || 'manual'
 
     if (completionAction === 'manual') {
@@ -1365,13 +1683,14 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Execute auto_merge completion action.
-   * Creates FeatureMergeAgent and performs direct merge to main.
+   * Creates FeatureMergeAgent and performs direct merge to current branch.
    */
-  private async executeAutoMerge(feature: { id: string; branchName: string }): Promise<void> {
+  private async executeAutoMerge(feature: { id: string; branch?: string }): Promise<void> {
     console.log(`[Orchestrator] Executing auto_merge for feature ${feature.id}`)
 
     const gitManager = getGitManager()
-    const targetBranch = await gitManager.getDefaultBranch()
+    const targetBranch = await gitManager.getCurrentBranch() || await gitManager.getDefaultBranch()
+    const sourceBranch = feature.branch || `dagent/${feature.id}`
 
     // Check for uncommitted changes and stash them if present
     let stashed = false
@@ -1393,7 +1712,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     }
 
     // Create and initialize merge agent
-    const agent = createFeatureMergeAgent(feature.id, targetBranch, feature.branchName)
+    const agent = createFeatureMergeAgent(feature.id, targetBranch, sourceBranch)
     const initialized = await agent.initialize()
 
     if (!initialized) {
@@ -1427,19 +1746,7 @@ export class ExecutionOrchestrator extends EventEmitter {
       }
 
       console.log(`[Orchestrator] Auto merge completed successfully for feature ${feature.id}`)
-
-      // Archive feature after successful merge (if not already archived)
-      try {
-        const featureStore = getFeatureStore()
-        const currentFeature = featureStore ? await featureStore.loadFeature(feature.id) : null
-        if (currentFeature && currentFeature.status !== 'archived') {
-          const statusManager = getFeatureStatusManager()
-          await statusManager.updateFeatureStatus(feature.id, 'archived')
-          console.log(`[Orchestrator] Feature ${feature.id} archived after auto_merge`)
-        }
-      } catch (archiveError) {
-        console.error(`[Orchestrator] Failed to archive feature ${feature.id}:`, archiveError)
-      }
+      // Feature stays in 'merging' status - user must manually archive
 
       this.emit('completion_action_completed', {
         featureId: feature.id,
@@ -1465,12 +1772,9 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Execute auto_pr completion action.
-   * Creates a pull request using GitHub CLI.
-   *
-   * In pool architecture, uses the manager branch (dagent/neon, dagent/cyber, etc.)
-   * instead of the legacy feature branch name.
+   * Creates a pull request using GitHub CLI to current branch.
    */
-  private async executeAutoPR(feature: { id: string; name: string; branchName: string; featureManagerId?: number; targetBranch?: string }): Promise<void> {
+  private async executeAutoPR(feature: { id: string; name: string; branch?: string; worktreeId?: WorktreeId }): Promise<void> {
     console.log(`[Orchestrator] Executing auto_pr for feature ${feature.id}`)
 
     const prService = getPRService()
@@ -1485,23 +1789,12 @@ export class ExecutionOrchestrator extends EventEmitter {
     }
 
     // Determine the actual branch to use for PR
-    // In pool architecture, features work on manager worktree branches (dagent/neon, etc.)
-    // Legacy features use their own branch (feature.branchName)
-    let headBranch: string
-    const baseBranch = feature.targetBranch || 'main'
-
-    if (feature.featureManagerId !== undefined) {
-      // Pool architecture: use manager branch
-      const { getManagerBranchName } = await import('../../shared/types/pool')
-      headBranch = getManagerBranchName(feature.featureManagerId)
-      console.log(`[Orchestrator] Using manager branch ${headBranch} for feature ${feature.id}`)
-    } else {
-      // Legacy: use feature branch
-      headBranch = feature.branchName
-    }
+    const gitManager = getGitManager()
+    const baseBranch = await gitManager.getCurrentBranch() || 'main'
+    const headBranch = feature.branch || `dagent/${feature.worktreeId || 'neon'}`
+    console.log(`[Orchestrator] Using branch ${headBranch} for feature ${feature.id}`)
 
     // Push the branch to remote before creating PR
-    const gitManager = getGitManager()
     if (gitManager) {
       console.log(`[Orchestrator] Pushing branch ${headBranch} to origin`)
       const pushResult = await gitManager.pushBranch(headBranch)
@@ -1524,19 +1817,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     }
 
     console.log(`[Orchestrator] Auto PR created successfully for feature ${feature.id}: ${result.htmlUrl || result.prUrl}`)
-
-    // Archive feature after successful PR creation (if not already archived)
-    try {
-      const featureStore = getFeatureStore()
-      const currentFeature = featureStore ? await featureStore.loadFeature(feature.id) : null
-      if (currentFeature && currentFeature.status !== 'archived') {
-        const statusManager = getFeatureStatusManager()
-        await statusManager.updateFeatureStatus(feature.id, 'archived')
-        console.log(`[Orchestrator] Feature ${feature.id} archived after PR creation`)
-      }
-    } catch (archiveError) {
-      console.error(`[Orchestrator] Failed to archive feature ${feature.id}:`, archiveError)
-    }
+    // Feature stays in 'merging' status - user must manually archive
 
     this.emit('completion_action_completed', {
       featureId: feature.id,

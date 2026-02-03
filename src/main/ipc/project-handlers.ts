@@ -2,9 +2,9 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { mkdir, stat, writeFile, readFile } from 'fs/promises'
 import path from 'path'
 import { getGitManager } from '../git'
-import { initializeStorage, getFeatureStore } from './storage-handlers'
+import { initializeStorage } from './storage-handlers'
 import { setHistoryProjectRoot } from './history-handlers'
-import { setAgentConfigProjectRoot } from './agent-config-handlers'
+import { setAgentConfigProjectRoot, initializeAgentConfigs } from './agent-config-handlers'
 import { ensureDagentStructure } from '../storage/paths'
 import {
   getRecentProjects,
@@ -14,8 +14,6 @@ import {
 } from '../storage/recent-projects'
 import { initContextService } from './context-handlers'
 import { initializeSettingsStore } from '../storage/settings-store'
-import { FeatureStatusManager } from '../services/feature-status-manager'
-import { EventEmitter } from 'events'
 import { getFeatureManagerPool } from '../git/worktree-pool-manager'
 
 /**
@@ -168,6 +166,7 @@ export function registerProjectHandlers(): void {
         initializeStorage(projectRoot)
         setHistoryProjectRoot(projectRoot)
         setAgentConfigProjectRoot(projectRoot)
+        await initializeAgentConfigs(projectRoot) // Create agent config files if missing
         initContextService(projectRoot)
         initializeSettingsStore(projectRoot)
 
@@ -183,16 +182,6 @@ export function registerProjectHandlers(): void {
         await addRecentProject(projectRoot, projectName)
 
         console.log('[DAGent] Project switched to:', projectRoot)
-
-        // Recover any features stuck in planning status (happens when app closed during planning)
-        const featureStore = getFeatureStore()
-        if (featureStore) {
-          const statusManager = new FeatureStatusManager(featureStore, new EventEmitter())
-          const recoveredCount = await statusManager.recoverStuckPlanningFeatures()
-          if (recoveredCount > 0) {
-            console.log(`[DAGent] Recovered ${recoveredCount} feature(s) stuck in planning after project switch`)
-          }
-        }
 
         return { success: true, hasGit: isGitRepo }
       } catch (error) {
@@ -298,6 +287,7 @@ export function registerProjectHandlers(): void {
         initializeStorage(projectPath)
         setHistoryProjectRoot(projectPath)
         setAgentConfigProjectRoot(projectPath)
+        await initializeAgentConfigs(projectPath) // Create agent config files if missing
         initContextService(projectPath)
         initializeSettingsStore(projectPath)
 
@@ -308,13 +298,6 @@ export function registerProjectHandlers(): void {
         await addRecentProject(projectPath, projectName)
 
         console.log('[DAGent] New project created at:', projectPath)
-
-        // Recover any features stuck in planning status (for consistency with set-project)
-        const featureStore = getFeatureStore()
-        if (featureStore) {
-          const statusManager = new FeatureStatusManager(featureStore, new EventEmitter())
-          await statusManager.recoverStuckPlanningFeatures()
-        }
 
         return { success: true, projectPath }
       } catch (error) {

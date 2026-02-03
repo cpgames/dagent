@@ -1,12 +1,12 @@
 import { ipcMain } from 'electron'
 import { readJson, writeJson } from '../storage/json-store'
-import { getAgentConfigsPath } from '../storage/paths'
+import { getAgentConfigPath, ensureAgentsDir } from '../storage/paths'
 import type { AgentConfig, AgentRole, AgentRuntimeStatus } from '@shared/types'
 import { DEFAULT_AGENT_CONFIGS } from '@shared/types'
 
 let currentProjectRoot: string | null = null
 
-const ALL_ROLES: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
+const ALL_ROLES: AgentRole[] = ['pm', 'developer', 'qa', 'merge']
 
 /**
  * Set the project root for agent config operations.
@@ -24,58 +24,95 @@ function getProjectRoot(): string {
 }
 
 /**
- * Load agent configs from storage, falling back to defaults
+ * Load a single agent config from .dagent/agents/{role}.json
+ * Returns the stored config or creates from defaults if not found/empty.
+ */
+async function loadAgentConfig(projectRoot: string, role: AgentRole): Promise<AgentConfig> {
+  const configPath = getAgentConfigPath(projectRoot, role)
+
+  try {
+    const stored = await readJson<AgentConfig>(configPath)
+    if (stored && stored.instructions) {
+      // Ensure role is set correctly
+      return { ...stored, role }
+    }
+  } catch {
+    // File doesn't exist or is invalid
+  }
+
+  // No valid stored config, return default
+  return { role, ...DEFAULT_AGENT_CONFIGS[role] }
+}
+
+/**
+ * Save a single agent config to .dagent/agents/{role}.json
+ */
+async function saveAgentConfigToFile(projectRoot: string, config: AgentConfig): Promise<void> {
+  await ensureAgentsDir(projectRoot)
+  const configPath = getAgentConfigPath(projectRoot, config.role)
+  await writeJson(configPath, config)
+}
+
+/**
+ * Initialize agent configs for a project.
+ * Creates config files from defaults for any missing agents.
+ * Called when a project is opened.
+ */
+export async function initializeAgentConfigs(projectRoot: string): Promise<void> {
+  await ensureAgentsDir(projectRoot)
+
+  for (const role of ALL_ROLES) {
+    const configPath = getAgentConfigPath(projectRoot, role)
+    try {
+      const stored = await readJson<AgentConfig>(configPath)
+      if (!stored || !stored.instructions) {
+        // File is empty or missing instructions, create from defaults
+        const defaultConfig: AgentConfig = { role, ...DEFAULT_AGENT_CONFIGS[role] }
+        await writeJson(configPath, defaultConfig)
+      }
+    } catch {
+      // File doesn't exist, create from defaults
+      const defaultConfig: AgentConfig = { role, ...DEFAULT_AGENT_CONFIGS[role] }
+      await writeJson(configPath, defaultConfig)
+    }
+  }
+}
+
+/**
+ * Load agent configs from .dagent/agents/ directory.
+ * Each role has its own {role}.json file.
  */
 async function loadAgentConfigs(): Promise<Record<AgentRole, AgentConfig>> {
   const projectRoot = getProjectRoot()
-  const configPath = getAgentConfigsPath(projectRoot)
   const configs = {} as Record<AgentRole, AgentConfig>
 
-  try {
-    const stored = await readJson<Record<AgentRole, AgentConfig>>(configPath)
-    if (stored) {
-      // Merge with defaults to ensure all roles exist
-      for (const role of ALL_ROLES) {
-        if (stored[role]) {
-          configs[role] = stored[role]
-        } else {
-          configs[role] = { role, ...DEFAULT_AGENT_CONFIGS[role] }
-        }
-      }
-      return configs
-    }
-  } catch {
-    // Fall through to defaults
+  for (const role of ALL_ROLES) {
+    configs[role] = await loadAgentConfig(projectRoot, role)
   }
 
-  // No stored configs, use defaults
-  for (const role of ALL_ROLES) {
-    configs[role] = { role, ...DEFAULT_AGENT_CONFIGS[role] }
-  }
   return configs
 }
 
 /**
- * Save agent config to storage
+ * Save agent config to .dagent/agents/{role}.json
  */
 async function saveAgentConfig(config: AgentConfig): Promise<void> {
   const projectRoot = getProjectRoot()
-  const configPath = getAgentConfigsPath(projectRoot)
+  await saveAgentConfigToFile(projectRoot, config)
+}
 
-  // Load existing configs
-  let configs: Record<string, AgentConfig> = {}
-  try {
-    const stored = await readJson<Record<string, AgentConfig>>(configPath)
-    if (stored) {
-      configs = stored
-    }
-  } catch {
-    // Start fresh
+/**
+ * Get the instructions for a specific agent role.
+ * This is used by prompt-builders to get the configured prompt.
+ */
+export async function getAgentInstructions(role: AgentRole): Promise<string> {
+  if (!currentProjectRoot) {
+    // No project loaded, use defaults
+    return DEFAULT_AGENT_CONFIGS[role].instructions
   }
 
-  // Update config for this role
-  configs[config.role] = config
-  await writeJson(configPath, configs)
+  const config = await loadAgentConfig(currentProjectRoot, role)
+  return config.instructions
 }
 
 /**
@@ -85,8 +122,7 @@ async function saveAgentConfig(config: AgentConfig): Promise<void> {
 async function getRuntimeStatus(): Promise<Record<AgentRole, AgentRuntimeStatus>> {
   // Default all roles to offline
   const status: Record<AgentRole, AgentRuntimeStatus> = {
-    pm: { role: 'pm', status: 'offline' },
-    harness: { role: 'harness', status: 'idle' },
+    pm: { role: 'pm', status: 'idle' }, // PM is always "idle" - it's MCP tools, not a spawned agent
     developer: { role: 'developer', status: 'offline' },
     qa: { role: 'qa', status: 'offline' },
     merge: { role: 'merge', status: 'offline' }
@@ -97,23 +133,16 @@ async function getRuntimeStatus(): Promise<Record<AgentRole, AgentRuntimeStatus>
     const { getAgentPool } = await import('../agents')
     const pool = getAgentPool()
     if (pool) {
-      const poolStatus = pool.getStatus()
-
-      // Harness agent status
-      if (poolStatus.hasHarness) {
-        status.harness.status = 'idle'
-      }
-
       // Check running agents
       const agents = pool.getAgents()
       for (const agent of agents) {
         if (agent.status === 'terminated') continue
 
-        // Map old agent types to new roles
+        // Map pool agent types to UI roles
         let role: AgentRole | null = null
-        if (agent.type === 'harness') role = 'harness'
-        else if (agent.type === 'task') role = 'developer'
+        if (agent.type === 'task') role = 'developer'
         else if (agent.type === 'merge') role = 'merge'
+        else if (agent.type === 'qa') role = 'qa'
 
         if (role) {
           status[role] = {

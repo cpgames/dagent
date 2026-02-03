@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, useMemo, type JSX } from 'react'
 import { useChatStore } from '../../stores/chat-store'
 import { useProjectStore } from '../../stores/project-store'
 import { ChatMessage } from './ChatMessage'
+import { ChatInput } from './ChatInput'
 import { ToolUsageDisplay } from './ToolUsageDisplay'
 import { TokenProgress } from './TokenProgress'
-import { Button } from '../UI'
 import './ChatPanel.css'
+
+// Only render recent messages initially for performance
+// Older messages can be loaded via "Show more" button
+const INITIAL_MESSAGE_LIMIT = 50
+const LOAD_MORE_INCREMENT = 50
 
 interface ChatPanelProps {
   agentName?: string
@@ -27,8 +32,6 @@ export function ChatPanel({
   const {
     messages,
     loadChat,
-    addMessage,
-    sendToAgent,
     abortAgent,
     clearMessages,
     isLoading,
@@ -38,13 +41,32 @@ export function ChatPanel({
     sessionId
   } = useChatStore()
   const projectPath = useProjectStore((state) => state.projectPath)
-  const [inputValue, setInputValue] = useState('')
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  // Track how many messages to show (for performance with large chats)
+  const [visibleMessageCount, setVisibleMessageCount] = useState(INITIAL_MESSAGE_LIMIT)
 
   // Load chat when contextId or contextType changes
   useEffect(() => {
     loadChat(contextId, contextType)
+    // Reset visible count when switching contexts
+    setVisibleMessageCount(INITIAL_MESSAGE_LIMIT)
   }, [contextId, contextType, loadChat])
+
+  // Compute visible messages (show most recent, with option to load more)
+  const { visibleMessages, hiddenCount } = useMemo(() => {
+    const totalCount = messages.length
+    const startIndex = Math.max(0, totalCount - visibleMessageCount)
+    return {
+      visibleMessages: messages.slice(startIndex),
+      hiddenCount: startIndex
+    }
+  }, [messages, visibleMessageCount])
+
+  // Load more older messages
+  const handleLoadMore = useCallback(() => {
+    setVisibleMessageCount(prev => prev + LOAD_MORE_INCREMENT)
+  }, [])
 
   // Force scroll to bottom - called whenever content changes
   const scrollToBottom = useCallback(() => {
@@ -70,31 +92,6 @@ export function ChatPanel({
     return () => clearTimeout(timeoutId)
   }, [messages, messages.length, streamingContent, activeToolUse, scrollToBottom])
 
-  const handleSend = useCallback(async () => {
-    const trimmedValue = inputValue.trim()
-    if (!trimmedValue || isResponding) return
-
-    addMessage({
-      role: 'user',
-      content: trimmedValue
-    })
-    setInputValue('')
-
-    // Trigger streaming AI response via Agent SDK
-    await sendToAgent()
-  }, [inputValue, addMessage, sendToAgent, isResponding])
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      // Enter sends, Shift+Enter for newline
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        handleSend()
-      }
-    },
-    [handleSend]
-  )
-
   const handleClear = useCallback(() => {
     if (onClear) {
       onClear()
@@ -102,9 +99,6 @@ export function ChatPanel({
       clearMessages()
     }
   }, [onClear, clearMessages])
-
-  // Debug log for TokenProgress rendering
-  console.log('[ChatPanel] Render check:', { contextType, projectPath, sessionId, contextId })
 
   return (
     <div className={`chat-panel ${className}`}>
@@ -158,7 +152,17 @@ export function ChatPanel({
           </div>
         ) : (
           <div className="chat-panel__messages-list">
-            {messages.map((m) => (
+            {/* Load more button for older messages */}
+            {hiddenCount > 0 && (
+              <button
+                onClick={handleLoadMore}
+                className="chat-panel__load-more"
+              >
+                Show {Math.min(hiddenCount, LOAD_MORE_INCREMENT)} older messages
+                ({hiddenCount} hidden)
+              </button>
+            )}
+            {visibleMessages.map((m) => (
               <ChatMessage key={m.id} message={m} />
             ))}
           </div>
@@ -195,27 +199,8 @@ export function ChatPanel({
         )}
       </div>
 
-      {/* Input area */}
-      <div className="chat-panel__input-area">
-        <div className="chat-panel__input-row">
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            disabled={isResponding}
-            className="chat-panel__textarea"
-            rows={2}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isResponding}
-            size="md"
-          >
-            {isResponding ? 'Thinking...' : 'Send'}
-          </Button>
-        </div>
-      </div>
+      {/* Input area - isolated component to prevent re-renders */}
+      <ChatInput />
     </div>
   )
 }

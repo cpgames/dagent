@@ -12,7 +12,7 @@ interface TaskSummary {
   id: string
   title: string
   status: TaskStatus
-  description?: string
+  spec?: string
 }
 
 export function buildFeatureContext(feature: Feature, dag: DAGGraph | null): FeatureContext {
@@ -21,7 +21,7 @@ export function buildFeatureContext(feature: Feature, dag: DAGGraph | null): Fea
       id: t.id,
       title: t.title,
       status: t.status,
-      description: t.description
+      spec: t.spec
     })) || []
 
   const statusCounts = tasks.reduce(
@@ -50,7 +50,7 @@ export function buildSystemPrompt(context: FeatureContext): string {
   const taskList =
     context.tasks.length > 0
       ? context.tasks
-          .map((t) => `- [${t.status}] ${t.title}${t.description ? `: ${t.description}` : ''}`)
+          .map((t) => `- [${t.status}] ${t.title}${t.spec ? `: ${t.spec}` : ''}`)
           .join('\n')
       : 'No tasks defined yet.'
 

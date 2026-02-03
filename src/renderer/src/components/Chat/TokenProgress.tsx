@@ -33,21 +33,17 @@ export function TokenProgress({ sessionId, featureId, projectRoot }: TokenProgre
   const isResponding = useChatStore((state) => state.isResponding)
 
   const loadMetrics = useCallback(async () => {
-    console.log('[TokenProgress] loadMetrics called', { sessionId, featureId, projectRoot })
     if (!sessionId || !featureId || !projectRoot) {
-      console.log('[TokenProgress] Missing params, clearing metrics')
       setMetrics(null)
       return
     }
 
     try {
-      console.log('[TokenProgress] Fetching metrics from API...')
       const metricsResult = await window.electronAPI.session.getMetrics(
         projectRoot,
         sessionId,
         featureId
       )
-      console.log('[TokenProgress] Got metrics:', metricsResult)
       setMetrics(metricsResult)
     } catch (error) {
       console.error('[TokenProgress] Failed to load session metrics:', error)
@@ -56,28 +52,21 @@ export function TokenProgress({ sessionId, featureId, projectRoot }: TokenProgre
 
   // Load metrics on mount and when session changes
   useEffect(() => {
-    console.log('[TokenProgress] Mount/session change effect triggered')
     loadMetrics()
   }, [loadMetrics])
 
   // Refresh metrics when messages change
   useEffect(() => {
-    console.log('[TokenProgress] Message count changed:', messageCount)
     // Small delay to allow backend to persist the message
-    const timeoutId = setTimeout(() => {
-      console.log('[TokenProgress] Delayed refresh after message change')
-      loadMetrics()
-    }, 500)
+    const timeoutId = setTimeout(() => loadMetrics(), 500)
     return () => clearTimeout(timeoutId)
   }, [messageCount, loadMetrics])
 
   // Refresh when AI stops responding (response complete)
   const prevIsRespondingRef = useRef(isResponding)
   useEffect(() => {
-    console.log('[TokenProgress] isResponding changed:', { prev: prevIsRespondingRef.current, current: isResponding })
     if (prevIsRespondingRef.current && !isResponding) {
       // AI just finished responding, refresh metrics after persist delay
-      console.log('[TokenProgress] AI stopped responding, scheduling refresh')
       setTimeout(() => loadMetrics(), 1000)
     }
     prevIsRespondingRef.current = isResponding
@@ -132,7 +121,6 @@ export function TokenProgress({ sessionId, featureId, projectRoot }: TokenProgre
   }
 
   if (!sessionId) {
-    console.log('[TokenProgress] No sessionId, showing placeholder')
     return <div className="token-progress"><span style={{ color: 'cyan', fontSize: '10px' }}>no session</span></div>
   }
 

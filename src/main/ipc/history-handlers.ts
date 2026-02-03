@@ -45,8 +45,8 @@ export function registerHistoryHandlers(): void {
         // Get feature to find worktree path
         const featureStore = getFeatureStore()
         const feature = await featureStore?.loadFeature(featureId)
-        if (feature?.managerWorktreePath) {
-          const dagPath = getDagPathInWorktree(feature.managerWorktreePath, featureId)
+        if (feature?.worktreePath) {
+          const dagPath = getDagPathInWorktree(feature.worktreePath, featureId)
           await writeJson(dagPath, graph)
         }
         return { success: true, graph, state: manager.getState() }
@@ -72,8 +72,8 @@ export function registerHistoryHandlers(): void {
         // Get feature to find worktree path
         const featureStore = getFeatureStore()
         const feature = await featureStore?.loadFeature(featureId)
-        if (feature?.managerWorktreePath) {
-          const dagPath = getDagPathInWorktree(feature.managerWorktreePath, featureId)
+        if (feature?.worktreePath) {
+          const dagPath = getDagPathInWorktree(feature.worktreePath, featureId)
           await writeJson(dagPath, graph)
         }
         return { success: true, graph, state: manager.getState() }

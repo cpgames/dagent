@@ -62,6 +62,19 @@ function App(): React.JSX.Element {
     })
   }
 
+  // Count features per manager (active + merging, excludes archived)
+  const featureCountsByManager = useMemo(() => {
+    const managerIdToWorktreeId: Record<number, string> = { 1: 'neon', 2: 'cyber', 3: 'pulse' }
+    const counts: Record<number, number> = {}
+    for (const managerId of Object.keys(FEATURE_MANAGER_NAMES).map(Number)) {
+      const worktreeId = managerIdToWorktreeId[managerId]
+      counts[managerId] = features.filter(
+        f => f.worktreeId === worktreeId && (f.status === 'active' || f.status === 'merging' || f.status === 'creating_worktree')
+      ).length
+    }
+    return counts
+  }, [features])
+
   useEffect(() => {
     // Load current project and features on mount
     const initialize = async (): Promise<void> => {
@@ -180,17 +193,29 @@ function App(): React.JSX.Element {
   // Get active feature for badge
   const activeFeature = features.find(f => f.id === activeFeatureId)
 
-  // Status color mapping
+  // Status color mapping for new feature statuses
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'in_progress':
+      case 'active':
         return 'var(--accent-primary)'
-      case 'needs_attention':
-        return 'var(--color-warning)'
-      case 'completed':
+      case 'merging':
+        return '#a855f7'
+      case 'archived':
         return 'var(--color-success)'
+      case 'backlog':
       default:
         return 'var(--text-muted)'
+    }
+  }
+
+  // Status labels
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'backlog': return 'BACKLOG'
+      case 'active': return 'ACTIVE'
+      case 'merging': return 'MERGING'
+      case 'archived': return 'ARCHIVED'
+      default: return status.toUpperCase()
     }
   }
 
@@ -207,13 +232,22 @@ function App(): React.JSX.Element {
               {/* Feature badge - only show in DAG view with active feature */}
               {activeView === 'dag' && activeFeature && (
                 <div
-                  className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium"
                   style={{
                     backgroundColor: 'var(--bg-elevated)',
                     borderLeft: `4px solid ${getStatusColor(activeFeature.status)}`
                   }}
                 >
-                  {activeFeature.name}
+                  <span>{activeFeature.name}</span>
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[0.625rem] font-semibold tracking-wide"
+                    style={{
+                      backgroundColor: `${getStatusColor(activeFeature.status)}22`,
+                      color: getStatusColor(activeFeature.status)
+                    }}
+                  >
+                    {getStatusLabel(activeFeature.status)}
+                  </span>
                 </div>
               )}
             </div>
@@ -224,6 +258,7 @@ function App(): React.JSX.Element {
                 {Object.entries(FEATURE_MANAGER_NAMES).map(([id, name]) => {
                   const managerId = Number(id)
                   const isActive = selectedManagerFilters.has(managerId)
+                  const count = featureCountsByManager[managerId] || 0
                   return (
                     <button
                       key={managerId}
@@ -231,6 +266,7 @@ function App(): React.JSX.Element {
                       className={`header-filter-btn header-filter-btn--${name.toLowerCase()} ${isActive ? 'header-filter-btn--active' : ''}`}
                     >
                       <span className="header-filter-text">{name}</span>
+                      {count > 0 && <span className="header-filter-count">{count}</span>}
                     </button>
                   )
                 })}

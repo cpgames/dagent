@@ -50,6 +50,39 @@
   opacity: 0.7;
 }
 
+/* Active status - yellow/warning color */
+.feature-card--active {
+  border-left-color: var(--color-warning);
+}
+
+/* Creating worktree status - blue/info color */
+.feature-card--creating_worktree {
+  border-left-color: var(--accent-primary);
+}
+
+.feature-card--creating_worktree .feature-card__status-badge {
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  color: var(--accent-primary);
+}
+
+/* Dragging state */
+.feature-card--dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+  cursor: grabbing;
+  user-select: none;
+}
+
+.feature-card[draggable='true'] {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: element;
+}
+
+.feature-card[draggable='true']:active {
+  cursor: grabbing;
+}
+
 .feature-card__header {
   display: flex;
   align-items: center;
@@ -107,32 +140,34 @@
   color: var(--text-muted);
 }
 
-/* New pool-based statuses */
-.feature-card--queued {
-  border-left-color: var(--accent-secondary);
+
+/* Manager badge - shows which feature manager (Neon/Cyber/Pulse) */
+.feature-card__manager-badge {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
 }
 
-.feature-card--queued .feature-card__status-badge {
-  background: color-mix(in srgb, var(--accent-secondary) 20%, transparent);
-  color: var(--accent-secondary);
+.feature-card__manager-badge--neon {
+  background: color-mix(in srgb, #00ffff 20%, transparent);
+  color: #00ffff;
 }
 
-.feature-card--needs_merging {
-  border-left-color: var(--accent-primary);
+.feature-card__manager-badge--cyber {
+  background: color-mix(in srgb, #ff00ff 20%, transparent);
+  color: #ff00ff;
 }
 
-.feature-card--needs_merging .feature-card__status-badge {
-  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
-  color: var(--accent-primary);
-}
-
-.feature-card--merging {
-  border-left-color: var(--color-success);
-}
-
-.feature-card--merging .feature-card__status-badge {
-  background: color-mix(in srgb, var(--color-success) 20%, transparent);
-  color: var(--color-success);
+.feature-card__manager-badge--pulse {
+  background: color-mix(in srgb, #ffaa00 20%, transparent);
+  color: #ffaa00;
 }
 
 /* Queue position badge */
@@ -144,6 +179,35 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
   color: var(--accent-secondary);
+}
+
+/* PR badge - clickable link to GitHub PR */
+.feature-card__pr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.feature-card__pr-badge:hover {
+  background: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
+  text-decoration: none;
+}
+
+.feature-card__pr-icon {
+  width: 10px;
+  height: 10px;
 }
 
 .feature-card__title {
@@ -184,22 +248,8 @@
   background: var(--bg-hover);
 }
 
-.feature-card__action-btn--start:hover {
-  color: var(--color-success);
-}
-
-.feature-card__action-btn--stop:hover {
-  color: var(--color-warning);
-}
-
 .feature-card__action-btn--delete:hover {
   color: var(--color-error);
-}
-
-.feature-card__action-btn--loading {
-  opacity: 1;
-  color: var(--color-success);
-  cursor: wait;
 }
 
 /* Icon sizing */
@@ -288,28 +338,14 @@
   color: var(--text-muted);
 }
 
-.feature-card__status-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--accent-primary);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+/* Flashing animation for busy statuses (ending with ...) */
+.feature-card__status-indicator--busy {
+  animation: flash 1.5s ease-in-out infinite;
 }
 
-/* Status-specific spinner colors */
-.feature-card--planning .feature-card__status-spinner {
-  border-color: var(--accent-secondary);
-  border-top-color: transparent;
-}
-
-.feature-card--in_progress .feature-card__status-spinner {
-  border-color: var(--color-warning);
-  border-top-color: transparent;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 @keyframes pulse {
@@ -322,24 +358,6 @@
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-}
-
-/* Investigating state - magnifying glass with pulse animation */
-.feature-card__status-icon--investigating {
-  color: var(--accent-primary);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-/* Questioning state - question mark with pulse animation */
-.feature-card__status-icon--questioning {
-  color: var(--accent-secondary);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-/* Planning state - clipboard with pulse animation */
-.feature-card__status-icon--planning {
-  color: var(--color-success);
-  animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Feature Manager color coding - left border color based on assigned manager */
@@ -365,4 +383,15 @@
 
 .feature-card--manager-pulse:hover {
   box-shadow: 0 0 12px rgba(255, 170, 0, 0.3);
+}
+
+/* Backlog features - not clickable to open */
+.feature-card--not-selectable {
+  cursor: default;
+}
+
+.feature-card--not-selectable:hover {
+  /* Reduce hover effect since clicking won't do anything */
+  border-color: var(--border-default);
+  box-shadow: none;
 }

@@ -1,7 +1,7 @@
 /**
  * SelectableEdge - Custom edge component with selection, highlighting, and delete functionality.
  */
-import { useState, type JSX } from 'react'
+import type { JSX } from 'react'
 import { BaseEdge, EdgeLabelRenderer, Position } from '@xyflow/react'
 import './SelectableEdge.css'
 
@@ -11,7 +11,7 @@ const EDGE_COLOR_SELECTED = '#00f0ff' // matches --accent-primary
 
 export interface SelectableEdgeData {
   selected?: boolean
-  onSelect?: (edgeId: string) => void
+  onSelect?: (source: string, target: string) => void
   onDelete?: (source: string, target: string) => void
   [key: string]: unknown // Index signature for React Flow compatibility
 }
@@ -49,8 +49,6 @@ export default function SelectableEdge({
   target,
   data
 }: SelectableEdgeProps): JSX.Element {
-  const [showConfirm, setShowConfirm] = useState(false)
-
   // Calculate control point offset - larger value = more extension before curve
   const offset = 80
 
@@ -83,25 +81,12 @@ export default function SelectableEdge({
   const isSelected = data?.selected ?? false
 
   const handleEdgeClick = (): void => {
-    data?.onSelect?.(id)
+    data?.onSelect?.(source, target)
   }
 
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    setShowConfirm(true)
-  }
-
-  const handleConfirmDelete = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    if (data?.onDelete) {
-      data.onDelete(source, target)
-    }
-    setShowConfirm(false)
-  }
-
-  const handleCancelDelete = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    setShowConfirm(false)
+    data?.onDelete?.(source, target)
   }
 
   // Use marker IDs based on selection state
@@ -137,30 +122,16 @@ export default function SelectableEdge({
           className="edge-label nodrag nopan"
           onClick={handleEdgeClick}
         >
-          {/* Delete button and confirm dialog */}
+          {/* Delete button */}
           {isSelected && (
             <div className="edge-delete-container" onClick={(e) => e.stopPropagation()}>
-              {!showConfirm ? (
-                <button
-                  onClick={handleDeleteClick}
-                  className="edge-delete-btn"
-                  title="Delete connection"
-                >
-                  ×
-                </button>
-              ) : (
-                <div className="edge-confirm-dialog">
-                  <span className="edge-confirm-text">Remove dependency?</span>
-                  <div className="edge-confirm-actions">
-                    <button onClick={handleConfirmDelete} className="edge-confirm-btn edge-confirm-btn--delete">
-                      Delete
-                    </button>
-                    <button onClick={handleCancelDelete} className="edge-confirm-btn edge-confirm-btn--cancel">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={handleDeleteClick}
+                className="edge-delete-btn"
+                title="Delete connection"
+              >
+                ×
+              </button>
             </div>
           )}
         </div>

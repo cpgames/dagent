@@ -72,7 +72,7 @@ export async function createPMMcpServer(): Promise<unknown | null> {
               type: 'text',
               text: result.tasks.length === 0
                 ? 'No tasks found in the current feature.'
-                : `Found ${result.tasks.length} tasks:\n${result.tasks.map(t => `- [${t.id}] ${t.title} (${t.status}): ${t.description}`).join('\n')}`
+                : `Found ${result.tasks.length} tasks:\n${result.tasks.map(t => `- [${t.id}] ${t.title} (${t.status}): ${t.spec}`).join('\n')}`
             }]
           }
         }
@@ -82,10 +82,10 @@ export async function createPMMcpServer(): Promise<unknown | null> {
         'Create a new task in the current feature DAG. Use this when the user asks to add a task or wants work to be done.',
         {
           title: z.string().describe('The title of the task'),
-          description: z.string().describe('Detailed description of what the task should accomplish'),
+          spec: z.string().describe('Detailed specification of what the task should accomplish'),
           dependsOn: z.array(z.string()).optional().describe('Array of task IDs that must complete before this task can start')
         },
-        async (args: { title: string; description: string; dependsOn?: string[] }) => {
+        async (args: { title: string; spec: string; dependsOn?: string[] }) => {
           const result = await pmCreateTask(args)
           return {
             content: [{
@@ -117,13 +117,13 @@ export async function createPMMcpServer(): Promise<unknown | null> {
       ),
       tool(
         'UpdateTask',
-        'Update an existing task. Use this to modify task title or description. Only provided fields will be updated.',
+        'Update an existing task. Use this to modify task title or spec. Only provided fields will be updated.',
         {
           taskId: z.string().describe('The ID of the task to update'),
           title: z.string().optional().describe('New title for the task'),
-          description: z.string().optional().describe('New description for the task')
+          spec: z.string().optional().describe('New spec/description for the task')
         },
-        async (args: { taskId: string; title?: string; description?: string }) => {
+        async (args: { taskId: string; title?: string; spec?: string }) => {
           const result = await pmUpdateTask(args)
           return {
             content: [{
@@ -426,10 +426,10 @@ export async function createPMMcpServer(): Promise<unknown | null> {
         'Add a new task node to the DAG. Nodes are automatically positioned in a tree layout based on dependencies. Use this for all task creation.',
         {
           title: z.string().describe('The title of the task'),
-          description: z.string().describe('Detailed description of what the task should accomplish'),
+          spec: z.string().describe('Detailed specification of what the task should accomplish'),
           dependsOn: z.array(z.string()).optional().describe('Array of task IDs that must complete before this task can start')
         },
-        async (args: { title: string; description: string; dependsOn?: string[] }) => {
+        async (args: { title: string; spec: string; dependsOn?: string[] }) => {
           const result = await pmDAGAddNode(args)
           return {
             content: [{

@@ -24,7 +24,6 @@ export function FeatureDescription({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [completionAction, setCompletionAction] = useState<CompletionAction>('manual')
-  const [autoStart, setAutoStart] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -37,7 +36,6 @@ export function FeatureDescription({
       setName(feature.name)
       setDescription(feature.description || '')
       setCompletionAction(feature.completionAction || 'manual')
-      setAutoStart(feature.autoStart || false)
       setHasChanges(false)
     }
   }, [feature])
@@ -58,10 +56,9 @@ export function FeatureDescription({
       const nameChanged = name !== feature.name
       const descChanged = description !== (feature.description || '')
       const actionChanged = completionAction !== (feature.completionAction || 'manual')
-      const autoStartChanged = autoStart !== (feature.autoStart || false)
-      setHasChanges(nameChanged || descChanged || actionChanged || autoStartChanged)
+      setHasChanges(nameChanged || descChanged || actionChanged)
     }
-  }, [name, description, completionAction, autoStart, feature])
+  }, [name, description, completionAction, feature])
 
   const handleSave = async (): Promise<void> => {
     if (!feature || !hasChanges) return
@@ -72,8 +69,7 @@ export function FeatureDescription({
         ...feature,
         name: name.trim(),
         description: description.trim() || undefined,
-        completionAction,
-        autoStart
+        completionAction
       })
       setHasChanges(false)
     } finally {
@@ -180,8 +176,8 @@ export function FeatureDescription({
           />
         </div>
 
-        {/* Uncertainties - shown when feature is in investigating state and has questions */}
-        {feature.status === 'investigating' && uncertainties.length > 0 && (
+        {/* Uncertainties - shown when feature is active and has questions */}
+        {feature.status === 'active' && uncertainties.length > 0 && (
           <div className="feature-description__field">
             <label className="feature-description__label">PM Agent Question</label>
             <div className="feature-description__uncertainties">
@@ -286,7 +282,7 @@ export function FeatureDescription({
         <div className="feature-description__meta">
           <div className="feature-description__meta-item">
             <span className="feature-description__meta-label">Branch:</span>
-            <span className="feature-description__meta-value">{feature.branchName}</span>
+            <span className="feature-description__meta-value">{feature.branch || 'Not assigned'}</span>
           </div>
           <div className="feature-description__meta-item">
             <span className="feature-description__meta-label">Created:</span>

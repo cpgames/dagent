@@ -1,4 +1,5 @@
 import type { Task, DAGGraph, TaskStatus } from '@shared/types'
+import type { WorktreeId } from '@shared/types/feature'
 import type { TaskStateChange } from './task-controller'
 import type { LoopExitReason } from './task-controller-types'
 
@@ -26,9 +27,9 @@ export interface ExecutionState {
   startedAt: string | null
   stoppedAt: string | null
   error: string | null
-  // Feature manager execution fields
-  featureManagerId: number | null
-  managerWorktreePath: string | null
+  // Worktree execution fields
+  worktreeId: WorktreeId | null
+  worktreePath: string | null
 }
 
 export interface ExecutionConfig {

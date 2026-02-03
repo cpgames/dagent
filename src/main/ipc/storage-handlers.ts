@@ -14,7 +14,7 @@ export function initializeStorage(projectRoot: string): void {
   featureStore = new FeatureStore(projectRoot);
   currentProjectRoot = projectRoot;
   // Initialize layout store alongside feature store
-  initializeLayoutStore(projectRoot);
+  initializeLayoutStore(projectRoot, featureStore);
 }
 
 /**
@@ -180,4 +180,12 @@ export function registerStorageHandlers(): void {
   ipcMain.handle('storage:listTaskSessions', async (_event, featureId: string) => {
     return getStore().listTaskSessions(featureId);
   });
+
+  ipcMain.handle(
+    'storage:clearSessionMessages',
+    async (_event, featureId: string, taskId: string) => {
+      await getStore().clearSessionMessages(featureId, taskId);
+      return true;
+    }
+  );
 }

@@ -24,9 +24,6 @@ export const TOOL_PRESETS = {
   // Investigation Agent - codebase exploration + spec writing
   investigationAgent: ['Read', 'Glob', 'Grep', 'CreateSpec', 'UpdateSpec', 'GetSpec'],
 
-  // Planning Agent - spec reading (READ-ONLY) + task/DAG creation
-  planningAgent: ['GetSpec', 'DecomposeSpec', 'CreateTask', 'ListTasks', 'GetTask', 'UpdateTask', 'DeleteTask', 'AddDependency', 'RemoveDependency'],
-
   // No tools - basic chat only
   none: []
 } as const

@@ -448,7 +448,7 @@ export class ContextService {
         sections.push('**Task List:**')
         for (const task of context.feature.tasks) {
           sections.push(
-            `- [${task.status}] ${task.title}${task.description ? `: ${task.description}` : ''}`
+            `- [${task.status}] ${task.title}${task.spec ? `: ${task.spec}` : ''}`
           )
         }
         sections.push('')
@@ -463,8 +463,8 @@ export class ContextService {
       sections.push(`**ID:** ${context.task.task.id}`)
       sections.push(`**Title:** ${context.task.task.title}`)
       sections.push(`**Status:** ${context.task.task.status}`)
-      if (context.task.task.description) {
-        sections.push(`**Description:** ${context.task.task.description}`)
+      if (context.task.task.spec) {
+        sections.push(`**Spec:** ${context.task.task.spec}`)
       }
       sections.push('')
 

@@ -14,6 +14,7 @@ import {
   Select,
   type SelectOption
 } from '../UI'
+import { useFeatureStore } from '../../stores/feature-store'
 import './FeatureMergeDialog.css'
 
 // Local type matching git manager BranchInfo
@@ -52,6 +53,7 @@ export function FeatureMergeDialog({
   // PR form state
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
+  const [generatingSummary, setGeneratingSummary] = useState(false)
 
   // Load branches when dialog opens
   useEffect(() => {
@@ -62,19 +64,19 @@ export function FeatureMergeDialog({
         window.electronAPI.git.getCurrentBranch()
       ])
         .then(([branchList, currentBranch]) => {
-          // Filter out feature branches (only show main/master and other non-feature branches)
+          // Filter out feature branches and dagent/* pool branches
           const filteredBranches = branchList.filter(
-            (b) => !b.name.startsWith('feature/') && b.name !== feature.branchName
+            (b) => !b.name.startsWith('feature/') &&
+                   !b.name.startsWith('dagent/') &&
+                   b.name !== feature.branch
           )
           setBranches(filteredBranches)
 
-          // Default to current branch, or first available branch
+          // Default to current branch from status bar
           if (currentBranch && filteredBranches.some((b) => b.name === currentBranch)) {
             setTargetBranch(currentBranch)
           } else if (filteredBranches.length > 0) {
-            // Prefer main/master
-            const defaultBranch = filteredBranches.find((b) => b.name === 'main' || b.name === 'master')
-            setTargetBranch(defaultBranch?.name || filteredBranches[0].name)
+            setTargetBranch(filteredBranches[0].name)
           }
         })
         .catch((err) => {
@@ -92,14 +94,40 @@ export function FeatureMergeDialog({
       setStatus('idle')
       setError(null)
       setPrUrl(null)
-      setPrTitle(`Merge feature: ${feature.name}`)
-      setPrBody(`## Summary
-Merge completed feature "${feature.name}" into main branch.
 
-## Changes
-- Feature implementation`)
+      // For PR creation, generate summary from feature spec using AI
+      if (mergeType === 'pr') {
+        // Set defaults while generating
+        setPrTitle(`feat: ${feature.name}`)
+        setPrBody('Generating summary...')
+        setGeneratingSummary(true)
+
+        window.electronAPI.pr.generateSummary(feature.id)
+          .then((result) => {
+            if (result.success) {
+              setPrTitle(result.title || `feat: ${feature.name}`)
+              setPrBody(result.body || '')
+            } else {
+              // Fallback to simple summary on error
+              setPrTitle(`feat: ${feature.name}`)
+              setPrBody(`## Summary\n${feature.name}`)
+              console.error('Failed to generate PR summary:', result.error)
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to generate PR summary:', err)
+            setPrTitle(`feat: ${feature.name}`)
+            setPrBody(`## Summary\n${feature.name}`)
+          })
+          .finally(() => {
+            setGeneratingSummary(false)
+          })
+      } else {
+        setPrTitle(`feat: ${feature.name}`)
+        setPrBody('')
+      }
     }
-  }, [isOpen, feature])
+  }, [isOpen, feature, mergeType])
 
   // Cleanup on close
   const handleClose = useCallback(async () => {
@@ -164,18 +192,27 @@ Merge completed feature "${feature.name}" into main branch.
         throw new Error('GitHub CLI is not authenticated. Run `gh auth login` to authenticate.')
       }
 
-      // Create PR using branch name from feature record
+      // Create PR using branch name from feature record or worktree pool
+      // Branch naming: feature.branch (explicit) > dagent/{worktreeId} (pool-based)
+      const branchName = feature.branch || (feature.worktreeId ? `dagent/${feature.worktreeId}` : null)
+      if (!branchName) {
+        throw new Error('Feature has no branch assigned. Ensure the feature has an active worktree.')
+      }
+
       const result = await window.electronAPI.pr.create({
         title: prTitle,
         body: prBody,
-        head: feature.branchName,
-        base: 'main',
+        head: branchName,
+        base: targetBranch,
         featureId: feature.id
       })
 
       if (result.success && result.prUrl) {
         setStatus('completed')
-        setPrUrl(result.htmlUrl || result.prUrl)
+        const url = result.htmlUrl || result.prUrl
+        setPrUrl(url)
+        // Update feature in store so PR badge shows immediately
+        useFeatureStore.getState().updateFeature(feature.id, { prUrl: url })
       } else {
         throw new Error(result.error || 'Failed to create PR')
       }
@@ -202,19 +239,22 @@ Merge completed feature "${feature.name}" into main branch.
       open={isOpen}
       onClose={handleClose}
       size="md"
-      closeOnBackdrop={!isProcessing}
+      closeOnBackdrop={false}
       closeOnEscape={!isProcessing}
+      className="merge-dialog"
     >
       <DialogHeader title={mergeType === 'ai' ? 'AI Merge' : 'Create Pull Request'} />
 
-      <DialogBody>
+      <DialogBody className="merge-dialog__body">
         {/* Feature info */}
         <div className="merge-dialog__feature-info">
           <p className="merge-dialog__feature-name">
             Feature: <span className="merge-dialog__feature-name-value">{feature.name}</span>
           </p>
           <p className="merge-dialog__branch-info">
-            Branch: {feature.branchName} &rarr; {targetBranch || 'loading...'}
+            <span className="merge-dialog__branch-source">{feature.worktreeId ? `dagent/${feature.worktreeId}` : feature.branch || 'unknown'}</span>
+            <span className="merge-dialog__branch-arrow">&rarr;</span>
+            <span className="merge-dialog__branch-target">{targetBranch || 'loading...'}</span>
           </p>
         </div>
 
@@ -259,14 +299,18 @@ Merge completed feature "${feature.name}" into main branch.
                 type="text"
                 value={prTitle}
                 onChange={(e) => setPrTitle(e.target.value)}
+                disabled={generatingSummary}
               />
             </div>
             <div className="merge-dialog__field">
-              <label className="merge-dialog__label">Description</label>
+              <label className="merge-dialog__label">
+                Description {generatingSummary && <span className="merge-dialog__generating">(generating from spec...)</span>}
+              </label>
               <Textarea
                 value={prBody}
                 onChange={(e) => setPrBody(e.target.value)}
                 minRows={4}
+                disabled={generatingSummary}
               />
             </div>
           </div>
@@ -329,8 +373,9 @@ Merge completed feature "${feature.name}" into main branch.
           <Button
             variant="primary"
             onClick={mergeType === 'ai' ? handleAIMerge : handleCreatePR}
+            disabled={generatingSummary}
           >
-            {mergeType === 'ai' ? 'Start Merge' : 'Create PR'}
+            {generatingSummary ? 'Generating...' : mergeType === 'ai' ? 'Start Merge' : 'Create PR'}
           </Button>
         )}
       </DialogFooter>

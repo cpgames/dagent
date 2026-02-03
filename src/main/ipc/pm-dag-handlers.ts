@@ -10,7 +10,7 @@
 
 import { randomUUID } from 'crypto'
 import { getPMToolsFeatureContext } from './pm-tools-handlers'
-import type { Task, TaskStatus } from '@shared/types'
+import type { Task } from '@shared/types'
 
 /**
  * Get the current feature context and project root.
@@ -48,7 +48,7 @@ interface DAGOperationResult {
  */
 export async function pmDAGAddNode(input: {
   title: string
-  description: string
+  spec: string
   dependsOn?: string[]
 }): Promise<DAGOperationResult> {
   console.log(`[pmDAGAddNode] Called with title="${input.title}", deps=${JSON.stringify(input.dependsOn)}`)
@@ -69,15 +69,15 @@ export async function pmDAGAddNode(input: {
 
     const graph = manager.getGraph()
 
-    // Determine initial status based on dependencies
-    let status: TaskStatus = 'ready_for_dev'
+    // Determine blocked flag based on dependencies
+    let blocked = false
     if (input.dependsOn && input.dependsOn.length > 0) {
-      // Check if all dependencies are completed
-      const allDepsCompleted = input.dependsOn.every((depId) => {
+      // Check if all dependencies are archived
+      const allDepsArchived = input.dependsOn.every((depId) => {
         const dep = graph.nodes.find((n) => n.id === depId)
-        return dep && dep.status === 'completed'
+        return dep && dep.status === 'done'
       })
-      status = allDepsCompleted ? 'ready_for_dev' : 'blocked'
+      blocked = !allDepsArchived
     }
 
     // Create task object (position will be set by auto-layout)
@@ -85,9 +85,9 @@ export async function pmDAGAddNode(input: {
     const task: Partial<Task> = {
       id: taskId,
       title: input.title,
-      description: input.description,
-      status,
-      locked: false,
+      spec: input.spec,
+      status: 'ready',
+      blocked,
       position: { x: 0, y: 0 } // Temporary, will be recalculated
     }
 

@@ -28,47 +28,6 @@
   margin: 0;
 }
 
-/* Tab navigation */
-.agents-view__tabs {
-  display: flex;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
-  border-bottom: 1px solid var(--border-default);
-  padding-bottom: var(--space-sm);
-}
-
-.agents-view__tab {
-  padding: var(--space-sm) var(--space-md);
-  font-size: 0.875rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  position: relative;
-}
-
-.agents-view__tab:hover {
-  color: var(--text-primary);
-}
-
-.agents-view__tab--active {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-.agents-view__tab--active::after {
-  content: '';
-  position: absolute;
-  bottom: calc(-1 * var(--space-sm) - 1px);
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent-primary);
-  box-shadow: var(--glow-primary);
-}
-
 /* Agent cards grid */
 .agents-view__grid {
   display: grid;
@@ -151,48 +110,6 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: var(--space-xs);
-}
-
-/* Status indicator */
-.agents-view__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.agents-view__status-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-}
-
-.agents-view__status-dot--idle {
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-}
-
-.agents-view__status-dot--busy {
-  background: var(--color-warning);
-  box-shadow: 0 0 6px var(--color-warning);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.agents-view__status-dot--offline {
-  background: var(--text-muted);
-}
-
-.agents-view__status-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }
 
 /* Loading state */

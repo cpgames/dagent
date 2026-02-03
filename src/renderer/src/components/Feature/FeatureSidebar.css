@@ -22,11 +22,45 @@
   padding: 0 var(--space-sm);
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
 }
 
 .feature-sidebar__tab {
   padding: var(--space-sm) var(--space-md);
   font-size: 0.8125rem;
+}
+
+/* Task tab with accent highlight */
+.feature-sidebar__tab--task {
+  color: var(--accent-secondary);
+}
+
+.feature-sidebar__tab--task[data-state="active"] {
+  color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+}
+
+/* Dock toggle button */
+.feature-sidebar__dock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--space-xs);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.feature-sidebar__dock-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* Tab content - fill remaining space */

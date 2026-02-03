@@ -1,21 +1,19 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import type { DAGGraph, Task, TaskStatus } from '@shared/types'
-import type { StateTransitionEvent } from '../dag-engine/state-machine'
+import type { StateTransitionEvent } from '../dag-engine/task-controller'
 import {
   topologicalSort,
   analyzeDAG,
   getReadyTasks,
   isTaskReady,
   updateTaskStatuses,
-  isValidTransition,
-  getNextStatus,
-  getValidEvents,
   transitionTask,
   initializeTaskStatuses,
   cascadeTaskCompletion,
   resetTaskAndDependents,
   recalculateAllStatuses
 } from '../dag-engine'
+import { getNextTaskStatus, TASK_TRANSITIONS } from '../managers/transitions'
 import { DAGManager } from '../dag-engine/dag-manager'
 import type { DAGManagerConfig, DAGEvent } from '../dag-engine/dag-api-types'
 
@@ -50,6 +48,7 @@ function setupEventBroadcasting(manager: DAGManager, featureId: string, key: str
   const events: Array<DAGEvent['type']> = [
     'node-added',
     'node-removed',
+    'node-updated',
     'connection-added',
     'connection-removed',
     'node-moved',
@@ -118,27 +117,33 @@ export function registerDagHandlers(): void {
     return updateTaskStatuses(graph)
   })
 
-  // State machine handlers
+  // State machine handlers (using data-driven transitions)
   ipcMain.handle(
     'dag:is-valid-transition',
-    async (_event, from: string, to: string, transitionEvent: string) => {
-      return isValidTransition(
-        from as TaskStatus,
-        to as TaskStatus,
-        transitionEvent as StateTransitionEvent
-      )
+    async (_event, from: string, to: string, _transitionEvent: string) => {
+      // Check if transition is valid by checking if next status matches target
+      const nextOnSuccess = getNextTaskStatus(from as TaskStatus, true)
+      const nextOnFail = getNextTaskStatus(from as TaskStatus, false)
+      return nextOnSuccess === to || nextOnFail === to
     }
   )
 
   ipcMain.handle(
     'dag:get-next-status',
     async (_event, currentStatus: string, transitionEvent: string) => {
-      return getNextStatus(currentStatus as TaskStatus, transitionEvent as StateTransitionEvent)
+      // Map event to success/fail for transition lookup
+      const success = transitionEvent === 'START' || transitionEvent === 'COMPLETE' || transitionEvent === 'RESUME'
+      return getNextTaskStatus(currentStatus as TaskStatus, success)
     }
   )
 
   ipcMain.handle('dag:get-valid-events', async (_event, currentStatus: string) => {
-    return getValidEvents(currentStatus as TaskStatus)
+    // Return valid events based on available transitions
+    const transitions = TASK_TRANSITIONS[currentStatus as TaskStatus]
+    const events: StateTransitionEvent[] = []
+    if (transitions?.onSuccess) events.push('START', 'COMPLETE', 'RESUME')
+    if (transitions?.onFail) events.push('FAIL')
+    return events
   })
 
   ipcMain.handle(

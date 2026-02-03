@@ -2,8 +2,7 @@ import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgen
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
-import path from 'path';
-import { getFeatureBranchName } from '../git/types';
+import * as path from 'path';
 
 /**
  * Storage service for feature data.
@@ -17,12 +16,12 @@ export class FeatureStore {
   constructor(private projectRoot: string) {}
 
   /**
-   * Create a new feature with generated ID and branch name.
+   * Create a new feature with generated ID.
    * @param name - Human-readable feature name (e.g., "My Feature")
    * @param options - Optional feature configuration (description, attachments, completionAction)
    * @returns Created Feature object
    */
-  async createFeature(name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}): Promise<Feature> {
+  async createFeature(name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction}): Promise<Feature> {
     // Check if feature with same name already exists
     const features = await this.listFeatures();
     for (const featureId of features) {
@@ -47,19 +46,18 @@ export class FeatureStore {
     // Get current ISO timestamp
     const now = new Date().toISOString();
 
-    // Create Feature object with 'not_started' status
-    // Worktree creation is deferred until user clicks Start (Phase v3.2-03)
+    // Create Feature object with 'backlog' status
+    // Worktree creation is deferred until user clicks Start
     const feature: Feature = {
       id,
       name,
-      status: 'not_started',
-      branchName: getFeatureBranchName(id),
+      status: 'backlog',
+      blocked: false,
       createdAt: now,
       updatedAt: now,
       description: options?.description,
       attachments: options?.attachments,
-      completionAction: options?.completionAction ?? 'manual',
-      autoStart: options?.autoStart ?? false
+      completionAction: options?.completionAction ?? 'manual'
     };
 
     // Ensure pending features directory exists
@@ -76,10 +74,11 @@ export class FeatureStore {
     const initialTask: Task = {
       id: `task-${slug}-initial`,
       title: name,  // Feature name becomes task title
-      description: options?.description || '',  // Feature description becomes task description
-      status: 'needs_analysis',
-      locked: false,
-      position: { x: 250, y: 100 }  // Centered position
+      spec: options?.description || '',  // Feature description becomes task spec
+      status: 'ready',
+      blocked: false,
+      position: { x: 250, y: 100 },  // Centered position
+      dependencies: []
     };
 
     // Create initial DAG with the single task
@@ -96,24 +95,53 @@ export class FeatureStore {
 
   /**
    * Save feature metadata to feature.json.
-   * Saves to pending location for not_started features, manager worktree location otherwise.
+   * Storage locations:
+   * - backlog: .dagent/features/backlog/{featureId}/
+   * - archived: .dagent/features/archived/{featureId}/
+   * - active/creating_worktree/merging: .dagent-worktrees/{manager}/.dagent/features/{featureId}/
+   *
+   * When archiving: Copies ENTIRE feature folder from worktree to archived.
+   * When unarchiving: Copies ENTIRE feature folder from archived back to worktree (using preserved worktreeId).
    */
   async saveFeature(feature: Feature): Promise<void> {
+    // Handle archiving: move ENTIRE folder from worktree to archived
+    if (feature.status === 'archived' && feature.worktreePath) {
+      await this.archiveFeatureFolder(feature);
+      return;
+    }
+
+    // Handle unarchiving: move ENTIRE folder from archived back to worktree
+    // This happens when status changes from archived to active/merging and worktreeId is preserved
+    if ((feature.status === 'active' || feature.status === 'merging') && feature.worktreeId) {
+      const wasArchived = await this.isFeatureArchived(feature.id);
+      if (wasArchived) {
+        await this.unarchiveFeatureFolder(feature);
+        return;
+      }
+    }
+
+    // Normal save logic for non-archive transitions
     let filePath: string;
-    let shouldDeletePending = false;
+    let shouldCleanupPrevious = false;
+    let previousLocation: 'backlog' | 'worktree' | 'archived' | null = null;
 
-    if (feature.status === 'not_started' || feature.status === 'creating_worktree') {
-      // For not_started and creating_worktree, always save to pending location
-      // The worktree might not exist yet during creating_worktree status
-      filePath = paths.getPendingFeaturePath(this.projectRoot, feature.id);
-    } else if (feature.managerWorktreePath) {
-      // For other statuses, check if worktree actually exists before saving there
-      const worktreeFeaturePath = paths.getFeaturePathInWorktree(feature.managerWorktreePath, feature.id);
+    if (feature.status === 'backlog') {
+      // Backlog features go to .dagent/features/backlog/
+      filePath = paths.getBacklogFeaturePath(this.projectRoot, feature.id);
+      shouldCleanupPrevious = true;
+      previousLocation = 'worktree'; // Clean up worktree if it exists
+    } else if (feature.status === 'archived') {
+      // Archived without worktreePath - just save feature.json to archived
+      // (This shouldn't happen normally, but handle it gracefully)
+      filePath = paths.getArchivedFeaturePath(this.projectRoot, feature.id);
+    } else if (feature.worktreePath) {
+      // Active/creating_worktree/merging features go to worktree
+      const worktreeFeaturePath = paths.getFeaturePathInWorktree(feature.worktreePath, feature.id);
 
-      // Check if we can access the worktree directory (means worktree exists)
+      // Check if we can access the worktree directory
       let worktreeExists = false;
       try {
-        await fs.access(feature.managerWorktreePath);
+        await fs.access(feature.worktreePath);
         worktreeExists = true;
       } catch {
         worktreeExists = false;
@@ -121,51 +149,198 @@ export class FeatureStore {
 
       if (worktreeExists) {
         filePath = worktreeFeaturePath;
-        shouldDeletePending = true;
+        shouldCleanupPrevious = true;
+        previousLocation = 'backlog'; // Clean up backlog location
       } else {
-        // Worktree doesn't exist yet, save to pending location
-        console.log(`[FeatureStore] Worktree ${feature.managerWorktreePath} doesn't exist yet, saving ${feature.id} to pending location`);
-        filePath = paths.getPendingFeaturePath(this.projectRoot, feature.id);
+        // Worktree doesn't exist yet, save to backlog location temporarily
+        console.log(`[FeatureStore] Worktree ${feature.worktreePath} doesn't exist yet, saving ${feature.id} to backlog location`);
+        filePath = paths.getBacklogFeaturePath(this.projectRoot, feature.id);
       }
     } else {
-      // Feature is transitioning but managerWorktreePath not set yet
-      // Keep in pending location until worktree path is established
-      console.warn(`[FeatureStore] Feature ${feature.id} in ${feature.status} status without managerWorktreePath - saving to pending location`);
-      filePath = paths.getPendingFeaturePath(this.projectRoot, feature.id);
+      // Feature without worktree path - save to backlog location
+      console.warn(`[FeatureStore] Feature ${feature.id} in ${feature.status} status without worktreePath - saving to backlog location`);
+      filePath = paths.getBacklogFeaturePath(this.projectRoot, feature.id);
     }
 
     // Ensure directory exists
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
 
+    console.log(`[FeatureStore] Saving feature ${feature.id} (status=${feature.status}) to: ${filePath}`);
     await writeJson(filePath, feature);
+    console.log(`[FeatureStore] Feature ${feature.id} saved successfully`);
 
-    // Clean up pending location if we saved to worktree
-    // This ensures loadFeature doesn't find stale data in pending location
-    if (shouldDeletePending) {
-      const pendingFeaturePath = paths.getPendingFeaturePath(this.projectRoot, feature.id);
-      try {
-        await fs.unlink(pendingFeaturePath);
-        console.log(`[FeatureStore] Cleaned up pending feature file for ${feature.id}`);
-      } catch (error) {
-        // Ignore if file doesn't exist - that's fine
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          console.warn(`[FeatureStore] Failed to clean up pending feature file for ${feature.id}:`, error);
-        }
+    // Clean up previous location if needed
+    if (shouldCleanupPrevious && previousLocation) {
+      console.log(`[FeatureStore] Cleaning up previous location: ${previousLocation}, worktreePath: ${feature.worktreePath}`);
+      await this.cleanupPreviousLocation(feature, previousLocation);
+    }
+  }
+
+  /**
+   * Check if a feature exists in the archived location.
+   */
+  private async isFeatureArchived(featureId: string): Promise<boolean> {
+    const archivedPath = paths.getArchivedFeaturePath(this.projectRoot, featureId);
+    return exists(archivedPath);
+  }
+
+  /**
+   * Archive a feature by copying the ENTIRE feature folder from worktree to archived.
+   * Preserves all data: feature.json, dag.json, nodes/, sessions/, attachments/, etc.
+   */
+  private async archiveFeatureFolder(feature: Feature): Promise<void> {
+    if (!feature.worktreePath) {
+      throw new Error(`Cannot archive feature ${feature.id}: no worktreePath set`);
+    }
+
+    const sourceDir = paths.getFeatureDirInWorktree(feature.worktreePath, feature.id);
+    const destDir = paths.getArchivedFeatureDir(this.projectRoot, feature.id);
+
+    console.log(`[FeatureStore] Archiving feature ${feature.id}: ${sourceDir} -> ${destDir}`);
+
+    // Ensure archived features directory exists
+    await paths.ensureArchivedFeaturesDir(this.projectRoot);
+
+    // Copy entire folder recursively
+    await this.copyDirRecursive(sourceDir, destDir);
+
+    // Update feature.json in the archived location with new status
+    const archivedFeaturePath = paths.getArchivedFeaturePath(this.projectRoot, feature.id);
+    await writeJson(archivedFeaturePath, feature);
+
+    // Clean up the worktree location
+    try {
+      await fs.rm(sourceDir, { recursive: true });
+      console.log(`[FeatureStore] Cleaned up worktree location for archived feature ${feature.id}`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn(`[FeatureStore] Failed to clean up worktree location for ${feature.id}:`, error);
+      }
+    }
+
+    console.log(`[FeatureStore] Feature ${feature.id} archived successfully`);
+  }
+
+  /**
+   * Unarchive a feature by copying the ENTIRE feature folder from archived back to worktree.
+   * Uses preserved worktreeId to determine correct worktree location.
+   */
+  private async unarchiveFeatureFolder(feature: Feature): Promise<void> {
+    if (!feature.worktreeId) {
+      throw new Error(`Cannot unarchive feature ${feature.id}: no worktreeId preserved`);
+    }
+
+    // Reconstruct worktreePath from worktreeId
+    const worktreePath = path.join(paths.getWorktreesDir(this.projectRoot), feature.worktreeId);
+    feature.worktreePath = worktreePath;
+
+    const sourceDir = paths.getArchivedFeatureDir(this.projectRoot, feature.id);
+    const destDir = paths.getFeatureDirInWorktree(worktreePath, feature.id);
+
+    console.log(`[FeatureStore] Unarchiving feature ${feature.id}: ${sourceDir} -> ${destDir}`);
+
+    // Ensure worktree features directory exists
+    const worktreeFeaturesDir = path.join(worktreePath, '.dagent', 'features');
+    await fs.mkdir(worktreeFeaturesDir, { recursive: true });
+
+    // Copy entire folder recursively
+    await this.copyDirRecursive(sourceDir, destDir);
+
+    // Update feature.json in the worktree location with new status and worktreePath
+    const worktreeFeaturePath = paths.getFeaturePathInWorktree(worktreePath, feature.id);
+    await writeJson(worktreeFeaturePath, feature);
+
+    // Clean up the archived location
+    try {
+      await fs.rm(sourceDir, { recursive: true });
+      console.log(`[FeatureStore] Cleaned up archived location for unarchived feature ${feature.id}`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn(`[FeatureStore] Failed to clean up archived location for ${feature.id}:`, error);
+      }
+    }
+
+    console.log(`[FeatureStore] Feature ${feature.id} unarchived successfully to ${worktreePath}`);
+  }
+
+  /**
+   * Recursively copy a directory and all its contents.
+   */
+  private async copyDirRecursive(src: string, dest: string): Promise<void> {
+    // Create destination directory
+    await fs.mkdir(dest, { recursive: true });
+
+    // Read source directory contents
+    let entries: import('fs').Dirent[];
+    try {
+      entries = await fs.readdir(src, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        console.warn(`[FeatureStore] Source directory doesn't exist: ${src}`);
+        return;
+      }
+      throw error;
+    }
+
+    // Copy each entry
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+
+      if (entry.isDirectory()) {
+        await this.copyDirRecursive(srcPath, destPath);
+      } else {
+        await fs.copyFile(srcPath, destPath);
+      }
+    }
+  }
+
+  /**
+   * Clean up feature data from a previous location after it has been moved.
+   */
+  private async cleanupPreviousLocation(
+    feature: Feature,
+    location: 'backlog' | 'worktree' | 'archived'
+  ): Promise<void> {
+    try {
+      if (location === 'backlog') {
+        const backlogDir = paths.getBacklogFeatureDir(this.projectRoot, feature.id);
+        await fs.rm(backlogDir, { recursive: true });
+        console.log(`[FeatureStore] Cleaned up backlog location for ${feature.id}`);
+      } else if (location === 'worktree' && feature.worktreePath) {
+        const worktreeDir = paths.getFeatureDirInWorktree(feature.worktreePath, feature.id);
+        await fs.rm(worktreeDir, { recursive: true });
+        console.log(`[FeatureStore] Cleaned up worktree location for ${feature.id}`);
+      } else if (location === 'archived') {
+        const archivedDir = paths.getArchivedFeatureDir(this.projectRoot, feature.id);
+        await fs.rm(archivedDir, { recursive: true });
+        console.log(`[FeatureStore] Cleaned up archived location for ${feature.id}`);
+      }
+    } catch (error) {
+      // Ignore if directory doesn't exist
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn(`[FeatureStore] Failed to clean up ${location} location for ${feature.id}:`, error);
       }
     }
   }
 
   /**
    * Load feature metadata from feature.json.
-   * Checks pending location first, then scans manager worktrees.
+   * Checks backlog, archived, and worktree locations.
    * @returns Feature data, or null if not found.
    */
   async loadFeature(featureId: string): Promise<Feature | null> {
-    // First check pending location (for not_started features)
-    const pendingPath = paths.getPendingFeaturePath(this.projectRoot, featureId);
-    if (await exists(pendingPath)) {
-      return readJson<Feature>(pendingPath);
+    // Check backlog location
+    const backlogPath = paths.getBacklogFeaturePath(this.projectRoot, featureId);
+    if (await exists(backlogPath)) {
+      return readJson<Feature>(backlogPath);
+    }
+
+    // Check archived location
+    const archivedPath = paths.getArchivedFeaturePath(this.projectRoot, featureId);
+    if (await exists(archivedPath)) {
+      return readJson<Feature>(archivedPath);
     }
 
     // Scan manager worktrees for the feature
@@ -192,16 +367,27 @@ export class FeatureStore {
 
   /**
    * Delete a feature and all its data.
-   * Checks pending location and all manager worktrees.
+   * Checks backlog, archived, and worktree locations.
    * @returns true if deleted, false if feature didn't exist.
    */
   async deleteFeature(featureId: string): Promise<boolean> {
     let deleted = false;
 
-    // Try deleting from pending location (.dagent/features/{featureId}/)
-    const pendingDir = paths.getPendingFeatureDir(this.projectRoot, featureId);
+    // Try deleting from backlog location
+    const backlogDir = paths.getBacklogFeatureDir(this.projectRoot, featureId);
     try {
-      await fs.rm(pendingDir, { recursive: true });
+      await fs.rm(backlogDir, { recursive: true });
+      deleted = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    // Try deleting from archived location
+    const archivedDir = paths.getArchivedFeatureDir(this.projectRoot, featureId);
+    try {
+      await fs.rm(archivedDir, { recursive: true });
       deleted = true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -247,10 +433,10 @@ export class FeatureStore {
     const feature = await this.loadFeature(featureId);
     let filePath: string;
 
-    if (feature?.status === 'not_started') {
+    if (feature?.status === 'backlog') {
       filePath = paths.getPendingDagPath(this.projectRoot, featureId);
-    } else if (feature?.managerWorktreePath) {
-      filePath = paths.getDagPathInWorktree(feature.managerWorktreePath, featureId);
+    } else if (feature?.worktreePath) {
+      filePath = paths.getDagPathInWorktree(feature.worktreePath, featureId);
     } else {
       // Feature is transitioning but managerWorktreePath not set yet
       // Keep in pending location until worktree path is established
@@ -267,7 +453,7 @@ export class FeatureStore {
 
   /**
    * Load DAG graph from dag.json.
-   * Checks pending location first, then manager worktrees.
+   * Checks pending location first, then archived, then manager worktrees.
    * @returns DAG graph, or null if not found.
    */
   async loadDag(featureId: string): Promise<DAGGraph | null> {
@@ -277,10 +463,16 @@ export class FeatureStore {
       return readJson<DAGGraph>(pendingPath);
     }
 
+    // Check archived location
+    const archivedPath = paths.getArchivedDagPath(this.projectRoot, featureId);
+    if (await exists(archivedPath)) {
+      return readJson<DAGGraph>(archivedPath);
+    }
+
     // Load feature to get manager worktree path
     const feature = await this.loadFeature(featureId);
-    if (feature?.managerWorktreePath) {
-      const worktreePath = paths.getDagPathInWorktree(feature.managerWorktreePath, featureId);
+    if (feature?.worktreePath) {
+      const worktreePath = paths.getDagPathInWorktree(feature.worktreePath, featureId);
       if (await exists(worktreePath)) {
         return readJson<DAGGraph>(worktreePath);
       }
@@ -296,8 +488,8 @@ export class FeatureStore {
    */
   async hasFeatureSpec(featureId: string): Promise<boolean> {
     const feature = await this.loadFeature(featureId);
-    if (feature?.managerWorktreePath) {
-      const specPath = paths.getFeatureSpecPathInWorktree(feature.managerWorktreePath, featureId);
+    if (feature?.worktreePath) {
+      const specPath = paths.getFeatureSpecPathInWorktree(feature.worktreePath, featureId);
       return exists(specPath);
     }
     return false;
@@ -310,10 +502,10 @@ export class FeatureStore {
   async saveChat(featureId: string, chat: ChatHistory): Promise<void> {
     console.warn('[DEPRECATED] FeatureStore.saveChat() is deprecated. Use SessionManager.addMessage() instead.');
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       throw new Error(`Feature ${featureId} does not have a worktree path set`);
     }
-    const filePath = paths.getChatPathInWorktree(feature.managerWorktreePath, featureId);
+    const filePath = paths.getChatPathInWorktree(feature.worktreePath, featureId);
     await writeJson(filePath, chat);
   }
 
@@ -325,10 +517,10 @@ export class FeatureStore {
   async loadChat(featureId: string): Promise<ChatHistory | null> {
     console.warn('[DEPRECATED] FeatureStore.loadChat() is deprecated. Use SessionManager.getSession() instead.');
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return null;
     }
-    const filePath = paths.getChatPathInWorktree(feature.managerWorktreePath, featureId);
+    const filePath = paths.getChatPathInWorktree(feature.worktreePath, featureId);
     return readJson<ChatHistory>(filePath);
   }
 
@@ -337,10 +529,10 @@ export class FeatureStore {
    */
   async saveHarnessLog(featureId: string, log: AgentLog): Promise<void> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       throw new Error(`Feature ${featureId} does not have a worktree path set`);
     }
-    const filePath = paths.getHarnessLogPathInWorktree(feature.managerWorktreePath, featureId);
+    const filePath = paths.getHarnessLogPathInWorktree(feature.worktreePath, featureId);
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await writeJson(filePath, log);
@@ -352,10 +544,10 @@ export class FeatureStore {
    */
   async loadHarnessLog(featureId: string): Promise<AgentLog | null> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return null;
     }
-    const filePath = paths.getHarnessLogPathInWorktree(feature.managerWorktreePath, featureId);
+    const filePath = paths.getHarnessLogPathInWorktree(feature.worktreePath, featureId);
     return readJson<AgentLog>(filePath);
   }
 
@@ -366,10 +558,10 @@ export class FeatureStore {
   async saveNodeChat(featureId: string, nodeId: string, chat: ChatHistory): Promise<void> {
     console.warn('[DEPRECATED] FeatureStore.saveNodeChat() is deprecated. Use SessionManager with task context instead.');
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       throw new Error(`Feature ${featureId} does not have a worktree path set`);
     }
-    const filePath = paths.getNodeChatPathInWorktree(feature.managerWorktreePath, featureId, nodeId);
+    const filePath = paths.getNodeChatPathInWorktree(feature.worktreePath, featureId, nodeId);
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await writeJson(filePath, chat);
@@ -383,10 +575,10 @@ export class FeatureStore {
   async loadNodeChat(featureId: string, nodeId: string): Promise<ChatHistory | null> {
     console.warn('[DEPRECATED] FeatureStore.loadNodeChat() is deprecated. Use SessionManager with task context instead.');
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return null;
     }
-    const filePath = paths.getNodeChatPathInWorktree(feature.managerWorktreePath, featureId, nodeId);
+    const filePath = paths.getNodeChatPathInWorktree(feature.worktreePath, featureId, nodeId);
     return readJson<ChatHistory>(filePath);
   }
 
@@ -395,10 +587,10 @@ export class FeatureStore {
    */
   async saveNodeLogs(featureId: string, nodeId: string, log: AgentLog): Promise<void> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       throw new Error(`Feature ${featureId} does not have a worktree path set`);
     }
-    const filePath = paths.getNodeLogsPathInWorktree(feature.managerWorktreePath, featureId, nodeId);
+    const filePath = paths.getNodeLogsPathInWorktree(feature.worktreePath, featureId, nodeId);
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await writeJson(filePath, log);
@@ -410,10 +602,10 @@ export class FeatureStore {
    */
   async loadNodeLogs(featureId: string, nodeId: string): Promise<AgentLog | null> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return null;
     }
-    const filePath = paths.getNodeLogsPathInWorktree(feature.managerWorktreePath, featureId, nodeId);
+    const filePath = paths.getNodeLogsPathInWorktree(feature.worktreePath, featureId, nodeId);
     return readJson<AgentLog>(filePath);
   }
 
@@ -422,10 +614,10 @@ export class FeatureStore {
    */
   async saveTaskSession(featureId: string, taskId: string, session: DevAgentSession): Promise<void> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       throw new Error(`Feature ${featureId} does not have a worktree path set`);
     }
-    const filePath = paths.getTaskSessionPathInWorktree(feature.managerWorktreePath, featureId, taskId);
+    const filePath = paths.getTaskSessionPathInWorktree(feature.worktreePath, featureId, taskId);
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await writeJson(filePath, session);
@@ -437,10 +629,10 @@ export class FeatureStore {
    */
   async loadTaskSession(featureId: string, taskId: string): Promise<DevAgentSession | null> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return null;
     }
-    const filePath = paths.getTaskSessionPathInWorktree(feature.managerWorktreePath, featureId, taskId);
+    const filePath = paths.getTaskSessionPathInWorktree(feature.worktreePath, featureId, taskId);
     return readJson<DevAgentSession>(filePath);
   }
 
@@ -470,16 +662,28 @@ export class FeatureStore {
   }
 
   /**
+   * Clear all messages from a task session.
+   * Keeps the session metadata but empties the messages array.
+   */
+  async clearSessionMessages(featureId: string, taskId: string): Promise<void> {
+    const session = await this.loadTaskSession(featureId, taskId);
+    if (session) {
+      session.messages = [];
+      await this.saveTaskSession(featureId, taskId, session);
+    }
+  }
+
+  /**
    * List task IDs that have session.json files.
    * @returns Array of task IDs with sessions.
    */
   async listTaskSessions(featureId: string): Promise<string[]> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return [];
     }
 
-    const featureDir = paths.getFeatureDirInWorktree(feature.managerWorktreePath, featureId);
+    const featureDir = paths.getFeatureDirInWorktree(feature.worktreePath, featureId);
     const nodesDir = path.join(featureDir, 'nodes');
 
     try {
@@ -487,7 +691,7 @@ export class FeatureStore {
       const taskIds: string[] = [];
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          const sessionPath = paths.getTaskSessionPathInWorktree(feature.managerWorktreePath, featureId, entry.name);
+          const sessionPath = paths.getTaskSessionPathInWorktree(feature.worktreePath, featureId, entry.name);
           if (await exists(sessionPath)) {
             taskIds.push(entry.name);
           }
@@ -508,11 +712,11 @@ export class FeatureStore {
    */
   async deleteNode(featureId: string, nodeId: string): Promise<boolean> {
     const feature = await this.loadFeature(featureId);
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       return false;
     }
 
-    const nodeDir = paths.getNodeDirInWorktree(feature.managerWorktreePath, featureId, nodeId);
+    const nodeDir = paths.getNodeDirInWorktree(feature.worktreePath, featureId, nodeId);
     try {
       await fs.rm(nodeDir, { recursive: true });
       return true;
@@ -525,19 +729,38 @@ export class FeatureStore {
   }
 
   /**
-   * List all feature IDs from pending directory and manager worktrees.
+   * List all feature IDs from backlog, archived, and worktree directories.
    * Only includes directories that have a valid feature.json.
    */
   async listFeatures(): Promise<string[]> {
     const featureIds = new Set<string>();
 
-    // List from pending features directory (.dagent/features/)
-    const pendingDir = paths.getPendingFeaturesDir(this.projectRoot);
+    // List from backlog directory (.dagent/features/backlog/)
+    const backlogDir = paths.getBacklogFeaturesDir(this.projectRoot);
     try {
-      const pendingEntries = await fs.readdir(pendingDir, { withFileTypes: true });
-      for (const entry of pendingEntries) {
+      const backlogEntries = await fs.readdir(backlogDir, { withFileTypes: true });
+      for (const entry of backlogEntries) {
         if (entry.isDirectory()) {
-          const featurePath = paths.getPendingFeaturePath(this.projectRoot, entry.name);
+          const featurePath = paths.getBacklogFeaturePath(this.projectRoot, entry.name);
+          if (await exists(featurePath)) {
+            featureIds.add(entry.name);
+          }
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+      // Directory doesn't exist yet, that's fine
+    }
+
+    // List from archived directory (.dagent/features/archived/)
+    const archivedDir = paths.getArchivedFeaturesDir(this.projectRoot);
+    try {
+      const archivedEntries = await fs.readdir(archivedDir, { withFileTypes: true });
+      for (const entry of archivedEntries) {
+        if (entry.isDirectory()) {
+          const featurePath = paths.getArchivedFeaturePath(this.projectRoot, entry.name);
           if (await exists(featurePath)) {
             featureIds.add(entry.name);
           }
@@ -600,10 +823,10 @@ export class FeatureStore {
     const feature = await this.loadFeature(featureId);
     let attachmentsDir: string;
 
-    if (feature?.status === 'not_started') {
+    if (feature?.status === 'backlog') {
       attachmentsDir = paths.getPendingAttachmentsDir(this.projectRoot, featureId);
-    } else if (feature?.managerWorktreePath) {
-      attachmentsDir = paths.getAttachmentsDirInWorktree(feature.managerWorktreePath, featureId);
+    } else if (feature?.worktreePath) {
+      attachmentsDir = paths.getAttachmentsDirInWorktree(feature.worktreePath, featureId);
     } else {
       // Fallback to pending location
       attachmentsDir = paths.getPendingAttachmentsDir(this.projectRoot, featureId);
@@ -628,10 +851,10 @@ export class FeatureStore {
     const feature = await this.loadFeature(featureId);
     let attachmentsDir: string;
 
-    if (feature?.status === 'not_started') {
+    if (feature?.status === 'backlog') {
       attachmentsDir = paths.getPendingAttachmentsDir(this.projectRoot, featureId);
-    } else if (feature?.managerWorktreePath) {
-      attachmentsDir = paths.getAttachmentsDirInWorktree(feature.managerWorktreePath, featureId);
+    } else if (feature?.worktreePath) {
+      attachmentsDir = paths.getAttachmentsDirInWorktree(feature.worktreePath, featureId);
     } else {
       // Fallback to pending location
       attachmentsDir = paths.getPendingAttachmentsDir(this.projectRoot, featureId);
@@ -661,10 +884,10 @@ export class FeatureStore {
 
     // Determine the base directory
     let baseDir: string;
-    if (feature?.status === 'not_started') {
+    if (feature?.status === 'backlog') {
       baseDir = paths.getPendingFeatureDir(this.projectRoot, featureId);
-    } else if (feature?.managerWorktreePath) {
-      baseDir = paths.getFeatureDirInWorktree(feature.managerWorktreePath, featureId);
+    } else if (feature?.worktreePath) {
+      baseDir = paths.getFeatureDirInWorktree(feature.worktreePath, featureId);
     } else {
       baseDir = paths.getPendingFeatureDir(this.projectRoot, featureId);
     }
@@ -728,14 +951,13 @@ export class FeatureStore {
       throw new Error(`Failed to load feature ${featureId} from pending location`);
     }
 
-    // Accept both not_started and creating_worktree statuses
-    // creating_worktree is valid because the status may be updated before files are moved
-    if (feature.status !== 'not_started' && feature.status !== 'creating_worktree') {
-      throw new Error(`Feature ${featureId} is not in not_started or creating_worktree status (current: ${feature.status})`);
+    // Only features in backlog or creating_worktree status can be moved to a worktree
+    if (feature.status !== 'backlog' && feature.status !== 'creating_worktree') {
+      throw new Error(`Feature ${featureId} must be in backlog or creating_worktree status (current: ${feature.status})`);
     }
 
     // Store the manager worktree path in the feature
-    feature.managerWorktreePath = managerWorktreePath;
+    feature.worktreePath = managerWorktreePath;
 
     // Create the feature directory inside the manager worktree
     const worktreeFeatureDir = paths.getFeatureDirInWorktree(managerWorktreePath, featureId);

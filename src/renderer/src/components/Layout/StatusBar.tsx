@@ -36,19 +36,23 @@ export function StatusBar({ children }: StatusBarProps): JSX.Element {
   const { projectPath } = useProjectStore()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Load git branch on mount and set up periodic refresh
+  // Load git branch when project changes and set up periodic refresh
   useEffect(() => {
-    // Initial load
-    loadBranch()
+    // Only load if we have a project
+    if (projectPath) {
+      loadBranch()
+    }
 
     // Set up periodic status refresh (every 30 seconds)
     intervalRef.current = setInterval(() => {
-      refreshStatus()
+      if (projectPath) {
+        refreshStatus()
+      }
     }, STATUS_REFRESH_INTERVAL)
 
     // Handle visibility change (refresh when window regains focus)
     const handleVisibilityChange = (): void => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && projectPath) {
         refreshStatus()
       }
     }
@@ -62,7 +66,7 @@ export function StatusBar({ children }: StatusBarProps): JSX.Element {
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [loadBranch, refreshStatus])
+  }, [loadBranch, refreshStatus, projectPath])
 
   return (
     <footer className="status-bar">

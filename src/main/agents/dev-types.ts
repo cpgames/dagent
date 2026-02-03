@@ -21,8 +21,19 @@
  */
 
 import type { Task } from '@shared/types'
-import type { IntentionDecision } from './harness-types'
 import type { FeatureSpec } from './feature-spec-types'
+
+/**
+ * Decision on an intention (formerly from harness-types).
+ * Kept for DevAgent approval workflow.
+ */
+export interface IntentionDecision {
+  approved: boolean
+  type: 'approved' | 'approved_with_notes' | 'modified' | 'rejected'
+  notes?: string
+  modifications?: string
+  reason?: string
+}
 
 /**
  * Internal dev agent status for tracking agent lifecycle.
@@ -64,7 +75,7 @@ export interface TaskContext {
   featureSpec?: FeatureSpec | null
 
   // Task-specific context
-  taskDescription: string
+  taskSpec: string
   taskTitle: string
 
   // Dependency context (from completed parent tasks)
@@ -86,7 +97,7 @@ export interface TaskContext {
 
 export interface OtherTaskInfo {
   title: string
-  description: string
+  spec: string
   status: string
 }
 

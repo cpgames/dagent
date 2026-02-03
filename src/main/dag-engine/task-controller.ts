@@ -1,8 +1,32 @@
 import { EventEmitter } from 'events'
 import type { Task, DAGGraph, TaskStatus } from '@shared/types'
-import type { TransitionResult, StateTransitionEvent } from './state-machine'
-import { getNextStatus } from './state-machine'
+import { getNextTaskStatus } from '../managers/transitions'
 import { getTaskDependencies } from './topological-sort'
+
+// Local types for transition results (simplified from old state machine)
+export interface TransitionResult {
+  success: boolean
+  previousStatus: TaskStatus
+  newStatus: TaskStatus
+  error?: string
+}
+
+// Transition events (includes legacy events for compatibility during transition)
+export type StateTransitionEvent =
+  | 'START'
+  | 'COMPLETE'
+  | 'FAIL'
+  | 'RETRY'
+  | 'PAUSE'
+  | 'RESUME'
+  | 'DEPENDENCIES_MET'
+  | 'DEPENDENCY_CHANGED'
+  | 'REANALYZE'
+  | 'AGENT_ASSIGNED'
+  | 'DEV_COMPLETE'
+  | 'QA_PASSED'
+  | 'QA_FAILED'
+  | 'TASK_FAILED'
 import type {
   TaskControllerState,
   TaskControllerConfig,
@@ -22,7 +46,6 @@ import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import type { FeatureSpec } from '../agents/feature-spec-types'
 import { getSessionManager } from '../services/session-manager'
 import type { SessionContext, AgentDescription } from '../../shared/types/session'
-import { getGitManager } from '../git'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 
@@ -37,6 +60,7 @@ export interface TaskStateChange {
 /**
  * Attempts to transition a task to a new status.
  * Returns the result of the transition attempt.
+ * Uses the new data-driven transition system.
  */
 export function transitionTask(
   task: Task,
@@ -44,9 +68,18 @@ export function transitionTask(
   graph?: DAGGraph
 ): TransitionResult {
   const previousStatus = task.status
-  const nextStatus = getNextStatus(previousStatus, event)
 
-  if (nextStatus === null) {
+  // Map event to success/fail for transition lookup
+  const success =
+    event === 'START' ||
+    event === 'COMPLETE' ||
+    event === 'RESUME' ||
+    event === 'AGENT_ASSIGNED' ||
+    event === 'DEV_COMPLETE' ||
+    event === 'QA_PASSED'
+  const nextStatus = getNextTaskStatus(previousStatus, success, task.transitions)
+
+  if (!nextStatus) {
     return {
       success: false,
       previousStatus,
@@ -60,7 +93,7 @@ export function transitionTask(
     const dependencies = getTaskDependencies(task.id, graph.connections)
     const allDependenciesMet = dependencies.every((depId) => {
       const depTask = graph.nodes.find((n) => n.id === depId)
-      return depTask?.status === 'completed'
+      return depTask?.status === 'done'
     })
 
     if (!allDependenciesMet) {
@@ -68,7 +101,7 @@ export function transitionTask(
         success: false,
         previousStatus,
         newStatus: previousStatus,
-        error: 'Cannot retry: not all dependencies are completed'
+        error: 'Cannot retry: not all dependencies are archived'
       }
     }
   }
@@ -108,34 +141,42 @@ export function transitionTasks(
  * Gets all tasks that can receive a specific event.
  */
 export function getTasksForEvent(graph: DAGGraph, event: StateTransitionEvent): Task[] {
+  const success =
+    event === 'START' ||
+    event === 'COMPLETE' ||
+    event === 'RESUME' ||
+    event === 'AGENT_ASSIGNED' ||
+    event === 'DEV_COMPLETE' ||
+    event === 'QA_PASSED'
   return graph.nodes.filter((task) => {
-    const nextStatus = getNextStatus(task.status, event)
-    return nextStatus !== null
+    const nextStatus = getNextTaskStatus(task.status, success, task.transitions)
+    return nextStatus !== undefined
   })
 }
 
 /**
  * Initializes task statuses based on dependencies.
- * Tasks with no dependencies start as 'ready_for_dev', others as 'blocked'.
+ * Tasks start as 'ready' and use blocked flag to indicate dependency state.
  */
 export function initializeTaskStatuses(graph: DAGGraph): void {
   for (const task of graph.nodes) {
     // Skip active and terminal states
-    if (['completed', 'in_progress', 'ready_for_qa', 'ready_for_merge'].includes(task.status)) {
+    if (['archived', 'developing', 'verifying'].includes(task.status)) {
       continue
     }
 
     const dependencies = getTaskDependencies(task.id, graph.connections)
 
     if (dependencies.length === 0) {
-      task.status = 'ready_for_dev'
+      // No dependencies - task can start
+      task.blocked = false
     } else {
       const allDependenciesMet = dependencies.every((depId) => {
         const depTask = graph.nodes.find((n) => n.id === depId)
-        return depTask?.status === 'completed'
+        return depTask?.status === 'done'
       })
 
-      task.status = allDependenciesMet ? 'ready_for_dev' : 'blocked'
+      task.blocked = !allDependenciesMet
     }
   }
 }
@@ -219,7 +260,7 @@ export class TaskController extends EventEmitter {
   /**
    * Start the Ralph Loop iteration cycle.
    * Creates or loads TaskPlan and enters the iteration loop.
-   * In manager architecture, uses managerWorktreePath from config instead of creating task worktree.
+   * In manager architecture, uses worktreePath from config instead of creating task worktree.
    */
   async start(
     task: Task,
@@ -240,9 +281,9 @@ export class TaskController extends EventEmitter {
     this.state.currentIteration = 1
 
     // Pool architecture: Set worktree path from config if provided
-    if (this.config.managerWorktreePath) {
-      this.state.worktreePath = this.config.managerWorktreePath
-      console.log(`[TaskController ${this.state.taskId}] Using manager worktree: ${this.config.managerWorktreePath}`)
+    if (this.config.worktreePath) {
+      this.state.worktreePath = this.config.worktreePath
+      console.log(`[TaskController ${this.state.taskId}] Using manager worktree: ${this.config.worktreePath}`)
     }
 
     this.emit('loop:start', this.getState())
@@ -470,22 +511,23 @@ Work in the current directory only. Do not navigate elsewhere.`
   /**
    * Load attachment filenames from the feature's attachments directory.
    * This allows buildIterationPrompt to include attachment instructions on the first iteration.
-   * In manager architecture, uses managerWorktreePath; otherwise uses feature worktree.
+   * Requires worktreePath to be set (pool architecture).
    */
   private async loadFeatureAttachments(): Promise<void> {
     try {
-      let attachmentsDir: string
-
-      if (this.config.managerWorktreePath) {
-        // Pool architecture: attachments are in manager worktree's .dagent/attachments
-        attachmentsDir = path.join(this.config.managerWorktreePath, '.dagent', 'attachments')
-      } else {
-        // Legacy mode: attachments in feature worktree
-        const gitManager = getGitManager()
-        const config = gitManager.getConfig()
-        const featureWorktreePath = path.join(config.worktreesDir, this.state.featureId)
-        attachmentsDir = path.join(featureWorktreePath, '.dagent', 'attachments')
+      if (!this.config.worktreePath) {
+        console.warn(`[TaskController ${this.state.taskId}] No worktreePath set, cannot load attachments`)
+        return
       }
+
+      // Pool architecture: attachments are in manager worktree's .dagent/features/{featureId}/attachments
+      const attachmentsDir = path.join(
+        this.config.worktreePath,
+        '.dagent',
+        'features',
+        this.state.featureId,
+        'attachments'
+      )
 
       // Check if attachments directory exists
       try {
@@ -624,16 +666,15 @@ Work in the current directory only. Do not navigate elsewhere.`
     if (this.graph) {
       const otherTasks = this.graph.nodes.filter(
         (node) => node.id !== this.state.taskId &&
-          (node.status === 'blocked' || node.status === 'ready_for_dev' ||
-           node.status === 'in_progress' || node.status === 'ready_for_qa' ||
-           node.status === 'ready_for_merge')
+          (node.status === 'ready' || node.status === 'analyzing' ||
+           node.status === 'developing' || node.status === 'verifying')
       )
       if (otherTasks.length > 0) {
         parts.push('## Other Tasks in This Feature (DO NOT implement these)')
         parts.push('These tasks will be handled separately. Leave this work for them:')
         parts.push('')
         for (const otherTask of otherTasks) {
-          parts.push(`- **${otherTask.title}**: ${otherTask.description || 'No description'}`)
+          parts.push(`- **${otherTask.title}**: ${otherTask.spec || 'No spec'}`)
         }
         parts.push('')
       }
@@ -644,14 +685,14 @@ Work in the current directory only. Do not navigate elsewhere.`
       const parentConnections = this.graph.connections.filter((c) => c.to === this.state.taskId)
       const completedParents = parentConnections
         .map((c) => this.graph!.nodes.find((n) => n.id === c.from))
-        .filter((t) => t && t.status === 'completed')
+        .filter((t) => t && t.status === 'done')
 
       if (completedParents.length > 0) {
         parts.push('## Context from Completed Dependencies')
         for (const parent of completedParents) {
           if (parent) {
             parts.push(`### ${parent.title}`)
-            parts.push(`Completed: ${parent.description || 'No description'}`)
+            parts.push(`Completed: ${parent.spec || 'No spec'}`)
             parts.push('')
           }
         }
@@ -665,8 +706,8 @@ Work in the current directory only. Do not navigate elsewhere.`
     if (this.state.currentIteration === 1) {
       parts.push('## Task to Implement')
       parts.push(`**Title:** ${this.task?.title}`)
-      if (this.task?.description) {
-        parts.push(`**Description:** ${this.task.description}`)
+      if (this.task?.spec) {
+        parts.push(`**Spec:** ${this.task.spec}`)
       }
       parts.push('')
 
@@ -773,7 +814,7 @@ Work in the current directory only. Do not navigate elsewhere.`
    * In manager architecture:
    * - First iteration: Uses initializeForIteration() with manager worktree (no worktree creation)
    * - Subsequent iterations: Uses initializeForIteration() with existing worktreePath
-   * Legacy mode (no managerWorktreePath):
+   * Legacy mode (no worktreePath):
    * - First iteration: uses initialize() to create worktree
    * - Subsequent iterations: uses initializeForIteration() with existing worktreePath
    */
@@ -796,7 +837,7 @@ Work in the current directory only. Do not navigate elsewhere.`
 
     try {
       const isFirstIteration = this.state.currentIteration === 1
-      const useManagerWorktree = !!this.config.managerWorktreePath
+      const useManagerWorktree = !!this.config.worktreePath
 
       if (isFirstIteration && !useManagerWorktree) {
         // Legacy mode: First iteration creates worktree via initialize()

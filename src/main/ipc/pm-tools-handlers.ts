@@ -16,7 +16,6 @@ import type {
   RemoveDependencyInput,
   RemoveDependencyResult,
   Task,
-  TaskStatus,
   DAGGraph
 } from '@shared/types'
 
@@ -115,26 +114,26 @@ export function registerPMToolsHandlers(): void {
       // Calculate position based on dependencies
       const position = calculatePosition(dag, input)
 
-      // Determine initial status based on dependencies
-      let status: TaskStatus = 'ready_for_dev'
+      // Determine if blocked based on dependencies
+      let blocked = false
       if (input.dependsOn && input.dependsOn.length > 0) {
-        // Check if all dependencies are completed
-        const allDepsCompleted = input.dependsOn.every((depId) => {
+        // Check if all dependencies are archived
+        const allDepsArchived = input.dependsOn.every((depId) => {
           const dep = dag.nodes.find((n) => n.id === depId)
-          return dep && dep.status === 'completed'
+          return dep && dep.status === 'done'
         })
-        status = allDepsCompleted ? 'ready_for_dev' : 'blocked'
+        blocked = !allDepsArchived
       }
-      // No dependencies = ready_for_dev (task can start immediately)
 
       // Create new task
       const newTask: Task = {
         id: randomUUID(),
         title: input.title,
-        description: input.description,
-        status,
-        locked: false,
-        position
+        spec: input.spec,
+        status: 'ready',
+        blocked,
+        position,
+        dependencies: input.dependsOn || []
       }
 
       // Add to DAG
@@ -185,7 +184,7 @@ export function registerPMToolsHandlers(): void {
           id: node.id,
           title: node.title,
           status: node.status,
-          description: node.description
+          spec: node.spec
         }))
       }
     } catch {
@@ -245,11 +244,11 @@ export function registerPMToolsHandlers(): void {
           to: input.toTaskId
         })
 
-        // Update toTask status if fromTask not completed
-        if (fromTask.status !== 'completed') {
+        // Update toTask blocked flag if fromTask not done
+        if (fromTask.status !== 'done') {
           const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
-          if (toIndex >= 0 && dag.nodes[toIndex].status === 'ready_for_dev') {
-            dag.nodes[toIndex].status = 'blocked'
+          if (toIndex >= 0 && !dag.nodes[toIndex].blocked) {
+            dag.nodes[toIndex].blocked = true
           }
         }
 
@@ -294,7 +293,7 @@ export function registerPMToolsHandlers(): void {
           id: task.id,
           title: task.title,
           status: task.status,
-          description: task.description,
+          spec: task.spec,
           dependencies,
           dependents
         }
@@ -304,44 +303,11 @@ export function registerPMToolsHandlers(): void {
     }
   })
 
-  // Update an existing task
+  // Update an existing task (uses pmUpdateTask to emit events for UI updates)
   ipcMain.handle(
     'pm-tools:updateTask',
     async (_event, input: UpdateTaskInput): Promise<UpdateTaskResult> => {
-      if (!currentFeatureId) {
-        return { success: false, error: 'No feature selected' }
-      }
-
-      try {
-        const storage = getFeatureStore()
-        if (!storage) {
-          return { success: false, error: 'Storage not initialized' }
-        }
-
-        const dag = await storage.loadDag(currentFeatureId)
-        if (!dag) {
-          return { success: false, error: 'DAG not found' }
-        }
-
-        // Find the task
-        const taskIndex = dag.nodes.findIndex((n) => n.id === input.taskId)
-        if (taskIndex < 0) {
-          return { success: false, error: 'Task not found' }
-        }
-
-        // Update only provided fields
-        if (input.title !== undefined) {
-          dag.nodes[taskIndex].title = input.title
-        }
-        if (input.description !== undefined) {
-          dag.nodes[taskIndex].description = input.description
-        }
-
-        await storage.saveDag(currentFeatureId, dag)
-        return { success: true }
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
-      }
+      return pmUpdateTask(input)
     }
   )
 
@@ -433,18 +399,18 @@ export function registerPMToolsHandlers(): void {
           )
         }
 
-        // Update status of tasks that may now be ready
+        // Update blocked flag of tasks that may now be ready
         for (const node of dag.nodes) {
-          if (node.status === 'blocked') {
-            // Check if all dependencies are completed
+          if (node.blocked) {
+            // Check if all dependencies are archived
             const nodeDeps = dag.connections.filter((c) => c.to === node.id).map((c) => c.from)
-            const allDepsComplete = nodeDeps.every((depId) => {
+            const allDepsArchived = nodeDeps.every((depId) => {
               const dep = dag.nodes.find((n) => n.id === depId)
-              return dep && dep.status === 'completed'
+              return dep && dep.status === 'done'
             })
-            // If no dependencies or all complete, set to ready
-            if (nodeDeps.length === 0 || allDepsComplete) {
-              node.status = 'ready_for_dev'
+            // If no dependencies or all archived, unblock
+            if (nodeDeps.length === 0 || allDepsArchived) {
+              node.blocked = false
             }
           }
         }
@@ -498,25 +464,25 @@ export function registerPMToolsHandlers(): void {
         // Remove the connection
         dag.connections.splice(connectionIndex, 1)
 
-        // Check if toTask should become ready
+        // Check if toTask should become unblocked
         let statusChanged = false
-        if (toTask.status === 'blocked') {
+        if (toTask.blocked) {
           // Check remaining dependencies
           const remainingDeps = dag.connections
             .filter((c) => c.to === input.toTaskId)
             .map((c) => c.from)
 
-          // Check if all remaining deps are completed
-          const allRemainingComplete = remainingDeps.every((depId) => {
+          // Check if all remaining deps are archived
+          const allRemainingArchived = remainingDeps.every((depId) => {
             const dep = dag.nodes.find((n) => n.id === depId)
-            return dep && dep.status === 'completed'
+            return dep && dep.status === 'done'
           })
 
-          // If no remaining deps or all complete, set to ready
-          if (remainingDeps.length === 0 || allRemainingComplete) {
+          // If no remaining deps or all archived, unblock
+          if (remainingDeps.length === 0 || allRemainingArchived) {
             const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
             if (toIndex >= 0) {
-              dag.nodes[toIndex].status = 'ready_for_dev'
+              dag.nodes[toIndex].blocked = false
               statusChanged = true
             }
           }
@@ -542,50 +508,50 @@ export async function pmCreateTask(input: CreateTaskInput): Promise<CreateTaskRe
   }
 
   try {
-    const storage = getFeatureStore()
-    if (!storage) {
-      return { success: false, error: 'Storage not initialized' }
+    // Use DAGManager for task creation to ensure events are emitted for UI updates
+    const { getProjectRoot } = await import('./storage-handlers')
+    const projectRoot = getProjectRoot()
+    if (!projectRoot) {
+      return { success: false, error: 'Project not initialized' }
     }
 
-    // Load existing DAG or create empty one if it doesn't exist
-    let dag = await storage.loadDag(currentFeatureId)
-    if (!dag) {
-      dag = { nodes: [], connections: [] }
-    }
+    const { getDAGManager } = await import('./dag-handlers')
+    const manager = await getDAGManager(currentFeatureId, projectRoot)
+    const graph = manager.getGraph()
 
-    const position = calculatePosition(dag, input)
-
-    // First task is always ready, subsequent tasks without deps are blocked
-    let status: TaskStatus = 'ready_for_dev'
+    // Determine if blocked based on dependencies
+    let blocked = false
     if (input.dependsOn && input.dependsOn.length > 0) {
-      const allDepsCompleted = input.dependsOn.every((depId) => {
-        const dep = dag.nodes.find((n) => n.id === depId)
-        return dep && dep.status === 'completed'
+      const allDepsArchived = input.dependsOn.every((depId) => {
+        const dep = graph.nodes.find((n) => n.id === depId)
+        return dep && dep.status === 'done'
       })
-      status = allDepsCompleted ? 'ready_for_dev' : 'blocked'
+      blocked = !allDepsArchived
     }
-    // No dependencies = ready_for_dev (task can start immediately)
 
-    const newTask: Task = {
+    // Create task via DAGManager (emits events for UI updates)
+    const newTask = await manager.addNode({
       id: randomUUID(),
       title: input.title,
-      description: input.description,
-      status,
-      locked: false,
-      position
-    }
+      spec: input.spec,
+      status: 'ready',
+      blocked,
+      position: { x: 0, y: 0 }, // Will be recalculated by auto-layout
+      dependencies: input.dependsOn || []
+    })
 
-    dag.nodes.push(newTask)
-
+    // Add connections for dependencies via DAGManager
     if (input.dependsOn) {
       for (const depId of input.dependsOn) {
-        if (dag.nodes.find((n) => n.id === depId)) {
-          dag.connections.push({ from: depId, to: newTask.id })
+        if (graph.nodes.find((n) => n.id === depId)) {
+          await manager.addConnection(depId, newTask.id)
         }
       }
     }
 
-    await storage.saveDag(currentFeatureId, dag)
+    // Apply auto-layout to position the new task
+    await manager.applyAutoLayout()
+
     return { success: true, taskId: newTask.id }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -613,7 +579,7 @@ export async function pmListTasks(): Promise<ListTasksResult> {
         id: node.id,
         title: node.title,
         status: node.status,
-        description: node.description
+        spec: node.spec
       }))
     }
   } catch {
@@ -650,7 +616,7 @@ export async function pmGetTask(input: GetTaskInput): Promise<GetTaskResult> {
         id: task.id,
         title: task.title,
         status: task.status,
-        description: task.description,
+        spec: task.spec,
         dependencies,
         dependents
       }
@@ -666,29 +632,31 @@ export async function pmUpdateTask(input: UpdateTaskInput): Promise<UpdateTaskRe
   }
 
   try {
-    const storage = getFeatureStore()
-    if (!storage) {
-      return { success: false, error: 'Storage not initialized' }
+    // Use DAGManager to ensure events are emitted for UI updates
+    const { getProjectRoot } = await import('./storage-handlers')
+    const projectRoot = getProjectRoot()
+    if (!projectRoot) {
+      return { success: false, error: 'Project not initialized' }
     }
 
-    const dag = await storage.loadDag(currentFeatureId)
-    if (!dag) {
-      return { success: false, error: 'DAG not found' }
+    const { getDAGManager } = await import('./dag-handlers')
+    const manager = await getDAGManager(currentFeatureId, projectRoot)
+
+    // Build update object with only defined fields
+    const updates: { title?: string; spec?: string } = {}
+    if (input.title !== undefined) {
+      updates.title = input.title
+    }
+    if (input.spec !== undefined) {
+      updates.spec = input.spec
     }
 
-    const taskIndex = dag.nodes.findIndex((n) => n.id === input.taskId)
-    if (taskIndex < 0) {
+    // Update via DAGManager (emits events for UI updates)
+    const updated = await manager.updateNode(input.taskId, updates)
+    if (!updated) {
       return { success: false, error: 'Task not found' }
     }
 
-    if (input.title !== undefined) {
-      dag.nodes[taskIndex].title = input.title
-    }
-    if (input.description !== undefined) {
-      dag.nodes[taskIndex].description = input.description
-    }
-
-    await storage.saveDag(currentFeatureId, dag)
     return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -779,14 +747,14 @@ export async function pmDeleteTask(input: DeleteTaskInput): Promise<DeleteTaskRe
     }
 
     for (const node of dag.nodes) {
-      if (node.status === 'blocked') {
+      if (node.blocked) {
         const nodeDeps = dag.connections.filter((c) => c.to === node.id).map((c) => c.from)
-        const allDepsComplete = nodeDeps.every((depId) => {
+        const allDepsArchived = nodeDeps.every((depId) => {
           const dep = dag.nodes.find((n) => n.id === depId)
-          return dep && dep.status === 'completed'
+          return dep && dep.status === 'done'
         })
-        if (nodeDeps.length === 0 || allDepsComplete) {
-          node.status = 'ready_for_dev'
+        if (nodeDeps.length === 0 || allDepsArchived) {
+          node.blocked = false
         }
       }
     }
@@ -806,18 +774,19 @@ export async function pmAddDependency(input: AddDependencyInput): Promise<AddDep
   }
 
   try {
-    const storage = getFeatureStore()
-    if (!storage) {
-      return { success: false, error: 'Storage not initialized' }
+    // Use DAGManager to ensure events are emitted for UI updates
+    const { getProjectRoot } = await import('./storage-handlers')
+    const projectRoot = getProjectRoot()
+    if (!projectRoot) {
+      return { success: false, error: 'Project not initialized' }
     }
 
-    const dag = await storage.loadDag(currentFeatureId)
-    if (!dag) {
-      return { success: false, error: 'DAG not found' }
-    }
+    const { getDAGManager } = await import('./dag-handlers')
+    const manager = await getDAGManager(currentFeatureId, projectRoot)
+    const graph = manager.getGraph()
 
-    const fromTask = dag.nodes.find((n) => n.id === input.fromTaskId)
-    const toTask = dag.nodes.find((n) => n.id === input.toTaskId)
+    const fromTask = graph.nodes.find((n) => n.id === input.fromTaskId)
+    const toTask = graph.nodes.find((n) => n.id === input.toTaskId)
 
     if (!fromTask) {
       return { success: false, error: `Task ${input.fromTaskId} not found` }
@@ -826,23 +795,23 @@ export async function pmAddDependency(input: AddDependencyInput): Promise<AddDep
       return { success: false, error: `Task ${input.toTaskId} not found` }
     }
 
-    const exists = dag.connections.some(
+    // Check if connection already exists
+    const exists = graph.connections.some(
       (c) => c.from === input.fromTaskId && c.to === input.toTaskId
     )
     if (exists) {
       return { success: false, error: 'Dependency already exists' }
     }
 
-    dag.connections.push({ from: input.fromTaskId, to: input.toTaskId })
-
-    if (toTask.status === 'ready_for_dev' && fromTask.status !== 'completed') {
-      const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
-      if (toIndex >= 0) {
-        dag.nodes[toIndex].status = 'blocked'
-      }
+    // Add connection via DAGManager (includes cycle validation and emits events)
+    const connection = await manager.addConnection(input.fromTaskId, input.toTaskId)
+    if (!connection) {
+      return { success: false, error: 'Would create a circular dependency' }
     }
 
-    await storage.saveDag(currentFeatureId, dag)
+    // Apply auto-layout after adding connection
+    await manager.applyAutoLayout()
+
     return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -885,20 +854,20 @@ export async function pmRemoveDependency(input: RemoveDependencyInput): Promise<
     dag.connections.splice(connectionIndex, 1)
 
     let statusChanged = false
-    if (toTask.status === 'blocked') {
+    if (toTask.blocked) {
       const remainingDeps = dag.connections
         .filter((c) => c.to === input.toTaskId)
         .map((c) => c.from)
 
-      const allRemainingComplete = remainingDeps.every((depId) => {
+      const allRemainingArchived = remainingDeps.every((depId) => {
         const dep = dag.nodes.find((n) => n.id === depId)
-        return dep && dep.status === 'completed'
+        return dep && dep.status === 'done'
       })
 
-      if (remainingDeps.length === 0 || allRemainingComplete) {
+      if (remainingDeps.length === 0 || allRemainingArchived) {
         const toIndex = dag.nodes.findIndex((n) => n.id === input.toTaskId)
         if (toIndex >= 0) {
-          dag.nodes[toIndex].status = 'ready_for_dev'
+          dag.nodes[toIndex].blocked = false
           statusChanged = true
         }
       }

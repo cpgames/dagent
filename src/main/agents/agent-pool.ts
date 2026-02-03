@@ -6,7 +6,6 @@ import { DEFAULT_POOL_CONFIG } from './types'
 export class AgentPool extends EventEmitter {
   private agents: Map<string, AgentInfo> = new Map()
   private config: AgentPoolConfig
-  private harnessId: string | null = null
 
   constructor(config: Partial<AgentPoolConfig> = {}) {
     super()
@@ -54,35 +53,19 @@ export class AgentPool extends EventEmitter {
   }
 
   /**
-   * Get harness agent (if active).
-   */
-  getHarness(): AgentInfo | undefined {
-    if (!this.harnessId) return undefined
-    return this.getAgent(this.harnessId)
-  }
-
-  /**
    * Check if we can spawn a new agent of given type.
    * No limits for task/merge/qa agents - spawn as many as needed.
-   * Only harness is limited to one instance.
    */
-  canSpawn(type: AgentType): boolean {
-    if (type === 'harness') {
-      // Only one harness allowed
-      return !this.harnessId || this.agents.get(this.harnessId)?.status === 'terminated'
-    }
-
+  canSpawn(_type: AgentType): boolean {
     // No limits for task, merge, or qa agents
     return true
   }
 
   /**
    * Count available slots for a given agent type.
-   * Returns Infinity for task/merge/qa (unlimited), 1 or 0 for harness.
+   * Returns Infinity for task/merge/qa (unlimited).
    */
-  getAvailableSlots(type: AgentType): number {
-    if (type === 'harness') return this.canSpawn('harness') ? 1 : 0
-
+  getAvailableSlots(_type: AgentType): number {
     // Unlimited slots for task, merge, and qa agents
     return Infinity
   }
@@ -103,11 +86,6 @@ export class AgentPool extends EventEmitter {
     }
 
     this.agents.set(id, agent)
-
-    if (options.type === 'harness') {
-      this.harnessId = id
-    }
-
     this.emit('agent:registered', agent)
     return { ...agent }
   }
@@ -140,11 +118,6 @@ export class AgentPool extends EventEmitter {
     }
 
     agent.status = 'terminated'
-
-    if (this.harnessId === id) {
-      this.harnessId = null
-    }
-
     this.emit('agent:terminated', { ...agent, process: undefined })
     return true
   }
@@ -157,7 +130,6 @@ export class AgentPool extends EventEmitter {
       this.terminateAgent(id)
     }
     this.agents.clear()
-    this.harnessId = null
   }
 
   /**
@@ -183,7 +155,6 @@ export class AgentPool extends EventEmitter {
     idle: number
     busy: number
     terminated: number
-    hasHarness: boolean
     taskAgents: number
     mergeAgents: number
     qaAgents: number
@@ -195,8 +166,6 @@ export class AgentPool extends EventEmitter {
       idle: agents.filter((a) => a.status === 'idle').length,
       busy: agents.filter((a) => a.status === 'busy').length,
       terminated: agents.filter((a) => a.status === 'terminated').length,
-      hasHarness:
-        this.harnessId !== null && this.agents.get(this.harnessId!)?.status !== 'terminated',
       taskAgents: agents.filter((a) => a.type === 'task' && a.status === 'busy').length,
       mergeAgents: agents.filter((a) => a.type === 'merge' && a.status === 'busy').length,
       qaAgents: agents.filter((a) => a.type === 'qa' && a.status === 'busy').length

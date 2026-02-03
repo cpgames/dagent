@@ -49,6 +49,14 @@ export interface ConnectionRemovedEvent {
 }
 
 /**
+ * Event: Node properties updated.
+ */
+export interface NodeUpdatedEvent {
+  type: 'node-updated';
+  node: Task;
+}
+
+/**
  * Event: Node position updated.
  */
 export interface NodeMovedEvent {
@@ -71,6 +79,7 @@ export interface GraphResetEvent {
 export type DAGEvent =
   | NodeAddedEvent
   | NodeRemovedEvent
+  | NodeUpdatedEvent
   | ConnectionAddedEvent
   | ConnectionRemovedEvent
   | NodeMovedEvent

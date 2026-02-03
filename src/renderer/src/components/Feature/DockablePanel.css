@@ -1,0 +1,443 @@
+/**
+ * DockablePanel Component Styles
+ * Free-floating panels with snap-to-edge functionality
+ */
+
+/* Main container - overlay on top of content */
+.dockable-panel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  overflow: hidden;
+}
+
+/* Individual panel */
+.dockable-panel__panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+
+.dockable-panel__panel:hover {
+  box-shadow: var(--shadow-xl, 0 20px 25px -5px rgba(0, 0, 0, 0.3));
+}
+
+.dockable-panel__panel--dragging {
+  opacity: 0.9;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  cursor: grabbing;
+}
+
+.dockable-panel__panel--resizing {
+  opacity: 0.95;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+/* Resize handles */
+.dockable-panel__resize-handle {
+  position: absolute;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dockable-panel__panel:hover .dockable-panel__resize-handle {
+  opacity: 1;
+}
+
+/* Edge handles */
+.dockable-panel__resize-handle--n {
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.dockable-panel__resize-handle--s {
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.dockable-panel__resize-handle--e {
+  right: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.dockable-panel__resize-handle--w {
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+/* Corner handles */
+.dockable-panel__resize-handle--ne {
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+.dockable-panel__resize-handle--nw {
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.dockable-panel__resize-handle--se {
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.dockable-panel__resize-handle--sw {
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+/* Visual indicator on hover */
+.dockable-panel__resize-handle:hover {
+  background: rgba(0, 240, 255, 0.3);
+}
+
+.dockable-panel__resize-handle--n:hover,
+.dockable-panel__resize-handle--s:hover {
+  border-radius: 3px;
+}
+
+.dockable-panel__resize-handle--e:hover,
+.dockable-panel__resize-handle--w:hover {
+  border-radius: 3px;
+}
+
+.dockable-panel__resize-handle--ne:hover,
+.dockable-panel__resize-handle--nw:hover,
+.dockable-panel__resize-handle--se:hover,
+.dockable-panel__resize-handle--sw:hover {
+  border-radius: 0 0 0 6px;
+}
+
+.dockable-panel__resize-handle--ne:hover {
+  border-radius: 0 6px 0 0;
+}
+
+.dockable-panel__resize-handle--nw:hover {
+  border-radius: 6px 0 0 0;
+}
+
+.dockable-panel__resize-handle--se:hover {
+  border-radius: 0 0 6px 0;
+}
+
+.dockable-panel__resize-handle--sw:hover {
+  border-radius: 0 0 0 6px;
+}
+
+/* Panel header - draggable area */
+.dockable-panel__panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.dockable-panel__panel-header:active {
+  cursor: grabbing;
+}
+
+.dockable-panel__panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.dockable-panel__panel-title svg {
+  opacity: 0.4;
+  transition: opacity var(--transition-fast);
+}
+
+.dockable-panel__panel-header:hover .dockable-panel__panel-title svg {
+  opacity: 0.7;
+}
+
+.dockable-panel__panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dockable-panel__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dockable-panel__action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Panel content */
+.dockable-panel__panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dockable-panel__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Snap zone indicators - shown during drag */
+.dockable-panel__snap-zones {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.dockable-panel__snap-zone {
+  position: absolute;
+  border: 2px dashed transparent;
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+/* Corner zones */
+.dockable-panel__snap-zone--top-left {
+  top: 4px;
+  left: 4px;
+  width: 100px;
+  height: 100px;
+}
+
+.dockable-panel__snap-zone--top-right {
+  top: 4px;
+  right: 4px;
+  width: 100px;
+  height: 100px;
+}
+
+.dockable-panel__snap-zone--bottom-left {
+  bottom: 4px;
+  left: 4px;
+  width: 100px;
+  height: 100px;
+}
+
+.dockable-panel__snap-zone--bottom-right {
+  bottom: 4px;
+  right: 4px;
+  width: 100px;
+  height: 100px;
+}
+
+/* Edge zones */
+.dockable-panel__snap-zone--top {
+  top: 4px;
+  left: 120px;
+  right: 120px;
+  height: 60px;
+}
+
+.dockable-panel__snap-zone--bottom {
+  bottom: 4px;
+  left: 120px;
+  right: 120px;
+  height: 60px;
+}
+
+.dockable-panel__snap-zone--left {
+  left: 4px;
+  top: 120px;
+  bottom: 120px;
+  width: 60px;
+}
+
+.dockable-panel__snap-zone--right {
+  right: 4px;
+  top: 120px;
+  bottom: 120px;
+  width: 60px;
+}
+
+/* Active snap zone (panel is hovering over it) */
+.dockable-panel__snap-zone--active {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--accent-primary);
+}
+
+/* Popped out panel indicators */
+.dockable-panel__popped-out {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: auto;
+  margin-right: var(--space-sm);
+}
+
+.dockable-panel__popped-out-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px 6px;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dockable-panel__popped-out-btn:hover {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: var(--accent-primary);
+}
+
+.dockable-panel__popped-out-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Drop target highlight */
+.dockable-panel__panel--drop-target {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+}
+
+/* Tab bar for grouped panels */
+.dockable-panel__tabs {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  min-height: 28px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Individual tab */
+.dockable-panel__tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.dockable-panel__tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dockable-panel__tab--active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.dockable-panel__tab--dragging {
+  opacity: 0.5;
+}
+
+.dockable-panel__tab-title {
+  font-weight: 500;
+}
+
+.dockable-panel__tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition-fast);
+}
+
+.dockable-panel__tab:hover .dockable-panel__tab-close {
+  opacity: 1;
+}
+
+.dockable-panel__tab-close:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* Drag preview for tab being dragged out */
+.dockable-panel__drag-preview {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  opacity: 0.8;
+  overflow: hidden;
+}
+
+.dockable-panel__drag-preview .dockable-panel__panel-header {
+  background: var(--bg-elevated);
+}

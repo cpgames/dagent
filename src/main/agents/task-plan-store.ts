@@ -37,7 +37,7 @@ export class TaskPlanStore {
 
   /**
    * Get the file path for a task's plan.json.
-   * Requires feature to have a managerWorktreePath set.
+   * Requires feature to have a worktreePath set.
    */
   private async getPath(featureId: string, taskId: string): Promise<string | null> {
     const featureStore = getFeatureStore()
@@ -46,11 +46,11 @@ export class TaskPlanStore {
       return null
     }
     const feature = await featureStore.loadFeature(featureId)
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       console.error(`[TaskPlanStore] Feature ${featureId} does not have a worktree path`)
       return null
     }
-    return getTaskPlanPathInWorktree(feature.managerWorktreePath, featureId, taskId)
+    return getTaskPlanPathInWorktree(feature.worktreePath, featureId, taskId)
   }
 
   /**

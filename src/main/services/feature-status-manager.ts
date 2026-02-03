@@ -1,42 +1,33 @@
 import { EventEmitter } from 'events'
 import { BrowserWindow } from 'electron'
+import * as path from 'path'
 import type { FeatureStatus } from '@shared/types/feature'
 import type { FeatureStore } from '../storage/feature-store'
-import { getTaskAnalysisOrchestrator } from './task-analysis-orchestrator'
+import { getProjectRoot } from '../ipc/storage-handlers'
 
 /**
- * Valid status transitions map for the state-based manager architecture.
- * Each status can only transition to specific next statuses.
+ * Valid status transitions map for the dual-manager architecture.
  *
- * State machine flow (state-based managers):
- * 1. not_started: Feature exists, not yet started (BacklogManager)
- * 2. creating_worktree: Setting up worktree for feature (SetupManager)
- * 3. investigating: PM agent exploring codebase, asking questions (InvestigationManager)
- * 4. ready_for_planning: PM has enough info, user can trigger planning (ReadyForPlanningManager)
- * 5. planning: PM agent creating tasks (PlanningManager)
- * 6. ready: Tasks ready for execution (ReadyForDevelopmentManager)
- * 7. developing: Dev agents working on tasks (DevelopmentManager)
- * 8. verifying: QA agents verifying tasks (VerificationManager)
- * 9. needs_merging: All tasks complete, waiting in merge queue (MergeManager)
- * 10. merging: Bidirectional merge in progress (MergeManager)
- * 11. archived: Feature merged and archived (ArchiveManager)
- *
- * Note: Queue position is tracked via feature.queuePosition property.
- * User input during investigation uses internal pools within InvestigationManager.
+ * Feature lifecycle:
+ * 1. backlog: Feature created, no worktree yet
+ * 2. creating_worktree: Assigned to feature manager, worktree being created
+ * 3. active: Has worktree, work in progress
+ * 4. merging: All tasks archived, merging feature branch to main
+ * 5. archived: Complete and merged, worktree can be reclaimed
  */
 const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
-  not_started: ['creating_worktree'],  // User starts feature -> setup worktree
-  creating_worktree: ['investigating', 'not_started'],  // Worktree ready -> investigate, OR failed -> retry
-  investigating: ['ready_for_planning', 'not_started'],  // Spec complete -> ready for planning, OR failed -> retry
-  ready_for_planning: ['planning', 'investigating'],  // User clicks Plan -> planning, OR user sends message -> back to investigating
-  planning: ['ready', 'ready_for_planning'],  // Tasks created -> ready, OR need more info -> back to ready for planning
-  ready: ['developing', 'planning'],  // User starts dev -> developing, OR user adjusts -> back to planning
-  developing: ['verifying', 'ready'],  // Dev done -> verifying, OR paused -> ready
-  verifying: ['needs_merging', 'developing'],  // QA passed -> merge queue, OR QA failed -> back to dev
-  needs_merging: ['merging', 'archived', 'developing'],  // Merge slot available -> start merge, OR skip merge, OR task failed -> back to dev
-  merging: ['archived', 'needs_merging'],  // Merge success -> archived, OR merge failed -> retry
-  archived: ['not_started']  // Can un-archive to restart
+  backlog: ['creating_worktree', 'archived'],
+  creating_worktree: ['active', 'backlog'], // active on success, backlog on failure
+  active: ['backlog', 'merging', 'archived'],
+  merging: ['active', 'archived'],
+  archived: ['backlog', 'merging'] // merging: user wants to create a new PR
 }
+
+/**
+ * Task statuses that indicate active work with potentially uncommitted changes.
+ * Transitioning a feature to backlog is blocked if any task is in these states.
+ */
+const ACTIVE_TASK_STATUSES = ['in_progress', 'ready_for_qa', 'developing', 'verifying']
 
 /**
  * FeatureStatusManager - Centralized feature status management service.
@@ -47,18 +38,14 @@ const VALID_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
  * - Emit events for UI reactivity
  * - Ensure all status changes are tracked and persisted
  *
- * State-Based Manager Workflow:
- * - not_started → creating_worktree (user starts feature)
- * - creating_worktree → investigating (worktree ready)
- * - investigating → ready_for_planning (spec complete)
- * - ready_for_planning → planning | investigating (user clicks Plan, or sends message)
- * - planning → ready (tasks created)
- * - ready → developing | planning (user starts dev, or adjusts plan)
- * - developing → verifying | ready (dev done, or paused)
- * - verifying → needs_merging | developing (QA passed, or QA failed)
- * - needs_merging → merging (merge slot available)
- * - merging → archived | needs_merging (success or retry)
- * - archived → not_started (un-archive to restart)
+ * Feature Workflow:
+ * - backlog → creating_worktree (user starts feature, assigned to manager)
+ * - creating_worktree → active (worktree created successfully)
+ * - creating_worktree → backlog (worktree creation failed)
+ * - active → merging (all tasks archived)
+ * - merging → archived (merge complete)
+ * - merging → active (merge failed)
+ * - archived → backlog (un-archive to restart)
  */
 export class FeatureStatusManager {
   private featureStore: FeatureStore
@@ -93,6 +80,8 @@ export class FeatureStatusManager {
       throw new Error(`Feature not found: ${featureId}`)
     }
 
+    const previousStatus = feature.status
+
     // Validate transition
     if (!this.validateTransition(feature.status, newStatus)) {
       throw new Error(
@@ -100,18 +89,63 @@ export class FeatureStatusManager {
       )
     }
 
+    // Block transition to backlog if any tasks have uncommitted work
+    if (newStatus === 'backlog' && feature.status === 'active') {
+      const dag = await this.featureStore.loadDag(featureId)
+      if (dag) {
+        const activeTasks = dag.nodes.filter(task => ACTIVE_TASK_STATUSES.includes(task.status))
+        if (activeTasks.length > 0) {
+          const taskNames = activeTasks.map(t => t.title).join(', ')
+          throw new Error(
+            `Cannot move feature to backlog: ${activeTasks.length} task(s) have uncommitted work (${taskNames}). ` +
+            `Complete or cancel active tasks first.`
+          )
+        }
+      }
+    }
+
+    // When transitioning from archived to merging, reconstruct the worktreePath from worktreeId
+    if (newStatus === 'merging' && feature.status === 'archived') {
+      if (!feature.worktreeId) {
+        throw new Error(
+          `Cannot move feature to merging: feature is not assigned to a worktree pool. ` +
+          `Move to backlog first, then start the feature to assign it to a pool.`
+        )
+      }
+
+      // Reconstruct the correct worktreePath from worktreeId
+      const projectRoot = getProjectRoot()
+      if (projectRoot) {
+        const correctWorktreePath = path.join(projectRoot, '.dagent-worktrees', feature.worktreeId)
+        if (feature.worktreePath !== correctWorktreePath) {
+          console.log(`[FeatureStatusManager] Fixing worktreePath for ${featureId}: ${feature.worktreePath} -> ${correctWorktreePath}`)
+          feature.worktreePath = correctWorktreePath
+        }
+      }
+    }
+
+    // Ensure branch is always set when worktreeId is present (fix for older features)
+    if (feature.worktreeId && !feature.branch) {
+      feature.branch = `dagent/${feature.worktreeId}`
+      console.log(`[FeatureStatusManager] Set missing branch for ${featureId}: ${feature.branch}`)
+    }
+
     // Update feature status and timestamp
     feature.status = newStatus
     feature.updatedAt = new Date().toISOString()
 
+    console.log(`[FeatureStatusManager] Saving feature ${featureId} with status ${newStatus}, worktreePath: ${feature.worktreePath}, branch: ${feature.branch}`)
+
     // Persist to storage
     await this.featureStore.saveFeature(feature)
+
+    console.log(`[FeatureStatusManager] Feature ${featureId} saved successfully`)
 
     // Emit event for internal listeners
     this.eventEmitter.emit('feature-status-changed', {
       featureId,
       status: newStatus,
-      previousStatus: feature.status,
+      previousStatus,
       timestamp: feature.updatedAt
     })
 
@@ -126,70 +160,6 @@ export class FeatureStatusManager {
   }
 
   /**
-   * Migrate existing features from old statuses to the new state-based model.
-   * Safe to run multiple times (idempotent).
-   *
-   * Migration mapping:
-   * - 'backlog' -> 'ready' (direct replacement)
-   * - 'needs_attention' -> 'ready' (best effort recovery)
-   * - 'queued' -> 'creating_worktree' (queued status removed)
-   * - 'questioning' -> 'investigating' (questioning status removed, handled internally)
-   *
-   * @returns Number of features migrated
-   */
-  async migrateExistingFeatures(): Promise<number> {
-    let migratedCount = 0
-
-    try {
-      // Get all feature IDs
-      const featureIds = await this.featureStore.listFeatures()
-
-      for (const featureId of featureIds) {
-        const feature = await this.featureStore.loadFeature(featureId)
-        if (!feature) continue
-
-        // Check for old statuses that need migration
-        const statusStr = feature.status as string
-        let newStatus: FeatureStatus | null = null
-
-        if (statusStr === 'backlog') {
-          // 'backlog' is replaced by 'ready' in the new model
-          newStatus = 'ready'
-          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: backlog → ready`)
-        } else if (statusStr === 'needs_attention') {
-          // 'needs_attention' is removed - best effort recovery to 'ready'
-          newStatus = 'ready'
-          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: needs_attention → ready`)
-        } else if (statusStr === 'queued') {
-          // 'queued' status is removed - queue position tracked via property instead
-          newStatus = 'creating_worktree'
-          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: queued → creating_worktree`)
-        } else if (statusStr === 'questioning') {
-          // 'questioning' status is removed - handled internally by InvestigationManager
-          newStatus = 'investigating'
-          console.log(`[FeatureStatusManager] Migrated feature ${featureId}: questioning → investigating`)
-        }
-
-        if (newStatus) {
-          feature.status = newStatus
-          feature.updatedAt = new Date().toISOString()
-          await this.featureStore.saveFeature(feature)
-          migratedCount++
-        }
-      }
-
-      if (migratedCount > 0) {
-        console.log(`[FeatureStatusManager] Migration complete: ${migratedCount} feature(s) updated`)
-      }
-    } catch (error) {
-      console.error('[FeatureStatusManager] Migration error:', error)
-      throw error
-    }
-
-    return migratedCount
-  }
-
-  /**
    * Get allowed next statuses for a given status.
    * @param currentStatus - Current feature status
    * @returns Array of allowed next statuses
@@ -199,143 +169,41 @@ export class FeatureStatusManager {
   }
 
   /**
-   * Recover features stuck in 'planning' status.
-   * This happens when the app is closed during planning - the async process
-   * is interrupted and never completes, leaving the feature stuck.
-   *
-   * Recovery strategy:
-   * - If feature has a spec file, move to 'ready' and resume analysis if needed
-   * - If no spec file, keep in 'planning' (user can re-trigger planning)
-   *
-   * @returns Number of features recovered
+   * Check if all tasks in a feature are completed and update feature status accordingly.
+   * @param featureId - Feature ID
+   * @returns true if feature was transitioned to completed
    */
-  async recoverStuckPlanningFeatures(): Promise<number> {
-    console.log(`[FeatureStatusManager] recoverStuckPlanningFeatures called`)
-    let recoveredCount = 0
-    const featuresToAnalyze: string[] = []
-
-    try {
-      const featureIds = await this.featureStore.listFeatures()
-      console.log(`[FeatureStatusManager] Found ${featureIds.length} features to check`)
-
-      for (const featureId of featureIds) {
-        const feature = await this.featureStore.loadFeature(featureId)
-        if (!feature) continue
-
-        console.log(`[FeatureStatusManager] Feature ${featureId} has status: ${feature.status}`)
-
-        // Check for features in ready state that might have pending analysis tasks
-        // (from previous incomplete recovery)
-        if (feature.status === 'ready') {
-          const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
-          const pendingTasks = await orchestrator.getPendingTasks(featureId)
-          if (pendingTasks.length > 0) {
-            console.log(`[FeatureStatusManager] Feature ${featureId} is in ready but has ${pendingTasks.length} pending analysis tasks - resuming analysis`)
-            featuresToAnalyze.push(featureId)
-          }
-          continue
-        }
-
-        // Only process features stuck in 'planning'
-        if (feature.status !== 'planning') continue
-
-        // Check if spec file exists (indicates planning was mostly complete)
-        const hasSpec = await this.featureStore.hasFeatureSpec(featureId)
-
-        if (hasSpec) {
-          // Spec exists - planning was mostly done, move to ready
-          feature.status = 'ready'
-          console.log(`[FeatureStatusManager] Recovered stuck feature ${featureId}: planning → ready (spec exists)`)
-          // Track for analysis resumption
-          featuresToAnalyze.push(featureId)
-        } else {
-          // No spec - planning never completed, keep in planning for user to re-trigger
-          console.log(`[FeatureStatusManager] Feature ${featureId} has no spec, keeping in planning status`)
-          continue  // Don't count as recovered, just skip
-        }
-
-        feature.updatedAt = new Date().toISOString()
-        await this.featureStore.saveFeature(feature)
-        recoveredCount++
-
-        // Broadcast status change to UI
-        const windows = BrowserWindow.getAllWindows()
-        for (const win of windows) {
-          if (!win.isDestroyed()) {
-            win.webContents.send('feature:status-changed', { featureId, status: feature.status })
-          }
-        }
-      }
-
-      if (recoveredCount > 0) {
-        console.log(`[FeatureStatusManager] Recovery complete: ${recoveredCount} stuck feature(s) recovered`)
-      }
-
-      // Resume analysis for features that were moved to ready
-      // This handles tasks that were left in needs_analysis status
-      for (const featureId of featuresToAnalyze) {
-        this.resumeAnalysisInBackground(featureId)
-      }
-    } catch (error) {
-      console.error('[FeatureStatusManager] Recovery error:', error)
-      // Don't throw - recovery failure shouldn't block app startup
+  async checkAndUpdateCompletionStatus(featureId: string): Promise<boolean> {
+    const feature = await this.featureStore.loadFeature(featureId)
+    if (!feature || feature.status !== 'active') {
+      return false
     }
 
-    return recoveredCount
+    // Load DAG to check task statuses
+    const dag = await this.featureStore.loadDag(featureId)
+    if (!dag || dag.nodes.length === 0) {
+      return false
+    }
+
+    // Check if all tasks are archived
+    const allArchived = dag.nodes.every(task => task.status === 'done')
+    if (allArchived) {
+      await this.updateFeatureStatus(featureId, 'merging')
+      return true
+    }
+
+    return false
   }
 
   /**
-   * Resume analysis for a feature in the background.
-   * Checks if there are pending needs_analysis tasks and processes them.
+   * Reactivate a merging/archived feature when a new task is added or a task is reopened.
+   * @param featureId - Feature ID
    */
-  private async resumeAnalysisInBackground(featureId: string): Promise<void> {
-    console.log(`[FeatureStatusManager] resumeAnalysisInBackground called for ${featureId}`)
-    try {
-      const orchestrator = getTaskAnalysisOrchestrator(this.featureStore)
-      console.log(`[FeatureStatusManager] Got orchestrator, checking pending tasks...`)
-      const pendingTasks = await orchestrator.getPendingTasks(featureId)
-      console.log(`[FeatureStatusManager] getPendingTasks returned ${pendingTasks.length} tasks`)
-
-      if (pendingTasks.length === 0) {
-        console.log(`[FeatureStatusManager] No pending analysis for ${featureId}`)
-        return
-      }
-
-      console.log(`[FeatureStatusManager] Resuming analysis for ${featureId} (${pendingTasks.length} pending tasks)`)
-
-      // Run analysis with timeout
-      const ANALYSIS_TIMEOUT_MS = 600000 // 10 minutes
-
-      const analysisPromise = (async () => {
-        for await (const event of orchestrator.analyzeFeatureTasks(featureId)) {
-          console.log(`[FeatureStatusManager] Analysis event for ${featureId}: ${event.type}`)
-
-          // Broadcast to UI
-          const windows = BrowserWindow.getAllWindows()
-          for (const win of windows) {
-            if (!win.isDestroyed()) {
-              win.webContents.send('analysis:event', { featureId, event })
-            }
-          }
-
-          if (event.type === 'complete') {
-            console.log(`[FeatureStatusManager] Analysis complete for ${featureId}`)
-            break
-          }
-        }
-      })()
-
-      const timeoutPromise = new Promise<void>((resolve) => {
-        setTimeout(() => {
-          console.warn(`[FeatureStatusManager] Analysis timeout for ${featureId}`)
-          resolve()
-        }, ANALYSIS_TIMEOUT_MS)
-      })
-
-      await Promise.race([analysisPromise, timeoutPromise])
-    } catch (error) {
-      console.error(`[FeatureStatusManager] Analysis resumption error for ${featureId}:`, error)
-      // Don't throw - analysis failure shouldn't affect other features
+  async reactivateIfCompleted(featureId: string): Promise<void> {
+    const feature = await this.featureStore.loadFeature(featureId)
+    if (feature?.status === 'merging' || feature?.status === 'archived') {
+      await this.updateFeatureStatus(featureId, 'active')
+      console.log(`[FeatureStatusManager] Reactivated feature ${featureId}`)
     }
   }
 }

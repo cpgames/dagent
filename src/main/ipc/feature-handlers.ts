@@ -3,17 +3,15 @@ import { EventEmitter } from 'events'
 import { getGitManager } from '../git/git-manager'
 import { getAgentPool } from '../agents/agent-pool'
 import { getFeatureStore, getProjectRoot } from './storage-handlers'
-import { getFeatureWorktreeName, getFeatureBranchName } from '../git/types'
+import { getFeatureBranchName } from '../git/types'
 import { FeatureStatusManager } from '../services/feature-status-manager'
-import { createInvestigationAgent } from '../agent/investigation-agent'
-import { createPlanningAgent } from '../agent/planning-agent'
-import { getAgentService } from '../agent/agent-service'
 import { getFeatureSpecStore } from '../agents/feature-spec-store'
 import { getFeatureManagerPool } from '../git/worktree-pool-manager'
-import { getSessionManager } from '../services/session-manager'
 import { getOrchestrator } from '../dag-engine/orchestrator'
+import { getAgentService } from '../agent/agent-service'
 import type { FeatureStatus } from '@shared/types/feature'
 import type { Task } from '@shared/types/task'
+import type { AgentStreamEvent } from '../agent/types'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 
@@ -66,10 +64,9 @@ export function registerFeatureHandlers(): void {
   /**
    * Delete a feature with comprehensive cleanup:
    * 1. Terminate agents working on this feature's tasks
-   * 2. Remove all task worktrees for the feature
-   * 3. Remove the feature worktree
-   * 4. Delete the feature branch (if option is true)
-   * 5. Delete feature storage (.dagent/worktrees/{featureId}/)
+   * 2. Remove any legacy task worktrees for the feature (pool architecture doesn't use these)
+   * 3. Delete the feature branch (if option is true)
+   * 4. Delete feature storage (pending or in manager worktree)
    */
   ipcMain.handle(
     'feature:delete',
@@ -135,41 +132,7 @@ export function registerFeatureHandlers(): void {
             }
           }
 
-          // Step 3: Remove the feature worktree
-          const featureWorktreeName = getFeatureWorktreeName(featureId)
-          const featureWorktreePath = path.join(config.worktreesDir, featureWorktreeName)
-
-          // Find feature worktree with normalized path comparison
-          const normalizedFeatureWorktreePath = path.normalize(featureWorktreePath)
-          const featureWorktree = worktrees.find((w) => path.normalize(w.path) === normalizedFeatureWorktreePath)
-
-          if (featureWorktree) {
-            try {
-              // Don't delete branch here - we'll do it separately if option is set
-              const result = await gitManager.removeWorktree(featureWorktree.path, false)
-              if (result.success) {
-                deletedWorktrees++
-              } else if (result.error) {
-                errors.push(`Feature worktree: ${result.error}`)
-              }
-            } catch (err) {
-              errors.push(`Feature worktree: ${(err as Error).message}`)
-            }
-          } else {
-            console.warn(`[FeatureDelete] Feature worktree not found in git worktree list: ${featureWorktreePath}`)
-            // Try to remove it anyway in case it exists but wasn't registered
-            try {
-              const result = await gitManager.removeWorktree(featureWorktreePath, false)
-              if (result.success) {
-                deletedWorktrees++
-              }
-            } catch (err) {
-              // Ignore - worktree probably doesn't exist
-              console.warn(`[FeatureDelete] Could not remove feature worktree: ${(err as Error).message}`)
-            }
-          }
-
-          // Step 3.5: Prune worktrees to clean up stale references before branch deletion
+          // Step 3: Prune worktrees to clean up stale references before branch deletion
           // This ensures git no longer tracks the removed worktrees
           try {
             await gitManager.pruneWorktrees()
@@ -199,19 +162,20 @@ export function registerFeatureHandlers(): void {
             }
           }
 
-          // Step 4b: Clean up any remaining worktree directories on disk
+          // Step 4b: Clean up any remaining legacy task worktree directories on disk
           // (handles cases where git worktree remove left empty folders or worktrees weren't registered)
+          // Note: In pool architecture, tasks don't have their own worktrees, but this cleans up legacy dirs
           try {
             const worktreesDir = config.worktreesDir
             const dirEntries = await fs.readdir(worktreesDir, { withFileTypes: true })
             for (const entry of dirEntries) {
               if (entry.isDirectory()) {
-                // Check if directory belongs to this feature (featureId--task-* or feature/{featureId}/*)
-                if (entry.name.startsWith(`${featureId}--`) || entry.name === getFeatureWorktreeName(featureId)) {
+                // Check if directory is a legacy task worktree for this feature (featureId--task-*)
+                if (entry.name.startsWith(`${featureId}--`)) {
                   const dirPath = path.join(worktreesDir, entry.name)
                   try {
                     await fs.rm(dirPath, { recursive: true, force: true })
-                    console.log(`[FeatureDelete] Cleaned up leftover directory: ${dirPath}`)
+                    console.log(`[FeatureDelete] Cleaned up leftover legacy task directory: ${dirPath}`)
                   } catch {
                     // Ignore cleanup errors
                   }
@@ -288,20 +252,16 @@ export function registerFeatureHandlers(): void {
   /**
    * Start a feature using the pool worktree architecture.
    *
-   * This is called when the user clicks "Start" on a not_started feature.
+   * This is called when the user clicks "Start" on a backlog feature.
    * The feature is assigned to a pool worktree (creating one on demand if needed).
    *
    * Pool-based flow:
-   * 1. Validate feature is in 'not_started' status
+   * 1. Validate feature is in 'backlog' status
    * 2. Get target branch (current branch) for later merge
    * 3. Assign feature to pool (creates pool worktree on demand)
-   * 4. Store pool assignment in feature (poolId, queuePosition, targetBranch)
-   * 5. If queue position is 0 (immediately active):
-   *    - Transition to 'investigating'
-   *    - Start PM agent for planning
-   * 6. If queued (position > 0):
-   *    - Stay in 'queued' status
-   *    - Feature will be started when pool becomes available
+   * 4. Store pool assignment in feature (worktreeId, worktreePath, targetBranch)
+   * 5. Transition feature to 'active' status
+   * 6. PM agent can now chat with user for planning
    */
   ipcMain.handle(
     'feature:startWorktreeCreation',
@@ -326,16 +286,12 @@ export function registerFeatureHandlers(): void {
           return { success: false, error: `Feature ${featureId} not found` }
         }
 
-        if (feature.status !== 'not_started') {
+        if (feature.status !== 'backlog') {
           return {
             success: false,
-            error: `Feature ${featureId} is not in not_started status (current: ${feature.status})`
+            error: `Feature ${featureId} is not in backlog status (current: ${feature.status})`
           }
         }
-
-        // Get target branch (current branch) for later merge
-        const gitManager = getGitManager()
-        const targetBranch = await gitManager.getCurrentBranch()
 
         // Initialize pool manager if needed
         const poolManager = getFeatureManagerPool()
@@ -343,136 +299,104 @@ export function registerFeatureHandlers(): void {
           await poolManager.initialize(projectRoot)
         }
 
-        // Assign feature to manager (this creates worktree on demand)
-        console.log(`[FeatureHandlers] Assigning feature ${featureId} to manager`)
-        const assignment = await poolManager.assignFeature(featureId, targetBranch)
+        // Step 1: Reserve a manager slot (sync - no worktree creation yet)
+        console.log(`[FeatureHandlers] Reserving manager for feature ${featureId}`)
+        const reservation = poolManager.reserveManager(featureId)
+        console.log(`[FeatureHandlers] Feature ${featureId} reserved manager ${reservation.featureManagerId}`)
 
-        // Update feature with manager assignment info and save BEFORE status transition
-        // IMPORTANT: Set managerWorktreePath NOW so that when status changes to creating_worktree,
-        // the feature-store knows where to save data (avoids falling back to legacy paths)
-        const { getManagerWorktreePath } = await import('../../shared/types/pool')
-        const expectedWorktreePath = getManagerWorktreePath(projectRoot, assignment.featureManagerId)
+        // Map featureManagerId to worktreeId ('neon' | 'cyber' | 'pulse')
+        const worktreeNames = ['neon', 'cyber', 'pulse'] as const
+        const worktreeId = worktreeNames[reservation.featureManagerId - 1] || 'neon'
 
-        feature.featureManagerId = assignment.featureManagerId
-        feature.queuePosition = assignment.queuePosition
-        feature.targetBranch = targetBranch
-        feature.managerWorktreePath = expectedWorktreePath  // Set worktree path early!
+        // Step 2: Update status to creating_worktree and broadcast to UI immediately
+        feature.status = 'creating_worktree' as FeatureStatus
+        feature.worktreeId = worktreeId
+        feature.branch = `dagent/${worktreeId}` // Branch name for this worktree
         feature.updatedAt = new Date().toISOString()
         await featureStore.saveFeature(feature)
-        console.log(`[FeatureHandlers] Saved feature ${featureId} with manager ${assignment.featureManagerId}, worktreePath=${expectedWorktreePath}`)
+        console.log(`[FeatureHandlers] Feature ${featureId} status set to creating_worktree, assigned to ${worktreeId}, branch=dagent/${worktreeId}`)
 
-        if (assignment.queuePosition === 0) {
-          // Feature is immediately active - assigned to a manager
-          const statusMgr = getStatusManager()
-
-          // STEP 1: Immediately transition to creating_worktree so UI updates
-          await statusMgr.updateFeatureStatus(featureId, 'creating_worktree')
-          console.log(`[FeatureHandlers] Feature ${featureId} moved to creating_worktree`)
-
-          // Broadcast manager assignment to UI
-          const allWindows = BrowserWindow.getAllWindows()
-          for (const win of allWindows) {
-            if (!win.isDestroyed()) {
-              win.webContents.send('feature:manager-assigned', {
-                featureId,
-                featureManagerId: assignment.featureManagerId,
-                queuePosition: assignment.queuePosition
-              })
-            }
+        // Broadcast status change to UI immediately
+        const allWindows = BrowserWindow.getAllWindows()
+        for (const win of allWindows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('feature:status-changed', {
+              featureId,
+              status: 'creating_worktree'
+            })
           }
+        }
+        console.log(`[FeatureHandlers] Broadcasted creating_worktree status to UI`)
 
-          console.log(`[FeatureHandlers] Feature ${featureId} assigned to manager ${assignment.featureManagerId}`)
+        // Step 3: Return success immediately - worktree creation happens async
+        // This allows the UI to show "creating worktree" status right away
 
-          // STEP 2: Create worktree and start PM agent asynchronously (fire-and-forget)
-          // This allows the IPC handler to return immediately so UI can update
-          ;(async () => {
-            try {
-              // Ensure worktree exists for the assigned manager
-              console.log(`[FeatureHandlers] Ensuring worktree for manager ${assignment.featureManagerId}`)
-              const worktreePath = await poolManager.ensureWorktree(assignment.featureManagerId)
-              console.log(`[FeatureHandlers] Worktree ready at: ${worktreePath}`)
+        // Step 4: Create worktree and complete setup asynchronously (fire-and-forget)
+        const featureManagerId = reservation.featureManagerId
+        ;(async () => {
+          try {
+            // Create the worktree (this is the slow part)
+            console.log(`[FeatureHandlers] Creating worktree for manager ${featureManagerId}...`)
+            const worktreePath = await poolManager.ensureWorktree(featureManagerId)
+            console.log(`[FeatureHandlers] Worktree created at: ${worktreePath}`)
 
-              // Move feature files to manager worktree
-              await featureStore.moveFeatureToWorktree(featureId, worktreePath)
-              console.log(`[FeatureHandlers] Moved feature ${featureId} to worktree storage at ${worktreePath}`)
+            // Update feature with worktree path
+            const updatedFeature = await featureStore.loadFeature(featureId)
+            if (!updatedFeature) {
+              throw new Error(`Feature ${featureId} not found after worktree creation`)
+            }
+            updatedFeature.worktreePath = worktreePath
+            updatedFeature.updatedAt = new Date().toISOString()
+            await featureStore.saveFeature(updatedFeature)
+            console.log(`[FeatureHandlers] Saved feature ${featureId} with worktreePath=${worktreePath}`)
 
-              // Transition to investigating (worktree is ready)
-              await statusMgr.updateFeatureStatus(featureId, 'investigating')
-              console.log(`[FeatureHandlers] Feature ${featureId} moved to investigating`)
+            // Move feature files from backlog to worktree
+            await featureStore.moveFeatureToWorktree(featureId, worktreePath)
+            console.log(`[FeatureHandlers] Moved feature ${featureId} to worktree storage`)
 
-              // Reload feature to get fresh data for PM agent
-              const freshFeature = await featureStore.loadFeature(featureId)
-              if (!freshFeature) {
-                throw new Error(`Feature ${featureId} not found after worktree setup`)
+            // Transition to active status now that worktree is ready
+            const statusMgr = getStatusManager()
+            await statusMgr.updateFeatureStatus(featureId, 'active')
+            console.log(`[FeatureHandlers] Feature ${featureId} moved to active`)
+
+            // Broadcast active status to UI
+            const windows = BrowserWindow.getAllWindows()
+            for (const win of windows) {
+              if (!win.isDestroyed()) {
+                win.webContents.send('feature:status-changed', { featureId, status: 'active' })
               }
+            }
 
-              console.log(`[FeatureHandlers] Starting PM agent for ${featureId} (status: ${freshFeature.status})`)
+            // Automatically start investigation
+            console.log(`[FeatureHandlers] Starting automatic investigation for ${featureId}`)
+            await startInvestigationForFeature(featureId, featureStore, projectRoot, worktreePath)
+          } catch (err) {
+            console.error(`[FeatureHandlers] Failed during worktree creation/activation for ${featureId}:`, err)
+            // On error, transition back to backlog so user can retry
+            try {
+              const currentFeature = await featureStore.loadFeature(featureId)
+              if (currentFeature && currentFeature.status !== 'backlog') {
+                currentFeature.status = 'backlog'
+                currentFeature.worktreeId = undefined
+                currentFeature.worktreePath = undefined
+                currentFeature.updatedAt = new Date().toISOString()
+                await featureStore.saveFeature(currentFeature)
 
-              // Auto-start PM agent for investigation
-              const agentSvc = getAgentService()
-              const evtEmitter = new EventEmitter()
+                // Remove from manager queue
+                poolManager.removeFeatureFromQueue(featureId)
 
-              // Initialize DAGManager for event broadcasting
-              const { getDAGManager } = await import('./dag-handlers')
-              await getDAGManager(featureId, projectRoot)
-
-              const investigationAgent = createInvestigationAgent(
-                agentSvc,
-                featureStore,
-                statusMgr,
-                evtEmitter,
-                projectRoot
-              )
-
-              // Start investigation (fire-and-forget) - this gathers requirements
-              investigationAgent.startInvestigation(
-                featureId,
-                freshFeature.name,
-                freshFeature.description,
-                freshFeature.attachments
-              ).catch(err => {
-                console.error(`[FeatureHandlers] Investigation agent failed for ${featureId}:`, err)
-              })
-            } catch (err) {
-              console.error(`[FeatureHandlers] Failed during worktree setup or PM agent start for ${featureId}:`, err)
-              // On error, transition back to not_started so user can retry
-              try {
-                const currentFeature = await featureStore.loadFeature(featureId)
-                if (currentFeature && currentFeature.status !== 'not_started') {
-                  currentFeature.status = 'not_started'
-                  currentFeature.updatedAt = new Date().toISOString()
-                  await featureStore.saveFeature(currentFeature)
-                  const windows = BrowserWindow.getAllWindows()
-                  for (const win of windows) {
-                    if (!win.isDestroyed()) {
-                      win.webContents.send('feature:status-changed', { featureId, status: 'not_started' })
-                    }
+                const windows = BrowserWindow.getAllWindows()
+                for (const win of windows) {
+                  if (!win.isDestroyed()) {
+                    win.webContents.send('feature:status-changed', { featureId, status: 'backlog' })
                   }
                 }
-              } catch (revertErr) {
-                console.error(`[FeatureHandlers] Failed to revert status for ${featureId}:`, revertErr)
               }
-            }
-          })()
-        } else {
-          // Feature is queued (queuePosition > 0) - save assignment, status stays as creating_worktree
-          // Queue position is tracked via queuePosition property, not via status
-          await featureStore.saveFeature(feature)
-
-          // Broadcast manager assignment for queued features
-          const allWindows = BrowserWindow.getAllWindows()
-          for (const win of allWindows) {
-            if (!win.isDestroyed()) {
-              win.webContents.send('feature:manager-assigned', {
-                featureId,
-                featureManagerId: assignment.featureManagerId,
-                queuePosition: assignment.queuePosition
-              })
+            } catch (revertErr) {
+              console.error(`[FeatureHandlers] Failed to revert status for ${featureId}:`, revertErr)
             }
           }
-
-          console.log(`[FeatureHandlers] Feature ${featureId} queued at position ${assignment.queuePosition} in manager ${assignment.featureManagerId} (status: creating_worktree)`)
-        }
+        })()
 
         return { success: true, featureId }
       } catch (error) {
@@ -487,7 +411,8 @@ export function registerFeatureHandlers(): void {
 
   /**
    * Save an attachment file for a feature.
-   * Stores file in .dagent-worktrees/{featureId}/.dagent/attachments/
+   * For active features: .dagent-worktrees/{managerName}/.dagent/features/{featureId}/attachments/
+   * For backlog features: .dagent/features/{featureId}/attachments/
    */
   ipcMain.handle(
     'feature:saveAttachment',
@@ -574,17 +499,17 @@ export function registerFeatureHandlers(): void {
 
   /**
    * Start PM agent planning for a feature (full parameters version).
-   * Used by startWorktreeCreation for initial planning.
-   * Runs asynchronously - does not block the response.
+   * In the new task-centric architecture, planning is triggered via PM agent chat.
+   * This handler is deprecated - use the PM chat interface instead.
    */
   ipcMain.handle(
     'feature:startPlanningFull',
     async (
       _event,
       featureId: string,
-      featureName: string,
-      description?: string,
-      attachments?: string[]
+      _featureName: string,
+      _description?: string,
+      _attachments?: string[]
     ): Promise<{ success: boolean; error?: string }> => {
       try {
         const featureStore = getFeatureStore()
@@ -594,30 +519,14 @@ export function registerFeatureHandlers(): void {
           throw new Error('FeatureStore not initialized. Call initializeStorage first.')
         }
 
-        // IMPORTANT: Initialize DAGManager with event broadcasting BEFORE planning starts.
-        // This ensures that any tasks created by the PM agent will broadcast events to the renderer.
+        // Initialize DAGManager with event broadcasting
         const { getDAGManager } = await import('./dag-handlers')
         await getDAGManager(featureId, projectRoot)
-        console.log(`[FeatureHandlers] DAGManager initialized for ${featureId} before planning`)
+        console.log(`[FeatureHandlers] DAGManager initialized for ${featureId}`)
 
-        const statusManager = getStatusManager()
-        const agentService = getAgentService()
-        const eventEmitter = new EventEmitter()
-
-        // Create investigation agent
-        const investigationAgent = createInvestigationAgent(
-          agentService,
-          featureStore,
-          statusManager,
-          eventEmitter,
-          projectRoot
-        )
-
-        // Start investigation asynchronously (don't await - let it run in background)
-        investigationAgent.startInvestigation(featureId, featureName, description, attachments)
-          .catch(error => {
-            console.error(`[FeatureHandlers] Investigation failed for ${featureId}:`, error)
-          })
+        // In the new architecture, PM agent interaction happens through chat
+        // This handler just ensures the feature is ready for PM interaction
+        console.log(`[FeatureHandlers] feature:startPlanningFull called for ${featureId} - delegating to PM chat`)
 
         return { success: true }
       } catch (error) {
@@ -630,15 +539,16 @@ export function registerFeatureHandlers(): void {
   )
 
   /**
-   * Continue investigation agent conversation with user's response.
-   * This is called when user sends a message in chat during the planning phase.
+   * Continue PM agent conversation with user's response.
+   * In the new task-centric architecture, this is handled through the main PM chat interface.
+   * This handler is deprecated - kept for backwards compatibility.
    */
   ipcMain.handle(
     'feature:respondToPM',
     async (
       _event,
       featureId: string,
-      userResponse: string
+      _userResponse: string
     ): Promise<{ success: boolean; canProceed: boolean; uncertainties?: string[]; error?: string }> => {
       try {
         const featureStore = getFeatureStore()
@@ -648,62 +558,14 @@ export function registerFeatureHandlers(): void {
           return { success: false, canProceed: false, error: 'Storage not initialized' }
         }
 
-        // Get services for PM agent
-        const agentService = getAgentService()
-        if (!agentService) {
-          return { success: false, canProceed: false, error: 'Agent service not available' }
-        }
-
-        const statusManager = getStatusManager()
-        const eventEmitter = new EventEmitter()
-
-        // Create investigation agent
-        const investigationAgent = createInvestigationAgent(
-          agentService,
-          featureStore,
-          statusManager,
-          eventEmitter,
-          projectRoot
-        )
-
-        // Continue investigation with user's response
-        const result = await investigationAgent.continueInvestigation(featureId, userResponse)
-
-        // Auto-proceed to task creation when investigation is ready
-        if (result.isReady) {
-          console.log(`[feature:respondToPM] Investigation complete, auto-proceeding to task creation for ${featureId}`)
-
-          // Add confirmation message
-          const sessionManager = getSessionManager(projectRoot)
-          await sessionManager.addMessage(result.sessionId, featureId, {
-            role: 'assistant',
-            content: 'Investigation complete. Proceeding to create tasks...'
-          })
-
-          // Broadcast chat update
-          BrowserWindow.getAllWindows().forEach((win) => {
-            if (!win.isDestroyed()) {
-              win.webContents.send('chat:updated', { featureId })
-            }
-          })
-
-          // Create planning agent and start task creation
-          const planningAgent = createPlanningAgent(
-            agentService,
-            featureStore,
-            statusManager,
-            eventEmitter,
-            projectRoot
-          )
-
-          // Auto-proceed to task creation
-          await planningAgent.createTasksFromSpec(featureId)
-        }
+        // In the new architecture, PM interaction happens through the unified chat interface
+        // This handler now just returns success to maintain backwards compatibility
+        console.log(`[FeatureHandlers] feature:respondToPM called for ${featureId} - use PM chat instead`)
 
         return {
           success: true,
-          canProceed: result.isReady,
-          uncertainties: result.uncertainties
+          canProceed: true, // Always allow proceeding - actual planning is done through chat
+          uncertainties: []
         }
       } catch (error) {
         return {
@@ -739,35 +601,14 @@ export function registerFeatureHandlers(): void {
           return { success: false, error: 'Feature not found' }
         }
 
-        // Only allow starting planning from ready_for_planning or investigating status
-        if (feature.status !== 'ready_for_planning' && feature.status !== 'investigating') {
-          return { success: false, error: `Cannot start planning for feature in '${feature.status}' status. Feature must be in 'ready_for_planning' or 'investigating' status.` }
+        // In the new task-centric architecture, planning is triggered via PM agent chat
+        // This handler is deprecated - use the PM chat interface to request task creation
+        if (feature.status !== 'active') {
+          return { success: false, error: `Cannot start planning for feature in '${feature.status}' status. Feature must be active.` }
         }
 
-        // Get services for PM agent
-        const agentService = getAgentService()
-        if (!agentService) {
-          return { success: false, error: 'Agent service not available' }
-        }
-
-        const statusManager = getStatusManager()
-        const eventEmitter = new EventEmitter()
-
-        // Create planning agent
-        const planningAgent = createPlanningAgent(
-          agentService,
-          featureStore,
-          statusManager,
-          eventEmitter,
-          projectRoot
-        )
-
-        // Create tasks from existing spec (don't await - let it run in background)
-        planningAgent.createTasksFromSpec(featureId)
-          .catch(error => {
-            console.error(`[FeatureHandlers] Task creation failed for ${featureId}:`, error)
-          })
-
+        // For now, just return success - planning is now done through PM agent chat
+        console.log(`[FeatureHandlers] feature:startPlanning called for ${featureId} - delegating to PM agent chat`)
         return { success: true }
       } catch (error) {
         return {
@@ -779,8 +620,8 @@ export function registerFeatureHandlers(): void {
   )
 
   /**
-   * Replan a feature - delete all tasks and spec, then restart investigation.
-   * Only allowed when feature is in 'backlog' or 'needs_attention' status.
+   * Replan a feature - delete all tasks and spec, reset to initial state.
+   * Only allowed when feature is in 'active' status.
    */
   ipcMain.handle(
     'feature:replan',
@@ -802,8 +643,8 @@ export function registerFeatureHandlers(): void {
           return { success: false, error: 'Feature not found' }
         }
 
-        if (feature.status !== 'ready' && feature.status !== 'ready_for_planning' && feature.status !== 'investigating') {
-          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be in 'ready', 'ready_for_planning', or 'investigating' status.` }
+        if (feature.status !== 'active') {
+          return { success: false, error: `Cannot replan feature in '${feature.status}' status. Feature must be active.` }
         }
 
         // Delete spec
@@ -816,10 +657,11 @@ export function registerFeatureHandlers(): void {
         const initialTask: Task = {
           id: `task-${slug}-initial`,
           title: feature.name,
-          description: feature.description || '',
-          status: 'needs_analysis',
-          locked: false,
-          position: { x: 250, y: 100 }
+          spec: feature.description || '',
+          status: 'ready',
+          blocked: false,
+          position: { x: 250, y: 100 },
+          dependencies: []
         }
 
         // Reset DAG via DAGManager to emit events for real-time UI updates
@@ -828,34 +670,9 @@ export function registerFeatureHandlers(): void {
         await manager.resetGraph({ nodes: [initialTask], connections: [] })
         console.log(`[FeatureHandlers] DAG reset for replan ${featureId}`)
 
-        // Update feature status to planning
-        feature.status = 'planning'
+        // Feature stays in active status - user can interact with PM agent through chat
         feature.updatedAt = new Date().toISOString()
         await featureStore.saveFeature(feature)
-
-        // Get services for PM agent
-        const agentService = getAgentService()
-        if (!agentService) {
-          return { success: false, error: 'Agent service not available' }
-        }
-
-        const statusManager = getStatusManager()
-        const eventEmitter = new EventEmitter()
-
-        // Create investigation agent and restart from scratch
-        const investigationAgent = createInvestigationAgent(
-          agentService,
-          featureStore,
-          statusManager,
-          eventEmitter,
-          projectRoot
-        )
-
-        // Start investigation asynchronously (full replan from scratch)
-        investigationAgent.startInvestigation(featureId, feature.name, feature.description, feature.attachments)
-          .catch(error => {
-            console.error(`[FeatureHandlers] Replanning failed for ${featureId}:`, error)
-          })
 
         return { success: true }
       } catch (error) {
@@ -866,4 +683,227 @@ export function registerFeatureHandlers(): void {
       }
     }
   )
+
+  /**
+   * Start investigation for a feature.
+   * Triggers the investigation agent to explore the codebase and ask clarifying questions.
+   * Streams events to all renderer windows via sdk-agent:stream channel.
+   */
+  ipcMain.handle(
+    'feature:startInvestigation',
+    async (
+      _event,
+      featureId: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const featureStore = getFeatureStore()
+        const projectRoot = getProjectRoot()
+
+        if (!featureStore || !projectRoot) {
+          return { success: false, error: 'Storage not initialized' }
+        }
+
+        // Load feature
+        const feature = await featureStore.loadFeature(featureId)
+        if (!feature) {
+          return { success: false, error: 'Feature not found' }
+        }
+
+        if (feature.status !== 'active') {
+          return { success: false, error: `Feature must be active to investigate (current: ${feature.status})` }
+        }
+
+        // Set PM tools context
+        const { setPMToolsFeatureContext } = await import('./pm-tools-handlers')
+        setPMToolsFeatureContext(featureId)
+
+        // Build investigation prompt
+        const prompt = `I'm starting work on a new feature: "${feature.name}"
+
+${feature.description ? `Description: ${feature.description}` : 'No description provided.'}
+
+Please investigate the codebase to understand how to implement this feature:
+1. Search for relevant existing code patterns
+2. Identify files that might need changes
+3. Ask me clarifying questions if needed
+
+Start by exploring the codebase, then update the feature spec with what you learn.`
+
+        // Get agent service and stream
+        const agentService = getAgentService()
+
+        // Start investigation in background and stream to all windows
+        ;(async () => {
+          try {
+            for await (const event of agentService.streamQuery({
+              prompt,
+              toolPreset: 'investigationAgent',
+              agentType: 'investigation',
+              featureId,
+              cwd: feature.worktreePath || projectRoot,
+              permissionMode: 'acceptEdits',
+              autoContext: true
+            })) {
+              // Broadcast event to ALL renderer windows
+              broadcastAgentEvent(featureId, event)
+            }
+          } catch (error) {
+            console.error(`[FeatureHandlers] Investigation error for ${featureId}:`, error)
+            broadcastAgentEvent(featureId, {
+              type: 'error',
+              error: error instanceof Error ? error.message : 'Investigation failed'
+            })
+          }
+        })()
+
+        return { success: true }
+      } catch (error) {
+        return {
+          success: false,
+          error: (error as Error).message
+        }
+      }
+    }
+  )
+}
+
+/**
+ * Broadcast an agent stream event to all renderer windows.
+ * Used for automatic investigation to show AI activity in chat panel.
+ */
+function broadcastAgentEvent(featureId: string, event: AgentStreamEvent): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      // Send with featureId so renderer can filter to correct chat
+      win.webContents.send('sdk-agent:stream', { ...event, featureId })
+    }
+  }
+}
+
+/**
+ * Start investigation for a feature internally (called after worktree is ready).
+ * Streams AI activity to all renderer windows.
+ * Skips if feature already has a spec with content (e.g., moved back to backlog and started again).
+ */
+async function startInvestigationForFeature(
+  featureId: string,
+  featureStore: ReturnType<typeof getFeatureStore>,
+  projectRoot: string,
+  worktreePath: string
+): Promise<void> {
+  if (!featureStore) return
+
+  // Load feature
+  const feature = await featureStore.loadFeature(featureId)
+  if (!feature) {
+    console.error(`[FeatureHandlers] Feature ${featureId} not found for investigation`)
+    return
+  }
+
+  // Check if spec already has content - skip investigation if so
+  const specStore = getFeatureSpecStore(projectRoot)
+  const existingSpec = await specStore.loadSpec(featureId)
+  if (existingSpec) {
+    const hasContent =
+      existingSpec.goals.length > 0 ||
+      existingSpec.requirements.length > 0 ||
+      existingSpec.constraints.length > 0 ||
+      existingSpec.acceptanceCriteria.length > 0
+    if (hasContent) {
+      console.log(`[FeatureHandlers] Skipping investigation for ${featureId} - spec already has content`)
+      return
+    }
+  }
+
+  // Ensure session exists for storing investigation messages
+  const { getSessionManager } = await import('../services/session-manager')
+  const sessionManager = getSessionManager(projectRoot)
+  await sessionManager.getOrCreateSession({
+    type: 'feature',
+    agentType: 'pm',
+    featureId
+  })
+  console.log(`[FeatureHandlers] Ensured session exists for feature ${featureId}`)
+
+  // Set PM tools context
+  const { setPMToolsFeatureContext } = await import('./pm-tools-handlers')
+  setPMToolsFeatureContext(featureId)
+
+  // Build investigation prompt
+  const prompt = `I'm starting work on a new feature: "${feature.name}"
+
+${feature.description ? `Description: ${feature.description}` : 'No description provided.'}
+
+Please investigate the codebase to understand how to implement this feature:
+1. Search for relevant existing code patterns
+2. Identify files that might need changes
+3. Ask me clarifying questions if needed
+
+Start by exploring the codebase, then update the feature spec with what you learn.`
+
+  // Get agent service and stream
+  const agentService = getAgentService()
+  const sessionId = `pm-feature-${featureId}`
+
+  // Track accumulated content for saving to session
+  let accumulatedContent = ''
+
+  // Create a user-friendly version of the prompt for the chat
+  const userPrompt = `Investigate this feature: "${feature.name}"${feature.description ? `\n\n${feature.description}` : ''}`
+
+  try {
+    // Save the investigation request as a user message (so it appears in chat history)
+    await sessionManager.addMessage(sessionId, featureId, {
+      role: 'user',
+      content: userPrompt
+    })
+
+    // Broadcast the user message to UI
+    broadcastAgentEvent(featureId, {
+      type: 'message',
+      message: {
+        type: 'user',
+        content: userPrompt,
+        timestamp: new Date().toISOString()
+      }
+    })
+
+    for await (const event of agentService.streamQuery({
+      prompt,
+      toolPreset: 'investigationAgent',
+      agentType: 'investigation',
+      featureId,
+      cwd: worktreePath || projectRoot,
+      permissionMode: 'acceptEdits',
+      autoContext: true
+    })) {
+      // Track message content for persistence
+      if (event.type === 'message' && event.message?.content) {
+        accumulatedContent = event.message.content
+      }
+
+      // Broadcast event to ALL renderer windows
+      broadcastAgentEvent(featureId, event)
+
+      // On done, save the accumulated message to session
+      if (event.type === 'done' && accumulatedContent) {
+        try {
+          await sessionManager.addMessage(sessionId, featureId, {
+            role: 'assistant',
+            content: accumulatedContent
+          })
+          console.log(`[FeatureHandlers] Saved investigation message to session ${sessionId}`)
+        } catch (saveError) {
+          console.error(`[FeatureHandlers] Failed to save investigation message:`, saveError)
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[FeatureHandlers] Investigation error for ${featureId}:`, error)
+    broadcastAgentEvent(featureId, {
+      type: 'error',
+      error: error instanceof Error ? error.message : 'Investigation failed'
+    })
+  }
 }

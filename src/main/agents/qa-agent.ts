@@ -9,16 +9,17 @@ import { EventEmitter } from 'events'
 import type { QAAgentState, QAAgentStatus, QAReviewResult } from './qa-types'
 import { DEFAULT_QA_AGENT_STATE } from './qa-types'
 import type { FeatureSpec } from './feature-spec-types'
+import type { DevAgentMessage } from '@shared/types'
 import { getAgentPool } from './agent-pool'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-manager'
 import { getSessionManager } from '../services/session-manager'
+import { getFeatureStore } from '../ipc/storage-handlers'
 
 export class QAAgent extends EventEmitter {
   private state: QAAgentState
   private taskTitle: string = ''
-  private taskDescription: string = ''
-  private featureSpec: FeatureSpec | null = null
+  private taskSpec: string = ''
 
   constructor(featureId: string, taskId: string) {
     super()
@@ -80,15 +81,43 @@ export class QAAgent extends EventEmitter {
   }
 
   /**
+   * Log a message to the task's session.json file (DevAgentSession format).
+   * This ensures QA logs appear alongside dev logs in the UI.
+   */
+  private async logToTaskSession(
+    type: DevAgentMessage['type'],
+    content: string
+  ): Promise<void> {
+    const store = getFeatureStore()
+    if (!store) return
+
+    const message: DevAgentMessage = {
+      timestamp: new Date().toISOString(),
+      direction: 'harness_to_task', // QA feedback goes to task
+      type,
+      content
+    }
+
+    try {
+      await store.appendSessionMessage(this.state.featureId, this.state.taskId, message, {
+        agentId: `qa-${this.state.agentId || 'unknown'}`,
+        status: 'active'
+      })
+    } catch (error) {
+      console.error('[QAAgent] Failed to log to task session:', error)
+    }
+  }
+
+  /**
    * Initialize QA agent for reviewing a task.
    * @param taskTitle - Task title for context
-   * @param taskDescription - Task description for spec comparison
+   * @param taskSpec - Task spec for spec comparison
    * @param worktreePath - Path to task worktree for code review
    * @param featureSpec - Optional feature specification for acceptance criteria validation
    */
   async initialize(
     taskTitle: string,
-    taskDescription: string,
+    taskSpec: string,
     worktreePath: string,
     featureSpec?: FeatureSpec
   ): Promise<boolean> {
@@ -98,9 +127,8 @@ export class QAAgent extends EventEmitter {
 
     this.state.startedAt = new Date().toISOString()
     this.taskTitle = taskTitle
-    this.taskDescription = taskDescription
+    this.taskSpec = taskSpec
     this.state.worktreePath = worktreePath
-    this.featureSpec = featureSpec || null
     this.state.featureSpec = featureSpec || null
 
     // Register with agent pool (QA has priority over dev)
@@ -153,11 +181,12 @@ export class QAAgent extends EventEmitter {
     this.state.status = 'loading_context'
     this.emit('qa-agent:loading-context')
 
-    // Log review start to SessionManager
+    // Log review start to SessionManager and task session
     await this.logToSessionManager('user', `Starting QA review for task: ${this.taskTitle}`, {
       reviewStart: true,
       worktreePath: this.state.worktreePath
     })
+    await this.logToTaskSession('progress', `[QA] Starting review for: ${this.taskTitle}`)
 
     try {
       // Build review prompt
@@ -215,11 +244,12 @@ export class QAAgent extends EventEmitter {
 
       // If review passed, commit the changes
       if (result.passed) {
-        // Log review passed to SessionManager
+        // Log review passed to SessionManager and task session
         await this.logToSessionManager('assistant', `QA review PASSED`, {
           reviewPassed: true,
           filesReviewed: result.filesReviewed
         })
+        await this.logToTaskSession('approval', `[QA] PASSED - Files reviewed: ${result.filesReviewed.join(', ') || 'none'}`)
 
         console.log(`[QAAgent ${this.state.taskId}] Review passed, committing changes...`)
         const commitResult = await this.commitChanges()
@@ -230,30 +260,33 @@ export class QAAgent extends EventEmitter {
           result.passed = false
           result.feedback = `QA passed but commit failed: ${commitResult.error}`
 
-          // Log commit failure to SessionManager
+          // Log commit failure to SessionManager and task session
           await this.logToSessionManager('assistant', `Commit failed: ${commitResult.error}`, {
             commitFailed: true,
             error: commitResult.error
           })
+          await this.logToTaskSession('error', `[QA] Commit failed: ${commitResult.error}`)
         } else {
           result.commitHash = commitResult.commitHash
           result.filesChanged = commitResult.filesChanged
           console.log(`[QAAgent ${this.state.taskId}] Commit successful: ${commitResult.commitHash}`)
 
-          // Log commit success to SessionManager
+          // Log commit success to SessionManager and task session
           await this.logToSessionManager('assistant', `Changes committed: ${commitResult.commitHash}`, {
             commitSuccess: true,
             commitHash: commitResult.commitHash,
             filesChanged: commitResult.filesChanged
           })
+          await this.logToTaskSession('completion', `[QA] Committed: ${commitResult.commitHash} (${commitResult.filesChanged || 0} files)`)
         }
       } else {
-        // Log review failed to SessionManager
+        // Log review failed to SessionManager and task session
         await this.logToSessionManager('assistant', `QA review FAILED`, {
           reviewFailed: true,
           feedback: result.feedback,
           filesReviewed: result.filesReviewed
         })
+        await this.logToTaskSession('rejection', `[QA] FAILED\n${result.feedback || 'No feedback provided'}`)
       }
 
       this.state.reviewResult = result
@@ -267,11 +300,12 @@ export class QAAgent extends EventEmitter {
       this.state.status = 'failed'
       this.state.error = errorMsg
 
-      // Log error to SessionManager
+      // Log error to SessionManager and task session
       await this.logToSessionManager('assistant', `QA review error: ${errorMsg}`, {
         reviewError: true,
         error: errorMsg
       })
+      await this.logToTaskSession('error', `[QA] Error: ${errorMsg}`)
 
       const result: QAReviewResult = {
         passed: false,
@@ -287,54 +321,31 @@ export class QAAgent extends EventEmitter {
 
   /**
    * Build the code review prompt.
-   * Includes feature spec acceptance criteria when available.
+   * ONLY reviews against TASK SPEC - feature spec is NOT a review criterion.
    */
   private buildReviewPrompt(): string {
     const parts: string[] = ['# Code Review Request', '']
 
-    // Include feature spec if available
-    if (this.featureSpec) {
-      parts.push('## Feature Specification')
-      parts.push(`**Feature:** ${this.featureSpec.featureName}`)
-      parts.push('')
-
-      if (this.featureSpec.goals.length > 0) {
-        parts.push('### Goals')
-        for (const goal of this.featureSpec.goals) {
-          parts.push(`- ${goal}`)
-        }
-        parts.push('')
-      }
-
-      if (this.featureSpec.acceptanceCriteria.length > 0) {
-        parts.push('### Acceptance Criteria')
-        for (const ac of this.featureSpec.acceptanceCriteria) {
-          const status = ac.passed ? '✓' : '○'
-          parts.push(`- ${ac.id}: ${ac.description} [${status}]`)
-        }
-        parts.push('')
-      }
-    }
-
-    // Task being reviewed
-    parts.push('## Task Being Reviewed')
-    parts.push(`**Title:** ${this.taskTitle}`)
-    parts.push(`**Description:** ${this.taskDescription}`)
+    // Task specification - THE ONLY CRITERION
+    parts.push('## Task Specification')
+    parts.push(`**Task:** ${this.taskTitle}`)
+    parts.push('')
+    parts.push('### What This Task Should Implement:')
+    parts.push(this.taskSpec || 'No task spec provided')
     parts.push('')
 
-    // Review criteria - spec-aware when available
+    // CRITICAL: Explain task scope
+    parts.push('## ⚠️ IMPORTANT: Task Scope')
+    parts.push('This task is ONE PART of a larger feature. Other tasks handle other parts.')
+    parts.push('**DO NOT FAIL** because something from the broader feature is missing.')
+    parts.push('**ONLY** verify that THIS TASK\'s spec is implemented correctly.')
+    parts.push('')
+
+    // Review criteria - TASK-ONLY
     parts.push('## Review Criteria')
-    parts.push('1. Does the code implement what the task specified?')
-    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
-      parts.push('2. Does the code satisfy the acceptance criteria listed above?')
-      parts.push('3. Are there any obvious bugs or issues?')
-      parts.push('4. Does the code follow reasonable patterns?')
-      parts.push('5. **CRITICAL**: Are there any references to `.dagent/` paths in the code?')
-    } else {
-      parts.push('2. Are there any obvious bugs or issues?')
-      parts.push('3. Does the code follow reasonable patterns?')
-      parts.push('4. **CRITICAL**: Are there any references to `.dagent/` paths in the code?')
-    }
+    parts.push('1. Does the code implement what the task spec above describes? (ONLY criterion that matters)')
+    parts.push('2. Are there obvious bugs in the implementation?')
+    parts.push('3. **CRITICAL**: Are there any references to `.dagent/` paths in the code?')
     parts.push('')
 
     // Critical check for .dagent references
@@ -353,8 +364,8 @@ export class QAAgent extends EventEmitter {
     // Instructions
     parts.push('## Instructions')
     parts.push('Use `git diff` to see what changed in this worktree, then respond:')
-    parts.push('- PASSED if code meets spec and has no obvious issues')
-    parts.push('- FAILED with brief, actionable feedback if issues found')
+    parts.push('- PASSED if the task spec requirements are implemented')
+    parts.push('- FAILED only if something IN THE TASK SPEC is not implemented or broken')
     parts.push('')
 
     // Response format
@@ -363,37 +374,21 @@ export class QAAgent extends EventEmitter {
     parts.push('')
     parts.push('QA_RESULT: [PASSED|FAILED]')
     parts.push('FILES_REVIEWED: [comma-separated list of files you reviewed]')
-    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
-      parts.push(
-        'CRITERIA_STATUS: [list which AC-XXX items pass/fail, e.g., "AC-001: PASS, AC-002: FAIL"]'
-      )
-    }
-    parts.push('FEEDBACK: [only if FAILED - 1-3 bullet points of specific issues]')
+    parts.push('FEEDBACK: [only if FAILED - what from the TASK SPEC is missing or broken]')
     parts.push('')
 
     // Examples
     parts.push('## Example PASSED Response')
     parts.push('QA_RESULT: PASSED')
-    parts.push('FILES_REVIEWED: src/utils/helper.ts, src/components/Button.tsx')
-    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
-      parts.push('CRITERIA_STATUS: AC-001: PASS, AC-002: PASS')
-    }
+    parts.push('FILES_REVIEWED: src/utils/helper.ts')
     parts.push('FEEDBACK: N/A')
     parts.push('')
 
     parts.push('## Example FAILED Response')
     parts.push('QA_RESULT: FAILED')
     parts.push('FILES_REVIEWED: src/api/client.ts')
-    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
-      parts.push('CRITERIA_STATUS: AC-001: PASS, AC-002: FAIL')
-    }
     parts.push('FEEDBACK:')
-    parts.push('- Missing error handling in fetchData() - network errors will crash')
-    if (this.featureSpec && this.featureSpec.acceptanceCriteria.length > 0) {
-      parts.push('- AC-002 not satisfied: validation logic not implemented')
-    } else {
-      parts.push('- API endpoint URL is hardcoded, should use config')
-    }
+    parts.push('- Task spec said "add error handling to fetchData()" but no error handling was added')
 
     return parts.join('\n')
   }
@@ -542,8 +537,19 @@ export class QAAgent extends EventEmitter {
 
       const filesChanged = stagedCount || status.modified.length + status.not_added.length
 
-      // Commit with task info (QA-approved)
-      const commitMessage = `feat(${this.state.taskId}): ${this.taskTitle}\n\nQA-approved`
+      // Get feature name for commit message (more readable than UUID)
+      let scope = this.state.taskId // Fallback to taskId if feature not found
+      const store = getFeatureStore()
+      if (store) {
+        const feature = await store.loadFeature(this.state.featureId)
+        if (feature?.name) {
+          // Convert feature name to kebab-case for commit scope
+          scope = feature.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        }
+      }
+
+      // Commit with feature name and task title (QA-approved)
+      const commitMessage = `feat(${scope}): ${this.taskTitle}\n\nQA-approved`
       console.log(`[QAAgent ${this.state.taskId}] Committing ${filesChanged} files: ${commitMessage}`)
 
       const commitResult = await git.commit(commitMessage)

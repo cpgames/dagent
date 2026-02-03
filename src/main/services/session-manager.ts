@@ -87,7 +87,7 @@ export class SessionManager {
       sessionId,
       featureId: options.featureId,
       taskId: options.taskId,
-      action: 'created',
+      action: 'ready',
       timestamp: new Date().toISOString()
     })
 
@@ -976,15 +976,15 @@ export class SessionManager {
    * Get base session directory path for a feature.
    * Returns the correct path based on feature's storage location:
    * - Pending features: .dagent/features/{featureId}/sessions/
-   * - Active features: .dagent-worktrees/{managerName}/.dagent/features/{featureId}/sessions/
+   * - Active features: .dagent-worktrees/{worktreeId}/.dagent/features/{featureId}/sessions/
    */
   private async getSessionDir(featureId: string): Promise<string> {
     const featureStore = new FeatureStore(this.projectRoot)
     const feature = await featureStore.loadFeature(featureId)
 
-    if (feature?.managerWorktreePath) {
-      // Active feature - use manager worktree location
-      return storagePaths.getSessionsDirInWorktree(feature.managerWorktreePath, featureId)
+    if (feature?.worktreePath) {
+      // Active feature - use worktree location
+      return storagePaths.getSessionsDirInWorktree(feature.worktreePath, featureId)
     }
 
     // Pending or not found - use pending location

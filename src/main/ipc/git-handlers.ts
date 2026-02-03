@@ -90,19 +90,6 @@ export function registerGitHandlers(): void {
     return manager.worktreeExists(worktreePath)
   })
 
-  ipcMain.handle('git:create-feature-worktree', async (_event, featureId: string) => {
-    const manager = getGitManager()
-    return manager.createFeatureWorktree(featureId)
-  })
-
-  ipcMain.handle(
-    'git:create-task-worktree',
-    async (_event, featureId: string, taskId: string) => {
-      const manager = getGitManager()
-      return manager.createTaskWorktree(featureId, taskId)
-    }
-  )
-
   ipcMain.handle(
     'git:remove-worktree',
     async (_event, worktreePath: string, deleteBranch: boolean = false) => {
@@ -165,4 +152,57 @@ export function registerGitHandlers(): void {
       return { success: false, error: message }
     }
   })
+
+  /**
+   * Get the diff text for a commit.
+   * Returns the raw git diff output for rendering with diff2html.
+   */
+  ipcMain.handle(
+    'git:get-commit-diff',
+    async (_event, commitHash: string, worktreePath?: string) => {
+      const simpleGit = (await import('simple-git')).default
+
+      try {
+        const manager = getGitManager()
+        const cwd = worktreePath || manager.getConfig().baseDir
+
+        if (!cwd) {
+          return { success: false, error: 'No project root set' }
+        }
+
+        const git = simpleGit(cwd)
+
+        // Get commit metadata using git show format
+        const showInfo = await git.show([
+          commitHash,
+          '--no-patch',
+          '--format=%H%n%s%n%an%n%ae%n%aI'
+        ])
+        const [hash, message, author, email, date] = showInfo.trim().split('\n')
+        const commit = hash ? { hash, message, author, email, date } : null
+
+        // Get the diff in unified format (needed for diff2html)
+        const diffOutput = await git.show([
+          commitHash,
+          '--patch',
+          '--unified=3'
+        ])
+
+        return {
+          success: true,
+          diff: diffOutput,
+          commit: commit ? {
+            hash: commit.hash,
+            message: commit.message,
+            author: commit.author,
+            email: commit.email,
+            date: commit.date
+          } : null
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to get commit diff'
+        return { success: false, error: message }
+      }
+    }
+  )
 }

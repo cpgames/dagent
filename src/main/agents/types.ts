@@ -1,6 +1,6 @@
 import type { ChildProcess } from 'child_process'
 
-export type AgentType = 'harness' | 'task' | 'merge' | 'qa'
+export type AgentType = 'task' | 'merge' | 'qa'
 
 export type AgentStatus = 'idle' | 'busy' | 'terminated'
 
@@ -19,7 +19,6 @@ export interface AgentPoolConfig {
   maxDevAgents: number // Max concurrent dev agents (default: 3)
   maxMergeAgents: number // Max concurrent merge agents (default: 1)
   maxQAAgents: number // Max concurrent QA agents (default: 1)
-  // Note: 1 agent always reserved for harness
 }
 
 export interface AgentSpawnOptions {
@@ -31,7 +30,7 @@ export interface AgentSpawnOptions {
 
 export interface AgentContext {
   claudeMd?: string // CLAUDE.md content
-  taskDescription?: string
+  taskSpec?: string
   dependencyContext?: string[] // Context from completed dependencies
   featureGoal?: string
   additionalInstructions?: string

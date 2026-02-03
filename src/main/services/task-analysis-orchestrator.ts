@@ -25,8 +25,8 @@ export type AnalysisEvent =
  */
 export interface NewTaskDef {
   title: string
-  description: string
-  status: 'needs_analysis'
+  spec: string
+  status: 'ready'
   locked: false
   /** Dependency titles (resolved to IDs by createSubtasks) */
   dependsOnTitles?: string[]
@@ -42,17 +42,17 @@ export interface AnalysisResult {
   reason: string
   /** Refined title (for keep decisions) */
   refinedTitle?: string
-  /** Refined description (for keep decisions) */
-  refinedDescription?: string
+  /** Refined spec (for keep decisions) */
+  refinedSpec?: string
   /** New tasks to create when decision is 'split' */
   newTasks?: NewTaskDef[]
 }
 
 /**
- * TaskAnalysisOrchestrator - Manages the analysis loop for needs_analysis tasks.
+ * TaskAnalysisOrchestrator - Manages the analysis loop for created tasks.
  *
  * Responsibilities:
- * - Find all tasks with 'needs_analysis' status
+ * - Find all tasks with 'ready' status
  * - Coordinate PM agent analysis of each task
  * - Track analysis progress via streaming events
  * - Update task graph based on analysis decisions
@@ -74,7 +74,7 @@ export class TaskAnalysisOrchestrator {
   }
 
   /**
-   * Get all tasks with 'needs_analysis' status for a feature.
+   * Get all tasks with 'ready' status for a feature.
    * Uses DAGManager to ensure event broadcasting is set up.
    * @param featureId - Feature ID to scan
    * @returns Array of tasks needing analysis
@@ -95,15 +95,15 @@ export class TaskAnalysisOrchestrator {
       console.log(`[TaskAnalysisOrchestrator]   Node ${i}: ${task.id} status=${task.status}`)
     })
 
-    const pending = dag.nodes.filter((task) => task.status === 'needs_analysis')
-    console.log(`[TaskAnalysisOrchestrator] getPendingTasks: Found ${pending.length} with needs_analysis`)
+    const pending = dag.nodes.filter((task) => task.status === 'ready')
+    console.log(`[TaskAnalysisOrchestrator] getPendingTasks: Found ${pending.length} with created`)
     return pending
   }
 
   /**
    * Check if a feature has any tasks needing analysis.
    * @param featureId - Feature ID to check
-   * @returns true if any needs_analysis tasks exist
+   * @returns true if any created tasks exist
    */
   async hasPendingAnalysis(featureId: string): Promise<boolean> {
     const pendingTasks = await this.getPendingTasks(featureId)
@@ -111,8 +111,8 @@ export class TaskAnalysisOrchestrator {
   }
 
   /**
-   * Analyze all needs_analysis tasks for a feature.
-   * Loops until no more needs_analysis tasks remain.
+   * Analyze all created tasks for a feature.
+   * Loops until no more created tasks remain.
    * Streams events as analysis progresses.
    *
    * @param featureId - Feature ID to analyze
@@ -123,7 +123,7 @@ export class TaskAnalysisOrchestrator {
     let analyzedCount = 0
     let splitCount = 0
 
-    // Loop until no more needs_analysis tasks
+    // Loop until no more created tasks
     while (true) {
       const pendingTasks = await this.getPendingTasks(featureId)
       console.log(`[TaskAnalysisOrchestrator] Found ${pendingTasks.length} pending tasks for ${featureId}`)
@@ -144,12 +144,12 @@ export class TaskAnalysisOrchestrator {
         console.log(`[TaskAnalysisOrchestrator] analyzeTask result for ${task.id}: ${result.decision}`)
 
         if (result.decision === 'keep') {
-          // Transition to ready_for_dev, applying any refined title/description
+          // Transition to ready_for_dev, applying any refined title/spec
           await this.transitionToReady(
             featureId,
             task.id,
             result.refinedTitle,
-            result.refinedDescription
+            result.refinedSpec
           )
           yield { type: 'kept', taskId: task.id, reason: result.reason }
         } else {
@@ -171,21 +171,21 @@ export class TaskAnalysisOrchestrator {
   }
 
   /**
-   * Transition a task from needs_analysis to ready_for_dev or blocked.
+   * Transition a task from created to ready_for_dev or blocked.
    * Sets to 'blocked' if dependencies are not complete, otherwise 'ready_for_dev'.
-   * Optionally updates the task's title and description with refined versions.
+   * Optionally updates the task's title and spec with refined versions.
    * Uses DAGManager for real-time event broadcasting.
    *
    * @param featureId - Feature ID
    * @param taskId - Task ID to transition
    * @param refinedTitle - Optional refined title from PM analysis
-   * @param refinedDescription - Optional refined description from PM analysis
+   * @param refinedSpec - Optional refined spec from PM analysis
    */
   async transitionToReady(
     featureId: string,
     taskId: string,
     refinedTitle?: string,
-    refinedDescription?: string
+    refinedSpec?: string
   ): Promise<void> {
     const projectRoot = getProjectRoot()
     if (!projectRoot) {
@@ -206,25 +206,25 @@ export class TaskAnalysisOrchestrator {
       .filter((c) => c.to === taskId)
       .map((c) => c.from)
 
-    const allDepsComplete = dependencies.every((depId) => {
+    const allDepsArchived = dependencies.every((depId) => {
       const dep = dag.nodes.find((n) => n.id === depId)
-      return dep && dep.status === 'completed'
+      return dep && dep.status === 'done'
     })
 
-    // Set to ready_for_dev only if no dependencies or all complete
-    const newStatus = dependencies.length === 0 || allDepsComplete ? 'ready_for_dev' : 'blocked'
-    dag.nodes[taskIndex].status = newStatus
+    // Set blocked flag based on dependencies
+    dag.nodes[taskIndex].blocked = dependencies.length > 0 && !allDepsArchived
+    dag.nodes[taskIndex].status = 'analyzing'
 
-    // Apply refined title and description if provided
+    // Apply refined title and spec if provided
     if (refinedTitle) {
       dag.nodes[taskIndex].title = refinedTitle
     }
-    if (refinedDescription) {
-      dag.nodes[taskIndex].description = refinedDescription
+    if (refinedSpec) {
+      dag.nodes[taskIndex].spec = refinedSpec
     }
 
     // Use resetGraph to update and broadcast events
-    console.log(`[TaskAnalysisOrchestrator] Transitioning task ${taskId} to ${newStatus}`)
+    console.log(`[TaskAnalysisOrchestrator] Transitioning task ${taskId} to analyzing`)
     await manager.resetGraph(dag)
   }
 
@@ -277,13 +277,14 @@ export class TaskAnalysisOrchestrator {
       const newTask: Task = {
         id: taskId,
         title: def.title,
-        description: def.description,
-        status: 'needs_analysis',
-        locked: false,
+        spec: def.spec,
+        status: 'ready',
+        blocked: false,
         position: {
           x: baseX + (i % 2 === 0 ? 0 : 200), // Stagger horizontal position
           y: baseY + Math.floor(i / 2) * spacing
-        }
+        },
+        dependencies: []
       }
       dag.nodes.push(newTask)
       createdTasks.push(newTask)
@@ -447,7 +448,7 @@ export class TaskAnalysisOrchestrator {
           decision: 'keep',
           reason: parsed.error || 'Task is appropriately scoped',
           refinedTitle: parsed.refinedTitle,
-          refinedDescription: parsed.refinedDescription
+          refinedSpec: parsed.refinedSpec
         }
       }
 
@@ -457,8 +458,8 @@ export class TaskAnalysisOrchestrator {
         reason: 'Task split into subtasks',
         newTasks: parsed.tasks?.map((t) => ({
           title: t.title,
-          description: t.description,
-          status: 'needs_analysis' as const,
+          spec: t.spec,
+          status: 'ready' as const,
           locked: false,
           // Store dependsOn temporarily - will be resolved to IDs by createSubtasks
           dependsOnTitles: t.dependsOn

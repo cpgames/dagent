@@ -48,7 +48,7 @@ export class FeatureSpecStore {
 
   /**
    * Get the file path for a feature's spec.
-   * Requires feature to have a managerWorktreePath set.
+   * Requires feature to have a worktreePath set.
    */
   private async getPath(featureId: string): Promise<string | null> {
     const featureStore = getFeatureStore()
@@ -57,11 +57,11 @@ export class FeatureSpecStore {
       return null
     }
     const feature = await featureStore.loadFeature(featureId)
-    if (!feature?.managerWorktreePath) {
+    if (!feature?.worktreePath) {
       console.error(`[FeatureSpecStore] Feature ${featureId} does not have a worktree path`)
       return null
     }
-    return getFeatureSpecPathInWorktree(feature.managerWorktreePath, featureId)
+    return getFeatureSpecPathInWorktree(feature.worktreePath, featureId)
   }
 
   // ===========================================================================

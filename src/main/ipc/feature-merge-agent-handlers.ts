@@ -16,13 +16,13 @@ export function registerFeatureMergeAgentHandlers(): void {
     // Load feature to get the actual branch name
     const store = getFeatureStore()
     const feature = store ? await store.loadFeature(featureId) : null
-    const featureBranch = feature?.branchName // Use stored branch name
+    const featureBranch = feature?.branch // Use stored branch name
 
     // Auto-detect default branch if not specified (handles main vs master)
     const gitManager = getGitManager()
     const resolvedTargetBranch = targetBranch || await gitManager.getDefaultBranch()
 
-    console.log(`[FeatureMergeHandler] Feature loaded:`, feature ? { id: feature.id, branchName: feature.branchName } : 'null')
+    console.log(`[FeatureMergeHandler] Feature loaded:`, feature ? { id: feature.id, branch: feature.branch } : 'null')
     console.log(`[FeatureMergeHandler] Using feature branch: ${featureBranch}`)
     console.log(`[FeatureMergeHandler] Target branch: ${resolvedTargetBranch}`)
 

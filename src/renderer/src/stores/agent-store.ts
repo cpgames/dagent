@@ -17,7 +17,7 @@ interface AgentState {
   loadRuntimeStatus: () => Promise<void>
 }
 
-const ALL_ROLES: AgentRole[] = ['pm', 'harness', 'developer', 'qa', 'merge']
+const ALL_ROLES: AgentRole[] = ['pm', 'developer', 'qa', 'merge']
 
 function createDefaultConfigs(): Record<AgentRole, AgentConfig> {
   const configs = {} as Record<AgentRole, AgentConfig>
