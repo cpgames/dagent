@@ -10,3 +10,5 @@ out
 .dagent-worktrees/
 .planning/
 nul
+CLAUDE.md
+DAGENT_SPEC.md
