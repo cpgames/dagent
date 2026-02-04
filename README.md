@@ -77,6 +77,35 @@
 
 ---
 
+## Installation
+
+### Option 1: Download Installer (Recommended)
+
+Download the latest Windows installer from [Releases](https://github.com/cpgames/dagent/releases).
+
+Run `dagent-x.x.x-setup.exe` and follow the installation wizard.
+
+### Option 2: Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/cpgames/dagent.git
+cd dagent
+
+# Install dependencies
+npm install
+
+# Run in development mode
+npm run dev
+
+# Or build the installer yourself
+npm run build:win
+```
+
+The installer will be created in `dist/dagent-x.x.x-setup.exe`.
+
+---
+
 ## Tech Stack
 
 | Technology | Purpose |
