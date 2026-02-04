@@ -111,6 +111,15 @@ export class AgentService {
     const savedElectronRunAsNode = process.env.ELECTRON_RUN_AS_NODE
     delete process.env.ELECTRON_RUN_AS_NODE
 
+    // Ensure Claude CLI path is in PATH for packaged app
+    // Claude CLI typically installs to ~/.local/bin on Windows
+    const savedPath = process.env.PATH
+    const home = process.env.USERPROFILE || process.env.HOME || ''
+    const claudeCliDir = `${home}\\.local\\bin`
+    if (!process.env.PATH?.includes(claudeCliDir)) {
+      process.env.PATH = `${claudeCliDir};${process.env.PATH || ''}`
+    }
+
     try {
       // Dynamically import the SDK (ES module)
       const sdk = await getSDK()
@@ -139,10 +148,16 @@ export class AgentService {
         tools = [...tools, ...getPMToolNamesForAllowedTools()]
       }
 
+      // Find the native Claude CLI executable (required for packaged app)
+      // The SDK's bundled cli.js doesn't work from inside ASAR archive
+      const claudeCliPath = this.findClaudeExecutable()
+
       const queryOptions: Record<string, unknown> = {
         cwd: options.cwd,
         allowedTools: tools,
-        permissionMode: options.permissionMode || 'default'
+        permissionMode: options.permissionMode || 'default',
+        // Use native CLI instead of bundled cli.js (which fails inside ASAR)
+        pathToClaudeCodeExecutable: claudeCliPath || undefined
       }
 
       // Add hooks if provided (for path restrictions, etc.)
@@ -154,8 +169,6 @@ export class AgentService {
       if (options.maxTurns) {
         queryOptions.maxTurns = options.maxTurns
       }
-
-      console.log(`[AgentService] SDK query options: cwd=${options.cwd}, tools=${tools.join(',')}, permissionMode=${queryOptions.permissionMode}, hooks=${options.hooks ? 'configured' : 'none'}, maxTurns=${options.maxTurns || 'unlimited'}`)
 
       // Add PM MCP server if PM tools are needed
       if (needsPMTools) {
@@ -208,25 +221,29 @@ export class AgentService {
         options: queryOptions
       })
 
-      for await (const message of this.activeQuery) {
-        // Track token usage from SDK messages
-        if (message.usage) {
-          this.cumulativeInputTokens += message.usage.input_tokens
-          this.cumulativeOutputTokens += message.usage.output_tokens
-        }
-
-        const event = this.convertMessage(message)
-        if (event) {
-          // Add per-message usage if available
+      try {
+        for await (const message of this.activeQuery) {
+          // Track token usage from SDK messages
           if (message.usage) {
-            event.usage = {
-              inputTokens: message.usage.input_tokens,
-              outputTokens: message.usage.output_tokens,
-              totalTokens: message.usage.input_tokens + message.usage.output_tokens
-            }
+            this.cumulativeInputTokens += message.usage.input_tokens
+            this.cumulativeOutputTokens += message.usage.output_tokens
           }
-          yield event
+
+          const event = this.convertMessage(message)
+          if (event) {
+            // Add per-message usage if available
+            if (message.usage) {
+              event.usage = {
+                inputTokens: message.usage.input_tokens,
+                outputTokens: message.usage.output_tokens,
+                totalTokens: message.usage.input_tokens + message.usage.output_tokens
+              }
+            }
+            yield event
+          }
         }
+      } catch (error) {
+        throw error
       }
 
       // Include cumulative token usage in done event
@@ -239,15 +256,20 @@ export class AgentService {
         }
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       yield {
         type: 'error',
-        error: error instanceof Error ? error.message : 'Agent query failed'
+        error: errorMessage
       }
     } finally {
       this.activeQuery = null
       // Restore ELECTRON_RUN_AS_NODE if it was set
       if (savedElectronRunAsNode !== undefined) {
         process.env.ELECTRON_RUN_AS_NODE = savedElectronRunAsNode
+      }
+      // Restore PATH
+      if (savedPath !== undefined) {
+        process.env.PATH = savedPath
       }
     }
   }
@@ -371,6 +393,44 @@ export class AgentService {
       })
       this.activeQuery = null
     }
+  }
+
+  /**
+   * Find the native Claude CLI executable.
+   * The SDK's bundled cli.js doesn't work from inside Electron's ASAR archive,
+   * so we need to use the globally installed native binary.
+   */
+  private findClaudeExecutable(): string | null {
+    const home = process.env.USERPROFILE || process.env.HOME || ''
+    const fs = require('fs')
+    const path = require('path')
+
+    // Check common locations for Claude CLI on Windows
+    const possiblePaths = [
+      path.join(home, '.local', 'bin', 'claude.exe'),
+      path.join(home, '.local', 'bin', 'claude'),
+      path.join(home, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+      path.join(home, 'AppData', 'Roaming', 'npm', 'claude'),
+    ]
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        return p
+      }
+    }
+
+    // Try to find it via 'where' command
+    try {
+      const { execSync } = require('child_process')
+      const result = execSync('where claude', { encoding: 'utf-8', timeout: 5000 }).trim()
+      if (result) {
+        return result.split('\n')[0]
+      }
+    } catch {
+      // Command failed - claude not in PATH
+    }
+
+    return null
   }
 }
 

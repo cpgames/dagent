@@ -73,6 +73,10 @@
   background: var(--color-warning);
 }
 
+.auth-status__dot--error {
+  background: var(--color-error);
+}
+
 .auth-status__text {
   white-space: nowrap;
 }

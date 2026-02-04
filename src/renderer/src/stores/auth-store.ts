@@ -7,6 +7,8 @@ import type { AuthState } from '@shared/types';
 export interface SDKStatus {
   available: boolean;
   claudeCodeInstalled: boolean;
+  claudeCliFound: boolean;
+  claudeCliPath: string | null;
   hasCredentials: boolean;
   message: string;
 }

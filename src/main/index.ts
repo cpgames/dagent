@@ -7,17 +7,17 @@ import { getGitManager } from './git'
 import { initializeStorage } from './ipc/storage-handlers'
 import { setHistoryProjectRoot } from './ipc/history-handlers'
 import { initializeSettingsStore } from './storage/settings-store'
-// TODO: Agent Process Manager - Orchestrate AI agent processes
 
 /**
  * Main process entry point for DAGent.
  * Handles app lifecycle and initializes managers.
  */
 
-// Fix PATH for subprocess spawning (SDK needs to find 'node')
+// Fix PATH for subprocess spawning (SDK needs to find 'node' and 'claude')
 // When running from Electron, PATH might not include node's directory
 function fixNodePath(): void {
   const pathsToAdd: string[] = []
+  const home = process.env['USERPROFILE'] || process.env['HOME'] || ''
 
   // On Windows, add common node installation paths
   if (process.platform === 'win32') {
@@ -27,10 +27,16 @@ function fixNodePath(): void {
     const localAppData = process.env['LOCALAPPDATA'] || ''
 
     pathsToAdd.push(
+      // Claude CLI location
+      path.join(home, '.local', 'bin'),
+      // Node.js locations
       path.join(programFiles, 'nodejs'),
       path.join(programFilesX86, 'nodejs'),
       path.join(appData, 'npm'),
-      path.join(localAppData, 'Programs', 'node')
+      path.join(localAppData, 'Programs', 'node'),
+      // fnm (Fast Node Manager) location
+      path.join(localAppData, 'fnm_multishells'),
+      path.join(home, '.fnm')
     )
 
     // Add nvm-windows paths if available
@@ -44,13 +50,22 @@ function fixNodePath(): void {
     if (nvmSymlink) {
       pathsToAdd.push(nvmSymlink)
     }
+
+    // Try to find where node actually is by checking process.execPath
+    // Electron's execPath points to electron, but we can check common locations
+    const nodePath = process.env['NODE_PATH']
+    if (nodePath) {
+      pathsToAdd.push(path.dirname(nodePath))
+    }
   } else {
     // On Unix-like systems, add common locations
     pathsToAdd.push(
+      path.join(home, '.local', 'bin'),
       '/usr/local/bin',
       '/usr/bin',
-      path.join(process.env['HOME'] || '', '.nvm/current/bin'),
-      path.join(process.env['HOME'] || '', '.volta/bin')
+      path.join(home, '.nvm/current/bin'),
+      path.join(home, '.volta/bin'),
+      path.join(home, '.fnm')
     )
   }
 
@@ -64,7 +79,21 @@ function fixNodePath(): void {
 
   if (newPaths.length > 0) {
     process.env.PATH = [...newPaths, currentPath].join(pathSeparator)
-    console.log('[DAGent] Added to PATH:', newPaths.join(', '))
+  }
+
+  // Try to find node executable and add its directory
+  try {
+    const { execSync } = require('child_process')
+    const cmd = process.platform === 'win32' ? 'where node' : 'which node'
+    const nodePath = execSync(cmd, { encoding: 'utf-8', timeout: 5000 }).trim().split('\n')[0]
+    if (nodePath) {
+      const nodeDir = path.dirname(nodePath)
+      if (!process.env.PATH?.toLowerCase().includes(nodeDir.toLowerCase())) {
+        process.env.PATH = `${nodeDir};${process.env.PATH}`
+      }
+    }
+  } catch {
+    // Could not find node in PATH
   }
 }
 
@@ -75,7 +104,6 @@ fixNodePath()
 // This env var is set by VS Code and some Electron tools and causes
 // the Claude Agent SDK to fail when spawning Claude Code
 if (process.env.ELECTRON_RUN_AS_NODE) {
-  console.log('[DAGent] Clearing ELECTRON_RUN_AS_NODE environment variable')
   delete process.env.ELECTRON_RUN_AS_NODE
 }
 

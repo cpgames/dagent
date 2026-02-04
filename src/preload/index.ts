@@ -423,6 +423,8 @@ const electronAPI = {
     getSDKStatus: (): Promise<{
       available: boolean
       claudeCodeInstalled: boolean
+      claudeCliFound: boolean
+      claudeCliPath: string | null
       hasCredentials: boolean
       message: string
     }> => ipcRenderer.invoke('auth:getSDKStatus')

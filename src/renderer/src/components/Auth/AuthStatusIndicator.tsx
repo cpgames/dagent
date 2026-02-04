@@ -18,6 +18,20 @@ export function AuthStatusIndicator({ onConfigureClick }: AuthStatusIndicatorPro
     );
   }
 
+  // Claude CLI not found - show error status
+  if (sdkStatus && !sdkStatus.claudeCliFound) {
+    return (
+      <button
+        onClick={onConfigureClick}
+        className="auth-status auth-status--unauthenticated"
+        title={sdkStatus.message}
+      >
+        <div className="auth-status__dot auth-status__dot--error" />
+        <span className="auth-status__text">CLI Missing</span>
+      </button>
+    );
+  }
+
   // SDK available - show special status
   if (sdkStatus?.available) {
     return (

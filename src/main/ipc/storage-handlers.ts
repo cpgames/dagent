@@ -64,7 +64,11 @@ export function registerStorageHandlers(): void {
   });
 
   ipcMain.handle('storage:listFeatures', async () => {
-    return getStore().listFeatures();
+    // Return empty array if no project is open (storage not initialized)
+    if (!featureStore) {
+      return [];
+    }
+    return featureStore.listFeatures();
   });
 
   ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => {
@@ -77,9 +81,13 @@ export function registerStorageHandlers(): void {
   });
 
   ipcMain.handle('storage:featureExists', async (_event, name: string) => {
-    const features = await getStore().listFeatures();
+    // Return false if no project is open
+    if (!featureStore) {
+      return false;
+    }
+    const features = await featureStore.listFeatures();
     for (const featureId of features) {
-      const feature = await getStore().loadFeature(featureId);
+      const feature = await featureStore.loadFeature(featureId);
       if (feature && feature.name === name) {
         return true;
       }
