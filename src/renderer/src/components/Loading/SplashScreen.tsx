@@ -1,8 +1,8 @@
 import { useState, useEffect, type JSX } from 'react'
 import './SplashScreen.css'
 
-// Logo path from public folder - accessible at root in Electron/Vite
-const logoPath = '/icon.png'
+// Logo path from public folder - use relative path for production builds
+const logoPath = './icon.png'
 
 interface SplashScreenProps {
   /** Whether the app has finished initializing */

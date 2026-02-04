@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, screen } from 'electron'
+import { BrowserWindow, shell, screen, app } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 
@@ -17,7 +17,7 @@ export function createWindow(): BrowserWindow {
     height: 800,
     show: false,
     autoHideMenuBar: true,
-    title: 'DAGent',
+    title: `DAGent v${app.getVersion()}`,
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

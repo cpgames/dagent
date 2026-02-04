@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { createPanelWindow, closePanelWindow, type PanelWindowOptions } from '../window'
 import { registerStorageHandlers } from './storage-handlers'
 import { registerDagHandlers } from './dag-handlers'
@@ -86,7 +86,7 @@ export function registerIpcHandlers(): void {
   // App info - useful for debugging
   ipcMain.handle('app:getInfo', async () => {
     return {
-      version: process.env.npm_package_version || '0.0.0',
+      version: app.getVersion(),
       platform: process.platform,
       arch: process.arch
     }

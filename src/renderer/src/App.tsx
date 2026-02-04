@@ -43,6 +43,7 @@ function App(): React.JSX.Element {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false)
   const [gitInitDialogOpen, setGitInitDialogOpen] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
 
   // Feature manager filter for Kanban view - Set of selected manager IDs (all selected by default)
   const [selectedManagerFilters, setSelectedManagerFilters] = useState<Set<number>>(() =>
@@ -78,6 +79,10 @@ function App(): React.JSX.Element {
   useEffect(() => {
     // Load current project and features on mount
     const initialize = async (): Promise<void> => {
+      // Get app version
+      const appInfo = await window.electronAPI.getAppInfo()
+      setAppVersion(appInfo.version)
+
       await loadCurrentProject()
       await loadFeatures()
       setInitialized(true)
@@ -102,13 +107,14 @@ function App(): React.JSX.Element {
     }
   }, [authLoading, authState.authenticated, authState.error])
 
-  // Update window title when project changes
+  // Update window title when project or version changes
   useEffect(() => {
+    const versionSuffix = appVersion ? ` v${appVersion}` : ''
     const title = projectPath
-      ? `DAGent - ${projectPath.split(/[/\\]/).pop() || 'Project'}`
-      : 'DAGent'
+      ? `DAGent${versionSuffix} - ${projectPath.split(/[/\\]/).pop() || 'Project'}`
+      : `DAGent${versionSuffix}`
     window.electronAPI.setWindowTitle(title)
-  }, [projectPath])
+  }, [projectPath, appVersion])
 
   /**
    * Handle feature creation - simplified non-blocking flow.
@@ -223,7 +229,7 @@ function App(): React.JSX.Element {
     <ThemeProvider>
       <ErrorBoundary>
         <SplashScreen isReady={initialized} />
-        <UnifiedCanvas layers={backgroundLayers} backgroundImage="/synthwave.png" />
+        <UnifiedCanvas layers={backgroundLayers} backgroundImage="./synthwave.png" />
         <div className="h-screen text-white flex flex-col overflow-hidden relative z-0">
           {/* Header */}
           <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">

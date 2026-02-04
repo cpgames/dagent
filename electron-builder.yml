@@ -14,11 +14,14 @@ asarUnpack:
 win:
   executableName: DAGent
   icon: resources/icon.png
+  signAndEditExecutable: false
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 mac:
   icon: resources/icon.png
   entitlementsInherit: build/entitlements.mac.plist

@@ -684,6 +684,11 @@ export class ExecutionOrchestrator extends EventEmitter {
         if (this.singleTaskId === taskId) {
           console.log(`[Orchestrator] Single task ${taskId} completed, exiting single-task mode`)
           this.singleTaskId = null
+          // Stop orchestrator - single task execution is complete
+          this.state.status = 'idle'
+          this.state.stoppedAt = new Date().toISOString()
+          this.stopLoop()
+          this.addEvent('stopped')
         }
 
         // Cascade to unblock dependents
@@ -714,6 +719,11 @@ export class ExecutionOrchestrator extends EventEmitter {
         if (this.singleTaskId === taskId) {
           console.log(`[Orchestrator] Single task ${taskId} QA failed, exiting single-task mode`)
           this.singleTaskId = null
+          // Stop orchestrator - single task execution is complete (even if failed)
+          this.state.status = 'idle'
+          this.state.stoppedAt = new Date().toISOString()
+          this.stopLoop()
+          this.addEvent('stopped')
         }
 
         // Update feature status
@@ -901,6 +911,17 @@ export class ExecutionOrchestrator extends EventEmitter {
     } else {
       // Task failed (max iterations, error, aborted)
       this.failTask(taskId, state.error || `Loop failed: ${state.exitReason}`)
+
+      // Clear single-task mode if this was the single task
+      if (this.singleTaskId === taskId) {
+        console.log(`[Orchestrator] Single task ${taskId} failed, exiting single-task mode`)
+        this.singleTaskId = null
+        // Stop orchestrator - single task execution is complete
+        this.state.status = 'idle'
+        this.state.stoppedAt = new Date().toISOString()
+        this.stopLoop()
+        this.addEvent('stopped')
+      }
     }
 
     this.emit('task_loop_update', finalStatus)
@@ -1506,6 +1527,11 @@ export class ExecutionOrchestrator extends EventEmitter {
     if (this.singleTaskId === taskId) {
       console.log(`[Orchestrator] Single task ${taskId} aborted, exiting single-task mode`)
       this.singleTaskId = null
+      // Stop orchestrator - single task execution is complete
+      this.state.status = 'idle'
+      this.state.stoppedAt = new Date().toISOString()
+      this.stopLoop()
+      this.addEvent('stopped')
     }
 
     return { success: true }
