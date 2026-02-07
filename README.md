@@ -18,7 +18,7 @@
 
 ## Why DAGent?
 
-**Visual, codebase-aware feature planning.** Describe what you want to build, and an AI PM (Project Manager) agent investigates your existing code, asks clarifying questions, and proposes a task breakdown that fits your architecture. You stay in control - refine the plan until it's right.
+**Visual, codebase-aware feature planning.** Describe what you want to build, and AI investigates your existing code, asks clarifying questions, and proposes a task breakdown that fits your architecture. You stay in control - refine the plan until it's right.
 
 **Chat-driven workflow.** Manage your plan through conversation: *"Add a task for input validation"*, *"Make the API task depend on the schema task"*, *"Update the auth task to include refresh tokens"*. Natural language commands modify your task graph in real-time.
 
@@ -36,7 +36,7 @@
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-Agent Architecture** | Specialized agents for different roles: PM, Dev, QA, and Merge |
+| **Multi-Agent Architecture** | Specialized agents for different roles: Dev, QA, and Merge |
 | **Parallel Worktrees** | Multiple worktrees enable concurrent feature execution - no merge conflicts |
 | **Session Management** | Automatic context compaction keeps agents within token limits |
 | **Iterative Development** | Dev agents iterate until tests pass, with automated verification |
@@ -45,27 +45,33 @@
 
 ## Recommended Workflow
 
-1. **Create a feature** in the Kanban backlog - describe what you want to build
+1. **Start in Context view** - ideation and project setup:
+   - Chat with AI to discuss ideas and plan your project
+   - Review or create your `CLAUDE.md` file with project guidelines
+   - Create features directly from the conversation
+   - This context is shared with all agents during execution
 
-2. **Drag to "In Progress"** - this assigns the feature to a worktree and starts the PM agent
+2. **Create a feature** in the Kanban backlog - describe what you want to build
 
-3. **Click the feature** to open the DAG view for planning
+3. **Drag to "In Progress"** - this assigns the feature to a worktree
 
-4. **Chat with the PM agent** to create and refine tasks:
-   - PM analyzes your feature, investigates the codebase, asks clarifying questions, and proposes a solution approach
-   - Once ready, ask PM to create tasks: *"Create a task for user authentication"*
-   - Ask PM to update tasks: *"Update the API task to include error handling"*
-   - Ask PM to set dependencies: *"Make the database task depend on the schema task"*
-   - PM won't modify tasks without explicit instruction - you're in control
+4. **Click the feature** to open the DAG view for planning
+
+5. **Chat with AI** to create and refine tasks:
+   - AI analyzes your feature, investigates the codebase, asks clarifying questions, and proposes a solution approach
+   - Once ready, ask AI to create tasks: *"Create a task for user authentication"*
+   - Ask AI to update tasks: *"Update the API task to include error handling"*
+   - Ask AI to set dependencies: *"Make the database task depend on the schema task"*
+   - AI won't modify tasks without explicit instruction - you're in control
    - Verify dependencies look correct in the visual graph
    - Use the **Task Editor** (left toolbar) to examine task details, specs, and logs
 
-5. **Run tasks** - start individual tasks or use "Start All" to execute everything in dependency order
+6. **Run tasks** - start individual tasks or use "Start All" to execute everything in dependency order
 
-6. **Tasks flow through stages**: Ready → Dev → QA → Done, each generating a commit when complete
+7. **Tasks flow through stages**: Ready → Dev → QA → Done, each generating a commit when complete
    - Click on a commit to see the diff
 
-7. **When all tasks complete**, create a PR from the Kanban board and archive the feature
+8. **When all tasks complete**, create a PR from the Kanban board and archive the feature
 
 ---
 
