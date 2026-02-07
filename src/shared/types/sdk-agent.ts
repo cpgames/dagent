@@ -38,7 +38,7 @@ export interface AgentQueryOptions {
  * Events streamed from an agent query
  */
 export interface AgentStreamEvent {
-  type: 'message' | 'tool_use' | 'tool_result' | 'done' | 'error'
+  type: 'message' | 'message_start' | 'tool_use' | 'tool_result' | 'done' | 'error'
   message?: AgentMessage
   error?: string
 }

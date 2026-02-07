@@ -39,17 +39,6 @@ function MergeIcon(): React.JSX.Element {
 }
 
 /**
- * External link icon for PR badge
- */
-function ExternalLinkIcon({ className }: { className?: string }): React.JSX.Element {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-    </svg>
-  );
-}
-
-/**
  * FeatureCard - Displays a single feature in the Kanban board.
  * Simplified for 4-state model: backlog, active, completed, archived
  * Supports drag and drop to move between columns.
@@ -115,14 +104,12 @@ export default function FeatureCard({ feature, onSelect, onDelete, onMerge, isAn
   // Get worktree name for color coding
   const worktreeClass = feature.worktreeId ? ` feature-card--manager-${feature.worktreeId}` : '';
   const draggingClass = isDragging ? ' feature-card--dragging' : '';
-  const isBacklog = feature.status === 'backlog';
-  const backlogClass = isBacklog ? ' feature-card--not-selectable' : '';
-  const cardClasses = `feature-card feature-card--${feature.status}${worktreeClass}${draggingClass}${backlogClass}`;
+  const cardClasses = `feature-card feature-card--${feature.status}${worktreeClass}${draggingClass}`;
 
   // Determine status message based on feature state (only show important statuses)
   const getStatusInfo = (): string | null => {
     if (feature.status === 'backlog') {
-      return 'Drag to start →';
+      return 'Click to edit, drag to start →';
     }
     if (feature.status === 'creating_worktree') {
       return 'Creating worktree...';
@@ -158,7 +145,7 @@ export default function FeatureCard({ feature, onSelect, onDelete, onMerge, isAn
           handleClick();
         }
       }}
-      title={isBacklog ? 'Drag to "In Progress" to start this feature' : undefined}
+      title={feature.status === 'backlog' ? 'Click to edit settings, or drag to "In Progress" to start' : undefined}
     >
       <div className="feature-card__header">
         <div className="feature-card__badges">
@@ -169,19 +156,6 @@ export default function FeatureCard({ feature, onSelect, onDelete, onMerge, isAn
             {feature.status === 'merging' && 'MERGING'}
             {feature.status === 'archived' && 'ARCHIVED'}
           </span>
-          {feature.prUrl && (
-            <a
-              href={feature.prUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="feature-card__pr-badge"
-              onClick={(e) => e.stopPropagation()}
-              title="Open Pull Request"
-            >
-              PR
-              <ExternalLinkIcon className="feature-card__pr-icon" />
-            </a>
-          )}
         </div>
 
         <div className="feature-card__actions">

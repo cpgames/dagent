@@ -8,3 +8,5 @@ export { useExecutionStore } from './execution-store';
 export { useGitStore } from './git-store';
 export { useProjectStore } from './project-store';
 export { useAgentStore } from './agent-store';
+export { useSetupStore, type SetupMessage, type ProjectInspection } from './setup-store';
+export { useUnifiedChatStore, type ChatType, type ChatSessionState, type ActiveToolUse, type Memory } from './unified-chat-store';

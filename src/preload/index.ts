@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   Feature,
-  CompletionAction,
   DAGGraph,
   ChatHistory,
   AgentLog,
@@ -126,7 +125,7 @@ const electronAPI = {
     deleteFeature: (featureId: string): Promise<boolean> =>
       ipcRenderer.invoke('storage:deleteFeature', featureId),
     listFeatures: (): Promise<string[]> => ipcRenderer.invoke('storage:listFeatures'),
-    createFeature: (name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}): Promise<Feature> =>
+    createFeature: (name: string, options?: {description?: string, attachments?: string[], autoStart?: boolean, worktreeId?: string}): Promise<Feature> =>
       ipcRenderer.invoke('storage:createFeature', name, options),
     featureExists: (name: string): Promise<boolean> =>
       ipcRenderer.invoke('storage:featureExists', name),
@@ -311,6 +310,9 @@ const electronAPI = {
     getConflicts: (): Promise<MergeConflict[]> => ipcRenderer.invoke('git:get-conflicts'),
     abortMerge: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:abort-merge'),
     isMergeInProgress: (): Promise<boolean> => ipcRenderer.invoke('git:is-merge-in-progress'),
+    stash: (message?: string): Promise<GitOperationResult> => ipcRenderer.invoke('git:stash', message),
+    stashPop: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:stash-pop'),
+    discardChanges: (): Promise<GitOperationResult> => ipcRenderer.invoke('git:discard-changes'),
     mergeTaskIntoFeature: (
       featureId: string,
       taskId: string,
@@ -337,7 +339,24 @@ const electronAPI = {
         date: string
       }
       error?: string
-    }> => ipcRenderer.invoke('git:get-commit-diff', commitHash, worktreePath)
+    }> => ipcRenderer.invoke('git:get-commit-diff', commitHash, worktreePath),
+
+    // Remote operations
+    getRemotes: (): Promise<{
+      success: boolean
+      remotes: Array<{ name: string; fetchUrl: string; pushUrl: string }>
+      error?: string
+    }> => ipcRenderer.invoke('git:get-remotes'),
+
+    publishToGitHub: (
+      repoName: string,
+      visibility: 'public' | 'private'
+    ): Promise<{
+      success: boolean
+      repoUrl?: string
+      message?: string
+      error?: string
+    }> => ipcRenderer.invoke('git:publish-to-github', repoName, visibility)
   },
 
   // Agent Pool API
@@ -474,6 +493,105 @@ const electronAPI = {
     }
   },
 
+  // Setup Agent API (conversational project setup for CLAUDE.md generation)
+  setupAgent: {
+    initialize: (
+      projectRoot: string
+    ): Promise<{
+      success: boolean
+      inspection?: { type: 'empty' | 'brownfield'; hasClaudeMd: boolean; techStack?: unknown; structure?: unknown }
+      greeting?: string
+      state?: unknown
+      error?: string
+    }> => ipcRenderer.invoke('setup-agent:initialize', projectRoot),
+    getState: (projectRoot: string): Promise<unknown | null> =>
+      ipcRenderer.invoke('setup-agent:getState', projectRoot),
+    query: (projectRoot: string, userMessage: string): Promise<void> =>
+      ipcRenderer.invoke('setup-agent:query', projectRoot, userMessage),
+    abort: (): Promise<void> => ipcRenderer.invoke('setup-agent:abort'),
+    reset: (): Promise<{ success: boolean }> => ipcRenderer.invoke('setup-agent:reset'),
+    onStream: (callback: (event: AgentStreamEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent): void =>
+        callback(data)
+      ipcRenderer.on('setup-agent:stream', handler)
+      return () => ipcRenderer.removeListener('setup-agent:stream', handler)
+    }
+  },
+
+  // Unified Chat API (unified chat for all agent types - setup, pm, etc.)
+  unifiedChat: {
+    initialize: (
+      sessionId: string,
+      chatType: string,
+      projectRoot: string,
+      featureId?: string
+    ): Promise<{
+      success: boolean
+      greeting?: string
+      context?: unknown
+      messages?: Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string; timestamp: string }>
+      error?: string
+    }> => ipcRenderer.invoke('unified-chat:initialize', sessionId, chatType, projectRoot, featureId),
+    send: (sessionId: string, message: string): Promise<void> =>
+      ipcRenderer.invoke('unified-chat:send', sessionId, message),
+    abort: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke('unified-chat:abort', sessionId),
+    reset: (sessionId: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('unified-chat:reset', sessionId),
+    getMessages: (sessionId: string): Promise<Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string; timestamp: string }>> =>
+      ipcRenderer.invoke('unified-chat:getMessages', sessionId),
+    addMessage: (sessionId: string, message: { id: string; role: 'user' | 'assistant'; content: string; timestamp: string; metadata?: Record<string, unknown> }): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('unified-chat:addMessage', sessionId, message),
+    getMemory: (sessionId: string): Promise<{
+      version: number
+      createdAt: string
+      updatedAt: string
+      summary: {
+        critical: string[]
+        important: string[]
+        minor: string[]
+      }
+      compactionInfo: {
+        messagesCompacted: number
+        oldestMessageTimestamp: string
+        newestMessageTimestamp: string
+        compactedAt: string
+      }
+      stats: {
+        totalCompactions: number
+        totalMessages: number
+        totalTokens: number
+      }
+    } | null> =>
+      ipcRenderer.invoke('unified-chat:getMemory', sessionId),
+    compact: (sessionId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('unified-chat:compact', sessionId),
+    onStream: (callback: (data: { sessionId: string; event: AgentStreamEvent }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; event: AgentStreamEvent }): void =>
+        callback(data)
+      ipcRenderer.on('unified-chat:stream', handler)
+      return () => ipcRenderer.removeListener('unified-chat:stream', handler)
+    },
+    onCompactionStart: (callback: (data: { sessionId: string; messagesCount: number; estimatedTokens: number }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; messagesCount: number; estimatedTokens: number }): void =>
+        callback(data)
+      ipcRenderer.on('unified-chat:compaction-start', handler)
+      return () => ipcRenderer.removeListener('unified-chat:compaction-start', handler)
+    },
+    onCompactionComplete: (callback: (data: { sessionId: string; messagesCompacted: number; tokensReclaimed: number; newMemoryVersion: number; compactedAt: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; messagesCompacted: number; tokensReclaimed: number; newMemoryVersion: number; compactedAt: string }): void =>
+        callback(data)
+      ipcRenderer.on('unified-chat:compaction-complete', handler)
+      return () => ipcRenderer.removeListener('unified-chat:compaction-complete', handler)
+    },
+    onCompactionError: (callback: (data: { sessionId: string; error: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; error: string }): void =>
+        callback(data)
+      ipcRenderer.on('unified-chat:compaction-error', handler)
+      return () => ipcRenderer.removeListener('unified-chat:compaction-error', handler)
+    }
+  },
+
   // History API (undo/redo)
   history: {
     pushVersion: (
@@ -554,6 +672,18 @@ const electronAPI = {
       ): void => callback(data)
       ipcRenderer.on('feature:status-changed', handler)
       return () => ipcRenderer.removeListener('feature:status-changed', handler)
+    },
+
+    // Listen for feature created events (from Project Agent)
+    onCreated: (
+      callback: (data: { featureId: string; name: string }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { featureId: string; name: string }
+      ): void => callback(data)
+      ipcRenderer.on('feature:created', handler)
+      return () => ipcRenderer.removeListener('feature:created', handler)
     },
 
     onAnalysisResult: (
@@ -648,8 +778,18 @@ const electronAPI = {
       ipcRenderer.invoke('context:getFormattedPrompt', context),
     getClaudeMd: (): Promise<{ content: string | null } | { error: string }> =>
       ipcRenderer.invoke('context:getClaudeMd'),
+    hasClaudeMdChanges: (): Promise<{ hasChanges: boolean; error?: string }> =>
+      ipcRenderer.invoke('context:hasClaudeMdChanges'),
     saveClaudeMd: (content: string): Promise<{ success: true } | { error: string }> =>
-      ipcRenderer.invoke('context:saveClaudeMd', content)
+      ipcRenderer.invoke('context:saveClaudeMd', content),
+    commitAndSyncClaudeMd: (): Promise<{ success: true; synced: boolean } | { error: string }> =>
+      ipcRenderer.invoke('context:commitAndSyncClaudeMd'),
+    onClaudeMdUpdated: (callback: (data: { path: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { path: string }): void =>
+        callback(data)
+      ipcRenderer.on('context:claude-md-updated', handler)
+      return () => ipcRenderer.removeListener('context:claude-md-updated', handler)
+    }
   },
 
   // Skill API (Claude Code skills)
@@ -676,6 +816,13 @@ const electronAPI = {
       ipcRenderer.invoke('pr:generate-summary', featureId)
   },
 
+  // GitHub CLI API (gh CLI status and authentication)
+  github: {
+    checkGhCli: (): Promise<GhCliStatus> => ipcRenderer.invoke('git:check-gh-cli'),
+    authLogin: (): Promise<{ success: boolean; message?: string; error?: string }> =>
+      ipcRenderer.invoke('git:gh-auth-login')
+  },
+
   // Feature Merge API (merging completed features into main)
   featureMerge: {
     create: (featureId: string, targetBranch?: string): Promise<{ success: boolean; state: FeatureMergeAgentState }> =>
@@ -684,10 +831,16 @@ const electronAPI = {
       ipcRenderer.invoke('feature-merge:get-state', featureId),
     checkBranches: (featureId: string): Promise<{ success: boolean; state?: FeatureMergeAgentState; error?: string }> =>
       ipcRenderer.invoke('feature-merge:check-branches', featureId),
-    execute: (featureId: string, deleteBranchOnSuccess?: boolean): Promise<FeatureMergeResult> =>
-      ipcRenderer.invoke('feature-merge:execute', featureId, deleteBranchOnSuccess),
+    execute: (featureId: string): Promise<FeatureMergeResult> =>
+      ipcRenderer.invoke('feature-merge:execute', featureId),
     cleanup: (featureId: string): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('feature-merge:cleanup', featureId)
+      ipcRenderer.invoke('feature-merge:cleanup', featureId),
+    onStream: (callback: (data: { featureId: string; event: AgentStreamEvent }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { featureId: string; event: AgentStreamEvent }): void =>
+        callback(data)
+      ipcRenderer.on('feature-merge:stream', handler)
+      return () => ipcRenderer.removeListener('feature-merge:stream', handler)
+    }
   },
 
   // PM Spec API (feature specification management for PM Agent)

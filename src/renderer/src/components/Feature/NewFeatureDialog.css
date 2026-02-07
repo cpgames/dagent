@@ -175,6 +175,112 @@
   margin-top: var(--space-xs);
 }
 
+/* Hint text below fields */
+.new-feature-dialog__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+.new-feature-dialog__hint--warning {
+  color: var(--color-warning, #f59e0b);
+}
+
+/* Manager selector - neon toggle buttons */
+.new-feature-dialog__manager-selector {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.manager-btn {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.manager-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manager-btn__text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Neon variant */
+.manager-btn--neon {
+  border-color: rgba(0, 255, 255, 0.3);
+}
+
+.manager-btn--neon .manager-btn__text {
+  background: linear-gradient(135deg, #00ffff, #00d4aa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.manager-btn--neon:not(:disabled):hover {
+  border-color: rgba(0, 255, 255, 0.6);
+  background: rgba(0, 255, 255, 0.1);
+}
+
+.manager-btn--neon.manager-btn--active {
+  background: rgba(0, 255, 255, 0.2);
+  border-color: #00ffff;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), 0 0 40px rgba(0, 255, 255, 0.3);
+}
+
+/* Cyber variant */
+.manager-btn--cyber {
+  border-color: rgba(255, 0, 255, 0.3);
+}
+
+.manager-btn--cyber .manager-btn__text {
+  background: linear-gradient(135deg, #ff00ff, #aa00ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.manager-btn--cyber:not(:disabled):hover {
+  border-color: rgba(255, 0, 255, 0.6);
+  background: rgba(255, 0, 255, 0.1);
+}
+
+.manager-btn--cyber.manager-btn--active {
+  background: rgba(255, 0, 255, 0.2);
+  border-color: #ff00ff;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.6), 0 0 40px rgba(255, 0, 255, 0.3);
+}
+
+/* Pulse variant */
+.manager-btn--pulse {
+  border-color: rgba(255, 170, 0, 0.3);
+}
+
+.manager-btn--pulse .manager-btn__text {
+  background: linear-gradient(135deg, #ffaa00, #ff6600);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.manager-btn--pulse:not(:disabled):hover {
+  border-color: rgba(255, 170, 0, 0.6);
+  background: rgba(255, 170, 0, 0.1);
+}
+
+.manager-btn--pulse.manager-btn--active {
+  background: rgba(255, 170, 0, 0.2);
+  border-color: #ffaa00;
+  box-shadow: 0 0 20px rgba(255, 170, 0, 0.6), 0 0 40px rgba(255, 170, 0, 0.3);
+}
+
 /* Radio button group for completion action */
 .new-feature-dialog__radio-group {
   display: flex;

@@ -5,7 +5,6 @@
 
 import type {
   Feature,
-  CompletionAction,
   DAGGraph,
   ChatHistory,
   AgentLog,
@@ -112,7 +111,7 @@ import type {
 import type {
   Session,
   ChatMessage,
-  Checkpoint,
+  Memory,
   SessionContext,
   AgentDescription,
   CreateSessionOptions,
@@ -148,7 +147,7 @@ export interface AppInfo {
  */
 export interface StorageAPI {
   // Feature operations
-  createFeature: (name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => Promise<Feature>
+  createFeature: (name: string, options?: {description?: string, attachments?: string[], autoStart?: boolean, worktreeId?: string}) => Promise<Feature>
   saveFeature: (feature: Feature) => Promise<boolean>
   loadFeature: (featureId: string) => Promise<Feature | null>
   deleteFeature: (featureId: string) => Promise<boolean>
@@ -474,6 +473,22 @@ export interface GitAPI {
   isMergeInProgress: () => Promise<boolean>
 
   /**
+   * Stash current working directory changes
+   */
+  stash: (message?: string) => Promise<GitOperationResult>
+
+  /**
+   * Pop the most recent stash
+   */
+  stashPop: () => Promise<GitOperationResult>
+
+  /**
+   * Discard all working directory changes (staged, unstaged, and untracked)
+   * WARNING: This is destructive and cannot be undone!
+   */
+  discardChanges: () => Promise<GitOperationResult>
+
+  /**
    * Merge a task branch into its feature branch
    * This is the main operation for completing a task per DAGENT_SPEC 8.4
    */
@@ -514,6 +529,29 @@ export interface GitAPI {
       email: string
       date: string
     }
+    error?: string
+  }>
+
+  /**
+   * Get list of configured remotes
+   */
+  getRemotes: () => Promise<{
+    success: boolean
+    remotes: Array<{ name: string; fetchUrl: string; pushUrl: string }>
+    error?: string
+  }>
+
+  /**
+   * Publish repository to GitHub using gh CLI.
+   * Creates a new repo and pushes all commits.
+   */
+  publishToGitHub: (
+    repoName: string,
+    visibility: 'public' | 'private'
+  ) => Promise<{
+    success: boolean
+    repoUrl?: string
+    message?: string
     error?: string
   }>
 }
@@ -1001,6 +1039,192 @@ export interface SdkAgentAPI {
 }
 
 /**
+ * Project inspection result from Setup Agent.
+ */
+export interface ProjectInspectionResult {
+  type: 'empty' | 'brownfield'
+  hasClaudeMd: boolean
+  techStack?: {
+    languages: string[]
+    frameworks: string[]
+    buildTools: string[]
+    configFiles: string[]
+  }
+  structure?: {
+    srcDirs: string[]
+    hasTests: boolean
+    hasDocs: boolean
+    fileCount: number
+  }
+}
+
+/**
+ * Setup Agent API for conversational project setup and CLAUDE.md generation.
+ * Uses natural chat interface to investigate project and generate documentation.
+ */
+export interface SetupAgentAPI {
+  /**
+   * Initialize the Setup Agent for a project.
+   * Inspects the project and returns a contextual greeting.
+   */
+  initialize: (projectRoot: string) => Promise<{
+    success: boolean
+    inspection?: ProjectInspectionResult
+    greeting?: string
+    state?: unknown
+    error?: string
+  }>
+
+  /**
+   * Get current Setup Agent state.
+   */
+  getState: (projectRoot: string) => Promise<unknown | null>
+
+  /**
+   * Send a message to the Setup Agent.
+   * Streams response events via onStream callback.
+   */
+  query: (projectRoot: string, userMessage: string) => Promise<void>
+
+  /**
+   * Abort the current Setup Agent query.
+   */
+  abort: () => Promise<void>
+
+  /**
+   * Reset the Setup Agent and clear conversation.
+   */
+  reset: () => Promise<{ success: boolean }>
+
+  /**
+   * Subscribe to Setup Agent stream events.
+   * Returns unsubscribe function.
+   */
+  onStream: (callback: (event: AgentStreamEvent) => void) => () => void
+}
+
+/**
+ * Chat type for unified chat API.
+ * Maps to session AgentType. The backend handles 'task' -> 'dev' mapping.
+ */
+export type UnifiedChatType = 'feature' | 'project' | 'dev' | 'qa' | 'merge' | 'harness'
+
+/**
+ * Memory summary from context compaction.
+ * Uses importance-based prioritization.
+ */
+export interface MemorySummary {
+  critical: string[]   // CRITICAL - Core purpose, essential requirements
+  important: string[]  // IMPORTANT - Key requirements, significant details
+  minor: string[]      // MINOR - Nice-to-haves, can be dropped if over token limit
+}
+
+/**
+ * Memory data from context compaction.
+ */
+export interface Memory {
+  version: number
+  createdAt: string
+  updatedAt: string
+  summary: MemorySummary
+  compactionInfo: {
+    messagesCompacted: number
+    oldestMessageTimestamp: string
+    newestMessageTimestamp: string
+    compactedAt: string
+  }
+  stats: {
+    totalCompactions: number
+    totalMessages: number
+    totalTokens: number
+  }
+}
+
+/**
+ * Unified Chat API for all interactive chat types.
+ * Provides a single interface for setup, PM, and investigation chats.
+ */
+export interface UnifiedChatAPI {
+  /**
+   * Initialize a chat session.
+   * Returns greeting and optional context (e.g., project inspection for project chat).
+   */
+  initialize: (
+    sessionId: string,
+    chatType: UnifiedChatType,
+    projectRoot: string,
+    featureId?: string
+  ) => Promise<{
+    success: boolean
+    greeting?: string
+    context?: unknown  // Generic context (e.g., ProjectInspectionResult for project chat)
+    messages?: ChatMessage[]
+    error?: string
+  }>
+
+  /**
+   * Send a message to the chat.
+   * Streams response events via onStream callback.
+   */
+  send: (sessionId: string, message: string) => Promise<void>
+
+  /**
+   * Abort the current response.
+   */
+  abort: (sessionId: string) => Promise<void>
+
+  /**
+   * Reset a chat session (clear messages).
+   */
+  reset: (sessionId: string) => Promise<{ success: boolean }>
+
+  /**
+   * Get all messages for a session.
+   */
+  getMessages: (sessionId: string) => Promise<ChatMessage[]>
+
+  /**
+   * Add a message to a session.
+   * Used by frontend to persist split messages during streaming.
+   */
+  addMessage: (sessionId: string, message: ChatMessage) => Promise<{ success: boolean }>
+
+  /**
+   * Get memory for a session.
+   */
+  getMemory: (sessionId: string) => Promise<Memory | null>
+
+  /**
+   * Manually trigger compaction for a session.
+   */
+  compact: (sessionId: string) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Subscribe to chat stream events.
+   * Returns unsubscribe function.
+   */
+  onStream: (callback: (data: { sessionId: string; event: AgentStreamEvent }) => void) => () => void
+
+  /**
+   * Subscribe to compaction start events.
+   * Returns unsubscribe function.
+   */
+  onCompactionStart: (callback: (data: { sessionId: string; messagesCount: number; estimatedTokens: number }) => void) => () => void
+
+  /**
+   * Subscribe to compaction complete events.
+   * Returns unsubscribe function.
+   */
+  onCompactionComplete: (callback: (data: { sessionId: string; messagesCompacted: number; tokensReclaimed: number; newMemoryVersion: number; compactedAt: string }) => void) => () => void
+
+  /**
+   * Subscribe to compaction error events.
+   * Returns unsubscribe function.
+   */
+  onCompactionError: (callback: (data: { sessionId: string; error: string }) => void) => () => void
+}
+
+/**
  * Options for deleting a feature.
  */
 export interface FeatureDeleteOptions {
@@ -1053,6 +1277,13 @@ export interface FeatureAPI {
    * Returns an unsubscribe function.
    */
   onStatusChanged: (callback: (data: FeatureStatusChangeEvent) => void) => () => void
+
+  /**
+   * Subscribe to feature created events.
+   * Fired when a feature is created (by UI or Project Agent).
+   * Returns an unsubscribe function.
+   */
+  onCreated: (callback: (data: { featureId: string; name: string }) => void) => () => void
 
   /**
    * Subscribe to feature analysis result events.
@@ -1158,9 +1389,24 @@ export interface ContextAPI {
   getClaudeMd: () => Promise<{ content: string | null } | { error: string }>
 
   /**
+   * Check if CLAUDE.md has uncommitted changes.
+   */
+  hasClaudeMdChanges: () => Promise<{ hasChanges: boolean; error?: string }>
+
+  /**
    * Save CLAUDE.md content to project root.
    */
   saveClaudeMd: (content: string) => Promise<{ success: true } | { error: string }>
+
+  /**
+   * Commit CLAUDE.md to git and sync to all worktrees.
+   */
+  commitAndSyncClaudeMd: () => Promise<{ success: true; synced: boolean } | { error: string }>
+
+  /**
+   * Subscribe to CLAUDE.md update events.
+   */
+  onClaudeMdUpdated: (callback: (data: { path: string }) => void) => () => void
 }
 
 /**
@@ -1214,6 +1460,25 @@ export interface PRAPI {
 }
 
 /**
+ * GitHub CLI API for checking and managing gh CLI status.
+ */
+export interface GitHubAPI {
+  /**
+   * Check if gh CLI is installed and authenticated.
+   */
+  checkGhCli: () => Promise<GhCliStatus>
+
+  /**
+   * Trigger gh auth login with web browser OAuth flow.
+   */
+  authLogin: () => Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }>
+}
+
+/**
  * Result from creating a FeatureMergeAgent.
  */
 export interface FeatureMergeCreateResult {
@@ -1253,12 +1518,18 @@ export interface FeatureMergeAPI {
   /**
    * Execute the merge (auto-approves and merges).
    */
-  execute: (featureId: string, deleteBranchOnSuccess?: boolean) => Promise<FeatureMergeResult>
+  execute: (featureId: string) => Promise<FeatureMergeResult>
 
   /**
    * Cleanup merge agent resources.
    */
   cleanup: (featureId: string) => Promise<{ success: boolean }>
+
+  /**
+   * Subscribe to streaming events from the merge agent.
+   * Returns unsubscribe function.
+   */
+  onStream: (callback: (data: { featureId: string; event: AgentStreamEvent }) => void) => () => void
 }
 
 /**
@@ -1834,6 +2105,16 @@ export interface ElectronAPI {
   sdkAgent: SdkAgentAPI
 
   /**
+   * Setup Agent API for conversational project setup
+   */
+  setupAgent: SetupAgentAPI
+
+  /**
+   * Unified Chat API for all interactive chat types
+   */
+  unifiedChat: UnifiedChatAPI
+
+  /**
    * Load agent configurations from storage
    */
   agentLoadConfigs: () => Promise<Record<AgentRole, AgentConfig>>
@@ -1877,6 +2158,11 @@ export interface ElectronAPI {
    * PR API for GitHub pull request operations
    */
   pr: PRAPI
+
+  /**
+   * GitHub CLI API for checking and managing gh CLI status
+   */
+  github: GitHubAPI
 
   /**
    * Feature Merge API for merging completed features into main

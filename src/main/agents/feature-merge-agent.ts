@@ -24,9 +24,17 @@ import { getGitManager, getFeatureBranchName } from '../git'
 import { getAgentService } from '../agent'
 import { RequestPriority } from '../agent/request-types'
 
+/** Git status data structure from getStatus() */
+interface GitStatusData {
+  current: string | null
+  conflicted: string[]
+  isClean: boolean
+}
+
 export class FeatureMergeAgent extends EventEmitter {
   private state: FeatureMergeAgentState
   private providedFeatureBranch?: string // Branch name from feature record (for legacy support)
+  private isAborted: boolean = false
 
   constructor(featureId: string, targetBranch: string = 'main', featureBranch?: string) {
     super()
@@ -239,6 +247,7 @@ export class FeatureMergeAgent extends EventEmitter {
         // Conflicts detected during merge
         this.state.status = 'resolving_conflicts'
         this.state.conflicts = result.conflicts
+        this.emit('feature-merge-agent:conflicts', result.conflicts)
 
         // Analyze conflicts using SDK
         const analysis = await this.analyzeConflicts(result.conflicts)
@@ -247,7 +256,29 @@ export class FeatureMergeAgent extends EventEmitter {
           this.emit('feature-merge-agent:analysis', analysis)
         }
 
-        this.emit('feature-merge-agent:conflicts', result.conflicts)
+        // Attempt to resolve conflicts using AI
+        const resolveResult = await this.resolveConflicts()
+        if (resolveResult.success) {
+          // Conflicts resolved, return success
+          return this.state.mergeResult!
+        } else {
+          // Resolution failed, update error state
+          this.state.status = 'failed'
+          this.state.error = resolveResult.error || 'Failed to resolve conflicts'
+          this.emit('feature-merge-agent:failed', {
+            success: false,
+            merged: false,
+            branchDeleted: false,
+            error: this.state.error
+          })
+          return {
+            success: false,
+            merged: false,
+            branchDeleted: false,
+            error: this.state.error,
+            conflicts: result.conflicts
+          }
+        }
       } else {
         this.state.status = 'failed'
         this.state.error = result.error || 'Merge failed'
@@ -310,6 +341,9 @@ export class FeatureMergeAgent extends EventEmitter {
         featureId: this.state.featureId,
         priority: RequestPriority.MERGE
       })) {
+        // Emit streaming events for log display
+        this.emit('feature-merge-agent:stream', event)
+
         if (event.type === 'message' && event.message?.type === 'assistant') {
           responseText += event.message.content
         }
@@ -323,6 +357,145 @@ export class FeatureMergeAgent extends EventEmitter {
       console.error('Feature merge conflict analysis failed:', error)
       return null
     }
+  }
+
+  /**
+   * Resolve conflicts using Claude SDK.
+   * This method uses AI to read conflicted files, understand the changes,
+   * and write resolutions that preserve both sides' intent.
+   */
+  async resolveConflicts(): Promise<{ success: boolean; error?: string }> {
+    if (this.state.conflicts.length === 0) {
+      return { success: true }
+    }
+
+    this.state.status = 'resolving_conflicts'
+    this.emit('feature-merge-agent:resolving', { conflicts: this.state.conflicts })
+
+    try {
+      const agentService = getAgentService()
+      const gitManager = getGitManager()
+      const prompt = this.buildConflictResolutionPrompt()
+
+      for await (const event of agentService.streamQuery({
+        prompt,
+        toolPreset: 'mergeAgent',
+        permissionMode: 'acceptEdits',
+        cwd: gitManager.getConfig().baseDir,
+        agentType: 'merge',
+        agentId: `feature-merge-${this.state.featureId}`,
+        featureId: this.state.featureId,
+        priority: RequestPriority.MERGE
+      })) {
+        // Check for abort
+        if (this.isAborted) {
+          console.log(`[FeatureMergeAgent] Aborted during conflict resolution`)
+          return { success: false, error: 'Resolution aborted by user' }
+        }
+
+        // Emit all streaming events for log display
+        this.emit('feature-merge-agent:stream', event)
+
+        if (event.type === 'error') {
+          return { success: false, error: event.error || 'Resolution failed' }
+        }
+      }
+
+      // Check if conflicts were resolved (no conflict markers remaining)
+      const statusResult = await gitManager.getStatus()
+      const statusData = statusResult.data as GitStatusData | undefined
+      const hasUnresolvedConflicts = (statusData?.conflicted?.length ?? 0) > 0
+
+      if (hasUnresolvedConflicts) {
+        return { success: false, error: 'Some conflicts could not be resolved automatically' }
+      }
+
+      // Stage resolved files and commit
+      const baseDir = gitManager.getConfig().baseDir
+      const commitResult = await gitManager.commitMerge(
+        baseDir,
+        `Merge ${this.state.featureBranch} into ${this.state.targetBranch} (AI-resolved conflicts)`
+      )
+
+      if (!commitResult.success) {
+        return { success: false, error: commitResult.error || 'Failed to commit resolved merge' }
+      }
+
+      this.state.status = 'completed'
+      this.state.completedAt = new Date().toISOString()
+      this.state.mergeResult = {
+        success: true,
+        merged: true,
+        branchDeleted: false
+      }
+
+      this.emit('feature-merge-agent:completed', this.state.mergeResult)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = (error as Error).message
+      this.state.status = 'failed'
+      this.state.error = errorMsg
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Build prompt for conflict resolution (AI will edit files).
+   */
+  private buildConflictResolutionPrompt(): string {
+    const parts: string[] = [
+      '# Merge Conflict Resolution Task',
+      '',
+      '## Context',
+      `You are resolving merge conflicts between:`,
+      `- Feature branch: ${this.state.featureBranch}`,
+      `- Target branch: ${this.state.targetBranch}`,
+      '',
+      '## Conflicts to Resolve',
+      `${this.state.conflicts.length} file(s) have conflicts:`,
+      ''
+    ]
+
+    for (const conflict of this.state.conflicts) {
+      parts.push(`- **${conflict.file}** (${conflict.type})`)
+    }
+
+    // Include analysis if available
+    if (this.state.conflictAnalysis) {
+      parts.push('')
+      parts.push('## Prior Analysis')
+      parts.push(`Recommendation: ${this.state.conflictAnalysis.recommendation}`)
+      parts.push('')
+      for (const detail of this.state.conflictAnalysis.conflictDetails) {
+        parts.push(`### ${detail.file}`)
+        parts.push(`Analysis: ${detail.analysis}`)
+        parts.push(`Suggested approach: ${detail.suggestedResolution}`)
+        parts.push('')
+      }
+    }
+
+    parts.push(
+      '',
+      '## Your Task',
+      '',
+      '1. Read each conflicted file using the Read tool',
+      '2. Understand the intent of BOTH sides of each conflict',
+      '3. Resolve conflicts by editing the files to merge changes intelligently:',
+      '   - Remove conflict markers (<<<<<<<, =======, >>>>>>>)',
+      '   - Combine changes when both sides added different things',
+      '   - Use the most recent/complete version when changes overlap',
+      '   - Preserve functionality from both branches',
+      '4. After editing each file, verify it has no syntax errors',
+      '',
+      '**Important:**',
+      '- Do NOT just pick one side - merge the changes thoughtfully',
+      '- Ensure the resulting code compiles/runs correctly',
+      '- Add git staging for each resolved file with `git add <file>`',
+      '',
+      'Resolve all conflicts now.'
+    )
+
+    return parts.join('\n')
   }
 
   /**
@@ -460,9 +633,24 @@ export class FeatureMergeAgent extends EventEmitter {
   }
 
   /**
+   * Abort the merge agent execution.
+   */
+  abort(): void {
+    console.log(`[FeatureMergeAgent ${this.state.featureId}] Aborting...`)
+    this.isAborted = true
+
+    // Interrupt the agent service stream
+    const agentService = getAgentService()
+    agentService.abort()
+  }
+
+  /**
    * Clean up resources.
    */
   async cleanup(): Promise<void> {
+    // Set abort flag to stop any running execution
+    this.abort()
+
     // Release from pool
     if (this.state.agentId) {
       const pool = getAgentPool()

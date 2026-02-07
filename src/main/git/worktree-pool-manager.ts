@@ -135,6 +135,7 @@ export class FeatureManagerPool extends EventEmitter {
 
           if (normalizedWtPath === normalizedExpectedPath || normalizedWtPath.endsWith(`/.dagent-worktrees/${managerName}`)) {
             entry.info.worktreePath = wt.path
+            entry.info.isInitialized = true
             entry.manager.setWorktreePath(wt.path)
             console.log(`[FeatureManagerPool] Found existing worktree for manager ${managerId} at ${wt.path}`)
           }
@@ -166,6 +167,7 @@ export class FeatureManagerPool extends EventEmitter {
       featureManagerId,
       branchName,
       worktreePath: null, // Worktree created lazily
+      isInitialized: false, // Worktree not yet created
       status: 'idle',
       currentFeatureId: null,
       queueLength: 0
@@ -213,6 +215,7 @@ export class FeatureManagerPool extends EventEmitter {
 
     // Update manager and info
     entry.info.worktreePath = worktreePath
+    entry.info.isInitialized = true
     entry.manager.setWorktreePath(worktreePath)
 
     this.emit('manager:initialized', { featureManagerId })

@@ -1,12 +1,57 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import {
   createFeatureMergeAgent,
   registerFeatureMergeAgent,
   getFeatureMergeAgent,
   removeFeatureMergeAgent
 } from '../agents/feature-merge-agent'
+import type { FeatureMergeAgent } from '../agents/feature-merge-agent'
+import type { AgentStreamEvent } from '../agent/types'
 import { getFeatureStore } from './storage-handlers'
 import { getGitManager } from '../git'
+
+// Track stream listeners for cleanup
+const streamListeners = new Map<string, () => void>()
+
+/**
+ * Setup streaming event relay for a merge agent.
+ */
+function setupStreamRelay(agent: FeatureMergeAgent, featureId: string): void {
+  // Clean up any existing listener
+  const existingCleanup = streamListeners.get(featureId)
+  if (existingCleanup) {
+    existingCleanup()
+  }
+
+  // Create stream event handler
+  const streamHandler = (event: AgentStreamEvent): void => {
+    // Send to all windows
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('feature-merge:stream', { featureId, event })
+      }
+    }
+  }
+
+  // Listen for stream events
+  agent.on('feature-merge-agent:stream', streamHandler)
+
+  // Store cleanup function
+  streamListeners.set(featureId, () => {
+    agent.removeListener('feature-merge-agent:stream', streamHandler)
+  })
+}
+
+/**
+ * Cleanup stream relay for a feature.
+ */
+function cleanupStreamRelay(featureId: string): void {
+  const cleanup = streamListeners.get(featureId)
+  if (cleanup) {
+    cleanup()
+    streamListeners.delete(featureId)
+  }
+}
 
 export function registerFeatureMergeAgentHandlers(): void {
   // Create and initialize merge agent
@@ -30,6 +75,8 @@ export function registerFeatureMergeAgentHandlers(): void {
     const initialized = await agent.initialize()
     if (initialized) {
       registerFeatureMergeAgent(agent)
+      // Setup streaming relay for log display
+      setupStreamRelay(agent, featureId)
     }
     return { success: initialized, state: agent.getState() }
   })
@@ -51,15 +98,15 @@ export function registerFeatureMergeAgentHandlers(): void {
   })
 
   // Auto-approve and execute merge (for AI Merge flow)
-  ipcMain.handle('feature-merge:execute', async (_event, featureId: string, deleteBranchOnSuccess: boolean = false) => {
+  ipcMain.handle('feature-merge:execute', async (_event, featureId: string) => {
     const agent = getFeatureMergeAgent(featureId)
     if (!agent) return { success: false, error: 'Agent not found' }
 
     // Auto-approve for AI merge
     agent.receiveApproval({ approved: true, type: 'approved' })
 
-    // Execute the merge
-    const result = await agent.executeMerge(deleteBranchOnSuccess)
+    // Execute the merge (never deletes branch - archiving handles cleanup)
+    const result = await agent.executeMerge()
     return result
   })
 
@@ -70,6 +117,8 @@ export function registerFeatureMergeAgentHandlers(): void {
       await agent.cleanup()
       removeFeatureMergeAgent(featureId)
     }
+    // Clean up stream relay
+    cleanupStreamRelay(featureId)
     return { success: true }
   })
 }

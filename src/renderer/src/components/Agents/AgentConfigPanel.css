@@ -94,8 +94,13 @@
 .agent-config__actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
+  justify-content: space-between;
   padding-top: var(--space-lg);
   border-top: 1px solid var(--border-default);
+}
+
+.agent-config__actions-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }

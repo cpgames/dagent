@@ -307,6 +307,25 @@ export class GitManager {
     }
   }
 
+  /**
+   * Discard all working directory changes (both staged and unstaged).
+   * WARNING: This is destructive and cannot be undone!
+   */
+  async discardChanges(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+    try {
+      // Reset staged changes
+      await this.git.reset(['HEAD'])
+      // Discard unstaged changes
+      await this.git.checkout(['--', '.'])
+      // Clean untracked files
+      await this.git.clean('f', ['-d'])
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
   // ============================================
   // Worktree Operations
   // ============================================
@@ -1033,12 +1052,11 @@ export class GitManager {
       await this.git.raw(['worktree', 'add', worktreePath, branchName])
       console.log(`[GitManager] Worktree created at: ${worktreePath}`)
 
-      // Create .dagent directory in pool worktree
-      const dagentPath = path.join(worktreePath, '.dagent')
-      await fs.mkdir(dagentPath, { recursive: true })
-      await fs.mkdir(path.join(dagentPath, 'nodes'), { recursive: true })
-      await fs.mkdir(path.join(dagentPath, 'sessions'), { recursive: true })
-      console.log(`[GitManager] Created .dagent directories in worktree`)
+      // Create .dagent/features directory in pool worktree
+      // Note: nodes and sessions folders are created per-feature, not at worktree level
+      const dagentFeaturesPath = path.join(worktreePath, '.dagent', 'features')
+      await fs.mkdir(dagentFeaturesPath, { recursive: true })
+      console.log(`[GitManager] Created .dagent/features directory in worktree`)
 
       console.log(`[GitManager] Manager worktree ${featureManagerId} created successfully at ${worktreePath}`)
       return { success: true }
@@ -1431,11 +1449,162 @@ export class GitManager {
   }
 
   /**
+   * Sync a worktree with a target branch by fetching and merging.
+   * Used to ensure worktree has latest changes from user's branch before task execution.
+   *
+   * @param worktreePath - Path to the worktree
+   * @param targetBranch - Branch to sync from (e.g., 'main', user's current branch)
+   * @returns Result with success status and any conflicts
+   */
+  async syncWorktreeWithBranch(
+    worktreePath: string,
+    targetBranch: string
+  ): Promise<MergeResult> {
+    this.ensureInitialized()
+
+    try {
+      console.log(`[GitManager] Syncing worktree ${worktreePath} with branch ${targetBranch}`)
+
+      const worktreeGit = simpleGit({ baseDir: worktreePath })
+
+      // Fetch latest from origin if available
+      try {
+        await worktreeGit.fetch()
+        console.log(`[GitManager] Fetched latest from origin`)
+      } catch {
+        // Ignore fetch errors (may be offline or no remote)
+        console.log(`[GitManager] Fetch skipped (no remote or offline)`)
+      }
+
+      // Check if there are uncommitted changes
+      const status = await worktreeGit.status()
+      if (!status.isClean()) {
+        console.log(`[GitManager] Worktree has uncommitted changes, skipping sync`)
+        return {
+          success: true,
+          merged: false,
+          error: 'Worktree has uncommitted changes, sync skipped'
+        }
+      }
+
+      // Try to merge target branch into worktree
+      try {
+        const result = await worktreeGit.merge([targetBranch, '--no-ff', '-m', `Sync with ${targetBranch}`])
+
+        if (result.failed) {
+          const mergeStatus = await worktreeGit.status()
+          const conflicts: MergeConflict[] = mergeStatus.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          // Abort merge on conflict
+          try {
+            await worktreeGit.merge(['--abort'])
+          } catch {
+            // Ignore abort errors
+          }
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected during sync'
+          }
+        }
+
+        console.log(`[GitManager] Worktree synced with ${targetBranch}`)
+        return {
+          success: true,
+          merged: true,
+          commitHash: (result as { hash?: string }).hash || undefined
+        }
+      } catch (mergeError) {
+        const errorMsg = (mergeError as Error).message
+
+        // Check for "Already up to date"
+        if (errorMsg.includes('Already up to date') || errorMsg.includes('Already up-to-date')) {
+          console.log(`[GitManager] Worktree already up to date with ${targetBranch}`)
+          return {
+            success: true,
+            merged: false
+          }
+        }
+
+        // Check for conflicts
+        const mergeStatus = await worktreeGit.status()
+        if (mergeStatus.conflicted.length > 0) {
+          const conflicts: MergeConflict[] = mergeStatus.conflicted.map((file) => ({
+            file,
+            type: 'both_modified' as const
+          }))
+
+          // Abort merge
+          try {
+            await worktreeGit.merge(['--abort'])
+          } catch {
+            // Ignore abort errors
+          }
+
+          return {
+            success: false,
+            merged: false,
+            conflicts,
+            error: 'Merge conflicts detected during sync'
+          }
+        }
+
+        throw mergeError
+      }
+    } catch (error) {
+      console.error(`[GitManager] Failed to sync worktree:`, error)
+      return {
+        success: false,
+        merged: false,
+        error: (error as Error).message
+      }
+    }
+  }
+
+  /**
    * Ensure GitManager is initialized before operations.
    */
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error('GitManager not initialized. Call initialize(projectRoot) first.')
+    }
+  }
+
+  /**
+   * Check if CLAUDE.md has uncommitted changes (untracked, modified, or staged).
+   * Returns hasChanges: true if there are changes to commit.
+   */
+  async hasClaudeMdChanges(): Promise<{ hasChanges: boolean; error?: string }> {
+    this.ensureInitialized()
+
+    try {
+      const claudeMdPath = 'CLAUDE.md'
+      const fullPath = path.join(this.config.baseDir, claudeMdPath)
+
+      // Check if CLAUDE.md exists
+      try {
+        await fs.access(fullPath)
+      } catch {
+        // CLAUDE.md doesn't exist - no changes
+        return { hasChanges: false }
+      }
+
+      // Check git status for CLAUDE.md specifically
+      const status = await this.git.status()
+
+      const isUntracked = status.not_added.includes(claudeMdPath)
+      const isModified = status.modified.includes(claudeMdPath)
+      const isStaged = status.staged.includes(claudeMdPath)
+
+      return { hasChanges: isUntracked || isModified || isStaged }
+    } catch (error) {
+      console.error('[GitManager] Failed to check CLAUDE.md status:', error)
+      return { hasChanges: false, error: (error as Error).message }
     }
   }
 
@@ -1487,6 +1656,59 @@ export class GitManager {
       return { success: true }
     } catch (error) {
       console.error('[GitManager] Failed to commit CLAUDE.md:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Sync CLAUDE.md from the current branch to all worktrees.
+   * Uses `git checkout <source-branch> -- CLAUDE.md` in each worktree.
+   * This pulls the committed CLAUDE.md into each worktree without merging.
+   */
+  async syncClaudeMdToWorktrees(): Promise<GitOperationResult> {
+    this.ensureInitialized()
+
+    try {
+      // Get the current branch name (source of CLAUDE.md)
+      const currentBranch = await this.git.revparse(['--abbrev-ref', 'HEAD'])
+      const worktreesDir = path.join(this.config.baseDir, '.dagent-worktrees')
+
+      // Check if worktrees directory exists
+      try {
+        await fs.access(worktreesDir)
+      } catch {
+        // No worktrees yet - nothing to sync
+        console.log('[GitManager] No worktrees directory, nothing to sync')
+        return { success: true }
+      }
+
+      // Get all worktree directories
+      const entries = await fs.readdir(worktreesDir, { withFileTypes: true })
+      const worktreeDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name)
+
+      if (worktreeDirs.length === 0) {
+        console.log('[GitManager] No worktrees found, nothing to sync')
+        return { success: true }
+      }
+
+      // Sync CLAUDE.md to each worktree
+      for (const worktreeName of worktreeDirs) {
+        const worktreePath = path.join(worktreesDir, worktreeName)
+        try {
+          // Use simple-git in the worktree directory
+          const worktreeGit = simpleGit(worktreePath)
+          // Checkout CLAUDE.md from the source branch
+          await worktreeGit.checkout([currentBranch, '--', 'CLAUDE.md'])
+          console.log(`[GitManager] Synced CLAUDE.md to worktree: ${worktreeName}`)
+        } catch (err) {
+          // Log but don't fail - some worktrees might not have the branch available
+          console.warn(`[GitManager] Failed to sync CLAUDE.md to worktree ${worktreeName}:`, err)
+        }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('[GitManager] Failed to sync CLAUDE.md to worktrees:', error)
       return { success: false, error: (error as Error).message }
     }
   }

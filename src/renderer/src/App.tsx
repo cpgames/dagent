@@ -11,6 +11,7 @@ import {
   ProjectSelector,
   GitInitDialog
 } from './components/Project'
+import { GitHubSetupDialog } from './components/Git'
 import { ViewSidebar, StatusBar } from './components/Layout'
 import {
   UnifiedCanvas,
@@ -42,6 +43,7 @@ function App(): React.JSX.Element {
   const [projectSelectionDialogOpen, setProjectSelectionDialogOpen] = useState(false)
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false)
   const [gitInitDialogOpen, setGitInitDialogOpen] = useState(false)
+  const [githubSetupDialogOpen, setGithubSetupDialogOpen] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const [appVersion, setAppVersion] = useState('')
 
@@ -100,6 +102,25 @@ function App(): React.JSX.Element {
     }
   }, [initialized, projectPath])
 
+  // Check gh CLI status on startup - show setup dialog if not configured
+  useEffect(() => {
+    if (initialized && projectPath) {
+      const checkGhCli = async (): Promise<void> => {
+        try {
+          const status = await window.electronAPI.github.checkGhCli()
+          if (!status.installed || !status.authenticated) {
+            setGithubSetupDialogOpen(true)
+          }
+        } catch (err) {
+          console.error('Failed to check gh CLI status:', err)
+          // Show dialog on error to guide user
+          setGithubSetupDialogOpen(true)
+        }
+      }
+      checkGhCli()
+    }
+  }, [initialized, projectPath])
+
   // Auto-open auth dialog when auth fails and loading completes
   useEffect(() => {
     if (!authLoading && !authState.authenticated && authState.error) {
@@ -125,8 +146,8 @@ function App(): React.JSX.Element {
     // Create feature (now instant - no worktree)
     const feature = await createFeature(data.name, {
       description: data.description,
-      completionAction: data.completionAction,
-      autoStart: data.autoStart
+      autoStart: data.autoStart,
+      worktreeId: data.worktreeId
     })
 
     if (feature) {
@@ -151,8 +172,10 @@ function App(): React.JSX.Element {
     setNewProjectDialogOpen(true)
   }
 
-  const handleNewProjectSuccess = (_projectPath: string): void => {
+  const handleNewProjectSuccess = (): void => {
     setNewProjectDialogOpen(false)
+    // Navigate to Context view for CLAUDE.md generation via Setup Agent
+    setView('context')
   }
 
   const handleNewProjectClose = (): void => {
@@ -286,7 +309,7 @@ function App(): React.JSX.Element {
           {/* Main content area with sidebar */}
           <div className="flex-1 flex overflow-hidden">
             <ViewSidebar />
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1 flex flex-col overflow-hidden">
               {activeView === 'kanban' && (
                 <KanbanView
                   selectedManagerFilters={selectedManagerFilters}
@@ -329,6 +352,10 @@ function App(): React.JSX.Element {
           onInitGit={handleInitGit}
           onOpenAnother={handleOpenAnotherProject}
           onRefresh={handleRefreshGitStatus}
+        />
+        <GitHubSetupDialog
+          isOpen={githubSetupDialogOpen}
+          onClose={() => setGithubSetupDialogOpen(false)}
         />
       </ErrorBoundary>
     </ThemeProvider>

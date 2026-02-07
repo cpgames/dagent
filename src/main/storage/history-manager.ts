@@ -5,13 +5,15 @@ import type { DAGGraph, DAGVersion, DAGHistory, HistoryState } from '@shared/typ
 const MAX_VERSIONS = 20
 
 export class HistoryManager {
-  private projectRoot: string
-  private featureId: string
+  private featureDir: string
   private history: DAGHistory
 
-  constructor(projectRoot: string, featureId: string) {
-    this.projectRoot = projectRoot
-    this.featureId = featureId
+  /**
+   * Create a HistoryManager for a specific feature directory.
+   * @param featureDir - The full path to the feature's directory (e.g., .dagent/features/backlog/{featureId}/)
+   */
+  constructor(featureDir: string) {
+    this.featureDir = featureDir
     this.history = {
       versions: [],
       currentIndex: -1,
@@ -20,13 +22,7 @@ export class HistoryManager {
   }
 
   private getHistoryDir(): string {
-    return join(
-      this.projectRoot,
-      '.dagent-worktrees',
-      this.featureId,
-      '.dagent',
-      'dag_history'
-    )
+    return join(this.featureDir, 'dag_history')
   }
 
   /**
@@ -174,18 +170,32 @@ export class HistoryManager {
   }
 }
 
-// Cache of history managers per feature
+// Cache of history managers per feature directory
 const historyManagers: Map<string, HistoryManager> = new Map()
 
-export function getHistoryManager(projectRoot: string, featureId: string): HistoryManager {
-  const key = `${projectRoot}:${featureId}`
-  let manager = historyManagers.get(key)
+/**
+ * Get or create a HistoryManager for a feature.
+ * @param featureDir - The full path to the feature's directory
+ */
+export function getHistoryManagerForDir(featureDir: string): HistoryManager {
+  let manager = historyManagers.get(featureDir)
   if (!manager) {
-    manager = new HistoryManager(projectRoot, featureId)
+    manager = new HistoryManager(featureDir)
     manager.load()
-    historyManagers.set(key, manager)
+    historyManagers.set(featureDir, manager)
   }
   return manager
+}
+
+/**
+ * @deprecated Use getHistoryManagerForDir instead with the correct feature directory path.
+ * This function exists for backward compatibility but uses incorrect paths.
+ */
+export function getHistoryManager(projectRoot: string, featureId: string): HistoryManager {
+  // This is deprecated - callers should use getHistoryManagerForDir with the correct path
+  // For now, we'll try to use backlog path as a fallback
+  const backlogPath = join(projectRoot, '.dagent', 'features', 'backlog', featureId)
+  return getHistoryManagerForDir(backlogPath)
 }
 
 export function clearHistoryManagers(): void {

@@ -8,7 +8,7 @@
  * Current implementation prioritizes simplicity and zero dependencies.
  */
 
-import type { TokenEstimate, ChatMessage, Checkpoint, SessionContext, AgentDescription } from '../../shared/types/session'
+import type { TokenEstimate, ChatMessage, Memory, SessionContext, AgentDescription } from '../../shared/types/session'
 
 /**
  * Token limit threshold (100k tokens).
@@ -64,20 +64,18 @@ export function estimateMessagesTokens(messages: ChatMessage[]): number {
 }
 
 /**
- * Estimate tokens for checkpoint data.
+ * Estimate tokens for memory data.
  *
- * @param checkpoint - Checkpoint to estimate
+ * @param memory - Memory to estimate
  * @returns Estimated token count
  */
-export function estimateCheckpointTokens(checkpoint: Checkpoint): number {
+export function estimateMemoryTokens(memory: Memory): number {
   let total = 0
 
-  // Summary sections
-  total += estimateTokens(checkpoint.summary.completed.join('\n'))
-  total += estimateTokens(checkpoint.summary.inProgress.join('\n'))
-  total += estimateTokens(checkpoint.summary.pending.join('\n'))
-  total += estimateTokens(checkpoint.summary.blockers.join('\n'))
-  total += estimateTokens(checkpoint.summary.decisions.join('\n'))
+  // Summary sections (importance-based)
+  total += estimateTokens(memory.summary.critical.join('\n'))
+  total += estimateTokens(memory.summary.important.join('\n'))
+  total += estimateTokens(memory.summary.minor.join('\n'))
 
   // Add overhead for structure
   total += 50  // ~50 tokens for JSON structure
@@ -219,49 +217,35 @@ export function formatContextAsPrompt(context: SessionContext): string {
 }
 
 /**
- * Format checkpoint as system prompt section.
+ * Format memory as system prompt section.
+ * Uses importance-based prioritization.
  *
- * @param checkpoint - Checkpoint data
- * @returns Formatted checkpoint string
+ * @param memory - Memory data
+ * @returns Formatted memory string
  */
-export function formatCheckpointAsPrompt(checkpoint: Checkpoint): string {
+export function formatMemoryAsPrompt(memory: Memory): string {
   const sections: string[] = []
 
-  sections.push('## Session Checkpoint')
-  sections.push(`*Last updated: ${new Date(checkpoint.updatedAt).toLocaleString()}*`)
+  sections.push('## Context Summary')
   sections.push('')
 
-  if (checkpoint.summary.completed.length > 0) {
-    sections.push('### Completed')
-    checkpoint.summary.completed.forEach(item => sections.push(`- ${item}`))
+  if (memory.summary.critical.length > 0) {
+    sections.push('**Critical:**')
+    memory.summary.critical.forEach(item => sections.push(`- ${item}`))
     sections.push('')
   }
 
-  if (checkpoint.summary.inProgress.length > 0) {
-    sections.push('### In Progress')
-    checkpoint.summary.inProgress.forEach(item => sections.push(`- ${item}`))
+  if (memory.summary.important.length > 0) {
+    sections.push('**Important:**')
+    memory.summary.important.forEach(item => sections.push(`- ${item}`))
     sections.push('')
   }
 
-  if (checkpoint.summary.pending.length > 0) {
-    sections.push('### Pending')
-    checkpoint.summary.pending.forEach(item => sections.push(`- ${item}`))
+  if (memory.summary.minor.length > 0) {
+    sections.push('**Minor:**')
+    memory.summary.minor.forEach(item => sections.push(`- ${item}`))
     sections.push('')
   }
-
-  if (checkpoint.summary.blockers.length > 0) {
-    sections.push('### Blockers')
-    checkpoint.summary.blockers.forEach(item => sections.push(`- ${item}`))
-    sections.push('')
-  }
-
-  if (checkpoint.summary.decisions.length > 0) {
-    sections.push('### Key Decisions')
-    checkpoint.summary.decisions.forEach(item => sections.push(`- ${item}`))
-    sections.push('')
-  }
-
-  sections.push(`*${checkpoint.stats.totalMessages} messages compacted from ${checkpoint.compactionInfo.messagesCompacted} conversations*`)
 
   return sections.join('\n')
 }
@@ -298,18 +282,18 @@ export function formatMessagesAsPrompt(messages: ChatMessage[]): string {
 export function estimateRequest(options: {
   agentDescription: AgentDescription
   context: SessionContext
-  checkpoint?: Checkpoint
+  memory?: Memory
   messages: ChatMessage[]
   userPrompt: string
 }): TokenEstimate {
   const agentDescriptionTokens = estimateAgentDescriptionTokens(options.agentDescription)
   const contextTokens = estimateContextTokens(options.context)
-  const checkpointTokens = options.checkpoint ? estimateCheckpointTokens(options.checkpoint) : 0
+  const memoryTokens = options.memory ? estimateMemoryTokens(options.memory) : 0
   const messagesTokens = estimateMessagesTokens(options.messages)
   const userPromptTokens = estimateTokens(options.userPrompt)
 
-  // System prompt = Agent Description + Context + Checkpoint + Messages
-  const systemPromptTokens = agentDescriptionTokens + contextTokens + checkpointTokens + messagesTokens
+  // System prompt = Agent Description + Context + Memory + Messages
+  const systemPromptTokens = agentDescriptionTokens + contextTokens + memoryTokens + messagesTokens
 
   const total = systemPromptTokens + userPromptTokens
 
@@ -328,22 +312,22 @@ export function estimateRequest(options: {
  * This helps decide if compaction is worth doing.
  *
  * @param messages - Messages that would be compacted
- * @param currentCheckpoint - Current checkpoint (if any)
+ * @param currentMemory - Current memory (if any)
  * @returns Estimated tokens reclaimed
  */
 export function estimateTokensReclaimed(
   messages: ChatMessage[],
-  currentCheckpoint?: Checkpoint
+  currentMemory?: Memory
 ): number {
   const currentMessagesTokens = estimateMessagesTokens(messages)
-  const currentCheckpointTokens = currentCheckpoint ? estimateCheckpointTokens(currentCheckpoint) : 0
+  const currentMemoryTokens = currentMemory ? estimateMemoryTokens(currentMemory) : 0
 
-  // Assume new checkpoint will be ~30% of original size (conservative estimate)
+  // Assume new memory will be ~30% of original size (conservative estimate)
   // This is based on Claude's ability to compress conversation into summary
-  const estimatedNewCheckpointTokens = (currentMessagesTokens + currentCheckpointTokens) * 0.3
+  const estimatedNewMemoryTokens = (currentMessagesTokens + currentMemoryTokens) * 0.3
 
-  // Tokens reclaimed = (current messages + current checkpoint) - new checkpoint
-  const reclaimed = (currentMessagesTokens + currentCheckpointTokens) - estimatedNewCheckpointTokens
+  // Tokens reclaimed = (current messages + current memory) - new memory
+  const reclaimed = (currentMessagesTokens + currentMemoryTokens) - estimatedNewMemoryTokens
 
   return Math.max(0, reclaimed)
 }

@@ -17,12 +17,11 @@ export const TOOL_PRESETS = {
   // QA Agent - read-only code review (no write/edit)
   qaAgent: ['Read', 'Glob', 'Grep', 'Bash'],
 
-  // PM Agent - read + full task management (CRUD + dependency inference) + spec management + decomposition
-  // DEPRECATED: Use investigationAgent or planningAgent instead
-  pmAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask', 'CreateSpec', 'UpdateSpec', 'GetSpec', 'DecomposeSpec'],
+  // Feature Agent - read + task management + spec management + DAG operations
+  featureAgent: ['Read', 'Glob', 'Grep', 'CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask', 'CreateSpec', 'UpdateSpec', 'GetSpec', 'DAGAddNode', 'DAGAddConnection', 'DAGRemoveNode', 'DAGRemoveConnection'],
 
-  // Investigation Agent - codebase exploration + spec writing
-  investigationAgent: ['Read', 'Glob', 'Grep', 'CreateSpec', 'UpdateSpec', 'GetSpec'],
+  // Project Agent - codebase exploration + CLAUDE.md + feature management
+  projectAgent: ['Read', 'Glob', 'Grep', 'WriteClaudeMd', 'GetFeatures', 'AddFeature'],
 
   // No tools - basic chat only
   none: []

@@ -73,7 +73,6 @@ export async function getDAGManager(featureId: string, projectRoot: string): Pro
   const key = `${projectRoot}:${featureId}`
 
   if (!dagManagers.has(key)) {
-    console.log(`[DAGManager] Creating new manager for ${featureId} (key: ${key})`)
     const config: DAGManagerConfig = {
       featureId,
       projectRoot,
@@ -84,8 +83,6 @@ export async function getDAGManager(featureId: string, projectRoot: string): Pro
 
     // Set up broadcasting for this new manager
     setupEventBroadcasting(manager, featureId, key)
-  } else {
-    console.log(`[DAGManager] Reusing existing manager for ${featureId} (key: ${key})`)
   }
 
   return dagManagers.get(key)!

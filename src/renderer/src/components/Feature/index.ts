@@ -1,4 +1,4 @@
-export { NewFeatureDialog, type FeatureCreateData } from './NewFeatureDialog';
+export { FeatureDialog, NewFeatureDialog, type FeatureCreateData, type FeatureEditData } from './NewFeatureDialog';
 export { DeleteFeatureDialog } from './DeleteFeatureDialog';
 export { FeatureMergeDialog } from './FeatureMergeDialog';
 export { FeatureDescription } from './FeatureDescription';

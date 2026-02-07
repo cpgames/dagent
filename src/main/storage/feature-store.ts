@@ -1,4 +1,4 @@
-import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage, Task, CompletionAction } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, DevAgentSession, DevAgentMessage, Task, WorktreeId } from '@shared/types';
 import { readJson, writeJson, exists } from './json-store';
 import * as paths from './paths';
 import { promises as fs } from 'fs';
@@ -18,10 +18,10 @@ export class FeatureStore {
   /**
    * Create a new feature with generated ID.
    * @param name - Human-readable feature name (e.g., "My Feature")
-   * @param options - Optional feature configuration (description, attachments, completionAction)
+   * @param options - Optional feature configuration (description, attachments)
    * @returns Created Feature object
    */
-  async createFeature(name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction}): Promise<Feature> {
+  async createFeature(name: string, options?: {description?: string, attachments?: string[], worktreeId?: WorktreeId}): Promise<Feature> {
     // Check if feature with same name already exists
     const features = await this.listFeatures();
     for (const featureId of features) {
@@ -57,7 +57,7 @@ export class FeatureStore {
       updatedAt: now,
       description: options?.description,
       attachments: options?.attachments,
-      completionAction: options?.completionAction ?? 'manual'
+      worktreeId: options?.worktreeId || 'neon' // Default to 'neon' if not specified
     };
 
     // Ensure pending features directory exists

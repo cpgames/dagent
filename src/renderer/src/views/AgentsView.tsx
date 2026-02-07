@@ -5,7 +5,7 @@ import { AgentConfigPanel } from '../components/Agents'
 import type { AgentRole } from '@shared/types'
 import './AgentsView.css'
 
-const ROLE_ORDER: AgentRole[] = ['pm', 'developer', 'qa', 'merge']
+const ROLE_ORDER: AgentRole[] = ['feature', 'developer', 'qa', 'merge', 'project']
 
 /**
  * Agents View - Configure AI agents

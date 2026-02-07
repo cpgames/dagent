@@ -35,6 +35,8 @@ export interface DockablePanelProps {
   onUngroupPanel: (panelId: PanelId) => void
   onSetActiveTab: (groupId: string, panelId: PanelId) => void
   onUpdateGroupPosition: (groupId: string, position: PanelPosition) => void
+  onBringPanelToFront: (panelId: PanelId) => void
+  onBringGroupToFront: (groupId: string) => void
   onShowLogs?: () => void
   // Task details props
   selectedTask?: Task | null
@@ -100,6 +102,8 @@ export function DockablePanel({
   onUngroupPanel,
   onSetActiveTab,
   onUpdateGroupPosition,
+  onBringPanelToFront,
+  onBringGroupToFront,
   onShowLogs,
   selectedTask,
   taskSession,
@@ -770,8 +774,79 @@ export function DockablePanel({
     )
   }
 
+  // Constrain position and size to keep panel visible within container
+  // Scales down panels that are too large for the viewport
+  const constrainToViewport = useCallback((
+    x: number,
+    y: number,
+    panelWidth: number,
+    panelHeight: number,
+    minWidth: number,
+    minHeight: number
+  ): { x: number; y: number; width: number; height: number } => {
+    if (containerSize.width === 0 || containerSize.height === 0) {
+      return { x, y, width: panelWidth, height: panelHeight }
+    }
+
+    const padding = 8
+    const maxWidth = containerSize.width - padding * 2
+    const maxHeight = containerSize.height - padding * 2
+
+    // Scale down dimensions if too large for container
+    let constrainedWidth = panelWidth
+    let constrainedHeight = panelHeight
+
+    if (constrainedWidth > maxWidth) {
+      constrainedWidth = Math.max(minWidth, maxWidth)
+    }
+    if (constrainedHeight > maxHeight) {
+      constrainedHeight = Math.max(minHeight, maxHeight)
+    }
+
+    // Constrain X position
+    let constrainedX = x
+    // Don't go past left edge
+    if (constrainedX < padding) {
+      constrainedX = padding
+    }
+    // Don't go past right edge
+    if (constrainedX + constrainedWidth > containerSize.width - padding) {
+      constrainedX = containerSize.width - constrainedWidth - padding
+    }
+    // Final check: ensure at least at padding
+    if (constrainedX < padding) {
+      constrainedX = padding
+    }
+
+    // Constrain Y position
+    let constrainedY = y
+    // Don't go past top edge
+    if (constrainedY < padding) {
+      constrainedY = padding
+    }
+    // Don't go past bottom edge
+    if (constrainedY + constrainedHeight > containerSize.height - padding) {
+      constrainedY = containerSize.height - constrainedHeight - padding
+    }
+    // Final check: ensure at least at padding
+    if (constrainedY < padding) {
+      constrainedY = padding
+    }
+
+    return { x: constrainedX, y: constrainedY, width: constrainedWidth, height: constrainedHeight }
+  }, [containerSize])
+
   // Get style for a panel or group
-  const getStyle = useCallback((position: PanelPosition, panelWidth: number, panelHeight: number, isDragging: boolean, isResizing: boolean): React.CSSProperties => {
+  const getStyle = useCallback((
+    position: PanelPosition,
+    panelWidth: number,
+    panelHeight: number,
+    minWidth: number,
+    minHeight: number,
+    zIndex: number,
+    isDragging: boolean,
+    isResizing: boolean
+  ): React.CSSProperties => {
     // If resizing, use resize dimensions
     if (isResizing && resizeSize && resizePosition) {
       return {
@@ -780,11 +855,11 @@ export function DockablePanel({
         top: resizePosition.y,
         width: resizeSize.width,
         height: resizeSize.height,
-        zIndex: 100
+        zIndex: 1000 // Always on top while resizing
       }
     }
 
-    // If dragging, use drag position
+    // If dragging, use drag position (no constraints during drag)
     if (isDragging && dragPosition) {
       return {
         position: 'absolute',
@@ -792,13 +867,15 @@ export function DockablePanel({
         top: dragPosition.y,
         width: panelWidth,
         height: panelHeight,
-        zIndex: 100
+        zIndex: 1000 // Always on top while dragging
       }
     }
 
     // Calculate position based on snap or free position
     let x: number
     let y: number
+    let width = panelWidth
+    let height = panelHeight
 
     if (position.snap) {
       const snapPos = getSnapPositionStyle(
@@ -815,14 +892,22 @@ export function DockablePanel({
       y = position.y
     }
 
+    // Constrain panels to viewport and scale down if needed
+    const constrained = constrainToViewport(x, y, width, height, minWidth, minHeight)
+    x = constrained.x
+    y = constrained.y
+    width = constrained.width
+    height = constrained.height
+
     return {
       position: 'absolute',
       left: x,
       top: y,
-      width: panelWidth,
-      height: panelHeight
+      width,
+      height,
+      zIndex
     }
-  }, [containerSize, dragPosition, resizeSize, resizePosition])
+  }, [containerSize, dragPosition, resizeSize, resizePosition, constrainToViewport])
 
   // Render a standalone panel
   const renderStandalonePanel = (panelId: PanelId): JSX.Element => {
@@ -832,13 +917,14 @@ export function DockablePanel({
     const config = PANEL_CONFIGS[panelId]
     const panelWidth = position.width || config.defaultWidth
     const panelHeight = position.height || config.defaultHeight
+    const panelZIndex = position.zIndex || 1
 
     const isDragging = dragState?.type === 'panel' && dragState.panelId === panelId
     const isResizing = resizeState?.type === 'panel' && resizeState.panelId === panelId
     const isDropTarget = hoverDropTarget?.panelId === panelId
 
     // Update bounds for drop detection
-    const style = getStyle(position, panelWidth, panelHeight, isDragging, isResizing)
+    const style = getStyle(position, panelWidth, panelHeight, config.minWidth, config.minHeight, panelZIndex, isDragging, isResizing)
     const bounds: PanelBounds = {
       panelId,
       x: typeof style.left === 'number' ? style.left : 0,
@@ -859,6 +945,7 @@ export function DockablePanel({
         key={panelId}
         className={`dockable-panel__panel ${isDragging ? 'dockable-panel__panel--dragging' : ''} ${isResizing ? 'dockable-panel__panel--resizing' : ''} ${isDropTarget ? 'dockable-panel__panel--drop-target' : ''}`}
         style={style}
+        onMouseDownCapture={() => onBringPanelToFront(panelId)}
       >
         {renderResizeHandles(panelId, undefined)}
 
@@ -891,12 +978,13 @@ export function DockablePanel({
     const config = PANEL_CONFIGS[activePanel]
     const panelWidth = group.position.width || config.defaultWidth
     const panelHeight = group.position.height || config.defaultHeight
+    const groupZIndex = group.zIndex || 1
 
     const isDragging = dragState?.type === 'group' && dragState.groupId === group.id
     const isResizing = resizeState?.type === 'group' && resizeState.groupId === group.id
     const isDropTarget = hoverDropTarget?.groupId === group.id
 
-    const style = getStyle(group.position, panelWidth, panelHeight, isDragging, isResizing)
+    const style = getStyle(group.position, panelWidth, panelHeight, config.minWidth, config.minHeight, groupZIndex, isDragging, isResizing)
 
     // Update bounds for drop detection
     const bounds: PanelBounds = {
@@ -918,6 +1006,7 @@ export function DockablePanel({
         key={group.id}
         className={`dockable-panel__panel dockable-panel__panel--grouped ${isDragging ? 'dockable-panel__panel--dragging' : ''} ${isResizing ? 'dockable-panel__panel--resizing' : ''} ${isDropTarget ? 'dockable-panel__panel--drop-target' : ''}`}
         style={style}
+        onMouseDownCapture={() => onBringGroupToFront(group.id)}
       >
         {renderResizeHandles(undefined, group.id)}
 

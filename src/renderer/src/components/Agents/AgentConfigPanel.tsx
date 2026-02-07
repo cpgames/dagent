@@ -16,30 +16,45 @@ const PERMISSION_OPTIONS = [
   { value: 'bypassPermissions', label: 'Bypass All (full autonomy)' },
 ]
 
+const MODEL_OPTIONS = [
+  { value: '', label: 'Sonnet 4.5 (Default)' },
+  { value: 'claude-opus-4-6', label: 'Opus 4.6 (Latest)' },
+  { value: 'claude-opus-4-5', label: 'Opus 4.5' },
+  { value: 'claude-haiku-4-5', label: 'Haiku 4.5 (Fast)' },
+]
+
 export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.Element {
-  const { configs, updateConfig, runtimeStatus } = useAgentStore()
+  const { configs, updateConfig, resetConfig, runtimeStatus } = useAgentStore()
   const config = configs[role]
   const status = runtimeStatus[role]
 
   // Local state for editing
   const [instructions, setInstructions] = useState(config.instructions)
   const [permissionMode, setPermissionMode] = useState(config.permissionMode)
+  const [model, setModel] = useState(config.model || '')
   const [isSaving, setIsSaving] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   // Reset local state when role changes
   useEffect(() => {
     setInstructions(config.instructions)
     setPermissionMode(config.permissionMode)
+    setModel(config.model || '')
   }, [config])
 
   const hasChanges =
     instructions !== config.instructions ||
-    permissionMode !== config.permissionMode
+    permissionMode !== config.permissionMode ||
+    model !== (config.model || '')
 
   const handleSave = async (): Promise<void> => {
     setIsSaving(true)
     try {
-      await updateConfig(role, { instructions, permissionMode })
+      await updateConfig(role, {
+        instructions,
+        permissionMode,
+        model: model || undefined // Convert empty string to undefined
+      })
     } finally {
       setIsSaving(false)
     }
@@ -48,6 +63,21 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
   const handleReset = (): void => {
     setInstructions(config.instructions)
     setPermissionMode(config.permissionMode)
+    setModel(config.model || '')
+  }
+
+  const handleResetToDefault = async (): Promise<void> => {
+    setIsResetting(true)
+    try {
+      const freshConfig = await resetConfig(role)
+      if (freshConfig) {
+        setInstructions(freshConfig.instructions)
+        setPermissionMode(freshConfig.permissionMode)
+        setModel(freshConfig.model || '')
+      }
+    } finally {
+      setIsResetting(false)
+    }
   }
 
   return (
@@ -92,6 +122,19 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
         />
       </div>
 
+      {/* Model selection */}
+      <div className="agent-config__field">
+        <label className="agent-config__label">Model</label>
+        <Select
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          options={MODEL_OPTIONS}
+        />
+        <p className="agent-config__hint">
+          Override the default Claude model for this agent
+        </p>
+      </div>
+
       {/* Tools display (read-only for now) */}
       <div className="agent-config__field">
         <label className="agent-config__label">Allowed Tools</label>
@@ -106,19 +149,28 @@ export function AgentConfigPanel({ role, onClose }: AgentConfigPanelProps): JSX.
 
       {/* Actions */}
       <div className="agent-config__actions">
-        {hasChanges && (
-          <Button variant="ghost" onClick={handleReset}>
-            Reset
-          </Button>
-        )}
         <Button
-          variant="primary"
-          onClick={handleSave}
-          disabled={!hasChanges}
-          loading={isSaving}
+          variant="ghost"
+          onClick={handleResetToDefault}
+          disabled={isResetting}
         >
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          {isResetting ? 'Resetting...' : 'Reset to Default'}
         </Button>
+        <div className="agent-config__actions-right">
+          {hasChanges && (
+            <Button variant="ghost" onClick={handleReset}>
+              Discard
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            disabled={!hasChanges}
+            loading={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
     </div>
   )

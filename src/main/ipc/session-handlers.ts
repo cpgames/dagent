@@ -9,7 +9,7 @@ import { getSessionManager } from '../services/session-manager'
 import type {
   CreateSessionOptions,
   ChatMessage,
-  Checkpoint,
+  Memory,
   SessionContext,
   AgentDescription,
   Session
@@ -187,11 +187,11 @@ export function registerSessionHandlers(): void {
   )
 
   // ============================================
-  // Checkpoint Operations
+  // Memory Operations
   // ============================================
 
   /**
-   * Get checkpoint for a session.
+   * Get memory for a session.
    */
   ipcMain.handle(
     'session:getCheckpoint',
@@ -200,14 +200,14 @@ export function registerSessionHandlers(): void {
       projectRoot: string,
       sessionId: string,
       featureId: string
-    ): Promise<Checkpoint | null> => {
+    ): Promise<Memory | null> => {
       const manager = getSessionManager(projectRoot)
-      return await manager.getCheckpoint(sessionId, featureId)
+      return await manager.getMemory(sessionId, featureId)
     }
   )
 
   /**
-   * Update checkpoint for a session.
+   * Update memory for a session.
    */
   ipcMain.handle(
     'session:updateCheckpoint',
@@ -216,10 +216,10 @@ export function registerSessionHandlers(): void {
       projectRoot: string,
       sessionId: string,
       featureId: string,
-      checkpoint: Checkpoint
+      memory: Memory
     ): Promise<void> => {
       const manager = getSessionManager(projectRoot)
-      await manager.updateCheckpoint(sessionId, featureId, checkpoint)
+      await manager.updateMemory(sessionId, featureId, memory)
     }
   )
 
@@ -380,7 +380,7 @@ export function registerSessionHandlers(): void {
       breakdown: {
         agentDescTokens: number
         contextTokens: number
-        checkpointTokens: number
+        memoryTokens: number
         messagesTokens: number
         userPromptTokens: number
         total: number

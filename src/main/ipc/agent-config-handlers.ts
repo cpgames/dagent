@@ -6,7 +6,7 @@ import { DEFAULT_AGENT_CONFIGS } from '@shared/types'
 
 let currentProjectRoot: string | null = null
 
-const ALL_ROLES: AgentRole[] = ['pm', 'developer', 'qa', 'merge']
+const ALL_ROLES: AgentRole[] = ['feature', 'developer', 'qa', 'merge', 'project']
 
 /**
  * Set the project root for agent config operations.
@@ -116,16 +116,30 @@ export async function getAgentInstructions(role: AgentRole): Promise<string> {
 }
 
 /**
+ * Get the full config for a specific agent role.
+ * Returns model, instructions, permissionMode, etc.
+ */
+export async function getAgentConfig(role: AgentRole): Promise<AgentConfig> {
+  if (!currentProjectRoot) {
+    // No project loaded, return defaults
+    return { role, ...DEFAULT_AGENT_CONFIGS[role] }
+  }
+
+  return loadAgentConfig(currentProjectRoot, role)
+}
+
+/**
  * Get runtime status for all agents from the agent pool.
  * Maps pool agent types to configured roles.
  */
 async function getRuntimeStatus(): Promise<Record<AgentRole, AgentRuntimeStatus>> {
   // Default all roles to offline
   const status: Record<AgentRole, AgentRuntimeStatus> = {
-    pm: { role: 'pm', status: 'idle' }, // PM is always "idle" - it's MCP tools, not a spawned agent
+    feature: { role: 'feature', status: 'idle' }, // Feature is always "idle" - it's MCP tools, not a spawned agent
     developer: { role: 'developer', status: 'offline' },
     qa: { role: 'qa', status: 'offline' },
-    merge: { role: 'merge', status: 'offline' }
+    merge: { role: 'merge', status: 'offline' },
+    project: { role: 'project', status: 'idle' } // Project is always "idle" - it's chat-based, not a spawned agent
   }
 
   // Try to get live status from agent pool

@@ -43,25 +43,6 @@ export function registerPRHandlers(): void {
       cwd: projectRoot
     })
 
-    // Save PR URL to feature after successful PR creation
-    // Note: We don't auto-archive - user decides when to archive
-    if (result.success && request.featureId && result.prUrl) {
-      try {
-        const featureStore = getFeatureStore()
-        if (featureStore) {
-          const feature = await featureStore.loadFeature(request.featureId)
-          if (feature) {
-            feature.prUrl = result.prUrl
-            await featureStore.saveFeature(feature)
-            console.log(`[PR] Saved PR URL to feature ${request.featureId}: ${result.prUrl}`)
-          }
-        }
-      } catch (error) {
-        // Log error but don't fail PR creation - PR is already created
-        console.error(`[PR] Failed to save PR URL for feature ${request.featureId}:`, error)
-      }
-    }
-
     return result
   })
 
@@ -128,7 +109,7 @@ Keep it brief and focused on what was implemented. Do not include test plans or 
 
         for await (const event of agentService.streamQuery({
           prompt,
-          agentType: 'pm',
+          agentType: 'feature',
           featureId,
           cwd: feature.worktreePath || projectRoot,
           permissionMode: 'default',

@@ -1,7 +1,7 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { FeatureStore } from '../storage/feature-store';
 import { initializeLayoutStore } from '../storage/dag-layout-store';
-import type { Feature, DAGGraph, ChatHistory, AgentLog, CompletionAction } from '@shared/types';
+import type { Feature, DAGGraph, ChatHistory, AgentLog, WorktreeId } from '@shared/types';
 
 let featureStore: FeatureStore | null = null;
 let currentProjectRoot: string | null = null;
@@ -45,6 +45,28 @@ function getStore(): FeatureStore {
 }
 
 /**
+ * Create a feature and notify frontend.
+ * Shared function used by both IPC handlers and MCP tools.
+ */
+export async function createFeature(
+  name: string,
+  options?: { description?: string; attachments?: string[]; worktreeId?: WorktreeId }
+): Promise<Feature> {
+  const store = getStore()
+  const feature = await store.createFeature(name, options)
+
+  // Notify frontend to refresh feature list
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('feature:created', { featureId: feature.id, name: feature.name })
+    }
+  }
+
+  return feature
+}
+
+/**
  * Register all storage-related IPC handlers.
  * Handles CRUD operations for features, DAGs, chats, and logs.
  */
@@ -71,13 +93,9 @@ export function registerStorageHandlers(): void {
     return featureStore.listFeatures();
   });
 
-  ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => {
-    console.log('[storage:createFeature] Called with:', { name, options });
-    console.log('[storage:createFeature] options type:', typeof options);
-    console.log('[storage:createFeature] options.attachments:', options?.attachments, 'type:', typeof options?.attachments);
-    const feature = await getStore().createFeature(name, options);
-    console.log('[storage:createFeature] Feature created:', feature);
-    return feature;
+  ipcMain.handle('storage:createFeature', async (_event, name: string, options?: {description?: string, attachments?: string[], autoStart?: boolean, worktreeId?: WorktreeId}) => {
+    // Use shared createFeature function (emits event to notify frontend)
+    return createFeature(name, options);
   });
 
   ipcMain.handle('storage:featureExists', async (_event, name: string) => {

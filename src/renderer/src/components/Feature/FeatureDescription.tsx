@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, type JSX } from 'react'
 import { useFeatureStore } from '../../stores'
 import { Button } from '../UI'
 import { toast } from '../../stores/toast-store'
-import type { CompletionAction } from '@shared/types'
 import './FeatureDescription.css'
 
 export interface FeatureDescriptionProps {
@@ -23,7 +22,6 @@ export function FeatureDescription({
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [completionAction, setCompletionAction] = useState<CompletionAction>('manual')
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -35,7 +33,6 @@ export function FeatureDescription({
     if (feature) {
       setName(feature.name)
       setDescription(feature.description || '')
-      setCompletionAction(feature.completionAction || 'manual')
       setHasChanges(false)
     }
   }, [feature])
@@ -55,10 +52,9 @@ export function FeatureDescription({
     if (feature) {
       const nameChanged = name !== feature.name
       const descChanged = description !== (feature.description || '')
-      const actionChanged = completionAction !== (feature.completionAction || 'manual')
-      setHasChanges(nameChanged || descChanged || actionChanged)
+      setHasChanges(nameChanged || descChanged)
     }
-  }, [name, description, completionAction, feature])
+  }, [name, description, feature])
 
   const handleSave = async (): Promise<void> => {
     if (!feature || !hasChanges) return
@@ -68,8 +64,7 @@ export function FeatureDescription({
       await saveFeature({
         ...feature,
         name: name.trim(),
-        description: description.trim() || undefined,
-        completionAction
+        description: description.trim() || undefined
       })
       setHasChanges(false)
     } finally {

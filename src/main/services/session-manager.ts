@@ -2,13 +2,13 @@
  * Session Manager Service
  *
  * Centralized service for managing conversation sessions across all agent types.
- * Handles session lifecycle, message storage, and automatic checkpoint compaction.
+ * Handles session lifecycle, message storage, and automatic memory compaction.
  *
  * Key responsibilities:
  * - Create/load/save sessions
  * - Add messages to sessions
  * - Trigger compaction when token limit approached
- * - Manage session files (chat, checkpoint, context, agent-description)
+ * - Manage session files (chat, memory, context, agent-description)
  */
 
 import * as fs from 'fs/promises'
@@ -18,7 +18,7 @@ import type {
   Session,
   ChatSession,
   ChatMessage,
-  Checkpoint,
+  Memory,
   SessionContext,
   AgentDescription,
   CreateSessionOptions,
@@ -28,11 +28,11 @@ import {
   estimateRequest,
   estimateMessagesTokens,
   formatContextAsPrompt,
-  formatCheckpointAsPrompt,
+  formatMemoryAsPrompt,
   formatMessagesAsPrompt,
   estimateAgentDescriptionTokens,
   estimateContextTokens,
-  estimateCheckpointTokens,
+  estimateMemoryTokens,
   estimateTokens
 } from './token-estimator'
 import { BrowserWindow } from 'electron'
@@ -46,7 +46,7 @@ import * as storagePaths from '../storage/paths'
  */
 export class SessionManager {
   private activeSessions: Map<string, Session> = new Map()
-  private projectRoot: string
+  readonly projectRoot: string
   private compactingSessionIds: Set<string> = new Set()
 
   constructor(projectRoot: string) {
@@ -116,7 +116,7 @@ export class SessionManager {
       status: 'active',
       files: {
         chat: `chat_${sessionId}.json`,
-        checkpoint: `checkpoint_${sessionId}.json`,
+        memory: `memory_${sessionId}.json`,
         context: `context_${sessionId}.json`,
         agentDescription: `agent-description_${sessionId}.json`
       },
@@ -133,17 +133,15 @@ export class SessionManager {
       totalMessages: 0
     }
 
-    // Create initial checkpoint
-    const checkpoint: Checkpoint = {
+    // Create initial memory
+    const memory: Memory = {
       version: 1,
       createdAt: timestamp,
       updatedAt: timestamp,
       summary: {
-        completed: [],
-        inProgress: [],
-        pending: [],
-        blockers: [],
-        decisions: []
+        critical: [],
+        important: [],
+        minor: []
       },
       compactionInfo: {
         messagesCompacted: 0,
@@ -161,7 +159,7 @@ export class SessionManager {
     // Save all files
     await this.saveSession(session)
     await this.saveChatSession(session, chatSession)
-    await this.saveCheckpoint(session, checkpoint)
+    await this.saveMemory(session, memory)
 
     return session
   }
@@ -363,44 +361,44 @@ export class SessionManager {
   }
 
   // ============================================
-  // Checkpoint Operations
+  // Memory Operations
   // ============================================
 
   /**
-   * Get current checkpoint for a session.
+   * Get current memory for a session.
    *
    * @param sessionId - Session ID
    * @param featureId - Feature ID
-   * @returns Checkpoint or null
+   * @returns Memory or null
    */
-  async getCheckpoint(sessionId: string, featureId: string): Promise<Checkpoint | null> {
+  async getMemory(sessionId: string, featureId: string): Promise<Memory | null> {
     const session = await this.getSessionById(sessionId, featureId)
     if (!session) return null
 
-    return await this.loadCheckpoint(session)
+    return await this.loadMemory(session)
   }
 
   /**
-   * Update checkpoint for a session.
+   * Update memory for a session.
    *
    * @param sessionId - Session ID
    * @param featureId - Feature ID
-   * @param checkpoint - New checkpoint data
+   * @param memory - New memory data
    */
-  async updateCheckpoint(
+  async updateMemory(
     sessionId: string,
     featureId: string,
-    checkpoint: Checkpoint
+    memory: Memory
   ): Promise<void> {
     const session = await this.getSessionById(sessionId, featureId)
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`)
     }
 
-    checkpoint.updatedAt = new Date().toISOString()
+    memory.updatedAt = new Date().toISOString()
     session.updatedAt = new Date().toISOString()
 
-    await this.saveCheckpoint(session, checkpoint)
+    await this.saveMemory(session, memory)
     await this.saveSession(session)
   }
 
@@ -423,25 +421,25 @@ export class SessionManager {
     const session = await this.getSessionById(sessionId, featureId)
     if (!session) return null
 
-    const checkpoint = await this.loadCheckpoint(session)
+    const memory = await this.loadMemory(session)
     const chatSession = await this.loadChatSession(session)
 
-    // If we have a checkpoint, use its stats
-    if (checkpoint) {
-      // Add current message tokens to checkpoint total
+    // If we have a memory, use its stats
+    if (memory) {
+      // Add current message tokens to memory total
       const currentMessageTokens = chatSession
         ? estimateMessagesTokens(chatSession.messages)
         : 0
 
       return {
-        totalCompactions: checkpoint.stats.totalCompactions,
-        totalMessagesCompacted: checkpoint.stats.totalMessages,
-        totalTokens: checkpoint.stats.totalTokens + currentMessageTokens,
-        lastCompactionAt: checkpoint.compactionInfo.compactedAt
+        totalCompactions: memory.stats.totalCompactions,
+        totalMessagesCompacted: memory.stats.totalMessages,
+        totalTokens: memory.stats.totalTokens + currentMessageTokens,
+        lastCompactionAt: memory.compactionInfo.compactedAt
       }
     }
 
-    // No checkpoint yet - estimate tokens from current messages
+    // No memory yet - estimate tokens from current messages
     if (chatSession) {
       const currentTokens = estimateMessagesTokens(chatSession.messages)
       return {
@@ -491,12 +489,13 @@ export class SessionManager {
 
     // Load components to estimate request size
     const chatSession = await this.loadChatSession(session)
-    const checkpoint = await this.loadCheckpoint(session)
+    const memory = await this.loadMemory(session)
     const context = await this.loadContext(session)
     const agentDescription = await this.loadAgentDescription(session)
 
     if (!chatSession || !context || !agentDescription) {
-      console.warn(`[SessionManager] Missing session components for compaction check: ${session.id}`)
+      // Missing components is expected for unified chat sessions that don't use
+      // the full DevAgent session structure - skip compaction check silently
       return
     }
 
@@ -504,7 +503,7 @@ export class SessionManager {
     const estimate = estimateRequest({
       agentDescription,
       context,
-      checkpoint: checkpoint || undefined,
+      memory: memory || undefined,
       messages: chatSession.messages,
       userPrompt: '' // Empty for estimation
     })
@@ -520,8 +519,8 @@ export class SessionManager {
   }
 
   /**
-   * Compact a session by merging messages into checkpoint.
-   * This creates an updated checkpoint and clears the message history.
+   * Compact a session by merging messages into memory.
+   * This creates an updated memory and clears the message history.
    *
    * @param sessionId - Session ID to compact
    */
@@ -544,7 +543,7 @@ export class SessionManager {
 
       // Load components
       const chatSession = await this.loadChatSession(session)
-      const checkpoint = await this.loadCheckpoint(session)
+      const memory = await this.loadMemory(session)
 
       if (!chatSession || chatSession.messages.length === 0) {
         console.warn(`[SessionManager] No messages to compact for ${sessionId}`)
@@ -571,9 +570,9 @@ export class SessionManager {
       }
 
       // Build compaction prompt
-      const prompt = buildCompactionPrompt(checkpoint, chatSession.messages)
+      const prompt = buildCompactionPrompt(memory, chatSession.messages)
 
-      // Call Claude to compact messages into checkpoint
+      // Call Claude to compact messages into memory
       const agentService = getAgentService()
       let responseText = ''
 
@@ -599,11 +598,11 @@ export class SessionManager {
       // Parse compaction result
       const newSummary = parseCompactionResult(responseText)
 
-      // Create updated checkpoint
+      // Create updated memory
       const now = new Date().toISOString()
-      const newCheckpoint: Checkpoint = {
-        version: (checkpoint?.version || 0) + 1,
-        createdAt: checkpoint?.createdAt || now,
+      const newMemory: Memory = {
+        version: (memory?.version || 0) + 1,
+        createdAt: memory?.createdAt || now,
         updatedAt: now,
         summary: newSummary,
         compactionInfo: {
@@ -613,9 +612,9 @@ export class SessionManager {
           compactedAt: now
         },
         stats: {
-          totalCompactions: (checkpoint?.stats.totalCompactions || 0) + 1,
-          totalMessages: (checkpoint?.stats.totalMessages || 0) + chatSession.messages.length,
-          totalTokens: (checkpoint?.stats.totalTokens || 0) + estimatedTokens
+          totalCompactions: (memory?.stats.totalCompactions || 0) + 1,
+          totalMessages: (memory?.stats.totalMessages || 0) + chatSession.messages.length,
+          totalTokens: (memory?.stats.totalTokens || 0) + estimatedTokens
         }
       }
 
@@ -630,13 +629,13 @@ export class SessionManager {
       session.stats.lastCompactionAt = now
       session.updatedAt = now
 
-      // Save updated checkpoint and empty chat session
-      await this.saveCheckpoint(session, newCheckpoint)
+      // Save updated memory and empty chat session
+      await this.saveMemory(session, newMemory)
       await this.saveChatSession(session, clearedChatSession)
       await this.saveSession(session)
 
       console.log(
-        `[SessionManager] Compacted ${chatSession.messages.length} messages for session ${sessionId} (checkpoint v${newCheckpoint.version})`
+        `[SessionManager] Compacted ${chatSession.messages.length} messages for session ${sessionId} (memory v${newMemory.version})`
       )
 
       // Emit complete event
@@ -648,7 +647,7 @@ export class SessionManager {
             taskId: session.taskId,
             messagesCompacted: chatSession.messages.length,
             tokensReclaimed: estimatedTokens,
-            newCheckpointVersion: newCheckpoint.version,
+            newMemoryVersion: newMemory.version,
             compactedAt: now
           })
         }
@@ -817,7 +816,7 @@ export class SessionManager {
 
     // Load all components (create chat session if missing)
     const chatSession = await this.loadOrCreateChatSession(session)
-    const checkpoint = await this.loadCheckpoint(session)
+    const memory = await this.loadMemory(session)
     const context = await this.loadContext(session)
     const agentDescription = await this.loadAgentDescription(session)
 
@@ -842,10 +841,10 @@ export class SessionManager {
     systemPromptParts.push('')
     systemPromptParts.push(formatContextAsPrompt(context))
 
-    // Checkpoint (if exists)
-    if (checkpoint) {
+    // Memory (if exists)
+    if (memory) {
       systemPromptParts.push('')
-      systemPromptParts.push(formatCheckpointAsPrompt(checkpoint))
+      systemPromptParts.push(formatMemoryAsPrompt(memory))
     }
 
     // Recent messages
@@ -861,7 +860,7 @@ export class SessionManager {
     const estimate = estimateRequest({
       agentDescription,
       context,
-      checkpoint: checkpoint || undefined,
+      memory: memory || undefined,
       messages: chatSession.messages,
       userPrompt: userMessage
     })
@@ -892,7 +891,7 @@ export class SessionManager {
     breakdown: {
       agentDescTokens: number
       contextTokens: number
-      checkpointTokens: number
+      memoryTokens: number
       messagesTokens: number
       userPromptTokens: number
       total: number
@@ -906,7 +905,7 @@ export class SessionManager {
 
     // Load all components (create chat session if missing)
     const chatSession = await this.loadOrCreateChatSession(session)
-    const checkpoint = await this.loadCheckpoint(session)
+    const memory = await this.loadMemory(session)
     const context = await this.loadContext(session)
     const agentDescription = await this.loadAgentDescription(session)
 
@@ -931,10 +930,10 @@ export class SessionManager {
     systemPromptParts.push('')
     systemPromptParts.push(formatContextAsPrompt(context))
 
-    // Checkpoint (if exists)
-    if (checkpoint) {
+    // Memory (if exists)
+    if (memory) {
       systemPromptParts.push('')
-      systemPromptParts.push(formatCheckpointAsPrompt(checkpoint))
+      systemPromptParts.push(formatMemoryAsPrompt(memory))
     }
 
     // Recent messages
@@ -949,10 +948,10 @@ export class SessionManager {
     // Calculate detailed token breakdown
     const agentDescTokens = estimateAgentDescriptionTokens(agentDescription)
     const contextTokens = estimateContextTokens(context)
-    const checkpointTokens = checkpoint ? estimateCheckpointTokens(checkpoint) : 0
+    const memoryTokens = memory ? estimateMemoryTokens(memory) : 0
     const messagesTokens = estimateMessagesTokens(chatSession.messages)
     const userPromptTokens = estimateTokens(userPrompt)
-    const total = agentDescTokens + contextTokens + checkpointTokens + messagesTokens + userPromptTokens
+    const total = agentDescTokens + contextTokens + memoryTokens + messagesTokens + userPromptTokens
 
     return {
       systemPrompt,
@@ -960,7 +959,7 @@ export class SessionManager {
       breakdown: {
         agentDescTokens,
         contextTokens,
-        checkpointTokens,
+        memoryTokens,
         messagesTokens,
         userPromptTokens,
         total
@@ -1008,11 +1007,11 @@ export class SessionManager {
   }
 
   /**
-   * Get checkpoint file path.
+   * Get memory file path.
    */
-  private async getCheckpointPath(session: Session): Promise<string> {
+  private async getMemoryPath(session: Session): Promise<string> {
     const sessionDir = await this.getSessionDir(session.featureId)
-    return path.join(sessionDir, session.files.checkpoint)
+    return path.join(sessionDir, session.files.memory)
   }
 
   /**
@@ -1103,22 +1102,22 @@ export class SessionManager {
   }
 
   /**
-   * Save checkpoint to disk.
+   * Save memory to disk.
    */
-  private async saveCheckpoint(session: Session, checkpoint: Checkpoint): Promise<void> {
-    const checkpointPath = await this.getCheckpointPath(session)
-    await fs.mkdir(path.dirname(checkpointPath), { recursive: true })
-    await fs.writeFile(checkpointPath, JSON.stringify(checkpoint, null, 2))
+  private async saveMemory(session: Session, memory: Memory): Promise<void> {
+    const memoryPath = await this.getMemoryPath(session)
+    await fs.mkdir(path.dirname(memoryPath), { recursive: true })
+    await fs.writeFile(memoryPath, JSON.stringify(memory, null, 2))
   }
 
   /**
-   * Load checkpoint from disk.
+   * Load memory from disk.
    */
-  private async loadCheckpoint(session: Session): Promise<Checkpoint | null> {
-    const checkpointPath = await this.getCheckpointPath(session)
+  private async loadMemory(session: Session): Promise<Memory | null> {
+    const memoryPath = await this.getMemoryPath(session)
 
     try {
-      const data = await fs.readFile(checkpointPath, 'utf-8')
+      const data = await fs.readFile(memoryPath, 'utf-8')
       return JSON.parse(data)
     } catch {
       return null
@@ -1204,6 +1203,11 @@ let sessionManagerInstance: SessionManager | null = null
  * @returns SessionManager instance
  */
 export function getSessionManager(projectRoot?: string): SessionManager {
+  // If projectRoot is provided and different from current instance, reset
+  if (projectRoot && sessionManagerInstance && sessionManagerInstance.projectRoot !== projectRoot) {
+    sessionManagerInstance = new SessionManager(projectRoot)
+  }
+
   if (!sessionManagerInstance && projectRoot) {
     sessionManagerInstance = new SessionManager(projectRoot)
   }

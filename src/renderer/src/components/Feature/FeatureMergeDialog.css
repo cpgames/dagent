@@ -12,7 +12,7 @@
 .merge-dialog__body {
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* No scroll on body - textarea handles its own scroll */
+  overflow-y: auto; /* Allow scroll when content overflows */
   flex: 1; /* Stretch to fill dialog */
   height: auto; /* Override fixed 60vh from base dialog */
 }
@@ -202,5 +202,195 @@
 .merge-dialog__generating {
   font-weight: normal;
   font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Log Panel */
+.merge-dialog__log-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+  max-height: 300px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.merge-dialog__log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.merge-dialog__log-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.merge-dialog__log-spinner {
+  width: 1rem;
+  height: 1rem;
+}
+
+.merge-dialog__log-entries {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.merge-dialog__log-entry {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.merge-dialog__log-entry--info {
+  color: var(--text-muted);
+}
+
+.merge-dialog__log-entry--message {
+  color: var(--text-secondary);
+}
+
+.merge-dialog__log-entry--tool_use {
+  background: rgba(var(--accent-primary-rgb), 0.1);
+  color: var(--accent-primary);
+}
+
+.merge-dialog__log-entry--tool_result {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.merge-dialog__log-entry--error {
+  background: var(--color-error-dim);
+  color: var(--color-error);
+}
+
+.merge-dialog__log-entry--streaming {
+  color: var(--accent-secondary);
+  opacity: 0.8;
+}
+
+.merge-dialog__log-timestamp {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 5rem;
+}
+
+.merge-dialog__log-tool {
+  color: var(--accent-primary);
+  font-weight: 500;
+  flex-shrink: 0;
+  padding: 0 var(--space-xs);
+  background: rgba(var(--accent-primary-rgb), 0.15);
+  border-radius: var(--radius-sm);
+}
+
+.merge-dialog__log-content {
+  flex: 1;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.merge-dialog__log-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-lg);
+  font-style: italic;
+}
+
+/* Uncommitted Changes Panel */
+.merge-dialog__uncommitted-panel {
+  background: var(--color-warning-dim);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  flex-shrink: 0;
+}
+
+.merge-dialog__uncommitted-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: 500;
+  color: var(--color-warning);
+  margin-bottom: var(--space-sm);
+}
+
+.merge-dialog__uncommitted-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.merge-dialog__uncommitted-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.merge-dialog__uncommitted-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merge-dialog__uncommitted-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.merge-dialog__uncommitted-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-hover);
+}
+
+.merge-dialog__uncommitted-btn svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.merge-dialog__uncommitted-btn--stash svg {
+  color: var(--accent-primary);
+}
+
+.merge-dialog__uncommitted-btn--discard svg {
+  color: var(--color-error);
+}
+
+.merge-dialog__uncommitted-btn--abort svg {
+  color: var(--text-muted);
+}
+
+.merge-dialog__uncommitted-btn-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.merge-dialog__uncommitted-btn-desc {
+  font-size: 0.75rem;
   color: var(--text-muted);
 }

@@ -33,9 +33,6 @@ export function getFeatureStatusLabel(status: FeatureStatus): string {
   return FEATURE_STATUS_LABELS[status] || status
 }
 
-/** Action to take when feature is completed */
-export type CompletionAction = 'manual' | 'auto_pr' | 'auto_merge'
-
 /** Execution mode for task development */
 export type ExecutionMode = 'auto' | 'step'
 
@@ -65,11 +62,7 @@ export interface Feature {
   branch?: string // Branch name (e.g., dagent/neon)
 
   // Settings
-  completionAction?: CompletionAction // Action when feature completes (defaults to 'manual')
   executionMode?: ExecutionMode // How tasks are executed: 'auto' (default) or 'step' (manual per-task)
-
-  // PR tracking
-  prUrl?: string // URL to the created pull request (if any)
 }
 
 /**

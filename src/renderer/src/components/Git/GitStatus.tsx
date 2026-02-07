@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { JSX } from 'react'
 import { useGitStore } from '../../stores'
 import { BranchSwitcher } from './BranchSwitcher'
+import { PublishToGitHubDialog } from './PublishToGitHubDialog'
 
 /**
  * Git branch icon
@@ -31,6 +32,38 @@ function ChevronIcon({ className, isOpen }: { className?: string; isOpen: boolea
       viewBox="0 0 24 24"
     >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+/**
+ * Cloud icon for remote status
+ */
+function CloudIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Cloud off icon for no remote
+ */
+function CloudOffIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+      />
     </svg>
   )
 }
@@ -109,14 +142,63 @@ function ChangeCounts({
 }
 
 /**
+ * Convert a git remote URL to a browser-friendly URL.
+ * Handles both SSH (git@github.com:user/repo.git) and HTTPS formats.
+ */
+function getRemoteBrowserUrl(remoteUrl: string): string | null {
+  if (!remoteUrl) return null
+
+  // Handle SSH format: git@github.com:user/repo.git
+  const sshMatch = remoteUrl.match(/^git@([^:]+):(.+?)(?:\.git)?$/)
+  if (sshMatch) {
+    const [, host, path] = sshMatch
+    return `https://${host}/${path}`
+  }
+
+  // Handle HTTPS format: https://github.com/user/repo.git
+  const httpsMatch = remoteUrl.match(/^https?:\/\/([^/]+)\/(.+?)(?:\.git)?$/)
+  if (httpsMatch) {
+    const [, host, path] = httpsMatch
+    return `https://${host}/${path}`
+  }
+
+  // Fallback: return as-is if it looks like a URL
+  if (remoteUrl.startsWith('http')) {
+    return remoteUrl.replace(/\.git$/, '')
+  }
+
+  return null
+}
+
+/**
  * GitStatus component displays current git branch and status in status bar.
  * Shows branch name, dirty indicator, ahead/behind counts, and change counts.
  * Click to open branch switcher dropdown for switching branches.
  */
 export function GitStatus(): JSX.Element {
-  const { currentBranch, isLoading, error, isDirty, staged, modified, untracked, ahead, behind } =
-    useGitStore()
+  const {
+    currentBranch,
+    isLoading,
+    error,
+    isDirty,
+    staged,
+    modified,
+    untracked,
+    ahead,
+    behind,
+    hasRemote,
+    remotes,
+    loadRemotes
+  } = useGitStore()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
+
+  // Load remotes when we have a branch (project is loaded)
+  useEffect(() => {
+    if (currentBranch) {
+      loadRemotes()
+    }
+  }, [currentBranch, loadRemotes])
 
   const toggleDropdown = (): void => {
     setIsDropdownOpen((prev) => !prev)
@@ -124,6 +206,24 @@ export function GitStatus(): JSX.Element {
 
   const closeDropdown = (): void => {
     setIsDropdownOpen(false)
+  }
+
+  const openPublishDialog = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    setIsPublishDialogOpen(true)
+  }
+
+  const closePublishDialog = (): void => {
+    setIsPublishDialogOpen(false)
+  }
+
+  const openRemoteInBrowser = (): void => {
+    if (remotes.length > 0) {
+      const browserUrl = getRemoteBrowserUrl(remotes[0].fetchUrl)
+      if (browserUrl) {
+        window.open(browserUrl, '_blank')
+      }
+    }
   }
 
   // Loading state
@@ -147,9 +247,9 @@ export function GitStatus(): JSX.Element {
   }
 
   // Normal state - show branch name with status indicators and dropdown
-  // Layout: [branch-icon] main [chevron] [dirty-dot] [ahead/behind] [change-counts]
+  // Layout: [branch-icon] main [chevron] [dirty-dot] [ahead/behind] [change-counts] [remote-status]
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-2">
       <button
         className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
         title={`Current branch: ${currentBranch}. Click to switch branches.`}
@@ -162,7 +262,29 @@ export function GitStatus(): JSX.Element {
         <AheadBehindIndicator ahead={ahead} behind={behind} />
         <ChangeCounts staged={staged} modified={modified} untracked={untracked} />
       </button>
+
+      {/* Remote status indicator */}
+      {hasRemote ? (
+        <button
+          className="flex items-center text-green-500 hover:text-green-400 transition-colors"
+          title={`${remotes.map(r => `${r.name}: ${r.fetchUrl}`).join('\n')}\n\nClick to open in browser`}
+          onClick={openRemoteInBrowser}
+        >
+          <CloudIcon className="w-3.5 h-3.5" />
+        </button>
+      ) : (
+        <button
+          className="flex items-center gap-1 text-yellow-500 hover:text-yellow-400 transition-colors text-xs"
+          title="No remote configured. Click to publish to GitHub."
+          onClick={openPublishDialog}
+        >
+          <CloudOffIcon className="w-3.5 h-3.5" />
+          <span>Publish</span>
+        </button>
+      )}
+
       <BranchSwitcher isOpen={isDropdownOpen} onClose={closeDropdown} />
+      <PublishToGitHubDialog isOpen={isPublishDialogOpen} onClose={closePublishDialog} />
     </div>
   )
 }

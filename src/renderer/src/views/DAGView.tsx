@@ -160,7 +160,9 @@ function DAGViewInner({
     groupPanels,
     ungroupPanel,
     setActiveTab,
-    updateGroupPosition
+    updateGroupPosition,
+    bringPanelToFront,
+    bringGroupToFront
   } = usePanelLayout()
 
   // Edge selection state - store source/target directly to avoid parsing edge IDs
@@ -738,6 +740,8 @@ function DAGViewInner({
       onUngroupPanel={ungroupPanel}
       onSetActiveTab={setActiveTab}
       onUpdateGroupPosition={updateGroupPosition}
+      onBringPanelToFront={bringPanelToFront}
+      onBringGroupToFront={bringGroupToFront}
       onShowLogs={handleShowPMLogs}
       selectedTask={selectedTask || undefined}
       taskSession={selectedTaskSession}

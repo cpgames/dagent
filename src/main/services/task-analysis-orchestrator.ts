@@ -410,8 +410,8 @@ export class TaskAnalysisOrchestrator {
           for await (const event of agentService.streamQuery({
             prompt,
             cwd: projectRoot,
-            toolPreset: 'pmAgent',
-            agentType: 'pm',
+            toolPreset: 'featureAgent',
+            agentType: 'feature',
             featureId,
             permissionMode: 'default'
           })) {

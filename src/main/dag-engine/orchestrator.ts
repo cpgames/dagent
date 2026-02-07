@@ -39,8 +39,6 @@ function getTaskPoolManager(): TaskPoolStub {
 }
 function resetTaskPoolManager(): void { /* noop */ }
 import { getDevAgent, getAllDevAgents, removeDevAgent, getAgentPool } from '../agents'
-import { createFeatureMergeAgent, registerFeatureMergeAgent, removeFeatureMergeAgent } from '../agents/feature-merge-agent'
-import { getPRService } from '../github'
 import { getFeatureStatusManager } from '../ipc/feature-handlers'
 import { createQAAgent, registerQAAgent, getQAAgent, removeQAAgent, getAllQAAgents, clearQAAgents } from '../agents/qa-agent'
 import type { QAReviewResult } from '../agents/qa-types'
@@ -228,6 +226,28 @@ export class ExecutionOrchestrator extends EventEmitter {
         // Ensure worktree exists and get the path (creates lazily if needed)
         this.state.worktreePath = await managerPool.ensureWorktree(assignment.featureManagerId)
         console.log(`[Orchestrator] Worktree path: ${this.state.worktreePath}`)
+      }
+
+      // Sync worktree with user's current branch before starting execution
+      if (this.state.worktreePath) {
+        console.log(`[Orchestrator] Syncing worktree with ${targetBranch}...`)
+        const syncResult = await gitManager.syncWorktreeWithBranch(this.state.worktreePath, targetBranch)
+        if (syncResult.success) {
+          if (syncResult.merged) {
+            console.log(`[Orchestrator] Worktree synced with ${targetBranch}`)
+          } else {
+            console.log(`[Orchestrator] Worktree already up to date with ${targetBranch}`)
+          }
+        } else if (syncResult.conflicts && syncResult.conflicts.length > 0) {
+          console.error(`[Orchestrator] Sync conflicts detected:`, syncResult.conflicts)
+          return {
+            success: false,
+            error: `Cannot start: ${syncResult.conflicts.length} merge conflict(s) with ${targetBranch}. Resolve conflicts manually before starting.`
+          }
+        } else {
+          // Non-conflict error (e.g., uncommitted changes) - log but continue
+          console.warn(`[Orchestrator] Sync warning: ${syncResult.error}`)
+        }
       }
     } catch (error) {
       console.error('[Orchestrator] Failed to assign feature to pool:', error)
@@ -466,7 +486,6 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Transition feature to completed when all tasks complete.
-   * Handles completion actions (auto_merge, auto_pr, manual).
    */
   private async transitionToCompleted(): Promise<void> {
     if (!this.state.featureId) return
@@ -478,7 +497,7 @@ export class ExecutionOrchestrator extends EventEmitter {
     this.state.stoppedAt = new Date().toISOString()
     this.stopLoop()
 
-    // Update feature status to completed
+    // Update feature status to merging
     const featureStore = getFeatureStore()
     if (!featureStore) {
       console.error(`[Orchestrator] FeatureStore not available for completion transition`)
@@ -493,7 +512,7 @@ export class ExecutionOrchestrator extends EventEmitter {
         // Already in terminal/merging state, just log and continue
         console.log(`[Orchestrator] Feature ${this.state.featureId} already in ${currentStatus} status`)
       } else if (currentStatus === 'active') {
-        // Transition to merging - user must manually archive
+        // Transition to merging - user must manually merge and archive
         const statusManager = getFeatureStatusManager()
         await statusManager.updateFeatureStatus(this.state.featureId, 'merging')
         console.log(`[Orchestrator] Feature ${this.state.featureId} status updated to merging (all tasks done)`)
@@ -505,24 +524,6 @@ export class ExecutionOrchestrator extends EventEmitter {
         worktreeId: this.state.worktreeId,
         worktreePath: this.state.worktreePath
       })
-
-      // Check completionAction to determine what to do next
-      // - auto_merge: Merge to target branch → then transition to archived
-      // - auto_pr: Push branch and create PR (no merge) → then transition to archived
-      // - manual: Stay in completed, wait for user action
-      const completionAction = feature?.completionAction || 'manual'
-
-      if (completionAction === 'auto_merge' && feature) {
-        console.log(`[Orchestrator] Feature ${this.state.featureId} has auto_merge - executing merge`)
-        await this.executeAutoMerge(feature)
-      } else if (completionAction === 'auto_pr' && feature) {
-        // Create PR directly without merging - push manager branch and open PR
-        console.log(`[Orchestrator] Feature ${this.state.featureId} has auto_pr - creating PR without merge`)
-        await this.executeAutoPR(feature)
-      } else {
-        // Manual: stay in completed, user needs to take action
-        console.log(`[Orchestrator] Feature ${this.state.featureId} has manual completion action - awaiting user action`)
-      }
     } catch (error) {
       console.error(`[Orchestrator] Failed to transition feature to completed:`, error)
       this.addEvent('error', { error: (error as Error).message })
@@ -1421,10 +1422,13 @@ export class ExecutionOrchestrator extends EventEmitter {
 
   /**
    * Abort a task's iteration loop and return task to ready status.
+   * Also handles pausing QA tasks.
    */
   async abortLoop(taskId: string): Promise<{ success: boolean; error?: string }> {
     const controller = this.taskControllers.get(taskId)
-    if (!controller) {
+    const qaAgent = getQAAgent(taskId)
+
+    if (!controller && !qaAgent) {
       // Check if task exists and provide helpful message
       const task = this.state.graph?.nodes.find((n) => n.id === taskId)
       if (task) {
@@ -1433,16 +1437,78 @@ export class ExecutionOrchestrator extends EventEmitter {
         } else if (task.status === 'done') {
           return { success: false, error: 'Task is already completed.' }
         } else if (task.status === 'verifying') {
-          // QA is running but there's no TaskController - QA agent handles its own execution
-          return { success: false, error: 'QA review is in progress. Wait for it to complete.' }
+          // Task is in verifying but no QA agent found - might have just completed
+          return { success: false, error: 'No active QA review to pause.' }
         }
       }
       return { success: false, error: 'No active work to pause for this task.' }
     }
 
+    // Handle QA agent pause
+    if (qaAgent) {
+      console.log(`[Orchestrator] Pausing QA agent for task ${taskId}`)
+      await qaAgent.cleanup()
+      removeQAAgent(taskId)
+
+      // Build and emit paused status for QA
+      const pausedStatus: TaskLoopStatus = {
+        taskId,
+        status: 'aborted',
+        currentIteration: 0,
+        maxIterations: 1,
+        worktreePath: this.state.worktreePath || null,
+        checklistSnapshot: { qa: 'pending' },
+        exitReason: 'aborted',
+        error: null
+      }
+      this.emit('task_loop_update', pausedStatus)
+
+      // Set isPaused flag (no stashing needed for QA - no code changes)
+      if (this.state.graph && this.state.featureId) {
+        const task = this.state.graph.nodes.find((n) => n.id === taskId)
+        if (task) {
+          task.isPaused = true
+          console.log(`[Orchestrator] QA task ${taskId} paused`)
+
+          // Add [PAUSED] message to session logs
+          const featureStore = getFeatureStore()
+          if (featureStore) {
+            await featureStore.appendSessionMessage(this.state.featureId, taskId, {
+              timestamp: new Date().toISOString(),
+              direction: 'harness_to_task',
+              type: 'progress',
+              content: '[PAUSED] QA review paused by user.'
+            })
+          }
+
+          // Clear assignment
+          this.assignments.delete(taskId)
+
+          // Switch to step mode
+          await this.setExecutionMode('step')
+
+          // Save DAG and emit update
+          this.updateFeatureStatus()
+        }
+      }
+
+      // Clear single-task mode if this was the single task
+      if (this.singleTaskId === taskId) {
+        console.log(`[Orchestrator] Single task ${taskId} (QA) aborted, exiting single-task mode`)
+        this.singleTaskId = null
+        this.state.status = 'idle'
+        this.state.stoppedAt = new Date().toISOString()
+        this.stopLoop()
+        this.addEvent('stopped')
+      }
+
+      return { success: true }
+    }
+
+    // Handle TaskController pause (dev tasks)
     // Get status before aborting (abort may trigger cleanup that removes controller)
-    const state = controller.getState()
-    controller.abort()
+    const state = controller!.getState()
+    controller!.abort()
     console.log(`[Orchestrator] Aborted loop for task ${taskId}`)
 
     // Remove controller from tracking
@@ -1661,195 +1727,10 @@ export class ExecutionOrchestrator extends EventEmitter {
       // Handle feature archived - stop orchestrator
       if (newStatus === 'archived') {
         await this.handleFeatureArchived()
-        // Trigger completion action when feature is archived (after merge)
-        if (feature) {
-          await this.handleFeatureCompleted(feature)
-        }
       }
 
       this.currentFeatureStatus = newStatus
     }
-  }
-
-  /**
-   * Handle feature completion - trigger configured completion action.
-   * Called when feature transitions to archived status (after merge).
-   */
-  private async handleFeatureCompleted(feature: { id: string; name: string; branch?: string; completionAction?: string; worktreeId?: WorktreeId; targetBranch?: string }): Promise<void> {
-    const completionAction = feature.completionAction || 'manual'
-
-    if (completionAction === 'manual') {
-      console.log(`[Orchestrator] Feature ${feature.id} completed - manual action configured, no auto-trigger`)
-      return
-    }
-
-    console.log(`[Orchestrator] Feature ${feature.id} completed - triggering ${completionAction}`)
-
-    // Emit event for UI notification
-    this.emit('completion_action_started', {
-      featureId: feature.id,
-      action: completionAction
-    })
-
-    try {
-      if (completionAction === 'auto_merge') {
-        await this.executeAutoMerge(feature)
-      } else if (completionAction === 'auto_pr') {
-        await this.executeAutoPR(feature)
-      }
-    } catch (error) {
-      console.error(`[Orchestrator] Completion action ${completionAction} failed for feature ${feature.id}:`, error)
-      this.emit('completion_action_failed', {
-        featureId: feature.id,
-        action: completionAction,
-        error: (error as Error).message
-      })
-    }
-  }
-
-  /**
-   * Execute auto_merge completion action.
-   * Creates FeatureMergeAgent and performs direct merge to current branch.
-   */
-  private async executeAutoMerge(feature: { id: string; branch?: string }): Promise<void> {
-    console.log(`[Orchestrator] Executing auto_merge for feature ${feature.id}`)
-
-    const gitManager = getGitManager()
-    const targetBranch = await gitManager.getCurrentBranch() || await gitManager.getDefaultBranch()
-    const sourceBranch = feature.branch || `dagent/${feature.id}`
-
-    // Check for uncommitted changes and stash them if present
-    let stashed = false
-    try {
-      const statusResult = await gitManager.getStatus()
-      const statusData = statusResult.data as { isClean?: boolean } | undefined
-      if (statusResult.success && statusData && !statusData.isClean) {
-        console.log(`[Orchestrator] Stashing uncommitted changes before auto_merge`)
-        const stashResult = await gitManager.stash(`auto_merge_${feature.id}_${Date.now()}`)
-        if (stashResult.success) {
-          stashed = true
-        } else {
-          console.warn(`[Orchestrator] Failed to stash changes: ${stashResult.error}`)
-        }
-      }
-    } catch (stashError) {
-      console.warn(`[Orchestrator] Could not check/stash changes:`, stashError)
-      // Continue anyway - the merge will fail with a clear message if needed
-    }
-
-    // Create and initialize merge agent
-    const agent = createFeatureMergeAgent(feature.id, targetBranch, sourceBranch)
-    const initialized = await agent.initialize()
-
-    if (!initialized) {
-      // Pop stash if we stashed
-      if (stashed) {
-        try {
-          await gitManager.stashPop()
-        } catch { /* ignore */ }
-      }
-      throw new Error(`Failed to initialize merge agent: ${agent.getState().error}`)
-    }
-
-    registerFeatureMergeAgent(agent)
-
-    try {
-      // Check branches
-      const branchesOk = await agent.checkBranches()
-      if (!branchesOk) {
-        throw new Error(`Branch check failed: ${agent.getState().error}`)
-      }
-
-      // Auto-approve and execute merge
-      agent.receiveApproval({ approved: true, type: 'approved' })
-      const result = await agent.executeMerge(true) // Delete branch on success
-
-      if (!result.success || !result.merged) {
-        if (result.conflicts && result.conflicts.length > 0) {
-          throw new Error(`Merge conflicts in ${result.conflicts.length} files: ${result.conflicts.join(', ')}`)
-        }
-        throw new Error(result.error || 'Merge failed')
-      }
-
-      console.log(`[Orchestrator] Auto merge completed successfully for feature ${feature.id}`)
-      // Feature stays in 'merging' status - user must manually archive
-
-      this.emit('completion_action_completed', {
-        featureId: feature.id,
-        action: 'auto_merge',
-        result: { merged: true, branchDeleted: result.branchDeleted }
-      })
-    } finally {
-      // Cleanup agent
-      await agent.cleanup()
-      removeFeatureMergeAgent(feature.id)
-
-      // Pop stash if we stashed
-      if (stashed) {
-        try {
-          console.log(`[Orchestrator] Restoring stashed changes after auto_merge`)
-          await gitManager.stashPop()
-        } catch (popError) {
-          console.warn(`[Orchestrator] Could not restore stashed changes:`, popError)
-        }
-      }
-    }
-  }
-
-  /**
-   * Execute auto_pr completion action.
-   * Creates a pull request using GitHub CLI to current branch.
-   */
-  private async executeAutoPR(feature: { id: string; name: string; branch?: string; worktreeId?: WorktreeId }): Promise<void> {
-    console.log(`[Orchestrator] Executing auto_pr for feature ${feature.id}`)
-
-    const prService = getPRService()
-
-    // Check gh CLI status first
-    const ghStatus = await prService.checkGhCli()
-    if (!ghStatus.installed) {
-      throw new Error('GitHub CLI (gh) is not installed. Please install it to use Auto PR.')
-    }
-    if (!ghStatus.authenticated) {
-      throw new Error('GitHub CLI is not authenticated. Run: gh auth login')
-    }
-
-    // Determine the actual branch to use for PR
-    const gitManager = getGitManager()
-    const baseBranch = await gitManager.getCurrentBranch() || 'main'
-    const headBranch = feature.branch || `dagent/${feature.worktreeId || 'neon'}`
-    console.log(`[Orchestrator] Using branch ${headBranch} for feature ${feature.id}`)
-
-    // Push the branch to remote before creating PR
-    if (gitManager) {
-      console.log(`[Orchestrator] Pushing branch ${headBranch} to origin`)
-      const pushResult = await gitManager.pushBranch(headBranch)
-      if (!pushResult.success) {
-        throw new Error(`Failed to push branch: ${pushResult.error}`)
-      }
-    }
-
-    // Create PR
-    const result = await prService.createPullRequest({
-      title: feature.name,
-      body: `## Summary\n\nAutomatically generated PR for feature: ${feature.name}\n\n---\n*Created by DAGent Auto PR*`,
-      head: headBranch,
-      base: baseBranch,
-      featureId: feature.id
-    })
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to create pull request')
-    }
-
-    console.log(`[Orchestrator] Auto PR created successfully for feature ${feature.id}: ${result.htmlUrl || result.prUrl}`)
-    // Feature stays in 'merging' status - user must manually archive
-
-    this.emit('completion_action_completed', {
-      featureId: feature.id,
-      action: 'auto_pr',
-      result: { prNumber: result.prNumber, prUrl: result.htmlUrl || result.prUrl }
-    })
   }
 
   /**

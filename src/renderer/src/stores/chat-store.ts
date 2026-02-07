@@ -34,10 +34,10 @@ export type ChatContextType = 'feature' | 'task' | 'agent'
 
 /**
  * Compute session ID from feature ID and status.
- * Session ID format: "pm-feature-{featureId}" for all features
+ * Session ID format: "feature-feature-{featureId}" for all features
  */
 function getSessionIdForFeature(featureId: string, _status?: string): string {
-  return `pm-feature-${featureId}`
+  return `feature-feature-${featureId}`
 }
 
 interface ChatState {
@@ -371,13 +371,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await window.electronAPI.sdkAgent.query({
         prompt,
         // Use autoContext for automatic context injection instead of manual systemPrompt
-        toolPreset: 'pmAgent', // Read, Glob, Grep + CreateTask, ListTasks tools
+        toolPreset: 'featureAgent', // Read, Glob, Grep + CreateTask, ListTasks tools
         permissionMode: 'acceptEdits', // Auto-approve read-only tools
         cwd: projectRoot,
         // Context options for autoContext
         featureId: currentFeatureId,
         taskId: selectedTaskId, // Pass selected task to agent context
-        agentType: 'pm',
+        agentType: 'feature',
         autoContext: true
       })
     } catch (error) {

@@ -20,6 +20,7 @@ export interface PanelPosition {
   y: number // Y coordinate (used when not snapped, or as offset)
   width?: number // Custom width (if not set, uses default)
   height?: number // Custom height (if not set, uses default)
+  zIndex?: number // Z-index for stacking order (higher = on top)
 }
 
 // A group of panels displayed as tabs
@@ -28,12 +29,14 @@ export interface PanelGroup {
   panels: PanelId[] // Panels in this group (order matters for tab order)
   activePanel: PanelId // Currently active/visible panel
   position: PanelPosition // Position of the group
+  zIndex?: number // Z-index for stacking order (higher = on top)
 }
 
 // Layout stores standalone panels and groups
 export interface PanelLayoutState {
   standalone: Record<string, PanelPosition> // panelId -> position for standalone panels
   groups: PanelGroup[] // Groups of tabbed panels
+  nextZIndex: number // Counter for next z-index assignment
 }
 
 // Legacy layout for backwards compatibility
@@ -89,6 +92,9 @@ function isValidPanelLayoutState(state: unknown): state is PanelLayoutState {
     if (typeof pos.x !== 'number' || typeof pos.y !== 'number') return false
   }
 
+  // nextZIndex is optional for backwards compatibility
+  if (s.nextZIndex !== undefined && typeof s.nextZIndex !== 'number') return false
+
   return true
 }
 
@@ -100,7 +106,23 @@ function migrateLegacyLayout(legacy: PanelLayout): PanelLayoutState {
       standalone[key] = value
     }
   }
-  return { standalone, groups: [] }
+  return { standalone, groups: [], nextZIndex: 1 }
+}
+
+// Ensure nextZIndex is set (for migrating old v2 layouts)
+function ensureNextZIndex(state: PanelLayoutState): PanelLayoutState {
+  if (state.nextZIndex !== undefined) return state
+
+  // Find the highest existing z-index
+  let maxZ = 0
+  for (const pos of Object.values(state.standalone)) {
+    if (pos.zIndex && pos.zIndex > maxZ) maxZ = pos.zIndex
+  }
+  for (const group of state.groups) {
+    if (group.zIndex && group.zIndex > maxZ) maxZ = group.zIndex
+  }
+
+  return { ...state, nextZIndex: maxZ + 1 }
 }
 
 export interface UsePanelLayoutResult {
@@ -117,6 +139,9 @@ export interface UsePanelLayoutResult {
   ungroupPanel: (panelId: PanelId) => void
   setActiveTab: (groupId: string, panelId: PanelId) => void
   updateGroupPosition: (groupId: string, position: PanelPosition) => void
+  // Z-index operations
+  bringPanelToFront: (panelId: PanelId) => void
+  bringGroupToFront: (groupId: string) => void
   // Helpers
   findPanelGroup: (panelId: PanelId) => PanelGroup | null
   getPanelPosition: (panelId: PanelId) => PanelPosition | null
@@ -130,7 +155,7 @@ export function usePanelLayout(): UsePanelLayoutResult {
       if (saved) {
         const parsed = JSON.parse(saved)
         if (isValidPanelLayoutState(parsed)) {
-          return parsed
+          return ensureNextZIndex(parsed)
         }
       }
       // Try legacy format
@@ -146,8 +171,9 @@ export function usePanelLayout(): UsePanelLayoutResult {
     }
     // Default: just chat panel visible
     return {
-      standalone: { chat: DEFAULT_POSITIONS.chat },
-      groups: []
+      standalone: { chat: { ...DEFAULT_POSITIONS.chat, zIndex: 1 } },
+      groups: [],
+      nextZIndex: 2
     }
   })
 
@@ -230,7 +256,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
             ...prev.standalone,
             [remainingPanel]: group.position
           },
-          groups: prev.groups.filter((_, i) => i !== groupIndex)
+          groups: prev.groups.filter((_, i) => i !== groupIndex),
+          nextZIndex: prev.nextZIndex
         }
       } else {
         // Update group
@@ -266,7 +293,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
         if (newPanels.length === 1) {
           return {
             standalone: { ...prev.standalone, [newPanels[0]]: group.position },
-            groups: prev.groups.filter((_, i) => i !== groupIndex)
+            groups: prev.groups.filter((_, i) => i !== groupIndex),
+            nextZIndex: prev.nextZIndex
           }
         }
         const newActivePanel = group.activePanel === panelId ? newPanels[0] : group.activePanel
@@ -391,7 +419,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
 
       return {
         standalone: newStandalone,
-        groups: [...newGroups, newGroup]
+        groups: [...newGroups, newGroup],
+        nextZIndex: prev.nextZIndex
       }
     })
   }, [])
@@ -420,7 +449,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
         // Remove empty group
         return {
           standalone: newStandalone,
-          groups: prev.groups.filter((_, i) => i !== groupIndex)
+          groups: prev.groups.filter((_, i) => i !== groupIndex),
+          nextZIndex: prev.nextZIndex
         }
       } else if (newPanels.length === 1) {
         // Convert single-panel group to standalone
@@ -429,7 +459,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
             ...newStandalone,
             [newPanels[0]]: group.position
           },
-          groups: prev.groups.filter((_, i) => i !== groupIndex)
+          groups: prev.groups.filter((_, i) => i !== groupIndex),
+          nextZIndex: prev.nextZIndex
         }
       } else {
         // Update group
@@ -440,7 +471,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
             i === groupIndex
               ? { ...g, panels: newPanels, activePanel: newActivePanel }
               : g
-          )
+          ),
+          nextZIndex: prev.nextZIndex
         }
       }
     })
@@ -468,6 +500,46 @@ export function usePanelLayout(): UsePanelLayoutResult {
     }))
   }, [])
 
+  // Bring a standalone panel to front
+  const bringPanelToFront = useCallback((panelId: PanelId) => {
+    setLayoutState((prev) => {
+      const position = prev.standalone[panelId]
+      if (!position) return prev
+
+      // Already at highest z-index? Skip update
+      if (position.zIndex === prev.nextZIndex - 1) return prev
+
+      return {
+        ...prev,
+        standalone: {
+          ...prev.standalone,
+          [panelId]: { ...position, zIndex: prev.nextZIndex }
+        },
+        nextZIndex: prev.nextZIndex + 1
+      }
+    })
+  }, [])
+
+  // Bring a group to front
+  const bringGroupToFront = useCallback((groupId: string) => {
+    setLayoutState((prev) => {
+      const groupIndex = prev.groups.findIndex(g => g.id === groupId)
+      if (groupIndex === -1) return prev
+
+      const group = prev.groups[groupIndex]
+      // Already at highest z-index? Skip update
+      if (group.zIndex === prev.nextZIndex - 1) return prev
+
+      return {
+        ...prev,
+        groups: prev.groups.map((g, i) =>
+          i === groupIndex ? { ...g, zIndex: prev.nextZIndex } : g
+        ),
+        nextZIndex: prev.nextZIndex + 1
+      }
+    })
+  }, [])
+
   return {
     layoutState,
     panelLayout,
@@ -481,6 +553,8 @@ export function usePanelLayout(): UsePanelLayoutResult {
     ungroupPanel,
     setActiveTab,
     updateGroupPosition,
+    bringPanelToFront,
+    bringGroupToFront,
     findPanelGroup,
     getPanelPosition
   }

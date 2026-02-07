@@ -24,6 +24,8 @@ import { registerSessionHandlers } from './session-handlers'
 import { registerAnalysisHandlers } from './analysis-handlers'
 import { registerSettingsHandlers } from './settings-handlers'
 import { registerPoolHandlers } from './pool-handlers'
+import { registerSetupAgentHandlers } from './setup-agent-handlers'
+import { registerUnifiedChatHandlers } from './unified-chat-handlers'
 
 /**
  * Register all IPC handlers for main process.
@@ -78,6 +80,10 @@ export function registerIpcHandlers(): void {
   registerSettingsHandlers()
   // Register pool handlers (worktree pool management)
   registerPoolHandlers()
+  // Register setup agent handlers (conversational setup agent for CLAUDE.md)
+  registerSetupAgentHandlers()
+  // Register unified chat handlers (unified chat for all agent types)
+  registerUnifiedChatHandlers()
   // Health check - proves IPC works
   ipcMain.handle('ping', async () => {
     return 'pong'

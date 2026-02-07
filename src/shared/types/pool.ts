@@ -20,6 +20,8 @@ export interface FeatureManagerInfo {
   branchName: string
   /** Worktree path: ".dagent-worktrees/neon", etc. */
   worktreePath: string | null
+  /** Whether worktree has been created and is ready */
+  isInitialized: boolean
   /** Current status of the feature manager */
   status: FeatureManagerWorktreeStatus
   /** Currently active feature ID, or null if idle */

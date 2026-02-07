@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, type JSX } from 'react'
-import type { Checkpoint } from '@shared/types/session'
+import type { Memory } from '@shared/types/session'
 import './CheckpointViewer.css'
 
 interface CheckpointViewerProps {
@@ -10,7 +10,7 @@ interface CheckpointViewerProps {
   onToggle?: () => void
 }
 
-type SectionKey = 'completed' | 'inProgress' | 'pending' | 'blockers' | 'decisions'
+type SectionKey = 'critical' | 'important' | 'minor'
 
 interface SectionConfig {
   key: SectionKey
@@ -21,41 +21,8 @@ interface SectionConfig {
 
 const SECTIONS: SectionConfig[] = [
   {
-    key: 'completed',
-    label: 'Completed',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    colorClass: 'checkpoint-viewer__section--completed'
-  },
-  {
-    key: 'inProgress',
-    label: 'In Progress',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="8" cy="8" r="2" fill="currentColor" />
-      </svg>
-    ),
-    colorClass: 'checkpoint-viewer__section--in-progress'
-  },
-  {
-    key: 'pending',
-    label: 'Pending',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-    colorClass: 'checkpoint-viewer__section--pending'
-  },
-  {
-    key: 'blockers',
-    label: 'Blockers',
+    key: 'critical',
+    label: 'Critical',
     icon: (
       <svg viewBox="0 0 16 16" fill="none">
         <path
@@ -68,18 +35,29 @@ const SECTIONS: SectionConfig[] = [
         <path d="M8 6v3M8 11v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    colorClass: 'checkpoint-viewer__section--blockers'
+    colorClass: 'checkpoint-viewer__section--critical'
   },
   {
-    key: 'decisions',
-    label: 'Decisions',
+    key: 'important',
+    label: 'Important',
     icon: (
       <svg viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="8" cy="8" r="2" fill="currentColor" />
       </svg>
     ),
-    colorClass: 'checkpoint-viewer__section--decisions'
+    colorClass: 'checkpoint-viewer__section--important'
+  },
+  {
+    key: 'minor',
+    label: 'Minor',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+    colorClass: 'checkpoint-viewer__section--minor'
   }
 ]
 
@@ -90,15 +68,15 @@ export function CheckpointViewer({
   isOpen = true,
   onToggle
 }: CheckpointViewerProps): JSX.Element {
-  const [checkpoint, setCheckpoint] = useState<Checkpoint | null>(null)
+  const [memory, setMemory] = useState<Memory | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(
-    new Set(['completed', 'inProgress', 'blockers'])
+    new Set(['critical', 'important'])
   )
   const [isLoading, setIsLoading] = useState(false)
 
-  const loadCheckpoint = useCallback(async () => {
+  const loadMemory = useCallback(async () => {
     if (!sessionId || !featureId || !projectRoot) {
-      setCheckpoint(null)
+      setMemory(null)
       return
     }
 
@@ -109,31 +87,31 @@ export function CheckpointViewer({
         sessionId,
         featureId
       )
-      setCheckpoint(result)
+      setMemory(result)
     } catch (error) {
-      console.error('Failed to load checkpoint:', error)
+      console.error('Failed to load memory:', error)
     } finally {
       setIsLoading(false)
     }
   }, [sessionId, featureId, projectRoot])
 
-  // Load checkpoint on mount and when session changes
+  // Load memory on mount and when session changes
   useEffect(() => {
-    loadCheckpoint()
-  }, [loadCheckpoint])
+    loadMemory()
+  }, [loadMemory])
 
   // Subscribe to compaction complete events to refresh
   useEffect(() => {
     const unsubscribe = window.electronAPI.session.onCompactionComplete((data) => {
       if (data.sessionId === sessionId) {
-        loadCheckpoint()
+        loadMemory()
       }
     })
 
     return () => {
       unsubscribe()
     }
-  }, [sessionId, loadCheckpoint])
+  }, [sessionId, loadMemory])
 
   const toggleSection = (key: SectionKey) => {
     setExpandedSections((prev) => {
@@ -148,8 +126,8 @@ export function CheckpointViewer({
   }
 
   const getSectionItems = (key: SectionKey): string[] => {
-    if (!checkpoint?.summary) return []
-    return checkpoint.summary[key] || []
+    if (!memory?.summary) return []
+    return memory.summary[key] || []
   }
 
   if (!sessionId) {
@@ -160,20 +138,20 @@ export function CheckpointViewer({
     )
   }
 
-  if (isLoading && !checkpoint) {
+  if (isLoading && !memory) {
     return (
       <div className="checkpoint-viewer checkpoint-viewer--loading">
-        <div className="checkpoint-viewer__loading-text">Loading checkpoint...</div>
+        <div className="checkpoint-viewer__loading-text">Loading memory...</div>
       </div>
     )
   }
 
-  if (!checkpoint) {
+  if (!memory) {
     return (
       <div className="checkpoint-viewer checkpoint-viewer--empty">
-        <div className="checkpoint-viewer__empty-text">No checkpoint yet</div>
+        <div className="checkpoint-viewer__empty-text">No memory yet</div>
         <div className="checkpoint-viewer__empty-hint">
-          Checkpoints are created when sessions are compacted
+          Memory is created when sessions are compacted
         </div>
       </div>
     )
@@ -184,10 +162,10 @@ export function CheckpointViewer({
       {/* Header */}
       <div className="checkpoint-viewer__header" onClick={onToggle}>
         <span className="checkpoint-viewer__header-title">
-          Checkpoint v{checkpoint.version}
+          Memory v{memory.version}
         </span>
         <span className="checkpoint-viewer__header-meta">
-          {checkpoint.stats.totalMessages} messages compacted
+          {memory.stats.totalMessages} messages compacted
         </span>
         {onToggle && (
           <svg

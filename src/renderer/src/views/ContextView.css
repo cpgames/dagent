@@ -1,14 +1,34 @@
 /**
  * ContextView Styles
- * Project context editor with synthwave theming
+ * Project context viewer with chat side panel
  */
 
-/* Container */
+/* Container - horizontal split layout */
 .context-view {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Main content area */
+.context-view__main {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   height: 100%;
+  max-height: 100%;
   padding: var(--space-lg);
+  padding-top: var(--space-xl);
+  overflow: hidden;
+}
+
+/* When chat is open, main takes less space */
+.context-view--chat-open .context-view__main {
+  flex: 1;
 }
 
 /* Header */
@@ -17,12 +37,21 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .context-view__header-left {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.context-view__header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
 }
 
 .context-view__title {
@@ -30,25 +59,23 @@
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  white-space: nowrap;
 }
 
-.context-view__badge--unsaved {
-  font-size: 0.75rem;
-  background: var(--color-warning);
-  color: var(--text-inverse);
-  padding: 0.125rem var(--space-sm);
-  border-radius: var(--radius-sm);
+.context-view__icon {
+  width: 1rem;
+  height: 1rem;
 }
 
-/* Generate button */
-.context-view__generate-btn {
+/* Chat toggle button */
+.context-view__chat-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -56,29 +83,56 @@
   transition: all var(--transition-fast);
 }
 
-.context-view__generate-btn:hover:not(:disabled) {
+.context-view__chat-toggle:hover {
   border-color: var(--accent-primary);
-  box-shadow: var(--glow-border-primary);
+  color: var(--accent-primary);
 }
 
-.context-view__generate-btn:disabled {
-  color: var(--text-disabled);
-  border-color: var(--border-subtle);
+.context-view__chat-toggle--active {
+  border-color: var(--accent-primary);
+  background: rgba(var(--accent-primary-rgb), 0.1);
+  color: var(--accent-primary);
+}
+
+/* Commit & Sync button */
+.context-view__commit-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-success);
+  background: transparent;
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.context-view__commit-btn:hover:not(:disabled) {
+  background: rgba(0, 255, 136, 0.15);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+}
+
+.context-view__commit-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
-.context-view__generate-btn:focus {
-  outline: none;
+.context-view__commit-btn--uptodate {
+  color: var(--text-muted);
+  border-color: var(--border-default);
 }
 
-.context-view__generate-icon {
-  width: 1rem;
-  height: 1rem;
+.context-view__commit-btn--uptodate:disabled {
+  opacity: 0.7;
 }
 
-.context-view__generate-soon {
-  font-size: 0.75rem;
+.context-view__icon--spinning {
+  animation: context-spin 1s linear infinite;
 }
 
 /* Error display */
@@ -100,7 +154,7 @@
   border: none;
   color: var(--color-error);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.25rem;
   padding: 0 var(--space-sm);
   transition: color var(--transition-fast);
 }
@@ -109,100 +163,207 @@
   color: var(--text-primary);
 }
 
-/* Editor area */
-.context-view__editor {
+/* Content area */
+.context-view__content {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.context-view__textarea {
-  flex: 1;
-  width: 100%;
-  padding: var(--space-md) var(--space-lg);
-  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--text-primary);
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  resize: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.context-view__textarea::placeholder {
-  color: var(--text-muted);
-}
-
-.context-view__textarea:focus {
-  outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: var(--glow-border-primary);
-}
-
-/* Footer */
-.context-view__footer {
+.context-view__loading {
   display: flex;
+  justify-content: center;
   align-items: center;
-  justify-content: space-between;
-  margin-top: var(--space-lg);
+  height: 100%;
 }
 
-.context-view__timestamp {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-/* Save button */
-.context-view__save-btn {
+.context-view__empty {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.context-view__save-btn:focus {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
-}
-
-.context-view__save-btn--active {
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: 1px solid var(--btn-primary-border);
-}
-
-.context-view__save-btn--active:hover:not(:disabled) {
-  background: var(--btn-primary-hover-bg);
-  box-shadow: var(--btn-primary-glow);
-}
-
-.context-view__save-btn--inactive {
-  background: var(--bg-surface);
+  height: 100%;
   color: var(--text-muted);
+}
+
+/* Markdown container */
+.context-view__markdown {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Markdown element styling */
+.context-view__markdown h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.context-view__markdown h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: var(--space-lg) 0 var(--space-sm) 0;
+}
+
+.context-view__markdown h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: var(--space-md) 0 var(--space-sm) 0;
+}
+
+.context-view__markdown h4,
+.context-view__markdown h5,
+.context-view__markdown h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: var(--space-md) 0 var(--space-xs) 0;
+}
+
+.context-view__markdown p {
+  margin: 0 0 var(--space-md) 0;
+  color: var(--text-secondary);
+}
+
+.context-view__markdown ul,
+.context-view__markdown ol {
+  margin: 0 0 var(--space-md) 0;
+  padding-left: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+.context-view__markdown li {
+  margin-bottom: var(--space-xs);
+}
+
+.context-view__markdown code {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--bg-elevated);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+  color: var(--accent-secondary);
+}
+
+.context-view__markdown pre {
+  margin: 0 0 var(--space-md) 0;
+  padding: var(--space-md);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
 }
 
-.context-view__save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.context-view__markdown pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--text-primary);
 }
 
-.context-view__save-icon {
-  width: 1rem;
-  height: 1rem;
+.context-view__markdown blockquote {
+  margin: 0 0 var(--space-md) 0;
+  padding: var(--space-sm) var(--space-md);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
-.context-view__save-icon--spinning {
+.context-view__markdown a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.context-view__markdown a:hover {
+  text-decoration: underline;
+}
+
+.context-view__markdown table {
+  width: 100%;
+  margin: 0 0 var(--space-md) 0;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.context-view__markdown th,
+.context-view__markdown td {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-default);
+  text-align: left;
+}
+
+.context-view__markdown th {
+  background: var(--bg-elevated);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.context-view__markdown td {
+  color: var(--text-secondary);
+}
+
+.context-view__markdown hr {
+  margin: var(--space-lg) 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.context-view__markdown strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.context-view__markdown em {
+  font-style: italic;
+}
+
+/* Initializing overlay */
+.context-view__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  z-index: 10;
+}
+
+.context-view__overlay-spinner {
+  width: 3rem;
+  height: 3rem;
   animation: context-spin 1s linear infinite;
+}
+
+.context-view__overlay-title {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.context-view__overlay-detail {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 400px;
 }
 
 @keyframes context-spin {
@@ -211,8 +372,72 @@
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+/* Chat panel wrapper - the UnifiedChatPanel fills this */
+.context-view__chat-panel {
+  position: relative;
+  min-width: 280px;
+  max-width: 600px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-default);
+}
+
+/* Resize handle on left edge */
+.context-view__chat-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background-color var(--transition-fast);
+  z-index: 10;
+}
+
+.context-view__chat-resize-handle:hover {
+  background-color: var(--accent-primary);
+}
+
+.context-view__chat-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.context-view__chat-panel-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.context-view__chat-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.context-view__chat-panel-close:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+/* Override UnifiedChatPanel border since we're in a side panel context */
+.context-view__chat-panel .unified-chat-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-left: none;
 }

@@ -5,7 +5,7 @@
 
 .kanban-view__board {
   overflow-x: auto;
-  height: 100%;
+  min-height: 0;
 }
 
 /* Custom scrollbar for horizontal board scroll */

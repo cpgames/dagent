@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Feature, FeatureStatus, CompletionAction } from '@shared/types';
+import type { Feature, FeatureStatus, WorktreeId } from '@shared/types';
 import { toast } from './toast-store';
 
 interface FeatureState {
@@ -20,7 +20,7 @@ interface FeatureState {
   // Async actions (call IPC)
   loadFeatures: () => Promise<void>;
   saveFeature: (feature: Feature) => Promise<void>;
-  createFeature: (name: string, options?: {description?: string, attachments?: string[], completionAction?: CompletionAction, autoStart?: boolean}) => Promise<Feature | null>;
+  createFeature: (name: string, options?: {description?: string, attachments?: string[], autoStart?: boolean, worktreeId?: WorktreeId}) => Promise<Feature | null>;
   deleteFeature: (featureId: string, deleteBranch?: boolean) => Promise<boolean>;
   updateFeatureStatus: (featureId: string, newStatus: FeatureStatus) => Promise<boolean>;
 }
@@ -28,6 +28,7 @@ interface FeatureState {
 // Track the cleanup functions for event listeners
 let statusChangeCleanup: (() => void) | null = null;
 let managerAssignedCleanup: (() => void) | null = null;
+let featureCreatedCleanup: (() => void) | null = null;
 
 /**
  * Subscribe to feature status changes from the orchestrator.
@@ -65,6 +66,20 @@ export function subscribeToFeatureStatusChanges(): void {
       store.loadFeatures();
     }
   });
+
+  // Subscribe to feature created events (from Project Agent or other sources)
+  featureCreatedCleanup = window.electronAPI.feature.onCreated(async (data) => {
+    const store = useFeatureStore.getState();
+    // Load the newly created feature and add it to the store
+    const feature = await window.electronAPI.storage.loadFeature(data.featureId);
+    if (feature) {
+      // Only add if not already in store (avoid duplicates from UI creation path)
+      const existing = store.features.find(f => f.id === data.featureId);
+      if (!existing) {
+        store.addFeature(feature);
+      }
+    }
+  });
 }
 
 /**
@@ -79,6 +94,10 @@ export function unsubscribeFromFeatureStatusChanges(): void {
   if (managerAssignedCleanup) {
     managerAssignedCleanup();
     managerAssignedCleanup = null;
+  }
+  if (featureCreatedCleanup) {
+    featureCreatedCleanup();
+    featureCreatedCleanup = null;
   }
 }
 

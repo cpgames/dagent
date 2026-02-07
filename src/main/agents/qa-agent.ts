@@ -20,6 +20,7 @@ export class QAAgent extends EventEmitter {
   private state: QAAgentState
   private taskTitle: string = ''
   private taskSpec: string = ''
+  private isAborted: boolean = false
 
   constructor(featureId: string, taskId: string) {
     super()
@@ -212,6 +213,16 @@ export class QAAgent extends EventEmitter {
         taskId: this.state.taskId,
         priority: RequestPriority.QA
       })) {
+        // Check for abort
+        if (this.isAborted) {
+          console.log(`[QAAgent ${this.state.taskId}] Aborted during review`)
+          return {
+            passed: false,
+            feedback: 'Review aborted by user',
+            filesReviewed: []
+          }
+        }
+
         eventCount++
 
         // Log all events for debugging
@@ -578,9 +589,24 @@ export class QAAgent extends EventEmitter {
   }
 
   /**
+   * Abort the QA agent execution.
+   */
+  abort(): void {
+    console.log(`[QAAgent ${this.state.taskId}] Aborting...`)
+    this.isAborted = true
+
+    // Interrupt the agent service stream
+    const agentService = getAgentService()
+    agentService.abort()
+  }
+
+  /**
    * Clean up QA agent resources.
    */
   async cleanup(): Promise<void> {
+    // Set abort flag to stop any running execution
+    this.abort()
+
     // Release from pool
     if (this.state.agentId) {
       const pool = getAgentPool()

@@ -98,7 +98,25 @@ export function registerContextHandlers(): void {
   })
 
   /**
-   * Save CLAUDE.md content to project root and commit it.
+   * Check if CLAUDE.md has uncommitted changes.
+   */
+  ipcMain.handle('context:hasClaudeMdChanges', async () => {
+    try {
+      const gitManager = getGitManager()
+      if (!gitManager.isInitialized()) {
+        return { hasChanges: false }
+      }
+
+      return await gitManager.hasClaudeMdChanges()
+    } catch (error) {
+      console.error('[DAGent] Failed to check CLAUDE.md changes:', error)
+      return { hasChanges: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  /**
+   * Save CLAUDE.md content to project root (without committing).
+   * Use commitAndSyncClaudeMd to commit and sync to worktrees.
    */
   ipcMain.handle('context:saveClaudeMd', async (_event, content: string) => {
     const service = getService()
@@ -113,18 +131,45 @@ export function registerContextHandlers(): void {
       const claudeMdPath = path.join(projectRoot, 'CLAUDE.md')
       await fs.writeFile(claudeMdPath, content, 'utf-8')
 
-      // Commit CLAUDE.md to ensure it's available in all branches
-      const gitManager = getGitManager()
-      if (gitManager.isInitialized()) {
-        const commitResult = await gitManager.commitClaudeMd()
-        if (!commitResult.success) {
-          console.warn('[DAGent] Failed to commit CLAUDE.md:', commitResult.error)
-        }
-      }
-
       return { success: true }
     } catch (error) {
       console.error('[DAGent] Failed to save CLAUDE.md:', error)
+      return { error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  /**
+   * Commit CLAUDE.md to current branch and sync to all worktrees via git.
+   * Call this when user is ready to publish their CLAUDE.md changes.
+   */
+  ipcMain.handle('context:commitAndSyncClaudeMd', async () => {
+    const service = getService()
+    if (!service) {
+      return { error: 'Context service not initialized' }
+    }
+
+    try {
+      const gitManager = getGitManager()
+      if (!gitManager.isInitialized()) {
+        return { error: 'Git not initialized' }
+      }
+
+      // First commit CLAUDE.md to current branch
+      const commitResult = await gitManager.commitClaudeMd()
+      if (!commitResult.success) {
+        return { error: `Failed to commit: ${commitResult.error}` }
+      }
+
+      // Then sync to all worktrees via git checkout
+      const syncResult = await gitManager.syncClaudeMdToWorktrees()
+      if (!syncResult.success) {
+        console.warn('[DAGent] Failed to sync CLAUDE.md to worktrees:', syncResult.error)
+        // Don't fail - commit succeeded, sync is best-effort
+      }
+
+      return { success: true, synced: syncResult.success }
+    } catch (error) {
+      console.error('[DAGent] Failed to commit and sync CLAUDE.md:', error)
       return { error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })

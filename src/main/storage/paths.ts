@@ -263,6 +263,42 @@ export function getAgentConfigsPath(projectRoot: string): string {
 }
 
 // ============================================================================
+// Context/Setup Chat Paths
+// ============================================================================
+
+/**
+ * Get the directory for context/setup chat storage.
+ * Location: {projectRoot}/.dagent/context-chat/
+ */
+export function getContextChatDir(projectRoot: string): string {
+  return path.join(projectRoot, '.dagent', 'context-chat');
+}
+
+/**
+ * Get the path to messages.json for context/setup chat.
+ * Location: {projectRoot}/.dagent/context-chat/messages.json
+ */
+export function getContextChatMessagesPath(projectRoot: string): string {
+  return path.join(getContextChatDir(projectRoot), 'messages.json');
+}
+
+/**
+ * Get the path to memory.json for context/setup chat.
+ * Location: {projectRoot}/.dagent/context-chat/memory.json
+ */
+export function getContextChatMemoryPath(projectRoot: string): string {
+  return path.join(getContextChatDir(projectRoot), 'memory.json');
+}
+
+/**
+ * Ensure the context chat directory exists.
+ */
+export async function ensureContextChatDir(projectRoot: string): Promise<void> {
+  const dir = getContextChatDir(projectRoot);
+  await fs.mkdir(dir, { recursive: true });
+}
+
+// ============================================================================
 // Directory Initialization
 // ============================================================================
 

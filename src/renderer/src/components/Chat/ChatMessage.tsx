@@ -1,5 +1,5 @@
-import { memo, type JSX } from 'react'
-import type { ChatMessage as ChatMessageType } from '../../stores/chat-store'
+import { memo, useState, type JSX } from 'react'
+import type { ChatMessage as ChatMessageType } from '@shared/types/session'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import './ChatMessage.css'
@@ -11,9 +11,13 @@ interface ChatMessageProps {
 // Memoize to prevent re-renders when parent updates but message hasn't changed
 export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps): JSX.Element {
   const isUser = message.role === 'user'
+  const [showToolList, setShowToolList] = useState(false)
 
   // Preserve newlines by converting to Markdown line breaks (two trailing spaces)
   const content = message.content.replace(/\n/g, '  \n')
+
+  const toolUses = message.metadata?.toolUses || []
+  const hasToolUses = toolUses.length > 0
 
   return (
     <div className={`chat-message ${isUser ? 'chat-message--user' : 'chat-message--assistant'}`}>
@@ -64,6 +68,26 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         >
           {content}
         </ReactMarkdown>
+        {hasToolUses && (
+          <div
+            className="chat-message__tools"
+            onMouseEnter={() => setShowToolList(true)}
+            onMouseLeave={() => setShowToolList(false)}
+          >
+            <span className="chat-message__tools-count">
+              🔧 {toolUses.length} tool{toolUses.length > 1 ? 's' : ''} used
+            </span>
+            {showToolList && (
+              <div className="chat-message__tools-list">
+                {toolUses.map((tool, index) => (
+                  <div key={index} className="chat-message__tool-item">
+                    <span className="chat-message__tool-name">{tool.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

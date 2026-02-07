@@ -385,13 +385,3 @@
   box-shadow: 0 0 12px rgba(255, 170, 0, 0.3);
 }
 
-/* Backlog features - not clickable to open */
-.feature-card--not-selectable {
-  cursor: default;
-}
-
-.feature-card--not-selectable:hover {
-  /* Reduce hover effect since clicking won't do anything */
-  border-color: var(--border-default);
-  box-shadow: none;
-}

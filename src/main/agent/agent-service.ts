@@ -20,6 +20,7 @@ import type { AgentQueryOptions, AgentStreamEvent } from './types'
 import { getToolsForPreset } from './tool-config'
 import { buildAgentPrompt } from './prompt-builders'
 import { createPMMcpServer, getPMToolNamesForAllowedTools } from './pm-mcp-server'
+import { createSetupMcpServer, getSetupToolNamesForAllowedTools } from './setup-mcp-server'
 import { getRequestManager, RequestPriority } from './request-manager'
 
 // Dynamic import cache for ES module - use 'any' to avoid type conflicts with SDK
@@ -45,6 +46,9 @@ export class AgentService {
   // Cache the PM MCP server
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pmMcpServer: any = null
+  // Cache the Setup MCP server
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private setupMcpServer: any = null
   // Cumulative token tracking for current query
   private cumulativeInputTokens: number = 0
   private cumulativeOutputTokens: number = 0
@@ -54,10 +58,10 @@ export class AgentService {
     let priority: RequestPriority
     if (options.priority !== undefined) {
       priority = options.priority
-    } else if (options.agentType === 'pm') {
+    } else if (options.agentType === 'feature') {
       priority = RequestPriority.PM
-    } else if (options.agentType === 'investigation') {
-      priority = RequestPriority.PM // Investigation is PM-like activity
+    } else if (options.agentType === 'project') {
+      priority = RequestPriority.PM // Project is Feature-like activity
     } else if (options.agentType === 'merge') {
       priority = RequestPriority.MERGE
     } else if (options.agentType === 'qa') {
@@ -128,25 +132,41 @@ export class AgentService {
         return
       }
 
-      // Check if PM tools are needed (PM and investigation agents use PM MCP tools)
-      const needsPMTools =
-        options.toolPreset === 'pmAgent' ||
-        options.toolPreset === 'investigationAgent' ||
-        options.agentType === 'pm' ||
-        options.agentType === 'investigation'
+      // Check if task management tools are needed (Feature and Project agents use PM MCP tools)
+      const needsTaskManagementTools =
+        options.toolPreset === 'featureAgent' ||
+        options.toolPreset === 'projectAgent' ||
+        options.agentType === 'feature' ||
+        options.agentType === 'project'
+
+      // Check if WriteClaudeMd tool is needed (Project agent uses WriteClaudeMd)
+      const needsWriteClaudeMdTools =
+        options.toolPreset === 'projectAgent' ||
+        options.agentType === 'project'
 
       // Resolve tools from preset or explicit list
       let tools =
         options.allowedTools || (options.toolPreset ? getToolsForPreset(options.toolPreset) : [])
 
-      // For PM Agent, replace PM tool names with MCP-prefixed names
-      if (needsPMTools) {
-        // Filter out the old PM tool names (they won't work without MCP)
+      // For Feature/Project agents, replace task tool names with MCP-prefixed names
+      if (needsTaskManagementTools) {
+        // Filter out the direct tool names (they won't work without MCP)
         const pmToolNames = ['CreateTask', 'ListTasks', 'AddDependency', 'RemoveDependency', 'GetTask', 'UpdateTask', 'DeleteTask']
         tools = tools.filter(t => !pmToolNames.includes(t))
         // Add the MCP-prefixed tool names
         tools = [...tools, ...getPMToolNamesForAllowedTools()]
       }
+
+      // For Investigation Agent, replace WriteClaudeMd with MCP-prefixed name
+      if (needsWriteClaudeMdTools) {
+        // Filter out the direct tool name (it won't work without MCP)
+        tools = tools.filter(t => t !== 'WriteClaudeMd')
+        // Add the MCP-prefixed tool names
+        tools = [...tools, ...getSetupToolNamesForAllowedTools()]
+      }
+
+      // Remove AskUserQuestion - agents should write questions directly in chat
+      tools = tools.filter(t => t !== 'AskUserQuestion')
 
       // Find the native Claude CLI executable (required for packaged app)
       // The SDK's bundled cli.js doesn't work from inside ASAR archive
@@ -155,6 +175,8 @@ export class AgentService {
       const queryOptions: Record<string, unknown> = {
         cwd: options.cwd,
         allowedTools: tools,
+        // Explicitly disallow AskUserQuestion - agents should write questions directly in chat
+        disallowedTools: ['AskUserQuestion'],
         permissionMode: options.permissionMode || 'default',
         // Use native CLI instead of bundled cli.js (which fails inside ASAR)
         pathToClaudeCodeExecutable: claudeCliPath || undefined
@@ -170,14 +192,33 @@ export class AgentService {
         queryOptions.maxTurns = options.maxTurns
       }
 
-      // Add PM MCP server if PM tools are needed
-      if (needsPMTools) {
+      // Add model override if provided
+      if (options.model) {
+        queryOptions.model = options.model
+      }
+
+      // Add task management MCP server if needed
+      if (needsTaskManagementTools) {
         if (!this.pmMcpServer) {
           this.pmMcpServer = await createPMMcpServer()
         }
         if (this.pmMcpServer) {
           queryOptions.mcpServers = {
+            ...(queryOptions.mcpServers as object || {}),
             'pm-tools': this.pmMcpServer
+          }
+        }
+      }
+
+      // Add MCP server for WriteClaudeMd tool
+      if (needsWriteClaudeMdTools) {
+        if (!this.setupMcpServer) {
+          this.setupMcpServer = await createSetupMcpServer()
+        }
+        if (this.setupMcpServer) {
+          queryOptions.mcpServers = {
+            ...(queryOptions.mcpServers as object || {}),
+            'setup-tools': this.setupMcpServer
           }
         }
       }
@@ -204,7 +245,8 @@ export class AgentService {
 
       // MCP servers require streaming input (async generator for prompt)
       // Create an async generator that yields the user message
-      const promptGenerator = needsPMTools && this.pmMcpServer
+      const hasMcpServer = (needsTaskManagementTools && this.pmMcpServer) || (needsWriteClaudeMdTools && this.setupMcpServer)
+      const promptGenerator = hasMcpServer
         ? (async function* () {
             yield {
               type: 'user' as const,

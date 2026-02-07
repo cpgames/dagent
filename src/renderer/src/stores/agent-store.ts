@@ -12,12 +12,13 @@ interface AgentState {
   // Actions
   loadConfigs: () => Promise<void>
   updateConfig: (role: AgentRole, updates: Partial<AgentConfig>) => Promise<void>
+  resetConfig: (role: AgentRole) => Promise<AgentConfig | null>
   selectRole: (role: AgentRole | null) => void
   updateRuntimeStatus: (status: AgentRuntimeStatus) => void
   loadRuntimeStatus: () => Promise<void>
 }
 
-const ALL_ROLES: AgentRole[] = ['pm', 'developer', 'qa', 'merge']
+const ALL_ROLES: AgentRole[] = ['feature', 'developer', 'qa', 'merge', 'project']
 
 function createDefaultConfigs(): Record<AgentRole, AgentConfig> {
   const configs = {} as Record<AgentRole, AgentConfig>
@@ -68,6 +69,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set({ configs: { ...configs, [role]: updated } })
     } catch (err) {
       console.error('Failed to save agent config:', err)
+    }
+  },
+
+  resetConfig: async (role) => {
+    const { configs } = get()
+    try {
+      const defaultConfig = await window.electronAPI.agentResetConfig(role)
+      set({ configs: { ...configs, [role]: defaultConfig } })
+      return defaultConfig
+    } catch (err) {
+      console.error('Failed to reset agent config:', err)
+      return null
     }
   },
 

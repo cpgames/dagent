@@ -12,6 +12,12 @@ interface BranchInfo {
   label: string
 }
 
+interface RemoteInfo {
+  name: string
+  fetchUrl: string
+  pushUrl: string
+}
+
 interface GitState {
   currentBranch: string | null
   isLoading: boolean
@@ -27,6 +33,11 @@ interface GitState {
   branches: BranchInfo[]
   isLoadingBranches: boolean
   isCheckingOut: boolean
+  // Remote info
+  remotes: RemoteInfo[]
+  hasRemote: boolean
+  isLoadingRemotes: boolean
+  isPublishing: boolean
 }
 
 interface GitActions {
@@ -38,6 +49,9 @@ interface GitActions {
   // Branch actions (Phase 14-02)
   loadBranches: () => Promise<void>
   checkoutBranch: (name: string) => Promise<boolean>
+  // Remote actions
+  loadRemotes: () => Promise<void>
+  publishToGitHub: (repoName: string, visibility: 'public' | 'private') => Promise<{ success: boolean; repoUrl?: string; error?: string }>
 }
 
 type GitStore = GitState & GitActions
@@ -58,6 +72,11 @@ export const useGitStore = create<GitStore>((set, get) => ({
   branches: [],
   isLoadingBranches: false,
   isCheckingOut: false,
+  // Remote info
+  remotes: [],
+  hasRemote: false,
+  isLoadingRemotes: false,
+  isPublishing: false,
 
   // Actions
   loadBranch: async () => {
@@ -169,6 +188,52 @@ export const useGitStore = create<GitStore>((set, get) => ({
       const message = err instanceof Error ? err.message : 'Checkout failed'
       set({ isCheckingOut: false, error: message })
       return false
+    }
+  },
+
+  // Remote actions
+  loadRemotes: async () => {
+    set({ isLoadingRemotes: true })
+    try {
+      const isInitialized = await window.electronAPI.git.isInitialized()
+      if (!isInitialized) {
+        set({ remotes: [], hasRemote: false, isLoadingRemotes: false })
+        return
+      }
+
+      const result = await window.electronAPI.git.getRemotes()
+      if (result.success) {
+        set({
+          remotes: result.remotes,
+          hasRemote: result.remotes.length > 0,
+          isLoadingRemotes: false
+        })
+      } else {
+        set({ remotes: [], hasRemote: false, isLoadingRemotes: false })
+      }
+    } catch (err) {
+      console.error('Failed to load remotes:', err)
+      set({ remotes: [], hasRemote: false, isLoadingRemotes: false })
+    }
+  },
+
+  publishToGitHub: async (repoName: string, visibility: 'public' | 'private') => {
+    set({ isPublishing: true })
+    try {
+      const result = await window.electronAPI.git.publishToGitHub(repoName, visibility)
+      if (result.success) {
+        // Reload remotes after successful publish
+        await get().loadRemotes()
+        set({ isPublishing: false })
+        return { success: true, repoUrl: result.repoUrl }
+      } else {
+        set({ isPublishing: false })
+        return { success: false, error: result.error }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Publish failed'
+      set({ isPublishing: false })
+      return { success: false, error: message }
     }
   }
 }))

@@ -5,6 +5,7 @@
 
 import { ipcMain } from 'electron'
 import { getGitManager } from '../git'
+import { getPRService } from '../github/pr-service'
 import { initializeStorage } from './storage-handlers'
 import { setHistoryProjectRoot } from './history-handlers'
 
@@ -114,6 +115,21 @@ export function registerGitHandlers(): void {
     return manager.abortMerge()
   })
 
+  ipcMain.handle('git:stash', async (_event, message?: string) => {
+    const manager = getGitManager()
+    return manager.stash(message)
+  })
+
+  ipcMain.handle('git:stash-pop', async () => {
+    const manager = getGitManager()
+    return manager.stashPop()
+  })
+
+  ipcMain.handle('git:discard-changes', async () => {
+    const manager = getGitManager()
+    return manager.discardChanges()
+  })
+
   ipcMain.handle('git:is-merge-in-progress', async () => {
     const manager = getGitManager()
     return manager.isMergeInProgress()
@@ -152,6 +168,142 @@ export function registerGitHandlers(): void {
       return { success: false, error: message }
     }
   })
+
+  /**
+   * Get list of configured remotes.
+   */
+  ipcMain.handle('git:get-remotes', async () => {
+    const simpleGit = (await import('simple-git')).default
+
+    try {
+      const manager = getGitManager()
+
+      // Must be properly initialized with a project
+      if (!manager.isInitialized()) {
+        return { success: false, error: 'Git not initialized', remotes: [] }
+      }
+
+      const cwd = manager.getConfig().baseDir
+      if (!cwd) {
+        return { success: false, error: 'No project root set', remotes: [] }
+      }
+
+      const git = simpleGit(cwd)
+      const remotes = await git.getRemotes(true)
+
+      return {
+        success: true,
+        remotes: remotes.map(r => ({
+          name: r.name,
+          fetchUrl: r.refs.fetch,
+          pushUrl: r.refs.push
+        }))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to get remotes'
+      return { success: false, error: message, remotes: [] }
+    }
+  })
+
+  /**
+   * Check if gh CLI is installed and authenticated.
+   */
+  ipcMain.handle('git:check-gh-cli', async () => {
+    const prService = getPRService()
+    return prService.checkGhCli()
+  })
+
+  /**
+   * Trigger gh auth login in a terminal.
+   * Opens the default browser for OAuth flow.
+   */
+  ipcMain.handle('git:gh-auth-login', async () => {
+    const { spawn } = await import('child_process')
+
+    return new Promise((resolve) => {
+      try {
+        // Use spawn to run gh auth login interactively
+        // --web flag opens browser for OAuth
+        const child = spawn('gh', ['auth', 'login', '--web'], {
+          stdio: 'inherit',
+          shell: true,
+          detached: true
+        })
+
+        child.unref()
+
+        // Give the process time to start
+        setTimeout(() => {
+          resolve({ success: true, message: 'Auth login started in browser' })
+        }, 1000)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to start gh auth login'
+        resolve({ success: false, error: message })
+      }
+    })
+  })
+
+  /**
+   * Publish repository to GitHub using gh CLI.
+   */
+  ipcMain.handle(
+    'git:publish-to-github',
+    async (_event, repoName: string, visibility: 'public' | 'private') => {
+      const { execSync } = await import('child_process')
+
+      try {
+        const manager = getGitManager()
+        const cwd = manager.getConfig().baseDir
+
+        if (!cwd) {
+          return { success: false, error: 'No project root set' }
+        }
+
+        // Check if gh CLI is available
+        try {
+          execSync('gh --version', { encoding: 'utf-8', timeout: 5000 })
+        } catch {
+          return {
+            success: false,
+            error: 'GitHub CLI (gh) not found. Install from https://cli.github.com/'
+          }
+        }
+
+        // Check if gh is authenticated
+        try {
+          execSync('gh auth status', { encoding: 'utf-8', timeout: 10000, cwd })
+        } catch {
+          return {
+            success: false,
+            error: 'Not logged in to GitHub CLI. Run "gh auth login" first.'
+          }
+        }
+
+        // Create the repo and push
+        const visibilityFlag = visibility === 'public' ? '--public' : '--private'
+        const cmd = `gh repo create "${repoName}" ${visibilityFlag} --source=. --push`
+
+        const output = execSync(cmd, {
+          encoding: 'utf-8',
+          timeout: 60000,
+          cwd
+        })
+
+        // Extract the repo URL from output
+        const urlMatch = output.match(/https:\/\/github\.com\/[^\s]+/)
+        const repoUrl = urlMatch ? urlMatch[0] : null
+
+        return {
+          success: true,
+          repoUrl,
+          message: output.trim()
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to publish to GitHub'
+        return { success: false, error: message }
+      }
+    }
+  )
 
   /**
    * Get the diff text for a commit.

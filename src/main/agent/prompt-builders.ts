@@ -15,22 +15,24 @@ import { DEFAULT_AGENT_CONFIGS } from '@shared/types'
 export interface AgentPromptOptions {
   featureId?: string
   taskId?: string
-  agentType: 'pm' | 'investigation' | 'harness' | 'task' | 'merge' | 'qa'
+  agentType: 'feature' | 'project' | 'harness' | 'task' | 'merge' | 'qa'
 }
 
 /**
  * Agent type union for type safety.
  */
-export type AgentType = 'pm' | 'investigation' | 'harness' | 'task' | 'merge' | 'qa'
+export type AgentType = 'feature' | 'project' | 'harness' | 'task' | 'merge' | 'qa'
 
 /**
  * Map internal agent types to configurable AgentRole.
- * Returns null for types that aren't configurable (investigation, harness).
+ * Returns null for types that aren't configurable (project, harness).
  */
 function mapToAgentRole(agentType: AgentType): AgentRole | null {
   switch (agentType) {
-    case 'pm':
-      return 'pm'
+    case 'feature':
+      return 'feature'
+    case 'project':
+      return 'project'
     case 'task':
       return 'developer' // 'task' in code maps to 'developer' role
     case 'qa':
@@ -38,7 +40,7 @@ function mapToAgentRole(agentType: AgentType): AgentRole | null {
     case 'merge':
       return 'merge'
     default:
-      // investigation, harness are internal, not configurable roles
+      // harness is internal, not configurable role
       return null
   }
 }
@@ -65,8 +67,8 @@ export async function buildAgentPrompt(options: AgentPromptOptions): Promise<str
 
     const contextSection = contextService.formatContextAsPrompt(fullContext)
     const roleSection = await getAgentRoleInstructions(options.agentType)
-    // PM and investigation agents use PM tools (different subsets via presets)
-    const needsToolInstructions = ['pm', 'investigation'].includes(options.agentType)
+    // Feature and project agents use task management tools (different subsets via presets)
+    const needsToolInstructions = ['feature', 'project'].includes(options.agentType)
     const toolSection = needsToolInstructions ? getPMToolInstructions() : ''
 
     return `${roleSection}\n\n${contextSection}\n\n${toolSection}`.trim()
@@ -78,8 +80,8 @@ export async function buildAgentPrompt(options: AgentPromptOptions): Promise<str
 
 /**
  * Get role-specific instructions for an agent type.
- * For configurable agents (pm, developer, qa, merge), loads from project config.
- * For internal modes (investigation, harness), returns hardcoded instructions.
+ * For configurable agents (feature, project, developer, qa, merge), loads from project config.
+ * For internal modes (harness), returns hardcoded instructions.
  *
  * @param agentType - The type of agent
  * @returns Role instructions for the system prompt
@@ -98,31 +100,6 @@ async function getAgentRoleInstructions(agentType: AgentType): Promise<string> {
       // Harness is internal orchestration - not user-configurable
       return `You are a Harness Agent coordinating task execution.
 Your role is to track task progress and log events.`
-
-    case 'investigation':
-      return `You are an Investigation Agent analyzing a new feature request.
-
-## Your Role
-Explore the codebase to understand how to implement the feature, then write a complete specification.
-
-## Tools Available
-- **Read, Glob, Grep**: Explore the codebase
-- **CreateSpec, UpdateSpec, GetSpec**: Manage the feature specification
-
-## Workflow
-1. **Research First**: ALWAYS search the codebase before asking questions
-2. **Ask Clarifying Questions**: When you need user input, ask ONE question at a time
-3. **Update Spec**: As you learn information, update the spec using UpdateSpec
-
-## Response Markers
-- UNCERTAIN: [question] - When you need to ask the user
-- CONFIDENT: Ready to proceed - When spec is complete
-
-## Critical Rules
-- Search the codebase before asking "what is X?"
-- Update spec immediately when you learn something concrete
-- The spec must be complete enough for task creation
-- NEVER update or delete existing tasks without explicit user permission`
 
     default:
       return 'You are an AI assistant helping with software development.'
@@ -145,31 +122,6 @@ function getDefaultRoleInstructions(agentType: AgentType): string {
       return `You are a Harness Agent coordinating task execution.
 Your role is to track task progress and log events.`
 
-    case 'investigation':
-      return `You are an Investigation Agent analyzing a new feature request.
-
-## Your Role
-Explore the codebase to understand how to implement the feature, then write a complete specification.
-
-## Tools Available
-- **Read, Glob, Grep**: Explore the codebase
-- **CreateSpec, UpdateSpec, GetSpec**: Manage the feature specification
-
-## Workflow
-1. **Research First**: ALWAYS search the codebase before asking questions
-2. **Ask Clarifying Questions**: When you need user input, ask ONE question at a time
-3. **Update Spec**: As you learn information, update the spec using UpdateSpec
-
-## Response Markers
-- UNCERTAIN: [question] - When you need to ask the user
-- CONFIDENT: Ready to proceed - When spec is complete
-
-## Critical Rules
-- Search the codebase before asking "what is X?"
-- Update spec immediately when you learn something concrete
-- The spec must be complete enough for task creation
-- NEVER update or delete existing tasks without explicit user permission`
-
     default:
       return 'You are an AI assistant helping with software development.'
   }
@@ -183,7 +135,7 @@ Explore the codebase to understand how to implement the feature, then write a co
  */
 function getBasicPrompt(agentType: AgentType): string {
   const roleSection = getDefaultRoleInstructions(agentType)
-  const needsToolInstructions = ['pm', 'investigation'].includes(agentType)
+  const needsToolInstructions = ['feature', 'project'].includes(agentType)
   const toolSection = needsToolInstructions ? getPMToolInstructions() : ''
 
   return `${roleSection}\n\n${toolSection}`.trim()

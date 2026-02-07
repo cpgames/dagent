@@ -737,8 +737,8 @@ Start by exploring the codebase, then update the feature spec with what you lear
           try {
             for await (const event of agentService.streamQuery({
               prompt,
-              toolPreset: 'investigationAgent',
-              agentType: 'investigation',
+              toolPreset: 'projectAgent',
+              agentType: 'project',
               featureId,
               cwd: feature.worktreePath || projectRoot,
               permissionMode: 'acceptEdits',
@@ -770,13 +770,19 @@ Start by exploring the codebase, then update the feature spec with what you lear
 /**
  * Broadcast an agent stream event to all renderer windows.
  * Used for automatic investigation to show AI activity in chat panel.
+ * Sends to both sdk-agent:stream (legacy) and unified-chat:stream (UnifiedChatPanel).
  */
 function broadcastAgentEvent(featureId: string, event: AgentStreamEvent): void {
   const windows = BrowserWindow.getAllWindows()
+  // Session ID format for unified chat: "feature-feature-{featureId}"
+  const sessionId = `feature-feature-${featureId}`
+
   for (const win of windows) {
     if (!win.isDestroyed()) {
-      // Send with featureId so renderer can filter to correct chat
+      // Send to legacy channel with featureId so renderer can filter to correct chat
       win.webContents.send('sdk-agent:stream', { ...event, featureId })
+      // Also send to unified chat channel with sessionId format
+      win.webContents.send('unified-chat:stream', { sessionId, event })
     }
   }
 }
@@ -817,34 +823,35 @@ async function startInvestigationForFeature(
   }
 
   // Ensure session exists for storing investigation messages
+  // Session ID format: "{agentType}-{type}-{featureId}" = "feature-feature-{featureId}"
   const { getSessionManager } = await import('../services/session-manager')
   const sessionManager = getSessionManager(projectRoot)
   await sessionManager.getOrCreateSession({
     type: 'feature',
-    agentType: 'pm',
+    agentType: 'feature',
     featureId
   })
   console.log(`[FeatureHandlers] Ensured session exists for feature ${featureId}`)
 
-  // Set PM tools context
+  // Set PM tools context for spec management
   const { setPMToolsFeatureContext } = await import('./pm-tools-handlers')
   setPMToolsFeatureContext(featureId)
 
-  // Build investigation prompt
+  // Build investigation prompt for Feature Agent
   const prompt = `I'm starting work on a new feature: "${feature.name}"
 
 ${feature.description ? `Description: ${feature.description}` : 'No description provided.'}
 
-Please investigate the codebase to understand how to implement this feature:
-1. Search for relevant existing code patterns
-2. Identify files that might need changes
-3. Ask me clarifying questions if needed
+Please investigate the codebase and prepare this feature:
+1. Search for relevant existing code patterns using Glob/Grep/Read
+2. Create a feature spec with goals, requirements, and acceptance criteria using CreateSpec
+3. Ask me clarifying questions if the requirements are unclear
 
-Start by exploring the codebase, then update the feature spec with what you learn.`
+Start by exploring the codebase, then call CreateSpec with what you learn.`
 
   // Get agent service and stream
   const agentService = getAgentService()
-  const sessionId = `pm-feature-${featureId}`
+  const sessionId = `feature-feature-${featureId}`
 
   // Track accumulated content for saving to session
   let accumulatedContent = ''
@@ -871,11 +878,11 @@ Start by exploring the codebase, then update the feature spec with what you lear
 
     for await (const event of agentService.streamQuery({
       prompt,
-      toolPreset: 'investigationAgent',
-      agentType: 'investigation',
+      toolPreset: 'featureAgent',
+      agentType: 'feature',
       featureId,
       cwd: worktreePath || projectRoot,
-      permissionMode: 'acceptEdits',
+      permissionMode: 'default',
       autoContext: true
     })) {
       // Track message content for persistence

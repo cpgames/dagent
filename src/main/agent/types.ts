@@ -37,15 +37,16 @@ export interface AgentQueryOptions {
   prompt: string
   systemPrompt?: string
   allowedTools?: string[]
-  toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'qaAgent' | 'pmAgent' | 'investigationAgent' | 'none'
+  toolPreset?: 'featureChat' | 'taskAgent' | 'harnessAgent' | 'mergeAgent' | 'qaAgent' | 'featureAgent' | 'projectAgent' | 'none'
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
   cwd?: string // Working directory for file operations
   hooks?: AgentHooks // SDK hooks for intercepting tool calls
   maxTurns?: number // Maximum number of agentic turns before stopping (default: unlimited)
+  model?: string // Claude model override (e.g., 'claude-sonnet-4-20250514', 'claude-opus-4-20250514')
   // Context options for autoContext
   featureId?: string
   taskId?: string
-  agentType?: 'pm' | 'investigation' | 'harness' | 'task' | 'merge' | 'qa'
+  agentType?: 'feature' | 'project' | 'harness' | 'task' | 'merge' | 'qa'
   autoContext?: boolean // If true, auto-build context prompt using buildAgentPrompt()
   // Request priority options for RequestManager
   priority?: RequestPriority // Priority level (defaults to DEV if not specified)
@@ -60,7 +61,7 @@ export interface TokenUsage {
 }
 
 export interface AgentStreamEvent {
-  type: 'message' | 'tool_use' | 'tool_result' | 'done' | 'error'
+  type: 'message' | 'message_start' | 'tool_use' | 'tool_result' | 'done' | 'error'
   message?: AgentMessage
   error?: string
   /** Token usage from this event (populated from SDK usage data) */

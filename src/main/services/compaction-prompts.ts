@@ -1,24 +1,27 @@
 /**
  * Compaction Prompt Builder
  *
- * Generates prompts for Claude to compact conversation history into checkpoint summaries.
- * Handles both initial compactions (no checkpoint) and incremental updates (existing checkpoint).
+ * Generates prompts for Claude to compact conversation history into importance-based summaries.
+ * Creates concise, spec-like checkpoints prioritized by importance level.
  */
 
-import type { ChatMessage, Checkpoint } from '../../shared/types/session'
+import type { ChatMessage, Memory } from '../../shared/types/session'
+
+// Token limit for compacted content (~1000 tokens ≈ 4000 chars)
+const COMPACTION_TOKEN_LIMIT = 1000
+const CHARS_PER_TOKEN = 4
+const MAX_CHARS = COMPACTION_TOKEN_LIMIT * CHARS_PER_TOKEN
 
 /**
- * Build a compaction prompt for Claude to merge messages into checkpoint.
+ * Build a compaction prompt for importance-based summarization.
  *
- * Takes an existing checkpoint (or null for first compaction) and an array of messages,
- * and generates a structured prompt for Claude to create an updated checkpoint summary.
- *
- * @param checkpoint - Current checkpoint (or null for first compaction)
- * @param messages - Messages to incorporate into checkpoint
+ * @param memory - Current memory (or null for first compaction)
+ * @param messages - Messages to incorporate into memory
+ * @param context - Optional context hint (e.g., 'feature', 'project')
  * @returns Compaction prompt string
  */
 export function buildCompactionPrompt(
-  checkpoint: Checkpoint | null,
+  memory: Memory | null,
   messages: ChatMessage[]
 ): string {
   if (messages.length === 0) {
@@ -27,115 +30,66 @@ export function buildCompactionPrompt(
 
   const sections: string[] = []
 
-  sections.push('You are compacting a conversation history into a checkpoint summary.')
+  sections.push('Compact this conversation into an importance-prioritized summary.')
   sections.push('')
-  sections.push(
-    'Your task is to analyze the conversation and create a structured summary that captures:'
-  )
-  sections.push('- What has been completed')
-  sections.push('- What is currently in progress')
-  sections.push('- What is still pending')
-  sections.push('- Any blockers encountered')
-  sections.push('- Key decisions made')
+  sections.push('Extract key information and categorize by importance:')
+  sections.push('- **critical**: Core purpose, essential requirements, fundamental constraints')
+  sections.push('- **important**: Key requirements, significant decisions, notable specifications')
+  sections.push('- **minor**: Nice-to-haves, preferences, minor details')
+  sections.push('')
+  sections.push('Rules:')
+  sections.push('- Be concise - write spec-like statements, not narratives')
+  sections.push('- No "user said/asked" or "assistant suggested" - just state facts')
+  sections.push('- Merge duplicate/related items')
+  sections.push('- LIMIT: Keep total output under ~1000 tokens')
+  sections.push('- When over limit: drop minor items first, then important items')
+  sections.push('- Critical items are NEVER dropped - consolidate if needed')
+  sections.push('- New info can REPLACE old items of same/lower priority')
   sections.push('')
 
-  // Include existing checkpoint if available
-  if (checkpoint) {
-    sections.push('## Current Checkpoint')
-    sections.push('')
-    sections.push('The existing checkpoint contains:')
+  // Include existing memory if available
+  if (memory) {
+    sections.push('## Existing Summary')
     sections.push('')
 
-    if (checkpoint.summary.completed.length > 0) {
-      sections.push('**Completed:**')
-      checkpoint.summary.completed.forEach((item) => sections.push(`- ${item}`))
-      sections.push('')
-    } else {
-      sections.push('**Completed:** (none)')
-      sections.push('')
+    if (memory.summary.critical.length > 0) {
+      sections.push('Critical:')
+      memory.summary.critical.forEach((item) => sections.push(`- ${item}`))
     }
 
-    if (checkpoint.summary.inProgress.length > 0) {
-      sections.push('**In Progress:**')
-      checkpoint.summary.inProgress.forEach((item) => sections.push(`- ${item}`))
-      sections.push('')
-    } else {
-      sections.push('**In Progress:** (none)')
-      sections.push('')
+    if (memory.summary.important.length > 0) {
+      sections.push('Important:')
+      memory.summary.important.forEach((item) => sections.push(`- ${item}`))
     }
 
-    if (checkpoint.summary.pending.length > 0) {
-      sections.push('**Pending:**')
-      checkpoint.summary.pending.forEach((item) => sections.push(`- ${item}`))
-      sections.push('')
-    } else {
-      sections.push('**Pending:** (none)')
-      sections.push('')
+    if (memory.summary.minor.length > 0) {
+      sections.push('Minor:')
+      memory.summary.minor.forEach((item) => sections.push(`- ${item}`))
     }
 
-    if (checkpoint.summary.blockers.length > 0) {
-      sections.push('**Blockers:**')
-      checkpoint.summary.blockers.forEach((item) => sections.push(`- ${item}`))
-      sections.push('')
-    } else {
-      sections.push('**Blockers:** (none)')
-      sections.push('')
-    }
-
-    if (checkpoint.summary.decisions.length > 0) {
-      sections.push('**Key Decisions:**')
-      checkpoint.summary.decisions.forEach((item) => sections.push(`- ${item}`))
-      sections.push('')
-    } else {
-      sections.push('**Key Decisions:** (none)')
-      sections.push('')
-    }
-  } else {
-    sections.push('## Current Checkpoint')
-    sections.push('')
-    sections.push('This is the first compaction. No existing checkpoint.')
     sections.push('')
   }
 
   // Include messages to process
-  sections.push('## New Messages to Incorporate')
-  sections.push('')
-  sections.push(`You need to incorporate ${messages.length} new messages:`)
+  sections.push('## New Conversation')
   sections.push('')
 
-  messages.forEach((message, idx) => {
-    const role = message.role === 'user' ? 'User' : 'Assistant'
-    sections.push(`### Message ${idx + 1} (${role})`)
-    sections.push(message.content)
+  messages.forEach((message) => {
+    const role = message.role === 'user' ? 'U' : 'A'
+    sections.push(`[${role}] ${message.content}`)
     sections.push('')
   })
 
-  // Instructions for output
-  sections.push('## Task')
+  // Output format
+  sections.push('## Output')
   sections.push('')
-  sections.push('Create an updated checkpoint summary that:')
-  sections.push('1. Merges information from the new messages into the existing checkpoint')
-  sections.push(
-    '2. Moves items between categories as appropriate (e.g., in_progress → completed)'
-  )
-  sections.push('3. Adds new items discovered in the messages')
-  sections.push('4. Removes obsolete or resolved items')
-  sections.push('5. Maintains chronological order within each category')
-  sections.push('6. Captures the current state of the work accurately')
-  sections.push('')
-  sections.push('**IMPORTANT:** Output ONLY valid JSON matching this structure:')
+  sections.push('Output ONLY valid JSON:')
   sections.push('')
   sections.push('{')
-  sections.push('  "completed": ["item 1", "item 2", ...],')
-  sections.push('  "inProgress": ["item 1", "item 2", ...],')
-  sections.push('  "pending": ["item 1", "item 2", ...],')
-  sections.push('  "blockers": ["item 1", "item 2", ...],')
-  sections.push('  "decisions": ["decision 1", "decision 2", ...]')
+  sections.push('  "critical": ["statement 1", "statement 2"],')
+  sections.push('  "important": ["statement 1", "statement 2"],')
+  sections.push('  "minor": ["statement 1", "statement 2"]')
   sections.push('}')
-  sections.push('')
-  sections.push(
-    'Do NOT include any explanation, commentary, or markdown formatting. Only output the JSON object.'
-  )
 
   return sections.join('\n')
 }
@@ -143,28 +97,22 @@ export function buildCompactionPrompt(
 /**
  * Parse compaction result from Claude's response.
  *
- * Validates that the response is valid JSON matching the Checkpoint.summary structure.
- * Throws detailed errors if parsing fails.
- *
  * @param response - Claude's response text
- * @returns Validated checkpoint summary
+ * @returns Validated memory summary
  */
-export function parseCompactionResult(response: string): Checkpoint['summary'] {
+export function parseCompactionResult(response: string): Memory['summary'] {
   if (!response || response.trim().length === 0) {
     throw new Error('Compaction response is empty')
   }
 
-  // Try to extract JSON from response (in case Claude wrapped it in markdown)
+  // Extract JSON from response (handle markdown code blocks)
   let jsonText = response.trim()
 
-  // Remove markdown code blocks if present
   if (jsonText.startsWith('```')) {
     const lines = jsonText.split('\n')
-    // Remove first line (```json or ```)
-    lines.shift()
-    // Remove last line (```)
+    lines.shift() // Remove opening ```
     if (lines[lines.length - 1].trim() === '```') {
-      lines.pop()
+      lines.pop() // Remove closing ```
     }
     jsonText = lines.join('\n').trim()
   }
@@ -187,7 +135,7 @@ export function parseCompactionResult(response: string): Checkpoint['summary'] {
   const result = parsed as Record<string, unknown>
 
   // Validate required fields
-  const requiredFields = ['completed', 'inProgress', 'pending', 'blockers', 'decisions']
+  const requiredFields = ['critical', 'important', 'minor']
   const missingFields = requiredFields.filter((field) => !(field in result))
 
   if (missingFields.length > 0) {
@@ -200,7 +148,6 @@ export function parseCompactionResult(response: string): Checkpoint['summary'] {
       throw new Error(`Compaction response field '${field}' must be an array`)
     }
 
-    // Validate all array elements are strings
     const arr = result[field] as unknown[]
     for (let i = 0; i < arr.length; i++) {
       if (typeof arr[i] !== 'string') {
@@ -209,12 +156,46 @@ export function parseCompactionResult(response: string): Checkpoint['summary'] {
     }
   }
 
-  // Return validated summary
-  return {
-    completed: result.completed as string[],
-    inProgress: result.inProgress as string[],
-    pending: result.pending as string[],
-    blockers: result.blockers as string[],
-    decisions: result.decisions as string[]
+  // Enforce token limit by trimming minor items first, then important
+  const summary = {
+    critical: result.critical as string[],
+    important: result.important as string[],
+    minor: result.minor as string[]
   }
+
+  return enforceTokenLimit(summary, MAX_CHARS)
+}
+
+/**
+ * Enforce token limit on summary, dropping items from lowest priority first.
+ */
+function enforceTokenLimit(
+  summary: Memory['summary'],
+  maxChars: number
+): Memory['summary'] {
+  const estimateChars = (items: string[]): number => {
+    return items.reduce((sum, item) => sum + item.length + 10, 0) // +10 for formatting
+  }
+
+  const totalChars = (): number => {
+    return (
+      estimateChars(summary.critical) +
+      estimateChars(summary.important) +
+      estimateChars(summary.minor)
+    )
+  }
+
+  // Drop minor items first
+  while (totalChars() > maxChars && summary.minor.length > 0) {
+    summary.minor.pop()
+  }
+
+  // Drop important items if still over limit
+  while (totalChars() > maxChars && summary.important.length > 0) {
+    summary.important.pop()
+  }
+
+  // Critical items are never dropped (design decision)
+
+  return summary
 }

@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFeatureStore } from '../stores/feature-store';
 import { useViewStore } from '../stores/view-store';
 import { KanbanColumn, type MergeType } from '../components/Kanban';
-import { DeleteFeatureDialog, FeatureMergeDialog } from '../components/Feature';
+import { DeleteFeatureDialog, FeatureMergeDialog, FeatureDialog, type FeatureEditData } from '../components/Feature';
 import type { Feature, FeatureStatus } from '@shared/types';
 import './KanbanView.css';
 
@@ -56,6 +56,10 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [featureToMerge, setFeatureToMerge] = useState<Feature | null>(null);
   const [mergeType, setMergeType] = useState<MergeType | null>(null);
+
+  // Edit dialog state (for backlog features)
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [featureToEdit, setFeatureToEdit] = useState<Feature | null>(null);
 
   // Task execution status per feature
   const [taskStatus, setTaskStatus] = useState<Record<string, FeatureTaskStatus>>({});
@@ -122,12 +126,13 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
     return grouped;
   }, [features, selectedManagerFilters]);
 
-  // Handle feature selection - navigate to DAG view (only for active features)
+  // Handle feature selection - navigate to DAG view or open edit dialog for backlog
   const handleSelectFeature = (featureId: string) => {
     const feature = features.find((f) => f.id === featureId);
     if (feature?.status === 'backlog') {
-      // Can't view/edit backlog features - they need to be started first
-      // Drag to "In Progress" to start the feature
+      // Open edit dialog for backlog features
+      setFeatureToEdit(feature);
+      setEditDialogOpen(true);
       return;
     }
     setActiveFeature(featureId);
@@ -172,6 +177,11 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
         const result = await window.electronAPI.feature.startWorktreeCreation(featureId);
         if (!result.success) {
           console.error('Failed to start feature via drag:', result.error);
+        } else {
+          // Navigate to DAG view immediately so user sees the investigation in real-time
+          // Chat store needs currentFeatureId set to receive streamed events
+          setActiveFeature(featureId);
+          setView('dag');
         }
       } catch (error) {
         console.error('Error starting feature via drag:', error);
@@ -188,6 +198,28 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
     } catch (error) {
       console.error('Error updating feature status:', error);
     }
+  };
+
+  // Handle feature save (from edit dialog)
+  const handleSaveFeature = async (featureId: string, data: FeatureEditData) => {
+    const existingFeature = features.find((f) => f.id === featureId);
+    if (!existingFeature) return;
+
+    // Build updated feature
+    const updatedFeature: Feature = {
+      ...existingFeature,
+      name: data.name,
+      description: data.description,
+      // Only update worktreeId if it was provided (user had permission to change it)
+      ...(data.worktreeId && { worktreeId: data.worktreeId }),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Save via IPC
+    await window.electronAPI.storage.saveFeature(updatedFeature);
+
+    // Update local store
+    useFeatureStore.getState().updateFeature(featureId, updatedFeature);
   };
 
   // Loading state
@@ -237,6 +269,16 @@ export default function KanbanView({ selectedManagerFilters, onNewFeature }: Kan
         }}
         feature={featureToMerge}
         mergeType={mergeType}
+      />
+      <FeatureDialog
+        isOpen={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setFeatureToEdit(null);
+        }}
+        mode="edit"
+        feature={featureToEdit}
+        onSave={handleSaveFeature}
       />
     </>
   );
