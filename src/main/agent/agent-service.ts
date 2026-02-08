@@ -157,10 +157,11 @@ export class AgentService {
         tools = [...tools, ...getPMToolNamesForAllowedTools()]
       }
 
-      // For Investigation Agent, replace WriteClaudeMd with MCP-prefixed name
+      // For Project Agent, replace setup tool names with MCP-prefixed names
       if (needsWriteClaudeMdTools) {
-        // Filter out the direct tool name (it won't work without MCP)
-        tools = tools.filter(t => t !== 'WriteClaudeMd')
+        // Filter out the direct tool names (they won't work without MCP)
+        const setupToolNames = ['WriteClaudeMd', 'GetFeatures', 'AddFeature']
+        tools = tools.filter(t => !setupToolNames.includes(t))
         // Add the MCP-prefixed tool names
         tools = [...tools, ...getSetupToolNamesForAllowedTools()]
       }
